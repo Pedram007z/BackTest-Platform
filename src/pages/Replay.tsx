@@ -320,7 +320,7 @@ export default function Replay() {
     return (
       <div className="px-6 py-20 text-center">
         <p className="mb-4 text-muted">این جلسه پیدا نشد.</p>
-        <Link to="/" className="btn-primary">
+        <Link to="/dashboard" className="btn-primary">
           بازگشت به داشبورد
         </Link>
       </div>
@@ -339,7 +339,7 @@ export default function Replay() {
     <div className="flex flex-col lg:h-[calc(100vh-3.5rem)]">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line/70 bg-side px-3 py-2 sm:px-4">
-        <Link to="/" className="icon-btn" aria-label="بازگشت">
+        <Link to="/dashboard" className="icon-btn" aria-label="بازگشت">
           <ArrowRight size={18} />
         </Link>
         <div className="min-w-0">

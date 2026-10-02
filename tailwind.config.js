@@ -8,6 +8,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Vazirmatn', 'Tahoma', 'system-ui', 'sans-serif'],
+        display: ['"Noto Kufi Arabic"', 'Vazirmatn', 'Tahoma', 'sans-serif'],
       },
       colors: {
         bg: token('bg'),

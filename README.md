@@ -18,7 +18,8 @@ npm run build:artifact # one self-contained HTML file in dist-artifact/
 
 | Route | Page | What works |
 |---|---|---|
-| `/` | داشبورد (Dashboard) | Name and today's Jalali date, practice streak, time invested, historical time replayed, time invested by day, trades taken with the buy/sell ratio bar, overall win rate, win rate by day, trades by symbol, recent sessions with pagination, new-session modal |
+| `/` | صفحه‌ی اصلی (Landing) | Hero with a self-playing candle replay and a sample trade, product facts, features, a dashboard preview, how it works, markets, pricing with a monthly/yearly switch, FAQ, final call to action, footer. Every "start" button opens the dashboard |
+| `/dashboard` | داشبورد (Dashboard) | Name and today's Jalali date, practice streak, time invested, historical time replayed, time invested by day, trades taken with the buy/sell ratio bar, overall win rate, win rate by day, trades by symbol, recent sessions with pagination, new-session modal |
 | `/sessions` | جلسات (Sessions) | Search, filter by status and strategy, sort, edit, delete |
 | `/strategies` | استراتژی‌ها (Strategies) | "Create new strategy" box → name + description modal; each card shows total trades, win rate, average RR, net P&L and an equity chart |
 | `/checklists` | چک‌لیست‌ها (Checklists) | Centered "create" button → modal with name, add/delete items, and a "required?" switch per item; edit, duplicate, delete |
@@ -55,5 +56,6 @@ src/
     ui/         modal, confirm dialog, select, multi-select, date picker, toggle, avatar
     charts/     Recharts wrappers (always LTR) and the candlestick replay chart
     sessions/   session list/row/summary and the session modal
-  pages/        Dashboard, Sessions, Strategies, Checklists, Journal, Analytics, Settings, Replay
+  components/landing/  animated replay demo for the landing hero
+  pages/        Landing, Dashboard, Sessions, Strategies, Checklists, Journal, Analytics, Settings, Replay
 ```

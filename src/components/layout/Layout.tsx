@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { diffDays } from '../../lib/calendar';
 import { fmtNum } from '../../lib/format';
 import { planDaysLeft } from '../../lib/stats';
@@ -23,7 +23,7 @@ import { Avatar } from '../ui/Avatar';
 import { Meter } from '../ui/controls';
 
 const NAV = [
-  { to: '/', label: 'داشبورد', icon: House, end: true },
+  { to: '/dashboard', label: 'داشبورد', icon: House, end: true },
   { to: '/sessions', label: 'جلسات', icon: List },
   { to: '/strategies', label: 'استراتژی‌ها', icon: Layers },
   { to: '/checklists', label: 'چک‌لیست‌ها', icon: CheckCheck },
@@ -161,13 +161,6 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => setDrawer(false), [location.pathname]);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle('dark', theme === 'dark');
-    root.classList.toggle('light', theme === 'light');
-    root.setAttribute('data-theme', theme);
-  }, [theme]);
-
   return (
     <div className="flex min-h-full flex-col bg-bg">
       <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b border-line/70 bg-side/95 px-3 backdrop-blur sm:px-4">
@@ -182,7 +175,9 @@ export function Layout({ children }: { children: ReactNode }) {
         <button type="button" className="icon-btn lg:hidden" onClick={() => setDrawer(true)} aria-label="منو">
           <PanelRightOpen size={19} />
         </button>
-        <Logo />
+        <Link to="/" aria-label="صفحه اصلی">
+          <Logo />
+        </Link>
         <button
           type="button"
           className="icon-btn ms-auto"
