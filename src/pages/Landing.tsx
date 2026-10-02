@@ -16,12 +16,13 @@ import {
   X,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
 import { Logo } from '../components/layout/Layout';
 import { fmtNum, fmtPct } from '../lib/format';
 import { GROUP_LABELS, SYMBOLS, type SymbolGroup } from '../lib/market';
+import { useAuth } from '../store/useAuth';
 import { useStore } from '../store/useStore';
 
 const NAV = [
@@ -151,7 +152,26 @@ function Price({ toman }: { toman: number }) {
 
 export default function Landing() {
   const { theme, setTheme } = useStore();
+  const navigate = useNavigate();
+  const session = useAuth((s) => s.session);
+  const loginDemo = useAuth((s) => s.loginDemo);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [menu, setMenu] = useState(false);
+  // signed-in visitors go straight to their dashboard
+  const startTo = session ? '/dashboard' : '/signup';
+  const startLabel = session ? 'ورود به داشبورد' : 'شروع رایگان';
+
+  const openDemo = async () => {
+    if (session) return navigate('/dashboard');
+    setDemoLoading(true);
+    try {
+      await loginDemo();
+      navigate('/dashboard');
+    } catch {
+      setDemoLoading(false);
+      navigate('/login');
+    }
+  };
   const [billing, setBilling] = useState<Billing>('yearly');
   const [faq, setFaq] = useState<number | null>(0);
 
@@ -179,11 +199,13 @@ export default function Landing() {
             >
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <Link to="/dashboard" className="btn-ghost hidden sm:inline-flex">
-              ورود
-            </Link>
-            <Link to="/dashboard" className="btn-primary hidden rounded-full px-4 sm:inline-flex">
-              شروع رایگان
+            {!session && (
+              <Link to="/login" className="btn-ghost hidden sm:inline-flex">
+                ورود
+              </Link>
+            )}
+            <Link to={startTo} className="btn-primary hidden rounded-full px-4 sm:inline-flex">
+              {startLabel}
             </Link>
             <button type="button" className="icon-btn lg:hidden" onClick={() => setMenu((m) => !m)} aria-label="منو" aria-expanded={menu}>
               {menu ? <X size={19} /> : <Menu size={19} />}
@@ -205,12 +227,14 @@ export default function Landing() {
                 {n.label}
               </button>
             ))}
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Link to="/dashboard" className="btn-soft">
-                ورود
-              </Link>
-              <Link to="/dashboard" className="btn-primary">
-                شروع رایگان
+            <div className={clsx('mt-2 grid gap-2', session ? 'grid-cols-1' : 'grid-cols-2')}>
+              {!session && (
+                <Link to="/login" className="btn-soft">
+                  ورود
+                </Link>
+              )}
+              <Link to={startTo} className="btn-primary">
+                {startLabel}
               </Link>
             </div>
           </div>
@@ -240,14 +264,16 @@ export default function Landing() {
               بک‌تست‌لب داده‌ی تاریخی فارکس، طلا، شاخص‌ها و کریپتو را کندل به کندل برایت پخش می‌کند تا معامله کنی، ژورنال بنویسی و با عدد ببینی کدام استراتژی واقعاً جواب می‌دهد.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/dashboard" className="btn-primary rounded-full px-6 py-3 text-[15px]">
-                شروع رایگان <ArrowLeft size={17} />
+              <Link to={startTo} className="btn-primary rounded-full px-6 py-3 text-[15px]">
+                {startLabel} <ArrowLeft size={17} />
               </Link>
-              <Link to="/dashboard" className="btn-soft rounded-full px-6 py-3 text-[15px]">
-                دیدن داشبورد نمونه
-              </Link>
+              {!session && (
+                <button type="button" onClick={openDemo} disabled={demoLoading} className="btn-soft rounded-full px-6 py-3 text-[15px]">
+                  {demoLoading ? 'در حال ورود…' : 'دیدن داشبورد نمونه'}
+                </button>
+              )}
             </div>
-            <p className="mt-4 text-xs text-faint">بدون کارت بانکی • پلن رایگان بدون محدودیت زمانی</p>
+            <p className="mt-4 text-xs text-faint">{session ? `وارد شده با ${session.email}` : 'بدون کارت بانکی • پلن رایگان بدون محدودیت زمانی'}</p>
           </div>
           <ReplayDemo />
         </div>
@@ -304,9 +330,9 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
-            <Link to="/dashboard" className="btn-soft mt-8 rounded-full px-5 py-2.5">
-              باز کردن داشبورد نمونه <ArrowLeft size={15} />
-            </Link>
+            <button type="button" onClick={openDemo} disabled={demoLoading} className="btn-soft mt-8 rounded-full px-5 py-2.5">
+              {session ? 'باز کردن داشبورد' : 'باز کردن داشبورد نمونه'} <ArrowLeft size={15} />
+            </button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -420,7 +446,7 @@ export default function Landing() {
                     </li>
                   ))}
                 </ul>
-                <Link to="/dashboard" className={clsx('rounded-full py-3', plan.featured ? 'btn-primary' : 'btn-soft')}>
+                <Link to={startTo} className={clsx('rounded-full py-3', plan.featured ? 'btn-primary' : 'btn-soft')}>
                   {plan.cta}
                 </Link>
               </article>
@@ -464,8 +490,8 @@ export default function Landing() {
           <Gauge size={30} className="mx-auto mb-5 text-accent" />
           <h2 className="font-display text-[26px] font-extrabold leading-[1.5] sm:text-[32px]">صد معامله‌ی بعدی را اول اینجا بزن</h2>
           <p className="mx-auto mt-3 max-w-lg text-[15px] leading-8 text-muted">قبل از اینکه پول واقعی را ریسک کنی، بدان استراتژی‌ات در صد معامله چه نتیجه‌ای می‌دهد.</p>
-          <Link to="/dashboard" className="btn-primary mt-8 rounded-full px-7 py-3 text-[15px]">
-            شروع رایگان <ArrowLeft size={17} />
+          <Link to={startTo} className="btn-primary mt-8 rounded-full px-7 py-3 text-[15px]">
+            {startLabel} <ArrowLeft size={17} />
           </Link>
         </div>
       </section>

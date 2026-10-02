@@ -5,6 +5,7 @@ import {
   House,
   Layers,
   List,
+  LogOut,
   Moon,
   NotebookPen,
   PanelRightClose,
@@ -14,11 +15,12 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { diffDays } from '../../lib/calendar';
 import { fmtNum } from '../../lib/format';
 import { planDaysLeft } from '../../lib/stats';
-import { useStore, useToasts } from '../../store/useStore';
+import { useAuth } from '../../store/useAuth';
+import { toast, useStore, useToasts } from '../../store/useStore';
 import { Avatar } from '../ui/Avatar';
 import { Meter } from '../ui/controls';
 
@@ -49,6 +51,8 @@ export function Logo() {
 
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const user = useStore((s) => s.user);
+  const logout = useAuth((s) => s.logout);
+  const navigate = useNavigate();
   const left = planDaysLeft(user.plan.endsAt);
   const total = Math.max(1, diffDays(user.plan.startedAt, user.plan.endsAt));
   const remaining = left / total;
@@ -84,7 +88,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           title={collapsed ? 'تنظیمات حساب' : undefined}
           className={({ isActive }) =>
             clsx(
-              'mb-3 flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition',
+              'mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition',
               collapsed && 'justify-center px-0',
               isActive ? 'bg-raised text-ink' : 'text-muted hover:bg-raised/60 hover:text-ink',
             )
@@ -93,6 +97,22 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           <Settings size={18} strokeWidth={1.9} />
           {!collapsed && <span>تنظیمات حساب</span>}
         </NavLink>
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            navigate('/login', { replace: true, state: { notice: 'از حساب خارج شدید.' } });
+            toast('از حساب خارج شدید', 'info');
+          }}
+          title={collapsed ? 'خروج از حساب' : undefined}
+          className={clsx(
+            'mb-3 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium text-muted transition hover:bg-loss/10 hover:text-loss',
+            collapsed && 'justify-center px-0',
+          )}
+        >
+          <LogOut size={18} strokeWidth={1.9} />
+          {!collapsed && <span>خروج از حساب</span>}
+        </button>
 
         {/* Profile + subscription */}
         <NavLink

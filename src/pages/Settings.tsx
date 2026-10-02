@@ -1,12 +1,14 @@
 import clsx from 'clsx';
-import { Crown, Moon, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
+import { Crown, LogOut, Moon, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../components/ui/Avatar';
 import { ConfirmDialog } from '../components/ui/Modal';
 import { Meter } from '../components/ui/controls';
 import { addDays, diffDays, fmtDayLong, localDayKey } from '../lib/calendar';
 import { fmtNum } from '../lib/format';
 import { planDaysLeft } from '../lib/stats';
+import { useAuth } from '../store/useAuth';
 import { toast, useStore } from '../store/useStore';
 
 /** Downscale an uploaded picture so it stays small in local storage. */
@@ -38,6 +40,10 @@ export default function Settings() {
   const [name, setName] = useState(user.name);
   const [confirm, setConfirm] = useState<'clear' | 'restore' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const session = useAuth((s) => s.session);
+  const rename = useAuth((s) => s.rename);
+  const logout = useAuth((s) => s.logout);
+  const navigate = useNavigate();
 
   useEffect(() => setName(user.name), [user.name]);
 
@@ -87,6 +93,7 @@ export default function Settings() {
             e.preventDefault();
             if (!name.trim()) return;
             updateUser({ name: name.trim() });
+            rename(name.trim());
             toast('نام ذخیره شد');
           }}
         >
@@ -100,6 +107,29 @@ export default function Settings() {
             ذخیره
           </button>
         </form>
+      </section>
+
+      <section className="card mb-4 p-5">
+        <h2 className="mb-4 text-sm font-bold">حساب کاربری</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted">ایمیل ورود</p>
+            <p className="truncate text-sm font-semibold" dir="ltr" style={{ textAlign: 'right' }}>
+              {session?.email}
+            </p>
+            {session?.demo && <p className="mt-1 text-xs text-amber">این حساب نمایشی است و با داده‌ی نمونه پر شده.</p>}
+          </div>
+          <button
+            type="button"
+            className="btn-soft text-loss"
+            onClick={() => {
+              logout();
+              navigate('/login', { replace: true, state: { notice: 'از حساب خارج شدید.' } });
+            }}
+          >
+            <LogOut size={15} /> خروج از حساب
+          </button>
+        </div>
       </section>
 
       <section className="card mb-4 p-5">

@@ -1,39 +1,19 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
-import { localDayKey, keyToMs } from '../lib/calendar';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { getSession, type Session as AuthSession } from '../lib/auth';
+import { addDays, localDayKey, keyToMs } from '../lib/calendar';
 import { bars5m, priceAt } from '../lib/market';
 import { rAt } from '../lib/stats';
 import type { Checklist, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
-import { buildSeed } from './seed';
+import { local } from '../lib/storage';
+import { buildSeed, type SeedData } from './seed';
 
 export const uid = (prefix: string) =>
   `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
-// localStorage can be missing or throw (private windows, sandboxed previews); fall back to memory.
-const memory = new Map<string, string>();
-const safeStorage: StateStorage = {
-  getItem: (k) => {
-    try {
-      return window.localStorage.getItem(k);
-    } catch {
-      return memory.get(k) ?? null;
-    }
-  },
-  setItem: (k, v) => {
-    try {
-      window.localStorage.setItem(k, v);
-    } catch {
-      memory.set(k, v);
-    }
-  },
-  removeItem: (k) => {
-    try {
-      window.localStorage.removeItem(k);
-    } catch {
-      memory.delete(k);
-    }
-  },
-};
+// Each account keeps its own dashboard data under its own key.
+const LEGACY_KEY = 'backtest-dashboard:v1';
+export const storeKey = (userId?: string) => `backtest-dashboard:v2:${userId ?? 'guest'}`;
 
 export type Theme = 'dark' | 'light';
 
@@ -111,7 +91,25 @@ function settle(trade: Trade, exit: number, closeTime: number, reason: Trade['cl
   };
 }
 
-const seed = buildSeed();
+type AccountData = SeedData & { hasDemoData: boolean };
+
+/** Starting data for an account: the sample data for the demo account (and guests), empty for new accounts. */
+function freshData(account: Pick<AuthSession, 'name' | 'demo'> | null): AccountData {
+  if (!account || account.demo) return { ...buildSeed(), hasDemoData: true };
+  const today = localDayKey();
+  return {
+    user: { name: account.name, plan: { name: 'دوره‌ی آزمایشی حرفه‌ای', startedAt: today, endsAt: addDays(today, 14) } },
+    strategies: [],
+    checklists: [],
+    sessions: [],
+    trades: [],
+    dailySeconds: {},
+    replayedMs: 0,
+    hasDemoData: false,
+  };
+}
+
+const bootSession = getSession();
 
 // Dark by default; follow an explicit light theme set by an embedding host.
 const initialTheme = (): Theme => (document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
@@ -119,10 +117,9 @@ const initialTheme = (): Theme => (document.documentElement.getAttribute('data-t
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
-      ...seed,
+      ...freshData(bootSession),
       theme: initialTheme(),
       sidebarCollapsed: false,
-      hasDemoData: true,
 
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -258,8 +255,8 @@ export const useStore = create<State>()(
       restoreDemo: () => set({ ...buildSeed(), hasDemoData: true }),
     }),
     {
-      name: 'backtest-dashboard:v1',
-      storage: createJSONStorage(() => safeStorage),
+      name: storeKey(bootSession?.userId),
+      storage: createJSONStorage(() => local),
     },
   ),
 );
@@ -289,3 +286,25 @@ export const useToasts = create<ToastState>((set) => ({
 }));
 
 export const toast = (text: string, tone?: Toast['tone']) => useToasts.getState().push(text, tone);
+
+/**
+ * Point the dashboard store at another account's saved data (or the guest store on logout).
+ * Keeps the current theme for accounts that have no saved data yet.
+ */
+export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'demo'> | null) {
+  const key = storeKey(account?.userId);
+  const { theme, sidebarCollapsed } = useStore.getState();
+  useStore.persist.setOptions({ name: key });
+  let raw = local.getItem(key);
+  // Data saved before accounts existed belongs to the demo account.
+  if (!raw && account?.demo) {
+    const legacy = local.getItem(LEGACY_KEY);
+    if (legacy) {
+      local.setItem(key, legacy);
+      local.removeItem(LEGACY_KEY);
+      raw = legacy;
+    }
+  }
+  if (raw) void useStore.persist.rehydrate();
+  else useStore.setState({ ...freshData(account), theme, sidebarCollapsed });
+}

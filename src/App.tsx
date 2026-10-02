@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { HashRouter, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import Analytics from './pages/Analytics';
+import AuthPage from './pages/Auth';
 import Checklists from './pages/Checklists';
 import Dashboard from './pages/Dashboard';
 import Journal from './pages/Journal';
@@ -10,6 +11,7 @@ import Replay from './pages/Replay';
 import Sessions from './pages/Sessions';
 import Settings from './pages/Settings';
 import Strategies from './pages/Strategies';
+import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
 
 // The hosted single-file preview runs in a sandboxed frame, so it routes in memory.
@@ -32,7 +34,11 @@ function ScrollToTop() {
   return null;
 }
 
+/** Dashboard pages need a signed-in account; others are sent to the login page and brought back after. */
 function AppShell() {
+  const session = useAuth((s) => s.session);
+  const location = useLocation();
+  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   return (
     <Layout>
       <Outlet />
@@ -47,6 +53,9 @@ export default function App() {
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/signup" element={<AuthPage />} />
+        <Route path="/forgot-password" element={<AuthPage />} />
         <Route element={<AppShell />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/sessions" element={<Sessions />} />
