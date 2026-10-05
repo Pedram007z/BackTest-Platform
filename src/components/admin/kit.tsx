@@ -80,7 +80,7 @@ export function Badge({ tone = 'muted', children }: { tone?: 'gain' | 'loss' | '
   return (
     <span
       className={clsx(
-        'inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold',
+        'inline-flex shrink-0 items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-bold',
         tone === 'gain' && 'bg-gain/15 text-gain',
         tone === 'loss' && 'bg-loss/15 text-loss',
         tone === 'amber' && 'bg-amber/15 text-amber',
@@ -135,5 +135,7 @@ export function Field({ label, htmlFor, hint, children }: { label: string; htmlF
 
 export const tomanFmt = (n: number) => `${fmtNum(n)} تومان`;
 export const tomanShort = (n: number) => (n >= 1e9 ? `${fmtNum(n / 1e9, 1)} میلیارد` : n >= 1e6 ? `${fmtNum(n / 1e6, 1)} میلیون` : fmtNum(n));
-export const dateTime = (ms: number) =>
-  new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(ms));
+const dayFmt = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', day: 'numeric' });
+const timeFmt = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+/** "۱۳ مهر ۱۴۰۵ · ۰۱:۲۲" — kept in one reading order inside RTL text. */
+export const dateTime = (ms: number) => `${dayFmt.format(ms)} · ${timeFmt.format(ms)}`;

@@ -2,8 +2,10 @@ import clsx from 'clsx';
 import {
   ChartColumn,
   CheckCheck,
+  CreditCard,
   House,
   Layers,
+  LifeBuoy,
   List,
   LogOut,
   Moon,
@@ -11,6 +13,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Settings,
+  ShieldCheck,
   Sun,
   X,
 } from 'lucide-react';
@@ -33,6 +36,12 @@ const NAV = [
   { to: '/analytics', label: 'آنالیز', icon: ChartColumn },
 ];
 
+const ACCOUNT_NAV = [
+  { to: '/billing', label: 'اشتراک و پرداخت', icon: CreditCard },
+  { to: '/support', label: 'پشتیبانی', icon: LifeBuoy },
+  { to: '/settings', label: 'تنظیمات حساب', icon: Settings },
+];
+
 export function Logo() {
   return (
     <div className="flex items-center gap-2 select-none">
@@ -52,6 +61,7 @@ export function Logo() {
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const user = useStore((s) => s.user);
   const logout = useAuth((s) => s.logout);
+  const isAdmin = useAuth((s) => s.session?.role === 'admin');
   const navigate = useNavigate();
   const left = planDaysLeft(user.plan.endsAt);
   const total = Math.max(1, diffDays(user.plan.startedAt, user.plan.endsAt));
@@ -82,21 +92,24 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
       </nav>
 
       <div className="mt-auto border-t border-line/70 p-3">
-        <NavLink
-          to="/settings"
-          onClick={onNavigate}
-          title={collapsed ? 'تنظیمات حساب' : undefined}
-          className={({ isActive }) =>
-            clsx(
-              'mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition',
-              collapsed && 'justify-center px-0',
-              isActive ? 'bg-raised text-ink' : 'text-muted hover:bg-raised/60 hover:text-ink',
-            )
-          }
-        >
-          <Settings size={18} strokeWidth={1.9} />
-          {!collapsed && <span>تنظیمات حساب</span>}
-        </NavLink>
+        {[...ACCOUNT_NAV, ...(isAdmin ? [{ to: '/admin', label: 'پنل مدیریت', icon: ShieldCheck }] : [])].map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            onClick={onNavigate}
+            title={collapsed ? label : undefined}
+            className={({ isActive }) =>
+              clsx(
+                'mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition',
+                collapsed && 'justify-center px-0',
+                isActive ? 'bg-raised text-ink' : clsx('hover:bg-raised/60 hover:text-ink', to === '/admin' ? 'text-accent-ink' : 'text-muted'),
+              )
+            }
+          >
+            <Icon size={18} strokeWidth={1.9} />
+            {!collapsed && <span>{label}</span>}
+          </NavLink>
+        ))}
         <button
           type="button"
           onClick={() => {
@@ -106,7 +119,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           }}
           title={collapsed ? 'خروج از حساب' : undefined}
           className={clsx(
-            'mb-3 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium text-muted transition hover:bg-loss/10 hover:text-loss',
+            'mb-3 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium text-muted transition hover:bg-loss/10 hover:text-loss',
             collapsed && 'justify-center px-0',
           )}
         >
@@ -115,11 +128,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
         </button>
 
         {/* Profile + subscription */}
-        <NavLink
-          to="/settings"
-          onClick={onNavigate}
-          className={clsx('block rounded-xl bg-raised/70 transition hover:bg-raised', collapsed ? 'p-2' : 'p-3')}
-        >
+        <NavLink to="/settings" onClick={onNavigate} className={clsx('block rounded-xl bg-raised/70 transition hover:bg-raised', collapsed ? 'p-2' : 'p-3')}>
           <div className={clsx('flex items-center gap-3', collapsed && 'justify-center')}>
             <Avatar user={user} size={collapsed ? 36 : 42} />
             {!collapsed && (
@@ -154,19 +163,9 @@ function Toaster() {
           key={t.id}
           type="button"
           onClick={() => dismiss(t.id)}
-          className={clsx(
-            'anim-pop pointer-events-auto flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow-pop',
-            'border-line bg-raised text-ink',
-          )}
+          className={clsx('anim-pop pointer-events-auto flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow-pop', 'border-line bg-raised text-ink')}
         >
-          <span
-            className={clsx(
-              'h-2 w-2 rounded-full',
-              t.tone === 'success' && 'bg-gain',
-              t.tone === 'error' && 'bg-loss',
-              t.tone === 'info' && 'bg-accent',
-            )}
-          />
+          <span className={clsx('h-2 w-2 rounded-full', t.tone === 'success' && 'bg-gain', t.tone === 'error' && 'bg-loss', t.tone === 'info' && 'bg-accent')} />
           {t.text}
         </button>
       ))}
@@ -184,12 +183,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-full flex-col bg-bg">
       <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b border-line/70 bg-side/95 px-3 backdrop-blur sm:px-4">
-        <button
-          type="button"
-          className="icon-btn hidden lg:inline-flex"
-          onClick={toggleSidebar}
-          aria-label={sidebarCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}
-        >
+        <button type="button" className="icon-btn hidden lg:inline-flex" onClick={toggleSidebar} aria-label={sidebarCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}>
           {sidebarCollapsed ? <PanelRightOpen size={19} /> : <PanelRightClose size={19} />}
         </button>
         <button type="button" className="icon-btn lg:hidden" onClick={() => setDrawer(true)} aria-label="منو">
@@ -210,12 +204,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
 
       <div className="flex flex-1">
-        <aside
-          className={clsx(
-            'hidden shrink-0 border-l border-line/70 bg-side transition-[width] duration-200 lg:block',
-            sidebarCollapsed ? 'w-[76px]' : 'w-[248px]',
-          )}
-        >
+        <aside className={clsx('hidden shrink-0 border-l border-line/70 bg-side transition-[width] duration-200 lg:block', sidebarCollapsed ? 'w-[76px]' : 'w-[248px]')}>
           <div className="sticky top-14 h-[calc(100vh-3.5rem)]">
             <SidebarContent collapsed={sidebarCollapsed} />
           </div>

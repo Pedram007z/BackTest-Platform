@@ -143,7 +143,7 @@ export default function AdminUsers() {
             options={[{ value: 'all', label: 'همه‌ی پلن‌ها' }, ...(plans.data ?? []).map((p) => ({ value: p.id, label: p.name }))]}
           />
         </div>
-        <div className="lg:w-36">
+        <div className="lg:w-44">
           <Select
             value={status}
             onChange={(v) => {
@@ -157,7 +157,7 @@ export default function AdminUsers() {
             ]}
           />
         </div>
-        <div className="lg:w-32">
+        <div className="lg:w-40">
           <Select
             value={role}
             onChange={(v) => {

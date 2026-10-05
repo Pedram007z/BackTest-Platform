@@ -3,14 +3,22 @@ import { HashRouter, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation 
 import { Layout } from './components/layout/Layout';
 import Analytics from './pages/Analytics';
 import AuthPage from './pages/Auth';
+import Billing from './pages/Billing';
 import Checklists from './pages/Checklists';
 import Dashboard from './pages/Dashboard';
 import Journal from './pages/Journal';
 import Landing from './pages/Landing';
 import Replay from './pages/Replay';
+import SandboxPay from './pages/SandboxPay';
 import Sessions from './pages/Sessions';
 import Settings from './pages/Settings';
 import Strategies from './pages/Strategies';
+import Support from './pages/Support';
+import AdminLayout from './pages/admin/AdminLayout';
+import { AdminDiscounts, AdminGateways, AdminPayments, AdminPlans } from './pages/admin/Commerce';
+import AdminOverview from './pages/admin/Overview';
+import { AdminAudit, AdminMarket, AdminNews, AdminSettings, AdminSms, AdminTickets } from './pages/admin/System';
+import AdminUsers from './pages/admin/Users';
 import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
 
@@ -25,6 +33,12 @@ function ThemeSync() {
     root.classList.toggle('light', theme === 'light');
     root.setAttribute('data-theme', theme);
   }, [theme]);
+  return null;
+}
+
+/** Re-reads the account once per load so plan changes and bans made elsewhere apply. */
+function AccountSync() {
+  useEffect(() => void useAuth.getState().refresh(), []);
   return null;
 }
 
@@ -50,12 +64,14 @@ export default function App() {
   return (
     <Router>
       <ThemeSync />
+      <AccountSync />
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/signup" element={<AuthPage />} />
         <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
+        <Route path="/pay/sandbox" element={<SandboxPay />} />
         <Route element={<AppShell />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/sessions" element={<Sessions />} />
@@ -64,7 +80,23 @@ export default function App() {
           <Route path="/journal" element={<Journal />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/billing" element={<Billing />} />
+          <Route path="/support" element={<Support />} />
           <Route path="/replay/:id" element={<Replay />} />
+        </Route>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminOverview />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="plans" element={<AdminPlans />} />
+          <Route path="payments" element={<AdminPayments />} />
+          <Route path="discounts" element={<AdminDiscounts />} />
+          <Route path="gateways" element={<AdminGateways />} />
+          <Route path="sms" element={<AdminSms />} />
+          <Route path="tickets" element={<AdminTickets />} />
+          <Route path="news" element={<AdminNews />} />
+          <Route path="market" element={<AdminMarket />} />
+          <Route path="settings" element={<AdminSettings />} />
+          <Route path="audit" element={<AdminAudit />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

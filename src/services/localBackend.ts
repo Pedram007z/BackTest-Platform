@@ -1,5 +1,6 @@
 import { addDays, diffDays, localDayKey, msToKey } from '../lib/calendar';
 import { seededRng } from '../lib/market';
+import { sampleNews } from '../lib/news';
 import { local, readJson, writeJson } from '../lib/storage';
 import { getToken } from './api';
 import { BackendError, type Backend } from './backend';
@@ -13,6 +14,7 @@ import {
   type DiscountCode,
   type GatewayConfig,
   type GatewayId,
+  type NewsSyncStatus,
   type Payment,
   type Plan,
   type SiteSettings,
@@ -768,17 +770,30 @@ export const localBackend: Backend = {
     },
     async newsStatus() {
       requireAdmin();
-      return { source: 'sample', lastSyncAt: db().newsSyncedAt, events: 0, weeks: 0, lastError: 'در حالت نمایشی سروری برای دریافت از ForexFactory نیست؛ تقویم نمونه استفاده می‌شود.' };
+      return sampleNewsStatus(db().newsSyncedAt);
     },
     async syncNews() {
       requireAdmin();
       db().newsSyncedAt = Date.now();
       log('همگام‌سازی تقویم اقتصادی', 'نمونه');
       save();
-      return delay({ source: 'sample' as const, lastSyncAt: Date.now(), events: 0, weeks: 0, lastError: 'در حالت نمایشی سروری برای دریافت از ForexFactory نیست؛ تقویم نمونه استفاده می‌شود.' }, 800);
+      return delay(sampleNewsStatus(db().newsSyncedAt), 800);
     },
   },
 };
+
+/** The demo has no server, so it reports the built-in calendar from 2019 to next week. */
+function sampleNewsStatus(lastSyncAt?: number): NewsSyncStatus {
+  const from = Date.UTC(2019, 0, 1);
+  const to = Date.now() + 7 * 86_400_000;
+  return {
+    source: 'sample',
+    lastSyncAt,
+    events: sampleNews(from, to).length,
+    weeks: Math.round((to - from) / (7 * 86_400_000)),
+    lastError: 'در حالت نمایشی سروری برای دریافت از ForexFactory نیست؛ تقویم نمونه (بر اساس زمان‌بندی واقعی انتشار خبرها) استفاده می‌شود.',
+  };
+}
 
 /** Days left on a user's plan (0 when expired). */
 export const planDaysLeftOf = (u: Pick<AccountUser, 'planEndsAt'>) => Math.max(0, diffDays(localDayKey(), u.planEndsAt));
