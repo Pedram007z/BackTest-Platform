@@ -282,7 +282,7 @@ export function winnersLosers(trades: Trade[], returns: Map<string, number>, beT
     const st = streaks(closed.map(pred));
     return {
       total: list.length,
-      best: rets.length ? rets.reduce(pickBest) : 0,
+      best: rets.length ? rets.reduce((a, b) => pickBest(a, b)) : 0,
       avg: rets.length ? rets.reduce((a, b) => a + b, 0) / rets.length : 0,
       avgDurationMs: list.length ? list.reduce((s, t) => s + ((t.closeTime ?? t.openTime) - t.openTime), 0) / list.length : 0,
       maxStreak: st.max,

@@ -39,7 +39,7 @@ function SessionSummary({ session, trades }: { session: Session; trades: Trade[]
   return (
     <div className="anim-fade px-4 pb-5 sm:px-5">
       <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-        <button type="button" className="btn-soft py-1.5" onClick={() => navigate(`/journal?session=${session.id}`)}>
+        <button type="button" className="btn-soft py-1.5" onClick={() => navigate(`/sessions?id=${session.id}`)}>
           مشاهده خلاصه <ArrowLeft size={14} />
         </button>
         <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">

@@ -101,6 +101,8 @@ export function fmtTehran(ms: number): string {
 /** Trading sessions in UTC hours, for "performance by session" (Tokyo, London, New York cash hours). */
 export type MarketSession = 'asia' | 'london' | 'newyork' | 'outside';
 export const SESSION_LABEL: Record<MarketSession, string> = { asia: 'آسیا', london: 'لندن', newyork: 'نیویورک', outside: 'خارج از سشن' };
+/** Short names for tight spots such as radar axes. */
+export const SESSION_SHORT: Record<MarketSession, string> = { asia: 'آسیا', london: 'لندن', newyork: 'نیویورک', outside: 'خارج' };
 
 export function marketSessionOf(ms: number): MarketSession {
   const ny = wallTime(ms, 'America/New_York');

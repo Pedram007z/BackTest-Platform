@@ -36,7 +36,7 @@ import {
   tradeReturns,
   winnersLosers,
 } from '../lib/stats';
-import { SESSION_LABEL, TZ_OPTIONS } from '../lib/timezone';
+import { SESSION_SHORT, TZ_OPTIONS } from '../lib/timezone';
 import { useStore } from '../store/useStore';
 
 function Box({ title, info, children, className, action }: { title?: string; info?: string; children: ReactNode; className?: string; action?: ReactNode }) {
@@ -147,7 +147,7 @@ export default function Analytics() {
   };
 
   const usedSymbols = [...new Set(trades.map((t) => t.symbol))].sort();
-  const sessionData = (key: 'winRate' | 'total' | 'maxRR' | 'profit') => sess.map((x) => ({ label: SESSION_LABEL[x.key], value: x[key] }));
+  const sessionData = (key: 'winRate' | 'total' | 'maxRR' | 'profit') => sess.map((x) => ({ label: SESSION_SHORT[x.key], value: x[key] }));
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">

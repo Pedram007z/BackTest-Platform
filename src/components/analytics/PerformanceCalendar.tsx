@@ -42,7 +42,7 @@ export function PerformanceCalendar({ days, startBalance }: Props) {
     const d = days.get(k);
     if (!d) return null;
     if (unit === 'usd') return d.pnl;
-    const b = base === 'initial' ? startBalance : before.get(k) ?? startBalance;
+    const b = base === 'initial' ? startBalance : (before.get(k) ?? startBalance);
     return b > 0 ? (d.pnl / b) * 100 : 0;
   };
   const fmtV = (v: number, short = false) => (unit === 'usd' ? (short ? fmtUsdShort(v, true) : fmtUsd(v, 2, true)) : fmtPct(v, 2));

@@ -76,7 +76,17 @@ export function BalanceEquityChart({ data, height = 280 }: { data: { time: numbe
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} stroke={p.grid} strokeDasharray="4 4" />
-          <XAxis dataKey="time" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={dateLabel} tick={tick(p)} tickLine={false} axisLine={{ stroke: p.grid }} minTickGap={40} />
+          <XAxis
+            dataKey="time"
+            type="number"
+            scale="time"
+            domain={['dataMin', 'dataMax']}
+            tickFormatter={dateLabel}
+            tick={tick(p)}
+            tickLine={false}
+            axisLine={{ stroke: p.grid }}
+            minTickGap={40}
+          />
           <YAxis domain={['auto', 'auto']} tickFormatter={fmtCompact} tick={tick(p)} tickLine={false} axisLine={false} width={58} />
           <Tooltip
             cursor={{ stroke: p.axis, strokeDasharray: '3 3' }}
@@ -88,8 +98,23 @@ export function BalanceEquityChart({ data, height = 280 }: { data: { time: numbe
               ],
             }))}
           />
-          <Legend verticalAlign="top" align="right" height={26} iconType="plainline" formatter={(v) => <span style={{ color: p.text, fontSize: 12 }}>{v === 'equity' ? 'اکوئیتی' : 'بالانس'}</span>} />
-          <Area type="monotone" dataKey="equity" stroke={p.line} strokeWidth={2} fill={`url(#${gid})`} dot={false} activeDot={{ r: 4, stroke: p.surface, strokeWidth: 2 }} isAnimationActive={false} />
+          <Legend
+            verticalAlign="top"
+            align="right"
+            height={26}
+            iconType="plainline"
+            formatter={(v) => <span style={{ color: p.text, fontSize: 12 }}>{v === 'equity' ? 'اکوئیتی' : 'بالانس'}</span>}
+          />
+          <Area
+            type="monotone"
+            dataKey="equity"
+            stroke={p.line}
+            strokeWidth={2}
+            fill={`url(#${gid})`}
+            dot={false}
+            activeDot={{ r: 4, stroke: p.surface, strokeWidth: 2 }}
+            isAnimationActive={false}
+          />
           <Line type="stepAfter" dataKey="balance" stroke={p.axis} strokeWidth={1.5} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
@@ -110,7 +135,13 @@ export function DailyPnlChart({ data, height = 280 }: { data: { day: string; pnl
           <ReferenceLine y={0} stroke={p.axis} strokeOpacity={0.7} />
           <Tooltip
             cursor={{ fill: p.cursor }}
-            content={tip(p, (r) => ({ title: r.day, rows: [{ label: 'سود / زیان', value: fmtUsd(r.pnl, 2, true), color: r.pnl >= 0 ? p.gain : p.loss }, { label: 'معاملات', value: fmtNum(r.count) }] }))}
+            content={tip(p, (r) => ({
+              title: r.day,
+              rows: [
+                { label: 'سود / زیان', value: fmtUsd(r.pnl, 2, true), color: r.pnl >= 0 ? p.gain : p.loss },
+                { label: 'معاملات', value: fmtNum(r.count) },
+              ],
+            }))}
           />
           <Bar dataKey="pnl" maxBarSize={10} isAnimationActive={false}>
             {data.map((d) => (
@@ -138,7 +169,10 @@ export function Sparkline({ data, height = 56, signed }: { data: { i: number; v:
             </linearGradient>
           </defs>
           {signed && <ReferenceLine y={0} stroke={p.grid} />}
-          <Tooltip cursor={{ stroke: p.axis, strokeDasharray: '3 3' }} content={tip(p, (r) => ({ title: `معامله ${fmtNum(r.i + 1)}`, rows: [{ label: 'مقدار', value: fmtNum(r.v, 2) }] }))} />
+          <Tooltip
+            cursor={{ stroke: p.axis, strokeDasharray: '3 3' }}
+            content={tip(p, (r) => ({ title: `معامله ${fmtNum(r.i + 1)}`, rows: [{ label: 'مقدار', value: fmtNum(r.v, 2) }] }))}
+          />
           <Area type="monotone" dataKey="v" stroke={p.line} strokeWidth={1.5} fill={`url(#${gid})`} dot={false} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
@@ -159,7 +193,18 @@ export function SideDonut({ buys, sells, height = 220 }: { buys: number; sells: 
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Tooltip content={tip(p, (r) => ({ title: r.name, rows: [{ label: 'تعداد', value: `${fmtNum(r.value)} (${fmtPct((r.value / total) * 100, 1)})`, color: r.color }] }))} />
-          <Pie data={data} dataKey="value" nameKey="name" innerRadius="58%" outerRadius="82%" startAngle={90} endAngle={-270} stroke={p.surface} strokeWidth={2} isAnimationActive={false}>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            innerRadius="58%"
+            outerRadius="82%"
+            startAngle={90}
+            endAngle={-270}
+            stroke={p.surface}
+            strokeWidth={2}
+            isAnimationActive={false}
+          >
             {data.map((d) => (
               <Cell key={d.name} fill={d.color} />
             ))}
@@ -191,7 +236,16 @@ export function SideWinRings({ buy, sell, height = 220 }: { buy: number; sell: n
               <Cell key={i} fill={d.color} />
             ))}
           </Pie>
-          <Pie data={ring(sell, p.loss, 'وین‌ریت فروش')} dataKey="value" innerRadius="50%" outerRadius="64%" startAngle={90} endAngle={-270} stroke="none" isAnimationActive={false}>
+          <Pie
+            data={ring(sell, p.loss, 'وین‌ریت فروش')}
+            dataKey="value"
+            innerRadius="50%"
+            outerRadius="64%"
+            startAngle={90}
+            endAngle={-270}
+            stroke="none"
+            isAnimationActive={false}
+          >
             {ring(sell, p.loss, '').map((d, i) => (
               <Cell key={i} fill={d.color} />
             ))}
@@ -254,7 +308,10 @@ export function HourChart({
                       { label: 'خالص', value: fmtUsd(r.gain + r.loss, 0, true) },
                     ],
                   }
-                : { title: `${label(r.hour)} · ${fmtNum(r.count)} معامله`, rows: [{ label: mode === 'rr' ? 'میانگین R' : 'بازده', value: fmt(r[key]), color: r[key] >= 0 ? p.gain : p.loss }] },
+                : {
+                    title: `${label(r.hour)} · ${fmtNum(r.count)} معامله`,
+                    rows: [{ label: mode === 'rr' ? 'میانگین R' : 'بازده', value: fmt(r[key]), color: r[key] >= 0 ? p.gain : p.loss }],
+                  },
             )}
           />
           {mode === 'pnl' ? (
@@ -316,7 +373,13 @@ export function MonthBars({ data, height = 200 }: { data: { label: string; value
           <XAxis dataKey="label" tick={tick(p)} tickLine={false} axisLine={{ stroke: p.grid }} interval={0} />
           <YAxis tickFormatter={(v) => fmtPct(v, 0)} tick={tick(p)} tickLine={false} axisLine={false} width={48} />
           <ReferenceLine y={0} stroke={p.axis} strokeOpacity={0.7} />
-          <Tooltip cursor={{ fill: p.cursor }} content={tip(p, (r) => ({ title: r.label, rows: [{ label: 'بازده', value: r.value === null ? 'بدون معامله' : fmtPct(r.value, 2), color: (r.value ?? 0) >= 0 ? p.gain : p.loss }] }))} />
+          <Tooltip
+            cursor={{ fill: p.cursor }}
+            content={tip(p, (r) => ({
+              title: r.label,
+              rows: [{ label: 'بازده', value: r.value === null ? 'بدون معامله' : fmtPct(r.value, 2), color: (r.value ?? 0) >= 0 ? p.gain : p.loss }],
+            }))}
+          />
           <Bar dataKey="value" maxBarSize={30} radius={[4, 4, 0, 0]} isAnimationActive={false}>
             {data.map((d) => (
               <Cell key={d.label} fill={(d.value ?? 0) >= 0 ? p.gain : p.loss} radius={((d.value ?? 0) >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4]) as any} />
