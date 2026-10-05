@@ -1,4 +1,4 @@
-# Deploying BacktestLab
+# Deploying BackTest Platform
 
 The site is two parts:
 
@@ -18,7 +18,7 @@ The steps below use `backtestlab.ir` as the domain; use yours.
 ### Servers in Iran
 
 Payment gateways and SMS providers (Zarinpal, Zibal, Kavenegar, …) work best from a server in Iran, and some
-refuse servers abroad. On an Iranian VPS, expect these; the steps below handle each one:
+refuse servers abroad. On an Iranian VPS, expect these; the installer (and the manual steps) handle each one:
 
 - **Downloads from abroad are often blocked** (NodeSource, sometimes npm). Build the release on your own
   computer (step 1) and install Node from a file you upload (step 2). `server.mjs` needs nothing else.
@@ -31,7 +31,51 @@ refuse servers abroad. On an Iranian VPS, expect these; the steps below handle e
   never loaded is missing until the connection returns.
 - **Payment gateways** approve your merchant for your domain and usually require an eNamad (اینماد) first.
 
-## 1. Build the release (on your computer)
+## Quick install (recommended)
+
+`install.sh` does the server work for you: packages, Node.js, files, settings, the API service, nginx,
+HTTPS and the data-source check. It asks three questions and stops with a plain explanation if something
+needs your attention. It is safe to run again.
+
+1. **On your computer, build the release** for your domain (details in step 1 below):
+   ```bash
+   npm run release -- https://backtestlab.ir
+   ```
+2. **Download Node.js** on your computer: the **Linux Binaries (x64)** `.tar.xz` of version 22 LTS from
+   https://nodejs.org/en/download. Servers in Iran usually cannot download it themselves.
+3. **Upload both** to the server (PowerShell on Windows 10+ has `scp`; WinSCP also works):
+   ```bash
+   scp release/backtestlab-*.tar.gz node-v22.*-linux-x64.tar.xz root@SERVER_IP:/tmp/
+   ```
+4. **On the server, run the installer:**
+   ```bash
+   cd /tmp && tar -xzf backtestlab-*.tar.gz && cd backtestlab
+   sudo bash install.sh
+   ```
+   It asks for the site domain (suggested from the release), your admin mobile number(s) and an email for
+   the HTTPS certificate. Point the domain's A record (and `www`) at the server first, so HTTPS can be set up.
+   If it is not pointing there yet, the installer says so; fix DNS and run `sudo bash /opt/backtestlab/install.sh --https`.
+5. **If it reports that market data and the calendar need a relay** (usual in Iran), on a small VPS outside Iran
+   upload the same release and run
+   ```bash
+   sudo bash install.sh --relay
+   ```
+   It asks for the relay's domain (for example `relay.backtestlab.ir`, with its A record pointing to that VPS)
+   and your Iranian server's IP, and prints the command to run on the main server:
+   ```bash
+   sudo bash /opt/backtestlab/install.sh --set-relay https://relay.backtestlab.ir
+   ```
+6. **Sign in as admin and fill in the admin panel:** step 7 below.
+
+**Updating:** build a new release, upload it, and run `sudo bash install.sh` in it again. Settings, accounts,
+payments and cached data are kept.
+
+Everything the installer prints is also saved in `/var/log/backtestlab-install.log`; send that file if you
+need help. The manual steps below do the same work by hand.
+
+## Manual installation
+
+### 1. Build the release (on your computer)
 
 ```bash
 cd BackTest-Platform
@@ -47,6 +91,7 @@ This runs the tests and creates `release/backtestlab/`, plus a `.tar.gz` of it w
 web/                  the web app (goes to /var/www/backtestlab)
 server/server.mjs     the API server (goes to /opt/backtestlab/server)
 server/env.example    all server settings
+install.sh            the installer (quick install above)
 backtestlab.service   systemd unit
 nginx-site.conf       nginx site
 relay-nginx.conf      relay abroad for servers in Iran (step 8)
@@ -58,7 +103,7 @@ The address you pass is built into the app. If you later change the domain, buil
 If `npm ci` fails with `403 Forbidden` or times out (npm sometimes refuses Iranian connections), run the
 build with a VPN on, or point npm at a mirror with `npm config set registry <mirror address>`.
 
-## 2. Prepare the server (once)
+### 2. Prepare the server (once)
 
 ```bash
 sudo apt update
@@ -99,7 +144,7 @@ sudo useradd --system --home /var/lib/backtestlab --shell /usr/sbin/nologin back
 sudo mkdir -p /opt/backtestlab/server /var/www/backtestlab
 ```
 
-## 3. Upload and install the files
+### 3. Upload and install the files
 
 From your computer (Windows 10+ has `scp` in PowerShell; WinSCP also works):
 
@@ -119,7 +164,7 @@ sudo cp backtestlab/check-sources.sh /opt/backtestlab/
 
 If you uploaded the folder instead of the archive, skip the `tar` line.
 
-## 4. Server settings
+### 4. Server settings
 
 Create `/opt/backtestlab/server/.env` (`sudo nano /opt/backtestlab/server/.env`):
 
@@ -145,7 +190,7 @@ sudo chown root:backtestlab /opt/backtestlab/server/.env
 sudo chmod 640 /opt/backtestlab/server/.env
 ```
 
-## 5. Start the API server
+### 5. Start the API server
 
 ```bash
 sudo systemctl daemon-reload
@@ -156,7 +201,7 @@ curl http://127.0.0.1:8787/api/health      # {"ok":true,...}
 
 It restarts by itself after a crash or a reboot. Logs: `sudo journalctl -u backtestlab -f`.
 
-## 6. nginx and HTTPS
+### 6. nginx and HTTPS
 
 ```bash
 sudo cp /tmp/backtestlab/nginx-site.conf /etc/nginx/sites-available/backtestlab
@@ -175,7 +220,7 @@ sudo certbot --nginx -d YOUR-DOMAIN -d www.YOUR-DOMAIN
 
 Open `https://YOUR-DOMAIN`. You should see the landing page.
 
-## 7. First sign-in and the admin panel
+### 7. First sign-in and the admin panel
 
 1. Click **ورود** and enter a number from `ADMIN_PHONES`. Real SMS sending is still off, so the code is
    in the server log:
@@ -192,7 +237,7 @@ Open `https://YOUR-DOMAIN`. You should see the landing page.
    - **نمادها و داده‌ی بازار** (symbols and market data): data source per market, and which symbols users can pick.
    - **تقویم اقتصادی** (economic calendar): press sync and check that no error is shown.
 
-## 8. Relay for market data and the calendar (servers in Iran)
+### 8. Relay for market data and the calendar (servers in Iran)
 
 Check whether the server reaches the sources on its own:
 
@@ -239,12 +284,13 @@ its sample calendar.
 
 ## Updating
 
-Build a new release (step 1), upload it (step 3), copy `web/` and `server.mjs` as in step 3, then:
+Build a new release (step 1) and upload it (step 3). Then either run the installer in it:
 
 ```bash
-sudo systemctl restart backtestlab
+cd /tmp && tar -xzf backtestlab-*.tar.gz && cd backtestlab && sudo bash install.sh
 ```
 
+or, by hand, copy `web/` and `server.mjs` as in step 3 and run `sudo systemctl restart backtestlab`.
 Accounts, payments, settings and cached data in `/var/lib/backtestlab` are kept.
 
 ## Backups
@@ -264,6 +310,7 @@ sudo crontab -e
 | What you see | What to check |
 |---|---|
 | **502 Bad Gateway** on the site's API | The API server is not running: `sudo journalctl -u backtestlab -n 50` |
+| The installer stopped | It prints the reason and what to do; fix it and run it again. Full log: `/var/log/backtestlab-install.log` |
 | **500** on every page | nginx cannot read the files: `sudo chmod -R a+rX /var/www/backtestlab`; details in `/var/log/nginx/error.log` |
 | **اتصال به سرور برقرار نشد** when signing in | The app was built for another address. Build again with the exact domain you open (step 1), and list both `www` and non-`www` in `CORS_ORIGINS` |
 | No sign-in code arrives | Admin panel → پیامک → send a test message; the SMS log shows the provider's error |

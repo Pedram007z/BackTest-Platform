@@ -90,10 +90,11 @@ npm run build     # bundles to dist/server.mjs; run with `npm start`
 
 ### Deploying
 
-See **[DEPLOY.md](DEPLOY.md)** for the step-by-step guide. In short: `npm run release -- https://your-domain`
-builds the app and the self-contained `server.mjs` on your computer; on the server, nginx serves the app and
-proxies `/api/` to the API server, which systemd keeps running. Ready-made files are in `deploy/`
-(nginx site, systemd unit, and a relay for servers inside Iran that cannot reach Dukascopy, Binance or ForexFactory).
+See **[DEPLOY.md](DEPLOY.md)**. In short: `npm run release -- https://your-domain` builds the app and the
+self-contained `server.mjs` on your computer; upload the release with the Node.js `.tar.xz` and run
+`sudo bash install.sh` in it on the Ubuntu server. The installer sets up Node, the API service (systemd), nginx,
+HTTPS and the data-source check, and `--relay` / `--set-relay` set up a relay for servers in Iran that cannot reach
+Dukascopy, Binance or ForexFactory. The files it uses are in `deploy/`.
 
 ## Layout
 
