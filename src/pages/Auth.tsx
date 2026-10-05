@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { ArrowRight, CircleAlert, LoaderCircle, MessageSquareText, Moon, Pencil, Phone, ShieldCheck, Sun, TrendingUp, User } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { Link } from '../components/ui/AppLink';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
 import { Logo } from '../components/layout/Layout';
 import { fmtPhone, nameError, phoneError } from '../lib/auth';

@@ -1,6 +1,6 @@
 import { Banknote, CreditCard, LifeBuoy, MessageSquareText, UserPlus, Users } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Link } from 'react-router-dom';
+import { Link } from '../../components/ui/AppLink';
 import { Loading, PageHeader, Stat, tomanFmt, tomanShort, useLoad } from '../../components/admin/kit';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { fmtDayShort } from '../../lib/calendar';

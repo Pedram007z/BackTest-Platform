@@ -1,6 +1,5 @@
-import { createMemoryHistory } from '@remix-run/router';
-import { useEffect, type ReactNode } from 'react';
-import { HashRouter, Navigate, Outlet, Route, Routes, createPath, unstable_HistoryRouter as HistoryRouter, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { HashRouter, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { PageErrorBoundary } from './components/ui/ErrorBoundary';
 import Analytics from './pages/Analytics';
@@ -25,21 +24,8 @@ import { loadSiteConfig } from './services/marketFeed';
 import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
 
-/**
- * The hosted single-file preview runs in a sandboxed frame, so it routes in memory. Its links get
- * in-page hrefs ("#login", "#admin.users"): the frame opens any other href as a separate web page,
- * which showed an empty page instead of the route.
- */
-function previewRouter() {
-  // v5Compat: notify the router on push/replace, as MemoryRouter does
-  const history = createMemoryHistory({ v5Compat: true });
-  history.createHref = (to) => {
-    const path = typeof to === 'string' ? to : createPath(to);
-    return `#${path.replace(/^\//, '').replace(/[^A-Za-z0-9._~-]+/g, '.') || 'home'}`;
-  };
-  return ({ children }: { children: ReactNode }) => <HistoryRouter history={history}>{children}</HistoryRouter>;
-}
-const Router = import.meta.env.MODE === 'artifact' ? previewRouter() : HashRouter;
+// The hosted single-file preview runs in a sandboxed frame, so it routes in memory (links: components/ui/AppLink).
+const Router = import.meta.env.MODE === 'artifact' ? MemoryRouter : HashRouter;
 
 function ThemeSync() {
   const theme = useStore((s) => s.theme);

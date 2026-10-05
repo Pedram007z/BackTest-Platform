@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { Crown, LogOut, Moon, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { Link } from '../components/ui/AppLink';
 import { Avatar } from '../components/ui/Avatar';
 import { ConfirmDialog } from '../components/ui/Modal';
 import { Meter } from '../components/ui/controls';

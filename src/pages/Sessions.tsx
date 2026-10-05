@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { BarChart3, ChevronLeft, ChevronRight, ListTree, NotebookPen, Pencil, Play, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link } from '../components/ui/AppLink';
 import { EquityArea, PnlBars } from '../components/charts/Charts';
 import { SessionList } from '../components/sessions/SessionList';
 import { SessionModal } from '../components/sessions/SessionModal';

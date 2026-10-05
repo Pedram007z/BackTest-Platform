@@ -18,7 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Link } from '../components/ui/AppLink';
 import { loadTradingView } from '../chart/tvLoader';
 import type { ChartEngine, DraftOrder, EngineCallbacks } from '../chart/types';
 import { JournalModal, emptyJournal, type JournalContext } from '../components/journal/JournalModal';

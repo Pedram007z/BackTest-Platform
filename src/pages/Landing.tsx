@@ -21,7 +21,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { Link } from '../components/ui/AppLink';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
 import { Logo } from '../components/layout/Layout';

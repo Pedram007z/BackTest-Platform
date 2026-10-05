@@ -18,7 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink } from '../ui/AppLink';
 import { diffDays } from '../../lib/calendar';
 import { fmtNum } from '../../lib/format';
 import { planDaysLeft } from '../../lib/stats';

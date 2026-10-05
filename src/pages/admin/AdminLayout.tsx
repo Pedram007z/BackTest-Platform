@@ -19,7 +19,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Link, NavLink } from '../../components/ui/AppLink';
 import { Logo } from '../../components/layout/Layout';
 import { backend } from '../../services';
 import { useAuth } from '../../store/useAuth';
