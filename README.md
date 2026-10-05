@@ -22,8 +22,8 @@ With the API server:
 ```bash
 cd backtest-dashboard/server
 npm install
-cp .env.example .env   # set ADMIN_PHONES to your number
-npm run dev            # API on http://localhost:8787
+echo ADMIN_PHONES=09121234567 > .env   # your number
+npm run dev                            # API on http://localhost:8787
 
 cd ..
 VITE_API_URL=http://localhost:8787 npm run dev
@@ -90,11 +90,10 @@ npm run build     # bundles to dist/server.mjs; run with `npm start`
 
 ### Deploying
 
-1. Build the app with the API address: `VITE_API_URL=https://api.example.ir npm run build`, and serve `dist/` from any static host.
-2. On the server: `npm ci && npm run build`, create `.env` from `.env.example` (set `NODE_ENV=production`, `APP_URL`, `PUBLIC_URL`, `ADMIN_PHONES`) and run `npm start` under systemd or pm2, behind nginx with HTTPS (`TRUST_PROXY=true`).
-3. In the admin panel: turn on real SMS sending with your provider's key and template, enter the gateways' merchant ids and turn sandbox off, and pick the market data sources.
-
-Dukascopy, Binance and ForexFactory may not be reachable from servers inside Iran. Point `DUKASCOPY_URL`, `BINANCE_URL`, `FF_BASE_URL` and `FF_FEED_URL` at a relay abroad that forwards the same paths, or host the API server outside Iran.
+See **[DEPLOY.md](DEPLOY.md)** for the step-by-step guide. In short: `npm run release -- https://your-domain`
+builds the app and the self-contained `server.mjs` on your computer; on the server, nginx serves the app and
+proxies `/api/` to the API server, which systemd keeps running. Ready-made files are in `deploy/`
+(nginx site, systemd unit, and a relay for servers inside Iran that cannot reach Dukascopy, Binance or ForexFactory).
 
 ## Layout
 

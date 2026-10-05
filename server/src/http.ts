@@ -170,11 +170,19 @@ function send(req: IncomingMessage, res: ServerResponse, status: number, body: s
   res.end(req.method === 'HEAD' ? undefined : data);
 }
 
+/**
+ * Behind a reverse proxy, the address the proxy saw. The leftmost X-Forwarded-For entry comes from
+ * the visitor and can be forged, so this reads X-Real-IP (set by nginx) or the entry the proxy added last.
+ */
 function clientIp(req: IncomingMessage): string {
   if (config.trustProxy) {
+    const real = String(req.headers['x-real-ip'] ?? '').trim();
+    if (real) return real;
     const fwd = String(req.headers['x-forwarded-for'] ?? '')
-      .split(',')[0]
-      .trim();
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .pop();
     if (fwd) return fwd;
   }
   return req.socket.remoteAddress ?? '';
