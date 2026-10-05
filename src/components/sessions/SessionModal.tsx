@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DAY_MS, addDays, addMonths, fmtDayLong, keyToMs } from '../../lib/calendar';
 import { fmtNum, toLatinDigits } from '../../lib/format';
 import { DATA_START, GROUP_LABELS, SYMBOLS, dataEnd } from '../../lib/market';
+import { useEnabledSymbols } from '../../services/marketFeed';
 import type { Session } from '../../lib/types';
 import { toast, useStore } from '../../store/useStore';
 import { DatePicker } from '../ui/DatePicker';
@@ -26,6 +27,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
   const addSession = useStore((s) => s.addSession);
   const updateSession = useStore((s) => s.updateSession);
   const addStrategy = useStore((s) => s.addStrategy);
+  const enabledSymbols = useEnabledSymbols();
 
   const max = dataEnd();
   const [name, setName] = useState('');
@@ -114,7 +116,13 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
 
   const err = (k: string) => touched && errors[k] ? <p className="mt-1.5 text-xs text-loss">{errors[k]}</p> : null;
 
-  const symbolOptions = SYMBOLS.map((s) => ({ value: s.id, label: s.id, hint: s.name, group: GROUP_LABELS[s.group] }));
+  // the admin can limit which symbols new sessions offer; an edited session keeps the ones it has
+  const symbolOptions = SYMBOLS.filter((s) => !enabledSymbols || enabledSymbols.has(s.id) || session?.symbols.includes(s.id)).map((s) => ({
+    value: s.id,
+    label: s.id,
+    hint: s.name,
+    group: GROUP_LABELS[s.group],
+  }));
   const strategyOptions = [
     { value: NONE, label: 'بدون استراتژی' },
     ...strategies.map((s) => ({ value: s.id, label: s.name, hint: s.description.slice(0, 60) })),

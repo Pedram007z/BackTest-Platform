@@ -19,6 +19,7 @@ import { AdminDiscounts, AdminGateways, AdminPayments, AdminPlans } from './page
 import AdminOverview from './pages/admin/Overview';
 import { AdminAudit, AdminMarket, AdminNews, AdminSettings, AdminSms, AdminTickets } from './pages/admin/System';
 import AdminUsers from './pages/admin/Users';
+import { loadSiteConfig } from './services/marketFeed';
 import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
 
@@ -36,9 +37,12 @@ function ThemeSync() {
   return null;
 }
 
-/** Re-reads the account once per load so plan changes and bans made elsewhere apply. */
+/** Re-reads the account once per load so plan changes and bans made elsewhere apply; reads the site settings. */
 function AccountSync() {
-  useEffect(() => void useAuth.getState().refresh(), []);
+  useEffect(() => {
+    void useAuth.getState().refresh();
+    void loadSiteConfig();
+  }, []);
   return null;
 }
 

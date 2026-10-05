@@ -1,5 +1,5 @@
 import { DAY_MS, addDays, keyToMs, localDayKey } from '../lib/calendar';
-import { BAR_MS, atr, pointValueUsd, priceAt, roundToTick, seededRng } from '../lib/market';
+import { BAR_MS, atr, pointValueUsd, priceAt, roundToTick, seededRng, synthetic } from '../lib/market';
 import { lotsForRisk, simulateHistorical } from '../lib/trading';
 import type { Checklist, JournalEntry, Session, Strategy, Trade, UserProfile } from '../lib/types';
 
@@ -31,7 +31,10 @@ const NOTES = [
 ];
 const TAGS = ['ورود مارکت', 'پولبک', 'شکست', 'خلاف روند', 'سشن لندن', 'سشن نیویورک', 'قبل از خبر'];
 
-export function buildSeed(): SeedData {
+/** Sample data for the demo account, always on the synthetic prices it was designed for. */
+export const buildSeed = (): SeedData => synthetic(buildSampleData);
+
+function buildSampleData(): SeedData {
   const rng = seededRng('demo-seed-v3');
   const pick = <T>(arr: T[]) => arr[Math.floor(rng() * arr.length)];
   let idCounter = 0;

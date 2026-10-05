@@ -148,6 +148,18 @@ export interface SiteSettings {
   newsAutoSync: boolean;
 }
 
+/** Public settings the app reads at start (GET /api/config). */
+export interface SiteConfig {
+  siteName: string;
+  registrationOpen: boolean;
+  maintenance: boolean;
+  supportPhone: string;
+  /** Symbols users can pick when creating a session (empty = all). */
+  enabledSymbols: string[];
+  /** symbol → where its prices come from; the demo uses synthetic data for every symbol. */
+  market: Record<string, DataSource>;
+}
+
 export interface AuditEntry {
   id: string;
   actor: string;

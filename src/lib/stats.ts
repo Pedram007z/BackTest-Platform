@@ -1,5 +1,5 @@
 import { DAY_MS, addDays, diffDays, fromKey, keyToMs, localDayKey, msToKey, type CalendarKind, type DayKey } from './calendar';
-import { priceAt, seededRng } from './market';
+import { knownPriceAt, seededRng } from './market';
 import { marketSessionOf, wallTime, type MarketSession } from './timezone';
 import { openPnl, riskDistance } from './trading';
 import type { Session, Trade } from './types';
@@ -114,7 +114,7 @@ export function balanceEquitySeries(trades: Trade[], start = 0) {
       const stillOpen = t.openTime <= time && (t.closeTime === undefined || t.closeTime > time);
       if (stillOpen) {
         const lotsOpen = t.initialLots - t.partials.filter((p) => p.time <= time).reduce((s, p) => s + p.lots, 0);
-        floating += (priceAt(t.symbol, time) - t.entry) * (t.side === 'buy' ? 1 : -1) * t.pointValue * Math.max(0, lotsOpen);
+        floating += ((knownPriceAt(t.symbol, time) ?? t.entry) - t.entry) * (t.side === 'buy' ? 1 : -1) * t.pointValue * Math.max(0, lotsOpen);
       }
     }
     return { time, balance: start + closed, equity: start + closed + floating };
@@ -189,7 +189,7 @@ export function sessionBalance(s: Session, trades: Trade[]) {
 }
 
 export function sessionFloating(s: Session, trades: Trade[]) {
-  return trades.filter((t) => t.sessionId === s.id && t.status === 'open').reduce((sum, t) => sum + openPnl(t, priceAt(t.symbol, s.cursor)), 0);
+  return trades.filter((t) => t.sessionId === s.id && t.status === 'open').reduce((sum, t) => sum + openPnl(t, knownPriceAt(t.symbol, s.cursor) ?? t.entry), 0);
 }
 
 /** P&L grouped by the market month the trade closed in, for the last `n` months that have trades. */

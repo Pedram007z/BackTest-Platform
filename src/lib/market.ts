@@ -355,10 +355,24 @@ function synthDay(sym: SymbolInfo, idx: number): Float64Array {
 
 // ---------- data source ----------
 /**
- * 'synthetic' generates every day locally. 'remote' only shows days that were loaded with
- * `setRemoteDay()`; days that are not loaded yet read as "no data" until they arrive.
+ * 'synthetic' generates every day locally. 'remote' (set by services/marketFeed.ts when an API
+ * server is configured) reads the symbols in `remote` from days loaded with `setRemoteDay()`;
+ * days that are not loaded yet read as "no data" until they arrive. Other symbols stay synthetic.
  */
-export const marketSource: { mode: 'synthetic' | 'remote' } = { mode: 'synthetic' };
+export const marketSource: { mode: 'synthetic' | 'remote'; remote: Set<string> } = { mode: 'synthetic', remote: new Set() };
+
+const isRemote = (symbolId: string) => marketSource.mode === 'remote' && marketSource.remote.has(symbolId);
+
+/** Run `fn` on the built-in synthetic prices (landing demo, sample data), whatever the data source. */
+export function synthetic<T>(fn: () => T): T {
+  const prev = marketSource.mode;
+  marketSource.mode = 'synthetic';
+  try {
+    return fn();
+  } finally {
+    marketSource.mode = prev;
+  }
+}
 
 /** symbol → day index → 288×[o,h,l,c] (NaN for missing bars) or null for a closed market day. */
 const remoteDays = new Map<string, Map<number, Float64Array | null>>();
@@ -389,14 +403,14 @@ export function onDataVersion(f: () => void) {
 /** 5-minute bars of one UTC day, or null when the market is closed / nothing is loaded. */
 export function dayBars(sym: SymbolInfo, idx: number): Float64Array | null {
   if (idx < 0) return null;
-  if (marketSource.mode === 'remote') return remoteDays.get(sym.id)?.get(idx) ?? null;
+  if (isRemote(sym.id)) return remoteDays.get(sym.id)?.get(idx) ?? null;
   if (!sym.weekends && !isWeekday(idx)) return null;
   if (idx >= HORIZON_DAYS) return null;
   return synthDay(sym, idx);
 }
 
 export function isTradingDay(sym: SymbolInfo, idx: number): boolean {
-  if (marketSource.mode === 'remote') {
+  if (isRemote(sym.id)) {
     const m = remoteDays.get(sym.id);
     if (m?.has(idx)) return m.get(idx) !== null;
   }
@@ -497,10 +511,10 @@ export function candlesBetween(symbolId: string, tf: Timeframe, fromMs: number, 
   return out;
 }
 
-/** Close of the last completed 5-minute bar at `cursor`. */
-export function priceAt(symbolId: string, cursor: number): number {
+/** Close of the last completed 5-minute bar at `cursor`, or null when no bar of the last 12 days is loaded. */
+export function knownPriceAt(symbolId: string, cursor: number): number | null {
   const sym = SYMBOL_MAP[symbolId];
-  if (!sym) return 0;
+  if (!sym) return null;
   let idx = dayIndexOf(cursor - 1);
   for (let guard = 0; guard < 12 && idx >= 0; guard++, idx--) {
     const bars = dayBars(sym, idx);
@@ -511,7 +525,12 @@ export function priceAt(symbolId: string, cursor: number): number {
     if (j < 0) continue;
     return bars[j * 4 + 3];
   }
-  return sym.base;
+  return null;
+}
+
+/** Close of the last completed 5-minute bar at `cursor` (the symbol's reference price when nothing is loaded). */
+export function priceAt(symbolId: string, cursor: number): number {
+  return knownPriceAt(symbolId, cursor) ?? SYMBOL_MAP[symbolId]?.base ?? 0;
 }
 
 /** Completed 5-minute bars between `from` (inclusive start) and `to` (inclusive end). */

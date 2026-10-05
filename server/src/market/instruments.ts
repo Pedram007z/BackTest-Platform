@@ -1,0 +1,101 @@
+/**
+ * The app's symbols (src/lib/market.ts) and where their real prices come from.
+ * Dukascopy stores prices as integers; `factor` is what they are divided by.
+ */
+
+export type Group = 'forex' | 'metal' | 'energy' | 'index' | 'crypto';
+
+export interface Instrument {
+  id: string;
+  group: Group;
+  digits: number;
+  /** Trades on weekends (crypto). */
+  weekends: boolean;
+  dukascopy?: { name: string; factor: number };
+  binance?: string;
+}
+
+const FOREX = [
+  'EURUSD',
+  'GBPUSD',
+  'USDJPY',
+  'USDCHF',
+  'USDCAD',
+  'AUDUSD',
+  'NZDUSD',
+  'EURGBP',
+  'EURJPY',
+  'EURCHF',
+  'EURCAD',
+  'EURAUD',
+  'EURNZD',
+  'GBPJPY',
+  'GBPCHF',
+  'GBPCAD',
+  'GBPAUD',
+  'GBPNZD',
+  'AUDJPY',
+  'AUDCHF',
+  'AUDCAD',
+  'AUDNZD',
+  'NZDJPY',
+  'NZDCHF',
+  'NZDCAD',
+  'CADJPY',
+  'CADCHF',
+  'CHFJPY',
+  'USDTRY',
+  'USDZAR',
+  'USDMXN',
+  'USDSEK',
+  'USDNOK',
+  'USDSGD',
+  'USDHKD',
+  'USDPLN',
+  'USDCNH',
+  'EURTRY',
+  'EURNOK',
+  'EURSEK',
+  'EURPLN',
+];
+
+const list: Instrument[] = [
+  ...FOREX.map((id): Instrument => {
+    const jpy = id.endsWith('JPY');
+    return { id, group: 'forex', digits: jpy ? 3 : 5, weekends: false, dukascopy: { name: id, factor: jpy ? 1e3 : 1e5 } };
+  }),
+  { id: 'XAUUSD', group: 'metal', digits: 2, weekends: false, dukascopy: { name: 'XAUUSD', factor: 1e3 } },
+  { id: 'XAGUSD', group: 'metal', digits: 3, weekends: false, dukascopy: { name: 'XAGUSD', factor: 1e3 } },
+  { id: 'XPTUSD', group: 'metal', digits: 2, weekends: false, dukascopy: { name: 'XPTCMDUSD', factor: 1e3 } },
+  { id: 'USOIL', group: 'energy', digits: 2, weekends: false, dukascopy: { name: 'LIGHTCMDUSD', factor: 1e3 } },
+  { id: 'UKOIL', group: 'energy', digits: 2, weekends: false, dukascopy: { name: 'BRENTCMDUSD', factor: 1e3 } },
+  { id: 'NGAS', group: 'energy', digits: 3, weekends: false, dukascopy: { name: 'GASCMDUSD', factor: 1e3 } },
+  { id: 'US30', group: 'index', digits: 1, weekends: false, dukascopy: { name: 'USA30IDXUSD', factor: 1e3 } },
+  { id: 'NAS100', group: 'index', digits: 1, weekends: false, dukascopy: { name: 'USATECHIDXUSD', factor: 1e3 } },
+  { id: 'SPX500', group: 'index', digits: 2, weekends: false, dukascopy: { name: 'USA500IDXUSD', factor: 1e3 } },
+  { id: 'US2000', group: 'index', digits: 2, weekends: false, dukascopy: { name: 'USSC2000IDXUSD', factor: 1e3 } },
+  { id: 'GER40', group: 'index', digits: 1, weekends: false, dukascopy: { name: 'DEUIDXEUR', factor: 1e3 } },
+  { id: 'UK100', group: 'index', digits: 1, weekends: false, dukascopy: { name: 'GBRIDXGBP', factor: 1e3 } },
+  { id: 'FRA40', group: 'index', digits: 1, weekends: false, dukascopy: { name: 'FRAIDXEUR', factor: 1e3 } },
+  { id: 'EU50', group: 'index', digits: 1, weekends: false, dukascopy: { name: 'EUSIDXEUR', factor: 1e3 } },
+  { id: 'JPN225', group: 'index', digits: 0, weekends: false, dukascopy: { name: 'JPNIDXJPY', factor: 1e3 } },
+  { id: 'AUS200', group: 'index', digits: 1, weekends: false, dukascopy: { name: 'AUSIDXAUD', factor: 1e3 } },
+  { id: 'HK50', group: 'index', digits: 0, weekends: false, dukascopy: { name: 'HKGIDXHKD', factor: 1e3 } },
+  // E-mini futures follow the cash-index CFDs (close, but not tick-identical to CME prices)
+  { id: 'NQ', group: 'index', digits: 2, weekends: false, dukascopy: { name: 'USATECHIDXUSD', factor: 1e3 } },
+  { id: 'ES', group: 'index', digits: 2, weekends: false, dukascopy: { name: 'USA500IDXUSD', factor: 1e3 } },
+  { id: 'BTCUSD', group: 'crypto', digits: 1, weekends: true, binance: 'BTCUSDT', dukascopy: { name: 'BTCUSD', factor: 10 } },
+  { id: 'ETHUSD', group: 'crypto', digits: 2, weekends: true, binance: 'ETHUSDT', dukascopy: { name: 'ETHUSD', factor: 10 } },
+  { id: 'BNBUSD', group: 'crypto', digits: 2, weekends: true, binance: 'BNBUSDT' },
+  { id: 'SOLUSD', group: 'crypto', digits: 3, weekends: true, binance: 'SOLUSDT' },
+  { id: 'XRPUSD', group: 'crypto', digits: 5, weekends: true, binance: 'XRPUSDT' },
+  { id: 'ADAUSD', group: 'crypto', digits: 5, weekends: true, binance: 'ADAUSDT' },
+  { id: 'DOGEUSD', group: 'crypto', digits: 6, weekends: true, binance: 'DOGEUSDT' },
+  { id: 'LTCUSD', group: 'crypto', digits: 2, weekends: true, binance: 'LTCUSDT', dukascopy: { name: 'LTCUSD', factor: 100 } },
+  { id: 'DOTUSD', group: 'crypto', digits: 4, weekends: true, binance: 'DOTUSDT' },
+  { id: 'AVAXUSD', group: 'crypto', digits: 3, weekends: true, binance: 'AVAXUSDT' },
+  { id: 'LINKUSD', group: 'crypto', digits: 4, weekends: true, binance: 'LINKUSDT' },
+  { id: 'TRXUSD', group: 'crypto', digits: 5, weekends: true, binance: 'TRXUSDT' },
+];
+
+export const INSTRUMENTS: Record<string, Instrument> = Object.fromEntries(list.map((i) => [i.id, i]));

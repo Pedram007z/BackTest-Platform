@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { fmtMarketTime } from '../../lib/calendar';
 import { fmtR, fmtUsd } from '../../lib/format';
-import { getCandles, type Candle } from '../../lib/market';
+import { getCandles, synthetic, type Candle } from '../../lib/market';
 
 const SYMBOL = 'EURUSD';
 const TOTAL = 170;
@@ -43,7 +43,7 @@ export function ReplayDemo() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const reduced = useMemo(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, []);
-  const candles = useMemo(() => getCandles(SYMBOL, '15m', Date.UTC(2023, 4, 3, 22), TOTAL), []);
+  const candles = useMemo(() => synthetic(() => getCandles(SYMBOL, '15m', Date.UTC(2023, 4, 3, 22), TOTAL)), []);
   const trade = useMemo(() => planTrade(candles), [candles]);
   const [n, setN] = useState(() => (reduced && trade ? Math.min(TOTAL, trade.exitIndex + 3) : START_VISIBLE));
   const [playing, setPlaying] = useState(!reduced);

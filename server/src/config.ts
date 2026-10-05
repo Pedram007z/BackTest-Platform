@@ -1,0 +1,70 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+/** Server settings from the environment (and `server/.env` when present). See `.env.example`. */
+
+if (existsSync('.env')) {
+  try {
+    process.loadEnvFile('.env');
+  } catch (e) {
+    console.warn('[config] could not read .env:', (e as Error).message);
+  }
+}
+
+const env = (k: string, fallback = '') => (process.env[k] ?? fallback).trim();
+const bool = (k: string, fallback: boolean) => {
+  const v = env(k).toLowerCase();
+  if (!v) return fallback;
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+};
+const int = (k: string, fallback: number) => {
+  const n = Number(env(k));
+  return Number.isFinite(n) && env(k) !== '' ? Math.floor(n) : fallback;
+};
+const list = (k: string) =>
+  env(k)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+const production = env('NODE_ENV') === 'production';
+const port = int('PORT', 8787);
+
+export const config = {
+  production,
+  port,
+  host: env('HOST', '0.0.0.0'),
+  /** Where the web app is served, e.g. https://backtestlab.ir. Payment callbacks send the browser back here. */
+  appUrl: env('APP_URL', 'http://localhost:5173').replace(/\/$/, ''),
+  /** Public address of this API server; gateways call `${publicUrl}/api/payments/callback/...`. */
+  publicUrl: env('PUBLIC_URL', `http://localhost:${port}`).replace(/\/$/, ''),
+  /** Allowed browser origins (comma separated). Defaults to APP_URL plus the Vite dev server. */
+  corsOrigins: list('CORS_ORIGINS'),
+  dataDir: resolve(env('DATA_DIR', './data')),
+  /** Phones that are made admins when they sign in (comma separated, 09xxxxxxxxx). */
+  adminPhones: list('ADMIN_PHONES'),
+  /** Read X-Forwarded-For (behind nginx / a load balancer). */
+  trustProxy: bool('TRUST_PROXY', false),
+  /** Return the sign-in code in the API response while real SMS sending is off. Never enable on a public server. */
+  devOtpEcho: bool('OTP_DEV_ECHO', !production),
+  /** Skip the bank and complete payments on a local test page. For development only. */
+  paymentSimulator: bool('PAYMENT_SIMULATOR', !production),
+  sessionDays: int('SESSION_DAYS', 30),
+  /** Upstream hosts; point them at a mirror or relay if the server cannot reach them directly. */
+  forexFactoryUrl: env('FF_BASE_URL', 'https://www.forexfactory.com').replace(/\/$/, ''),
+  forexFactoryFeedUrl: env('FF_FEED_URL', 'https://nfs.faireconomy.media/ff_calendar_thisweek.json'),
+  dukascopyUrl: env('DUKASCOPY_URL', 'https://datafeed.dukascopy.com/datafeed').replace(/\/$/, ''),
+  binanceUrl: env('BINANCE_URL', 'https://data-api.binance.vision').replace(/\/$/, ''),
+  /** Hourly refresh of the current calendar week. */
+  newsSyncMinutes: int('NEWS_SYNC_MINUTES', 60),
+  upstreamTimeoutMs: int('UPSTREAM_TIMEOUT_MS', 15_000),
+};
+
+export type Config = typeof config;
+
+export function allowedOrigins(): string[] {
+  if (config.corsOrigins.length) return config.corsOrigins;
+  const out = [new URL(config.appUrl).origin];
+  if (!config.production) out.push('http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:4173');
+  return out;
+}

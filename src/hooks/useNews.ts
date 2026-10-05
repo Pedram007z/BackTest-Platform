@@ -9,7 +9,8 @@ export type NewsSource = 'forexfactory' | 'sample';
 
 /**
  * Calendar events around the replay cursor (three weeks back, four ahead). With the API server the
- * events come from ForexFactory; otherwise from the built-in sample calendar.
+ * events come from ForexFactory (weeks it cannot provide are filled from the sample calendar);
+ * otherwise from the built-in sample calendar.
  */
 export function useNews(cursor: number): { events: NewsEvent[]; source: NewsSource; loading: boolean } {
   const start = Math.floor(cursor / WEEK) * WEEK - 3 * WEEK;
@@ -34,10 +35,16 @@ export function useNews(cursor: number): { events: NewsEvent[]; source: NewsSour
     }
     let alive = true;
     setState((s) => ({ ...s, loading: true }));
-    api<{ events: NewsEvent[] }>(`/api/news?from=${start}&to=${end}`)
+    api<{ events: NewsEvent[]; missing?: number[] }>(`/api/news?from=${start}&to=${end}`)
       .then((r) => {
-        cache.set(key, r.events);
-        if (alive) setState({ key, events: r.events, source: 'forexfactory', loading: false });
+        // weeks ForexFactory could not provide are filled from the sample calendar
+        const missing = r.missing ?? [];
+        const filled = missing.length
+          ? [...r.events, ...missing.flatMap((w) => sampleNews(Math.max(start, w), Math.min(end, w + WEEK)))].sort((a, b) => a.time - b.time)
+          : r.events;
+        const source: NewsSource = missing.length && !r.events.length ? 'sample' : 'forexfactory';
+        if (source === 'forexfactory') cache.set(key, filled);
+        if (alive) setState({ key, events: filled, source, loading: false });
       })
       .catch(() => {
         if (alive) setState({ key, events: sampleNews(start, end), source: 'sample', loading: false });

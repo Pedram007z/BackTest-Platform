@@ -24,6 +24,7 @@ const qs = (o: object) =>
 
 export const httpBackend: Backend = {
   mode: 'server',
+  siteConfig: () => get('/api/config'),
   requestOtp: (phone) => post('/api/auth/otp', { phone }),
   verifyOtp: (phone, code, name) => post('/api/auth/verify', { phone, code, name }),
   demoLogin: () => Promise.reject(new BackendError('unsupported', 'حساب نمایشی فقط در نسخه‌ی بدون سرور در دسترس است.')),

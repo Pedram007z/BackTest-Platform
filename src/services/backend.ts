@@ -10,6 +10,7 @@ import type {
   Payment,
   PaymentQuery,
   Plan,
+  SiteConfig,
   SiteSettings,
   SmsLog,
   SmsSettings,
@@ -81,6 +82,8 @@ export interface AdminApi {
 
 export interface Backend {
   mode: 'demo' | 'server';
+  /** Public site settings (no sign-in needed). */
+  siteConfig(): Promise<SiteConfig>;
   requestOtp(phone: string): Promise<OtpRequest>;
   verifyOtp(phone: string, code: string, name?: string): Promise<AuthResult>;
   /** The sample account (demo mode only). */

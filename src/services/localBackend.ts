@@ -384,6 +384,18 @@ export function sandboxPaymentInfo(paymentId: string): Payment | null {
 export const localBackend: Backend = {
   mode: 'demo',
 
+  async siteConfig() {
+    const s = db().settings;
+    return {
+      siteName: s.siteName,
+      registrationOpen: s.registrationOpen,
+      maintenance: s.maintenance,
+      supportPhone: s.supportPhone,
+      enabledSymbols: [...s.enabledSymbols],
+      market: {},
+    };
+  },
+
   async requestOtp(raw) {
     const phone = normalizePhone(raw);
     if (!phone) throw new BackendError('bad_phone', 'شماره موبایل درست نیست. نمونه: ۰۹۱۲۱۲۳۴۵۶۷', 'phone');
@@ -575,7 +587,7 @@ export const localBackend: Backend = {
       const list = db()
         .users.filter((u) => {
           if (!text) return true;
-          const digits = normalizePhone(text) ?? text.replace(/\D/g, '');
+          const digits = normalizePhone(text) ?? text.replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0)).replace(/\D/g, '');
           return u.name.toLowerCase().includes(text) || (digits.length > 0 && u.phone.includes(digits));
         })
         .filter((u) => !q.planId || q.planId === 'all' || u.planId === q.planId)

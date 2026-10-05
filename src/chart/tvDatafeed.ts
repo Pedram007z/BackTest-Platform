@@ -1,6 +1,8 @@
 import { DATA_START, SYMBOL_MAP, TF_MS, TIMEFRAMES, candlesBetween, getCandles, tfFromTv, type SymbolInfo, type Timeframe } from '../lib/market';
-import { keyToMs } from '../lib/calendar';
+import { DAY_MS, keyToMs } from '../lib/calendar';
 import { newsTitleFa, type NewsEvent } from '../lib/news';
+import { hasServer } from '../services/api';
+import { ensureRange } from '../services/marketFeed';
 
 /**
  * TradingView JS-API datafeed for a replay: bars never go past the replay cursor, new bars are
@@ -110,15 +112,24 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
       const tf = tfFromTv(resolution);
       const cursor = src.cursor();
       const toMs = Math.min(period.to * 1000, cursor);
-      let candles = candlesBetween(symbolInfo.name, tf, period.from * 1000, period.to * 1000, cursor);
-      if (candles.length < period.countBack && toMs > START_MS) {
-        // reach further back over weekends and holidays so the chart gets the bars it asked for
-        candles = getCandles(symbolInfo.name, tf, toMs, period.countBack).filter((c) => c.time * 1000 < period.to * 1000);
+      const answer = () => {
+        let candles = candlesBetween(symbolInfo.name, tf, period.from * 1000, period.to * 1000, cursor);
+        if (candles.length < period.countBack && toMs > START_MS) {
+          // reach further back over weekends and holidays so the chart gets the bars it asked for
+          candles = getCandles(symbolInfo.name, tf, toMs, period.countBack).filter((c) => c.time * 1000 < period.to * 1000);
+        }
+        const key = `${symbolInfo.name}:${tf}`;
+        const last = candles[candles.length - 1];
+        if (last && last.time > (delivered.get(key) ?? 0)) delivered.set(key, last.time);
+        onResult(candles.map(toBar), { noData: candles.length === 0 });
+      };
+      if (!hasServer) {
+        setTimeout(answer);
+        return;
       }
-      const key = `${symbolInfo.name}:${tf}`;
-      const last = candles[candles.length - 1];
-      if (last && last.time > (delivered.get(key) ?? 0)) delivered.set(key, last.time);
-      setTimeout(() => onResult(candles.map(toBar), { noData: candles.length === 0 }));
+      // real data: load the requested range (with room for weekends) before answering
+      const fromMs = Math.min(period.from * 1000, toMs - period.countBack * TF_MS[tf] * 1.45);
+      void ensureRange([symbolInfo.name], Math.max(START_MS, fromMs - DAY_MS), toMs).finally(answer);
     },
 
     subscribeBars(symbolInfo: any, resolution: string, onTick: (bar: any) => void, guid: string, onReset: () => void) {

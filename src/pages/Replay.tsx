@@ -1,5 +1,22 @@
 import clsx from 'clsx';
-import { ArrowRight, BarChart3, CalendarDays, Camera, ChevronDown, ChevronUp, Cpu, LayoutGrid, Maximize2, Minimize2, Minus, NotebookPen, Plus, Send, X } from 'lucide-react';
+import {
+  ArrowRight,
+  BarChart3,
+  CalendarDays,
+  Camera,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  LayoutGrid,
+  LoaderCircle,
+  Maximize2,
+  Minimize2,
+  Minus,
+  NotebookPen,
+  Plus,
+  Send,
+  X,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { loadTradingView } from '../chart/tvLoader';
@@ -15,7 +32,7 @@ import { Modal } from '../components/ui/Modal';
 import { Meter } from '../components/ui/controls';
 import { Popover } from '../components/ui/Popover';
 import { useNews } from '../hooks/useNews';
-import { fmtDay, fmtDayLong, fmtMarketTime, msToKey } from '../lib/calendar';
+import { DAY_MS, fmtDay, fmtDayLong, fmtMarketTime, msToKey } from '../lib/calendar';
 import { faDigits, fmtNum, fmtUsd, toLatinDigits } from '../lib/format';
 import { SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
 import { currenciesFor, filterNews } from '../lib/news';
@@ -25,6 +42,7 @@ import { local } from '../lib/storage';
 import { fmtTehran } from '../lib/timezone';
 import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, tickOf } from '../lib/trading';
 import type { ChartPane as Pane, JournalEntry, LayoutId, Side, Trade } from '../lib/types';
+import { ensureRange, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
 import { toast, useStore, useUi } from '../store/useStore';
 
 interface Draft {
@@ -148,6 +166,18 @@ export default function Replay() {
   const active = panes[Math.min(activePane, panes.length - 1)];
   const layoutDef = LAYOUTS.find((l) => l.id === layout) ?? LAYOUTS[0];
 
+  // ---------- market data (real bars from the API server) ----------
+  const market = useReplayData(panes, session?.symbols ?? [], session?.cursor ?? 0);
+  useEffect(() => {
+    let last = 0;
+    return onMarketError((message) => {
+      if (Date.now() - last < 30_000) return;
+      last = Date.now();
+      toast(message, 'error');
+    });
+  }, []);
+  const waitingForData = useRef(false);
+
   const changeLayout = (next: LayoutId) => {
     if (!session) return;
     const def = LAYOUTS.find((l) => l.id === next)!;
@@ -191,6 +221,20 @@ export default function Replay() {
       const end = sessionEndMs(s);
       const next = Math.min(end, target);
       if (next <= s.cursor) return;
+      // orders fill on the bars in between, so they have to be loaded first
+      if (!rangeReady(s.symbols, s.cursor, next)) {
+        if (waitingForData.current) return;
+        waitingForData.current = true;
+        void ensureRange(s.symbols, s.cursor - DAY_MS, next + 3 * DAY_MS).then((ok) => {
+          waitingForData.current = false;
+          if (ok) jumpTo(target);
+          else {
+            setPlaying(false);
+            toast('داده‌ی بازار این بازه هنوز دریافت نشده؛ کمی بعد دوباره تلاش کنید', 'error');
+          }
+        });
+        return;
+      }
       notify(st.advance(s.id, next));
       if (next >= end) {
         setPlaying(false);
@@ -562,6 +606,15 @@ export default function Replay() {
               این جلسه به تاریخ پایان رسیده است.
             </div>
           )}
+          {!ended && market.loading && (
+            <div
+              role="status"
+              className="absolute inset-x-0 top-12 z-10 mx-auto flex w-fit items-center gap-2 rounded-xl border border-line bg-raised px-4 py-2 text-xs font-semibold shadow-pop"
+            >
+              <LoaderCircle size={14} className="animate-spin text-accent" />
+              {market.ready ? 'در حال دریافت تاریخچه‌ی بازار…' : 'در حال دریافت داده‌ی بازار…'}
+            </div>
+          )}
           <PlaybackBar
             playing={playing}
             onTogglePlay={() => setPlaying((p) => !p)}
@@ -618,7 +671,7 @@ export default function Replay() {
           <button type="button" className="btn-soft py-1.5" onClick={() => setJournalFor('draft')}>
             <NotebookPen size={15} /> ذخیره ژورنال {draftJournal && <span className="h-1.5 w-1.5 rounded-full bg-gain" />}
           </button>
-          <button type="button" className="btn-primary py-1.5" onClick={place} disabled={!!preview.problem}>
+          <button type="button" className="btn-primary py-1.5" onClick={place} disabled={!!preview.problem || !market.ready}>
             <Send size={15} className="-scale-x-100" /> ثبت معامله
           </button>
           <button type="button" className="icon-btn h-8 w-8" onClick={() => setDraft(null)} aria-label="لغو" title="لغو (Esc)">
@@ -658,10 +711,20 @@ export default function Replay() {
         </dl>
 
         <div className="ms-auto flex flex-wrap items-center gap-2">
-          <button type="button" className={clsx('btn-buy px-5 py-1.5', draft?.side === 'buy' && 'ring-2 ring-gain/40')} onClick={() => startDraft('buy')} disabled={ended}>
+          <button
+            type="button"
+            className={clsx('btn-buy px-5 py-1.5', draft?.side === 'buy' && 'ring-2 ring-gain/40')}
+            onClick={() => startDraft('buy')}
+            disabled={ended || !market.ready}
+          >
             خرید
           </button>
-          <button type="button" className={clsx('btn-sell px-5 py-1.5', draft?.side === 'sell' && 'ring-2 ring-loss/40')} onClick={() => startDraft('sell')} disabled={ended}>
+          <button
+            type="button"
+            className={clsx('btn-sell px-5 py-1.5', draft?.side === 'sell' && 'ring-2 ring-loss/40')}
+            onClick={() => startDraft('sell')}
+            disabled={ended || !market.ready}
+          >
             فروش
           </button>
           <div className="flex items-center gap-1 rounded-xl border border-line bg-raised/70 px-1 py-0.5" title="درصد ریسک هر معامله از موجودی">
