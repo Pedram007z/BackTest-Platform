@@ -1,29 +1,38 @@
 import clsx from 'clsx';
 import {
   ArrowLeft,
+  CalendarClock,
+  ChartColumn,
   Check,
   ChevronDown,
   CirclePlay,
+  Clock3,
+  CreditCard,
   Gauge,
-  Layers,
+  LayoutGrid,
   ListChecks,
   Menu,
+  MessageSquareText,
   Moon,
   NotebookPen,
-  ChartColumn,
+  Smartphone,
   Sun,
   Target,
   X,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
 import { Logo } from '../components/layout/Layout';
-import { fmtNum, fmtPct } from '../lib/format';
-import { GROUP_LABELS, SYMBOLS, type SymbolGroup } from '../lib/market';
-import { useAuth } from '../store/useAuth';
+import { fmtDayLong } from '../lib/calendar';
+import { faDigits, fmtNum, fmtPct } from '../lib/format';
 import { fmtPhone } from '../lib/auth';
+import { DATA_START, GROUP_LABELS, SYMBOLS, TIMEFRAMES, type SymbolGroup } from '../lib/market';
+import { backend } from '../services';
+import { DEFAULT_PLANS } from '../services/localBackend';
+import type { Plan } from '../services/types';
+import { useAuth } from '../store/useAuth';
 import { useStore } from '../store/useStore';
 
 const NAV = [
@@ -50,33 +59,43 @@ function SectionHead({ eyebrow, title, text }: { eyebrow: string; title: string;
 const FEATURES: { icon: ReactNode; title: string; text: string }[] = [
   {
     icon: <CirclePlay size={20} />,
-    title: 'بازپخش کندل به کندل',
-    text: 'بازار را از هر تاریخی که بخواهی دوباره پخش کن. توقف، جلو رفتن یک کندل یا یک روز، و سرعت تا ۸ برابر.',
+    title: 'بازپخش روی چارت TradingView',
+    text: 'از هر تاریخی شروع کن و کندل به کندل جلو برو؛ با نوار پخش شناور، سرعت تا ۲۰ کندل در ثانیه و بدون دیدن آینده‌ی چارت.',
   },
   {
     icon: <Target size={20} />,
-    title: 'سفارش با ریسک و RR',
-    text: 'درصد ریسک، حد ضرر بر حسب پیپ و نسبت ریسک به ریوارد را بده؛ حد سود و ضرر با حرکت قیمت خودکار اجرا می‌شوند.',
+    title: 'ابزار پوزیشن مثل TradingView',
+    text: 'ورود، حد ضرر و حد سود را روی چارت بکش. نوع سفارش (مارکت، لیمیت، استاپ) و حجم لات از درصد ریسک خودکار حساب می‌شود.',
   },
   {
-    icon: <Layers size={20} />,
-    title: 'آمار جدا برای هر استراتژی',
-    text: 'هر معامله به یک استراتژی وصل می‌شود. تعداد معاملات، وین‌ریت، RR میانگین و منحنی اکوئیتی هر کدام را جدا ببین.',
+    icon: <CalendarClock size={20} />,
+    title: 'تقویم اقتصادی ForexFactory',
+    text: 'خبرهای مهم روی چارت علامت می‌خورند. فیلتر کشور و اهمیت داری و عدد واقعی هر خبر تا زمان انتشارش مخفی می‌ماند.',
   },
   {
-    icon: <ListChecks size={20} />,
-    title: 'چک‌لیست قبل از ورود',
-    text: 'شرایط ورودت را چک‌لیست کن. تا آیتم‌های الزامی تیک نخورند، دکمه‌ی خرید و فروش فعال نمی‌شود.',
+    icon: <LayoutGrid size={20} />,
+    title: 'تا ۴ چارت هم‌زمان',
+    text: 'چند نماد یا چند تایم‌فریم را کنار هم ببین. حالت تمام‌صفحه فقط چارت، خرید و فروش و نوار پخش را نگه می‌دارد.',
+  },
+  {
+    icon: <Clock3 size={20} />,
+    title: 'پرش به سشن‌ها به وقت تهران',
+    text: 'یک کلیک تا باز شدن سشن لندن یا نیویورک. زمان‌های دلخواهت را هم با نام و ساعت خودت ذخیره کن.',
   },
   {
     icon: <NotebookPen size={20} />,
-    title: 'ژورنال معاملات',
-    text: 'همه‌ی معاملات با فیلتر جلسه، استراتژی، نماد و نتیجه. برای هر معامله یادداشت بنویس که چرا وارد شدی.',
+    title: 'ژورنال با اسکرین‌شات',
+    text: 'برای هر معامله عکس چارت، چک‌لیست، میزان اطمینان، امتیاز ستاره‌ای و یادداشت ثبت کن و بعداً با فیلتر پیدایش کن.',
+  },
+  {
+    icon: <ListChecks size={20} />,
+    title: 'چک‌لیست و استراتژی',
+    text: 'شرایط ورود را چک‌لیست کن؛ تا آیتم‌های الزامی تیک نخورند معامله ثبت نمی‌شود. آمار هر استراتژی جدا نگه داشته می‌شود.',
   },
   {
     icon: <ChartColumn size={20} />,
-    title: 'آنالیز عملکرد',
-    text: 'فاکتور سود، امید ریاضی، بیشترین افت سرمایه، عملکرد هر نماد و هر روز هفته، و مقایسه‌ی خرید با فروش.',
+    title: 'آنالیز و مونت‌کارلو',
+    text: 'RR واقعی و ایده‌آل، عملکرد هر سشن و ساعت و روز هفته، تقویم سود و زیان و شبیه‌سازی مونت‌کارلو برای آینده‌ی حساب.',
   },
 ];
 
@@ -86,42 +105,26 @@ const STEPS = [
   { title: 'نتیجه را بخوان', text: 'داشبورد، ژورنال و آنالیز نشان می‌دهند استراتژی‌ات کجا جواب داده و کجا نه.' },
 ];
 
-type Billing = 'monthly' | 'yearly';
-const PLANS: { id: string; name: string; monthly: number; note: string; features: string[]; cta: string; featured?: boolean }[] = [
-  {
-    id: 'free',
-    name: 'رایگان',
-    monthly: 0,
-    note: 'برای آشنایی با بک‌تست',
-    features: ['۲ جلسه‌ی فعال', 'نمادهای اصلی فارکس', 'تایم‌فریم ۱۵ دقیقه به بالا', 'داشبورد و ژورنال پایه'],
-    cta: 'شروع رایگان',
-  },
-  {
-    id: 'plus',
-    name: 'پیشرفته',
-    monthly: 490,
-    note: 'برای تمرین روزانه',
-    features: ['۲۰ جلسه‌ی فعال', 'همه‌ی نمادهای فارکس و طلا', 'همه‌ی تایم‌فریم‌ها', 'استراتژی و چک‌لیست نامحدود', 'آنالیز کامل'],
-    cta: 'انتخاب پیشرفته',
-    featured: true,
-  },
-  {
-    id: 'pro',
-    name: 'حرفه‌ای',
-    monthly: 890,
-    note: 'برای تریدرهای جدی',
-    features: ['جلسه‌ی نامحدود', 'شاخص‌ها و کریپتو', 'سرعت پخش تا ۸ برابر', 'خروجی ژورنال', 'پشتیبانی اولویت‌دار'],
-    cta: 'انتخاب حرفه‌ای',
-  },
-];
-
 const FAQ = [
-  { q: 'بک‌تست دستی چه فرقی با بک‌تست خودکار دارد؟', a: 'در بک‌تست خودکار یک کد قوانین را اجرا می‌کند. در بک‌تست دستی خودت روی چارت تصمیم می‌گیری، همان کاری که در بازار واقعی می‌کنی. برای همین هم استراتژی را می‌سنجد و هم مهارت اجرای تو را.' },
-  { q: 'آینده‌ی چارت را می‌بینم؟', a: 'نه. در هر لحظه فقط کندل‌هایی که تا زمان فعلی جلسه بسته شده‌اند نمایش داده می‌شوند، پس نمی‌توانی ناخواسته از آینده خبر داشته باشی.' },
+  {
+    q: 'بک‌تست دستی چه فرقی با بک‌تست خودکار دارد؟',
+    a: 'در بک‌تست خودکار یک کد قوانین را اجرا می‌کند. در بک‌تست دستی خودت روی چارت تصمیم می‌گیری، همان کاری که در بازار واقعی می‌کنی. برای همین هم استراتژی را می‌سنجد و هم مهارت اجرای تو را.',
+  },
+  {
+    q: 'آینده‌ی چارت را می‌بینم؟',
+    a: 'نه. در هر لحظه فقط کندل‌هایی که تا زمان فعلی جلسه بسته شده‌اند نمایش داده می‌شوند. عدد واقعی خبرهای اقتصادی هم تا لحظه‌ی انتشارشان مخفی است.',
+  },
+  {
+    q: 'کدام بازارها پشتیبانی می‌شوند؟',
+    a: `${fmtNum(SYMBOLS.length)} نماد: جفت‌ارزهای اصلی، فرعی و اگزوتیک فارکس، طلا و نقره، نفت و گاز، شاخص‌های آمریکا، اروپا و آسیا و ارزهای دیجیتال اصلی؛ با تایم‌فریم‌های ۵ دقیقه تا روزانه.`,
+  },
+  { q: 'ثبت‌نام چطور است؟', a: 'فقط با شماره موبایل. کد تأیید با پیامک می‌آید و نیازی به ایمیل یا رمز عبور نیست.' },
+  {
+    q: 'پرداخت چطور انجام می‌شود؟',
+    a: 'با همه‌ی کارت‌های عضو شتاب از طریق درگاه‌های شاپرکی (زرین‌پال، زیبال و…). تمدید خودکار نداریم؛ هر وقت خواستی پلن بعدی را بخر و روزهای باقی‌مانده‌ات به آن اضافه می‌شود.',
+  },
   { q: 'به نصب برنامه نیاز دارم؟', a: 'نه. همه‌چیز در مرورگر اجرا می‌شود؛ روی کامپیوتر، تبلت و موبایل.' },
-  { q: 'کدام بازارها پشتیبانی می‌شوند؟', a: `در حال حاضر ${fmtNum(SYMBOLS.length)} نماد در فارکس، طلا، شاخص‌های آمریکا و بیت‌کوین، با تایم‌فریم‌های ۵ دقیقه تا روزانه.` },
-  { q: 'اگر از پلن پولی راضی نبودم چه؟', a: 'هر زمان بخواهی می‌توانی تمدید خودکار را لغو کنی. تا پایان دوره‌ای که پرداخت کرده‌ای دسترسی‌ات باقی می‌ماند.' },
-  { q: 'تاریخ‌ها شمسی است یا میلادی؟', a: 'هر دو. انتخاب تاریخ جلسه را می‌توانی با تقویم شمسی یا میلادی انجام بدهی و تاریخ‌ها در سراسر پنل شمسی نمایش داده می‌شوند.' },
+  { q: 'ساعت‌ها و تاریخ‌ها به چه وقتی است؟', a: 'ساعت‌ها به وقت تهران و تاریخ‌ها شمسی نمایش داده می‌شوند. انتخاب تاریخ جلسه را می‌توانی با تقویم شمسی یا میلادی انجام بدهی.' },
 ];
 
 // Example data for the dashboard preview section.
@@ -141,13 +144,26 @@ const PREVIEW_SYMBOLS = [
   { symbol: 'XAUUSD', count: 21 },
 ];
 
-function Price({ toman }: { toman: number }) {
-  if (toman === 0) return <span className="font-display text-4xl font-extrabold">رایگان</span>;
+/** Price per month, the full amount, and how much a longer plan saves against paying monthly. Fixed height so cards line up. */
+function Price({ plan, monthly }: { plan: Plan; monthly?: number }) {
+  const months = Math.max(1, Math.round(plan.durationDays / 30));
+  const perMonth = plan.priceToman / months;
+  const saved = monthly && months > 1 && plan.priceToman > 0 ? monthly * months - plan.priceToman : 0;
   return (
-    <span className="flex items-baseline gap-1.5">
-      <span className="num font-display text-4xl font-extrabold">{fmtNum(toman)}</span>
-      <span className="text-sm text-muted">هزار تومان / ماه</span>
-    </span>
+    <div className="min-h-[96px]">
+      {plan.priceToman === 0 ? (
+        <span className="block font-display text-4xl font-extrabold leading-[48px]">رایگان</span>
+      ) : (
+        <span className="flex items-baseline gap-1.5 leading-[48px]">
+          <span className="num font-display text-4xl font-extrabold">{fmtNum(Math.round(perMonth / 1000))}</span>
+          <span className="text-sm text-muted">هزار تومان / ماه</span>
+        </span>
+      )}
+      <p className="num mt-1 text-xs text-faint">
+        {plan.priceToman === 0 ? 'بدون محدودیت زمانی' : months > 1 ? `${fmtNum(plan.priceToman / 1000)} هزار تومان برای ${fmtNum(months)} ماه` : 'پرداخت ماه به ماه'}
+      </p>
+      {saved > 0 && <span className="num mt-2 inline-flex rounded-full bg-gain/15 px-2.5 py-0.5 text-[11px] font-bold text-gain">{fmtNum(saved / 1000)} هزار تومان صرفه‌جویی</span>}
+    </div>
   );
 }
 
@@ -173,8 +189,17 @@ export default function Landing() {
       navigate('/login');
     }
   };
-  const [billing, setBilling] = useState<Billing>('yearly');
   const [faq, setFaq] = useState<number | null>(0);
+  // Prices come from the admin panel; the defaults show until they load.
+  const [plans, setPlans] = useState<Plan[]>(() => DEFAULT_PLANS.filter((p) => p.active));
+  useEffect(() => {
+    backend
+      .plans()
+      .then((p) => p.length && setPlans(p))
+      .catch(() => undefined);
+  }, []);
+  const monthly = plans.find((p) => p.priceToman > 0 && Math.round(p.durationDays / 30) === 1)?.priceToman;
+  const planTo = session ? '/billing' : '/signup';
 
   const groups = Object.keys(GROUP_LABELS) as SymbolGroup[];
 
@@ -192,17 +217,12 @@ export default function Landing() {
             ))}
           </nav>
           <div className="ms-auto flex items-center gap-1.5">
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}
-            >
+            <button type="button" className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}>
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
             {!session && (
               <Link to="/login" className="btn-ghost hidden sm:inline-flex">
-                ورود
+                <Smartphone size={16} /> ورود با موبایل
               </Link>
             )}
             <Link to={startTo} className="btn-primary hidden rounded-full px-4 sm:inline-flex">
@@ -231,7 +251,7 @@ export default function Landing() {
             <div className={clsx('mt-2 grid gap-2', session ? 'grid-cols-1' : 'grid-cols-2')}>
               {!session && (
                 <Link to="/login" className="btn-soft">
-                  ورود
+                  ورود با موبایل
                 </Link>
               )}
               <Link to={startTo} className="btn-primary">
@@ -256,13 +276,14 @@ export default function Landing() {
           <div>
             <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1 text-xs font-semibold text-muted">
               <span className="h-1.5 w-1.5 rounded-full bg-gain" />
-              بازپخش بازار، کندل به کندل
+              بازپخش بازار روی چارت TradingView
             </p>
             <h1 className="font-display text-[34px] font-extrabold leading-[1.45] sm:text-[44px]">
               استراتژی‌ات را روی <span className="text-accent">گذشته‌ی بازار</span> امتحان کن، نه روی سرمایه‌ات.
             </h1>
             <p className="mt-6 max-w-xl text-[16px] leading-8 text-muted">
-              بک‌تست‌لب داده‌ی تاریخی فارکس، طلا، شاخص‌ها و کریپتو را کندل به کندل برایت پخش می‌کند تا معامله کنی، ژورنال بنویسی و با عدد ببینی کدام استراتژی واقعاً جواب می‌دهد.
+              بک‌تست‌لب داده‌ی تاریخی فارکس، طلا، نفت، شاخص‌ها و کریپتو را کندل به کندل برایت پخش می‌کند، همراه با خبرهای اقتصادی همان روز، تا معامله کنی، ژورنال بنویسی و با عدد
+              ببینی کدام استراتژی واقعاً جواب می‌دهد.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to={startTo} className="btn-primary rounded-full px-6 py-3 text-[15px]">
@@ -274,7 +295,7 @@ export default function Landing() {
                 </button>
               )}
             </div>
-            <p className="mt-4 text-xs text-faint">{session ? `وارد شده با ${fmtPhone(session.phone)}` : 'بدون کارت بانکی • پلن رایگان بدون محدودیت زمانی'}</p>
+            <p className="mt-4 text-xs text-faint">{session ? `وارد شده با ${fmtPhone(session.phone)}` : 'ثبت‌نام فقط با شماره موبایل • بدون کارت بانکی • پلن رایگان همیشگی'}</p>
           </div>
           <ReplayDemo />
         </div>
@@ -284,10 +305,10 @@ export default function Landing() {
       <section className="border-y border-line/60 bg-side/60">
         <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-8 sm:px-6 md:grid-cols-4">
           {[
-            { v: fmtNum(SYMBOLS.length), l: 'نماد در ۴ بازار' },
-            { v: '۵', l: 'تایم‌فریم، از ۵ دقیقه تا روزانه' },
-            { v: '۱۳۹۳', l: 'شروع داده‌ی تاریخی (۲۰۱۵)' },
-            { v: '۸×', l: 'بیشترین سرعت پخش' },
+            { v: fmtNum(SYMBOLS.length), l: `نماد در ${fmtNum(Object.keys(GROUP_LABELS).length)} بازار` },
+            { v: fmtNum(TIMEFRAMES.length), l: 'تایم‌فریم، از ۵ دقیقه تا روزانه' },
+            { v: faDigits(DATA_START.slice(0, 4)), l: `شروع داده‌ی تاریخی (${fmtDayLong(DATA_START)})` },
+            { v: '۴', l: 'چارت هم‌زمان در یک صفحه' },
           ].map((s) => (
             <div key={s.l} className="text-center">
               <dt className="sr-only">{s.l}</dt>
@@ -300,14 +321,42 @@ export default function Landing() {
 
       {/* Features */}
       <section id="features" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
-        <SectionHead eyebrow="امکانات" title="هر چیزی که برای تمرین جدی لازم داری" text="از پخش بازار تا ثبت معامله و تحلیل نتیجه، همه در یک پنل فارسی." />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <SectionHead eyebrow="امکانات" title="هر چیزی که برای تمرین جدی لازم داری" text="از پخش بازار و خبرها تا ثبت معامله و تحلیل نتیجه، همه در یک پنل فارسی." />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f) => (
-            <article key={f.title} className="card p-6 transition hover:border-accent/50">
-              <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent">{f.icon}</span>
+            <article key={f.title} className="card group p-6 transition hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-glow">
+              <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-accent/15 text-accent-ink transition group-hover:bg-accent group-hover:text-white">
+                {f.icon}
+              </span>
               <h3 className="text-base font-bold">{f.title}</h3>
               <p className="mt-2 text-sm leading-7 text-muted">{f.text}</p>
             </article>
+          ))}
+        </div>
+      </section>
+
+      {/* Made for Iran */}
+      <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+        <div
+          className="grid gap-6 rounded-3xl border border-accent/30 p-6 sm:p-8 md:grid-cols-4"
+          style={{ background: 'linear-gradient(135deg, rgb(var(--accent) / 0.14), rgb(var(--violet) / 0.06) 60%, transparent)' }}
+        >
+          <div className="md:col-span-1">
+            <p className="text-[13px] font-bold text-accent-ink">ساخته‌شده برای ایران</p>
+            <h2 className="mt-2 font-display text-xl font-extrabold leading-9">بدون VPN، بدون ارز، بدون دردسر</h2>
+          </div>
+          {[
+            { icon: <MessageSquareText size={18} />, t: 'ورود با پیامک', d: 'ثبت‌نام و ورود فقط با شماره موبایل و کد یک‌بار مصرف.' },
+            { icon: <CreditCard size={18} />, t: 'پرداخت ریالی', d: 'خرید اشتراک با کارت‌های شتابی از درگاه‌های شاپرکی.' },
+            { icon: <Clock3 size={18} />, t: 'وقت تهران و تاریخ شمسی', d: 'سشن‌ها، خبرها و گزارش‌ها به ساعت و تقویم خودمان.' },
+          ].map((x) => (
+            <div key={x.t} className="flex gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-white">{x.icon}</span>
+              <div>
+                <h3 className="text-sm font-bold">{x.t}</h3>
+                <p className="mt-1 text-[13px] leading-6 text-muted">{x.d}</p>
+              </div>
+            </div>
           ))}
         </div>
       </section>
@@ -409,51 +458,49 @@ export default function Landing() {
 
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
-        <SectionHead eyebrow="تعرفه‌ها" title="رایگان شروع کن، هر وقت لازم شد ارتقا بده" />
-        <div className="mb-10 flex justify-center">
-          <div className="inline-flex rounded-full border border-line bg-surface p-1 text-sm font-semibold">
-            {(['monthly', 'yearly'] as const).map((b) => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => setBilling(b)}
-                aria-pressed={billing === b}
-                className={clsx('rounded-full px-5 py-2 transition', billing === b ? 'bg-accent text-white' : 'text-muted hover:text-ink')}
-              >
-                {b === 'monthly' ? 'ماهانه' : 'سالانه'}
-                {b === 'yearly' && <span className={clsx('ms-2 text-xs', billing === b ? 'text-white/80' : 'text-gain')}>۲۰٪ تخفیف</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {PLANS.map((plan) => {
-            const price = billing === 'yearly' ? Math.round(plan.monthly * 0.8) : plan.monthly;
+        <SectionHead eyebrow="تعرفه‌ها" title="رایگان شروع کن، هر وقت لازم شد ارتقا بده" text="قیمت‌ها به تومان است. هر خرید به روزهای باقی‌مانده‌ی اشتراک فعلی‌ات اضافه می‌شود." />
+        <div className={clsx('grid gap-4 sm:grid-cols-2', plans.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+          {plans.map((plan) => {
+            const featured = !!plan.badge && plan.badge.includes('محبوب');
             return (
               <article
                 key={plan.id}
-                className={clsx('relative flex flex-col rounded-2xl border p-7', plan.featured ? 'border-accent bg-accent/[0.06] shadow-[0_0_0_1px_rgb(var(--accent))]' : 'border-line/70 bg-surface')}
+                className={clsx(
+                  'relative flex flex-col rounded-2xl border p-6',
+                  featured ? 'border-accent bg-accent/[0.07] shadow-[0_0_0_1px_rgb(var(--accent)),0_24px_60px_-30px_rgb(var(--accent)/0.7)]' : 'border-line/70 bg-surface',
+                )}
               >
-                {plan.featured && <span className="absolute -top-3 right-7 rounded-full bg-accent px-3 py-0.5 text-xs font-bold text-white">محبوب‌ترین</span>}
+                {plan.badge && (
+                  <span
+                    className={clsx(
+                      'absolute -top-3 right-6 rounded-full px-3 py-0.5 text-xs font-bold',
+                      featured ? 'bg-accent text-white' : 'bg-raised text-accent-ink ring-1 ring-accent/40',
+                    )}
+                  >
+                    {plan.badge}
+                  </span>
+                )}
                 <h3 className="text-lg font-bold">{plan.name}</h3>
-                <p className="mb-5 mt-1 text-sm text-muted">{plan.note}</p>
-                <Price toman={price} />
-                <p className="num mt-1 h-5 text-xs text-faint">{plan.monthly > 0 && billing === 'yearly' ? `پرداخت سالانه: ${fmtNum(price * 12)} هزار تومان` : ''}</p>
-                <ul className="my-7 flex flex-1 flex-col gap-3 text-sm">
+                <p className="mb-5 mt-1 min-h-[40px] text-sm leading-6 text-muted">{plan.description}</p>
+                <Price plan={plan} monthly={monthly} />
+                <ul className="my-6 flex flex-1 flex-col gap-3 text-sm">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5">
-                      <Check size={16} className="shrink-0 text-gain" />
+                    <li key={f} className="flex items-start gap-2.5">
+                      <Check size={16} className="mt-1 shrink-0 text-gain" />
                       {f}
                     </li>
                   ))}
                 </ul>
-                <Link to={startTo} className={clsx('rounded-full py-3', plan.featured ? 'btn-primary' : 'btn-soft')}>
-                  {plan.cta}
+                <Link to={plan.priceToman === 0 ? startTo : planTo} className={clsx('rounded-full py-3', featured ? 'btn-primary' : 'btn-soft')}>
+                  {plan.priceToman === 0 ? (session ? 'ورود به داشبورد' : 'شروع رایگان') : session ? 'خرید اشتراک' : 'ثبت‌نام و خرید'}
                 </Link>
               </article>
             );
           })}
         </div>
+        <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs text-faint">
+          <CreditCard size={14} /> پرداخت امن از طریق درگاه‌های شاپرکی · بدون تمدید خودکار
+        </p>
       </section>
 
       {/* FAQ */}
