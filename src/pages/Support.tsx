@@ -153,7 +153,7 @@ export default function Support() {
                   پاسخ
                 </label>
                 <input id="ticket-reply" className="field" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="پاسخ خود را بنویسید…" />
-                <button type="submit" className="btn-primary" disabled={!reply.trim()}>
+                <button type="submit" className="btn-primary shrink-0 whitespace-nowrap" disabled={!reply.trim()}>
                   ارسال
                 </button>
               </form>

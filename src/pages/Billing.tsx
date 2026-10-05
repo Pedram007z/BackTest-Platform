@@ -57,15 +57,16 @@ export default function Billing() {
     void backend
       .payment(paymentId)
       .then((p) => {
+        // The banner above reports the outcome, so no toast here.
         setResult(p);
         if (p.status === 'paid') {
           void refresh();
-          toast('پرداخت موفق بود؛ اشتراک شما فعال شد');
+          setCode('');
+          setDiscount(null);
         }
         load();
       })
       .catch(() => setResult(null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentId]);
 
   const plan = plans.find((p) => p.id === planId);
@@ -224,7 +225,7 @@ export default function Billing() {
                       setCode(e.target.value);
                       setCodeError('');
                     }}
-                    placeholder="NOROOZ1405"
+                    placeholder="PAEEZ1405"
                   />
                 </div>
                 <button type="button" className="btn-soft" onClick={applyCode} disabled={!code.trim() || busy !== null}>

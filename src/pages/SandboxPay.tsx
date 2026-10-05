@@ -1,5 +1,5 @@
 import { CreditCard, LoaderCircle, Lock, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { faDigits, fmtNum } from '../lib/format';
 import { completeSandboxPayment, sandboxPaymentInfo } from '../services/localBackend';
@@ -15,6 +15,8 @@ export default function SandboxPay() {
   const id = params.get('payment') ?? '';
   const payment = sandboxPaymentInfo(id);
   const [busy, setBusy] = useState<'ok' | 'cancel' | null>(null);
+  // Bank pages give about ten minutes before the order lapses.
+  const [left, setLeft] = useState(600);
 
   const finish = (ok: boolean) => {
     setBusy(ok ? 'ok' : 'cancel');
@@ -23,6 +25,16 @@ export default function SandboxPay() {
       navigate(`/billing?payment=${encodeURIComponent(id)}`, { replace: true });
     }, 900);
   };
+
+  useEffect(() => {
+    if (busy || !payment) return;
+    if (left <= 0) {
+      finish(false);
+      return;
+    }
+    const t = setTimeout(() => setLeft((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [left, busy]);
 
   if (!payment) {
     return (
@@ -88,7 +100,9 @@ export default function SandboxPay() {
               {busy === 'cancel' ? <LoaderCircle size={17} className="mx-auto animate-spin" /> : 'انصراف'}
             </button>
           </div>
-          <p className="num text-center text-[11px] text-[#8a93a5]">زمان باقی‌مانده: {faDigits('۰۹:۴۵')}</p>
+          <p className="num text-center text-[11px] text-[#8a93a5]">
+            زمان باقی‌مانده: {faDigits(`${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`)}
+          </p>
         </div>
       </div>
     </div>

@@ -325,7 +325,7 @@ export function AdminTickets() {
                 پاسخ
               </label>
               <input id="admin-reply" className="field" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="پاسخ پشتیبانی…" />
-              <button type="submit" className="btn-primary" disabled={!reply.trim()}>
+              <button type="submit" className="btn-primary shrink-0 whitespace-nowrap" disabled={!reply.trim()}>
                 ارسال پاسخ
               </button>
             </form>
