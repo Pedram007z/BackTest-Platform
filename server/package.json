@@ -1,0 +1,23 @@
+{
+  "name": "backtest-dashboard-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "API server for the backtest dashboard: phone OTP sign-in over Iranian SMS providers, Iranian payment gateways, ForexFactory calendar, market data and the admin API.",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/server.mjs",
+    "start": "node dist/server.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "5.6"
+  }
+}

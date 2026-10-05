@@ -10,7 +10,7 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   headerExtra?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export function Modal({ open, onClose, title, children, footer, headerExtra, size = 'md' }: ModalProps) {
@@ -49,6 +49,7 @@ export function Modal({ open, onClose, title, children, footer, headerExtra, siz
           size === 'sm' && 'sm:max-w-md',
           size === 'md' && 'sm:max-w-xl',
           size === 'lg' && 'sm:max-w-3xl',
+          size === 'xl' && 'sm:max-w-5xl',
         )}
       >
         <div className="flex items-center gap-3 border-b border-line/70 px-5 py-4">

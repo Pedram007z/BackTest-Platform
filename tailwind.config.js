@@ -7,7 +7,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Vazirmatn', 'Tahoma', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-ui)'],
+        display: ['var(--font-display)'],
       },
       colors: {
         bg: token('bg'),
@@ -19,13 +20,16 @@ export default {
         muted: token('muted'),
         faint: token('faint'),
         accent: token('accent'),
+        'accent-ink': token('accent-ink'),
         gain: token('gain'),
         loss: token('loss'),
         amber: token('amber'),
         violet: token('violet'),
+        sky: token('sky'),
       },
       boxShadow: {
-        pop: '0 12px 40px -8px rgb(0 0 0 / 0.45)',
+        pop: '0 16px 48px -12px rgb(0 0 0 / 0.5)',
+        glow: '0 0 0 4px rgb(var(--accent) / 0.16)',
       },
     },
   },

@@ -1,12 +1,16 @@
 import clsx from 'clsx';
-import { Crown, Moon, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
+import { Crown, LogOut, Moon, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Link } from '../components/ui/AppLink';
 import { Avatar } from '../components/ui/Avatar';
 import { ConfirmDialog } from '../components/ui/Modal';
 import { Meter } from '../components/ui/controls';
-import { addDays, diffDays, fmtDayLong, localDayKey } from '../lib/calendar';
+import { diffDays, fmtDayLong } from '../lib/calendar';
+import { fmtPhone } from '../lib/auth';
 import { fmtNum } from '../lib/format';
 import { planDaysLeft } from '../lib/stats';
+import { useAuth } from '../store/useAuth';
 import { toast, useStore } from '../store/useStore';
 
 /** Downscale an uploaded picture so it stays small in local storage. */
@@ -38,6 +42,10 @@ export default function Settings() {
   const [name, setName] = useState(user.name);
   const [confirm, setConfirm] = useState<'clear' | 'restore' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const session = useAuth((s) => s.session);
+  const rename = useAuth((s) => s.rename);
+  const logout = useAuth((s) => s.logout);
+  const navigate = useNavigate();
 
   useEffect(() => setName(user.name), [user.name]);
 
@@ -46,7 +54,7 @@ export default function Settings() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-      <h1 className="mb-6 text-2xl font-bold">تنظیمات حساب</h1>
+      <h1 className="mb-6 font-display text-2xl font-bold">تنظیمات حساب</h1>
 
       <section className="card mb-4 p-5">
         <h2 className="mb-4 text-sm font-bold">پروفایل</h2>
@@ -86,8 +94,9 @@ export default function Settings() {
           onSubmit={(e) => {
             e.preventDefault();
             if (!name.trim()) return;
-            updateUser({ name: name.trim() });
-            toast('نام ذخیره شد');
+            rename(name.trim())
+              .then(() => toast('نام ذخیره شد'))
+              .catch(() => toast('ذخیره‌ی نام انجام نشد. دوباره تلاش کنید.', 'error'));
           }}
         >
           <div className="min-w-[14rem] flex-1">
@@ -103,6 +112,29 @@ export default function Settings() {
       </section>
 
       <section className="card mb-4 p-5">
+        <h2 className="mb-4 text-sm font-bold">حساب کاربری</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted">شماره موبایل (ورود با کد پیامکی)</p>
+            <p className="num truncate text-sm font-semibold" dir="ltr" style={{ textAlign: 'right' }}>
+              {session ? fmtPhone(session.phone) : '—'}
+            </p>
+            {session?.demo && <p className="mt-1 text-xs text-amber">این حساب نمایشی است و با داده‌ی نمونه پر شده.</p>}
+          </div>
+          <button
+            type="button"
+            className="btn-soft text-loss"
+            onClick={() => {
+              logout();
+              navigate('/login', { replace: true, state: { notice: 'از حساب خارج شدید.' } });
+            }}
+          >
+            <LogOut size={15} /> خروج از حساب
+          </button>
+        </div>
+      </section>
+
+      <section className="card mb-4 p-5">
         <div className="mb-4 flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber/15 text-amber">
             <Crown size={18} />
@@ -113,17 +145,9 @@ export default function Settings() {
               از {fmtDayLong(user.plan.startedAt)} تا {fmtDayLong(user.plan.endsAt)}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn-soft ms-auto"
-            onClick={() => {
-              const base = user.plan.endsAt > localDayKey() ? user.plan.endsAt : localDayKey();
-              updateUser({ plan: { ...user.plan, endsAt: addDays(base, 30) } });
-              toast('اشتراک ۳۰ روز تمدید شد');
-            }}
-          >
-            تمدید ۳۰ روزه
-          </button>
+          <Link to="/billing" className="btn-primary ms-auto">
+            تمدید یا ارتقای اشتراک
+          </Link>
         </div>
         <div className="mb-1.5 flex justify-between text-xs">
           <span className="text-muted">روزهای باقی‌مانده</span>

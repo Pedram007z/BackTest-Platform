@@ -230,6 +230,7 @@ export function MultiSelect({
                       <button
                         key={o.value}
                         type="button"
+                        aria-pressed={on}
                         onClick={() => toggle(o.value)}
                         className="flex w-full items-center gap-3 px-3 py-2 text-start text-sm hover:bg-surface"
                       >
@@ -340,5 +341,43 @@ export function EmptyState({ icon, title, text, action }: { icon: ReactNode; tit
       {text && <p className="mt-1.5 max-w-sm text-sm leading-7 text-muted">{text}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
+  );
+}
+
+// ---------- Slider (round handle) ----------
+export function Slider({
+  id,
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+  label,
+  className,
+}: {
+  id?: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (v: number) => void;
+  label: string;
+  className?: string;
+}) {
+  const fill = ((value - min) / (max - min)) * 100;
+  return (
+    <input
+      id={id}
+      type="range"
+      dir="ltr"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      aria-label={label}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className={clsx('slider w-full', className)}
+      style={{ ['--fill' as string]: `${fill}%` }}
+    />
   );
 }

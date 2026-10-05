@@ -8,9 +8,14 @@
     "build": "tsc -b && vite build",
     "build:artifact": "vite build --mode artifact && node scripts/to-artifact.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "setup:charts": "node scripts/setup-charting-library.mjs",
+    "format": "prettier --write src",
+    "release": "node deploy/release.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/readex-pro": "^5.3.0",
+    "@fontsource-variable/vazirmatn": "^5.3.0",
     "clsx": "^2.1.1",
     "jalaali-js": "^2.0.1",
     "lightweight-charts": "^5.2.1",
@@ -27,6 +32,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.6.1",
     "postcss": "^8.5.28",
+    "prettier": "^3.9.9",
     "tailwindcss": "^3.4.19",
     "typescript": "5.6",
     "vite": "^6.4.3",

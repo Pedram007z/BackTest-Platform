@@ -100,7 +100,7 @@ export function GradientBars({
             cursor={{ fill: p.cursor }}
             content={makeTip(p, (row) => ({ title: tipTitle(row), rows: [{ label: tipLabel, value: tipFormat(row[dataKey]), color: top }] }))}
           />
-          <Bar dataKey={dataKey} fill={`url(#${gid})`} radius={[4, 4, 0, 0]} minPointSize={2} maxBarSize={44} />
+          <Bar isAnimationActive={false} dataKey={dataKey} fill={`url(#${gid})`} radius={[4, 4, 0, 0]} minPointSize={2} maxBarSize={44} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -124,12 +124,12 @@ export function SymbolBars({ data, height }: { data: { symbol: string; count: nu
           </defs>
           <CartesianGrid horizontal={false} stroke={p.grid} strokeDasharray="4 4" />
           <XAxis type="number" tick={tick(p)} tickLine={false} axisLine={{ stroke: p.grid }} tickFormatter={(v) => fmtNum(v)} allowDecimals={false} />
-          <YAxis type="category" dataKey="symbol" tick={tick(p)} tickLine={false} axisLine={false} width={74} />
+          <YAxis type="category" dataKey="symbol" tick={tick(p)} tickLine={false} axisLine={false} width={74} interval={0} />
           <Tooltip
             cursor={{ fill: p.cursor }}
             content={makeTip(p, (row) => ({ title: row.symbol, rows: [{ label: 'تعداد معاملات', value: fmtNum(row.count), color: p.violet }] }))}
           />
-          <Bar dataKey="count" fill={`url(#${gid})`} radius={[0, 4, 4, 0]} maxBarSize={22} />
+          <Bar isAnimationActive={false} dataKey="count" fill={`url(#${gid})`} radius={[0, 4, 4, 0]} maxBarSize={22} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -184,7 +184,7 @@ export function EquityArea({
               rows: [{ label: 'موجودی', value: fmtUsd(row.equity), color: stroke }],
             }))}
           />
-          <Area type="monotone" dataKey="equity" stroke={stroke} strokeWidth={2} fill={`url(#${gid})`} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: p.surface }} />
+          <Area isAnimationActive={false} type="monotone" dataKey="equity" stroke={stroke} strokeWidth={2} fill={`url(#${gid})`} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: p.surface }} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -226,7 +226,7 @@ export function PnlBars({
           )}
           {vertical ? <ReferenceLine x={0} stroke={p.axis} strokeOpacity={0.7} /> : <ReferenceLine y={0} stroke={p.axis} strokeOpacity={0.7} />}
           <Tooltip cursor={{ fill: p.cursor }} content={tip} />
-          <Bar dataKey="pnl" maxBarSize={vertical ? 22 : 30} radius={vertical ? [0, 4, 4, 0] : [4, 4, 0, 0]}>
+          <Bar isAnimationActive={false} dataKey="pnl" maxBarSize={vertical ? 22 : 30} radius={vertical ? [0, 4, 4, 0] : [4, 4, 0, 0]}>
             {data.map((d) => (
               <Cell
                 key={d.label}
@@ -282,7 +282,7 @@ export function ValueBars({
               ],
             }))}
           />
-          <Bar dataKey="value" maxBarSize={36} radius={[4, 4, 0, 0]}>
+          <Bar isAnimationActive={false} dataKey="value" maxBarSize={36} radius={[4, 4, 0, 0]}>
             {data.map((d) => (
               <Cell key={d.label} fill={signed ? (d.value >= 0 ? p.gain : p.loss) : p.blue} />
             ))}
