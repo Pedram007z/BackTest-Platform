@@ -3,3 +3,7 @@ dist
 dist-artifact
 *.log
 *.tsbuildinfo
+
+# TradingView Advanced Charts is licensed per company; install it locally with `npm run setup:charts`
+public/charting_library/
+public/datafeeds/

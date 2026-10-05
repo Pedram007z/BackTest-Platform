@@ -1,10 +1,23 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { getSession, type Session as AuthSession } from '../lib/auth';
-import { addDays, localDayKey, keyToMs } from '../lib/calendar';
-import { bars5m, priceAt } from '../lib/market';
-import { rAt } from '../lib/stats';
-import type { Checklist, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
+import { addDays, keyToMs, localDayKey } from '../lib/calendar';
+import { BAR_MS, SYMBOL_MAP, bars5m, pointValueUsd, priceAt, roundToTick } from '../lib/market';
+import { closeLots, followIdeal, lotsForRisk, processBar, type FillEvent } from '../lib/trading';
+import type {
+  ChartPane,
+  Checklist,
+  GoToPreset,
+  JournalEntry,
+  LayoutId,
+  NewsFilters,
+  OrderType,
+  Session,
+  Side,
+  Strategy,
+  Trade,
+  UserProfile,
+} from '../lib/types';
 import { local } from '../lib/storage';
 import { buildSeed, type SeedData } from './seed';
 
@@ -14,6 +27,7 @@ export const uid = (prefix: string) =>
 // Each account keeps its own dashboard data under its own key.
 const LEGACY_KEY = 'backtest-dashboard:v1';
 export const storeKey = (userId?: string) => `backtest-dashboard:v2:${userId ?? 'guest'}`;
+const STORE_VERSION = 3;
 
 export type Theme = 'dark' | 'light';
 
@@ -27,15 +41,20 @@ export interface NewSessionInput {
   checklistId?: string;
 }
 
-export interface PlaceTradeInput {
+export interface PlaceOrderInput {
   sessionId: string;
   symbol: string;
   side: Side;
+  orderType: OrderType;
+  entry: number;
   sl: number;
   tp: number;
-  risk: number;
+  riskPct: number;
   strategyId?: string;
+  journal?: JournalEntry;
 }
+
+export const DEFAULT_NEWS_FILTERS: NewsFilters = { currencies: [], showPast: true, showFuture: true, impacts: ['high'] };
 
 interface State {
   user: UserProfile;
@@ -45,6 +64,8 @@ interface State {
   trades: Trade[];
   dailySeconds: Record<string, number>;
   replayedMs: number;
+  goToPresets: GoToPreset[];
+  newsFilters: NewsFilters;
   theme: Theme;
   sidebarCollapsed: boolean;
   hasDemoData: boolean;
@@ -64,31 +85,29 @@ interface State {
   addSession: (input: NewSessionInput) => Session;
   updateSession: (id: string, patch: Partial<Session>) => void;
   deleteSession: (id: string) => void;
+  setLayout: (id: string, layout: LayoutId, panes: ChartPane[]) => void;
 
-  placeTrade: (input: PlaceTradeInput) => Trade | null;
-  closeTrade: (id: string, reason?: Trade['closeReason']) => void;
-  setTradeNote: (id: string, note: string) => void;
-  /** Move a session's replay cursor forward and settle any stop-loss / take-profit hits. */
-  advance: (sessionId: string, nextCursor: number) => Trade[];
+  /** Market orders open at the current price; limit and stop orders wait for price. */
+  placeOrder: (input: PlaceOrderInput) => Trade | null;
+  cancelOrder: (id: string) => void;
+  modifyTrade: (id: string, patch: Partial<Pick<Trade, 'sl' | 'tp' | 'entry'>>) => void;
+  /** Close `lots` (all when omitted) of an open position at the replay price. */
+  closePosition: (id: string, lots?: number) => Trade | null;
+  saveJournal: (tradeId: string, entry: JournalEntry) => void;
+  deleteJournal: (tradeId: string) => void;
+  deleteTrade: (tradeId: string) => void;
+  /** Move a session's replay cursor forward, filling orders and settling stops / targets on the way. */
+  advance: (sessionId: string, nextCursor: number) => FillEvent[];
+
+  addGoToPreset: (p: Omit<GoToPreset, 'id'>) => void;
+  updateGoToPreset: (id: string, patch: Partial<GoToPreset>) => void;
+  deleteGoToPreset: (id: string) => void;
+  setNewsFilters: (patch: Partial<NewsFilters>) => void;
 
   addPracticeSeconds: (seconds: number) => void;
 
   clearAll: () => void;
   restoreDemo: () => void;
-}
-
-function settle(trade: Trade, exit: number, closeTime: number, reason: Trade['closeReason']): Trade {
-  const r = Math.round(rAt(trade, exit) * 100) / 100;
-  return {
-    ...trade,
-    status: 'closed',
-    exit,
-    closeTime,
-    r,
-    pnl: Math.round(r * trade.risk * 100) / 100,
-    closeReason: reason,
-    closedAt: Date.now(),
-  };
 }
 
 type AccountData = SeedData & { hasDemoData: boolean };
@@ -98,7 +117,7 @@ function freshData(account: Pick<AuthSession, 'name' | 'demo'> | null): AccountD
   if (!account || account.demo) return { ...buildSeed(), hasDemoData: true };
   const today = localDayKey();
   return {
-    user: { name: account.name, plan: { name: 'دوره‌ی آزمایشی حرفه‌ای', startedAt: today, endsAt: addDays(today, 14) } },
+    user: { name: account.name, plan: { name: 'دوره‌ی آزمایشی', startedAt: today, endsAt: addDays(today, 7) } },
     strategies: [],
     checklists: [],
     sessions: [],
@@ -111,13 +130,44 @@ function freshData(account: Pick<AuthSession, 'name' | 'demo'> | null): AccountD
 
 const bootSession = getSession();
 
-// Dark by default; follow an explicit light theme set by an embedding host.
-const initialTheme = (): Theme => (document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+/** Follow an explicit theme set by an embedding host, then the system preference; dark otherwise. */
+const initialTheme = (): Theme => {
+  const attr = document.documentElement.getAttribute('data-theme');
+  if (attr === 'light' || attr === 'dark') return attr;
+  try {
+    if (window.matchMedia?.('(prefers-color-scheme: light)').matches) return 'light';
+  } catch {
+    /* ignore */
+  }
+  return 'dark';
+};
+
+/** Trades saved before version 3 had no order type, lots or partial closes. */
+function migrateTrade(t: any): Trade {
+  if (t.orderType && t.partials) return t as Trade;
+  const pv = pointValueUsd(t.symbol, t.openTime);
+  const dist = Math.abs(t.entry - t.sl) || 1;
+  const lots = t.risk / (dist * pv) || 0.01;
+  const closed = t.status === 'closed';
+  return {
+    ...t,
+    orderType: 'market',
+    placedTime: t.openTime,
+    lots: closed ? 0 : lots,
+    initialLots: lots,
+    pointValue: pv,
+    riskPct: 1,
+    partials: closed ? [{ time: t.closeTime ?? t.openTime, price: t.exit ?? t.entry, lots, pnl: t.pnl ?? 0 }] : [],
+    journal: t.note ? { screenshots: [], checked: [], confidence: 50, rating: 0, notes: t.note, tags: [], updatedAt: t.closedAt ?? t.executedAt } : undefined,
+  };
+}
 
 export const useStore = create<State>()(
   persist(
     (set, get) => ({
       ...freshData(bootSession),
+      goToPresets: [],
+      newsFilters: DEFAULT_NEWS_FILTERS,
       theme: initialTheme(),
       sidebarCollapsed: false,
 
@@ -156,9 +206,12 @@ export const useStore = create<State>()(
         const session: Session = {
           id: uid('se'),
           ...input,
+          notes: '',
           cursor: keyToMs(input.startDate),
           timeframe: '15m',
           activeSymbol: input.symbols[0],
+          layout: '1',
+          panes: [{ symbol: input.symbols[0], timeframe: '15m' }],
           createdAt: Date.now(),
         };
         set((s) => ({ sessions: [session, ...s.sessions] }));
@@ -171,60 +224,115 @@ export const useStore = create<State>()(
           sessions: s.sessions.filter((x) => x.id !== id),
           trades: s.trades.filter((t) => t.sessionId !== id),
         })),
+      setLayout: (id, layout, panes) =>
+        set((s) => ({
+          sessions: s.sessions.map((x) => (x.id === id ? { ...x, layout, panes, activeSymbol: panes[0]?.symbol ?? x.activeSymbol } : x)),
+        })),
 
-      placeTrade: (input) => {
-        const session = get().sessions.find((s) => s.id === input.sessionId);
+      placeOrder: (input) => {
+        const state = get();
+        const session = state.sessions.find((s) => s.id === input.sessionId);
         if (!session) return null;
-        const entry = priceAt(input.symbol, session.cursor);
+        const market = priceAt(input.symbol, session.cursor);
+        const isMarket = input.orderType === 'market';
+        const entry = roundToTick(input.symbol, isMarket ? market : input.entry);
+        // a market order keeps the stop and target distances the trader drew
+        const shift = isMarket ? entry - input.entry : 0;
+        const sl = roundToTick(input.symbol, input.sl + shift);
+        const tp = roundToTick(input.symbol, input.tp + shift);
+        const balance = sessionBalanceOf(session, state.trades);
+        const lots = lotsForRisk(input.symbol, (balance * input.riskPct) / 100, entry, sl, session.cursor);
+        const pointValue = pointValueUsd(input.symbol, session.cursor);
         const trade: Trade = {
           id: uid('tr'),
           sessionId: session.id,
           strategyId: input.strategyId,
           symbol: input.symbol,
           side: input.side,
+          orderType: input.orderType,
+          status: isMarket ? 'open' : 'pending',
           entry,
-          sl: input.sl,
-          tp: input.tp,
-          risk: input.risk,
+          sl,
+          tp,
+          lots,
+          initialLots: lots,
+          pointValue,
+          risk: Math.round(Math.abs(entry - sl) * pointValue * lots * 100) / 100,
+          riskPct: input.riskPct,
+          placedTime: session.cursor,
           openTime: session.cursor,
-          status: 'open',
+          partials: [],
+          bestPrice: entry,
+          maxR: 0,
           executedAt: Date.now(),
+          journal: input.journal,
         };
         set((s) => ({ trades: [...s.trades, trade] }));
         return trade;
       },
 
-      closeTrade: (id, reason = 'manual') => {
-        const trade = get().trades.find((t) => t.id === id);
-        if (!trade || trade.status !== 'open') return;
-        const session = get().sessions.find((s) => s.id === trade.sessionId);
-        if (!session) return;
-        const exit = priceAt(trade.symbol, session.cursor);
-        set((s) => ({ trades: s.trades.map((t) => (t.id === id ? settle(t, exit, session.cursor, reason) : t)) }));
+      cancelOrder: (id) =>
+        set((s) => ({
+          trades: s.trades.map((t) => (t.id === id && t.status === 'pending' ? { ...t, status: 'cancelled', closedAt: Date.now() } : t)),
+        })),
+
+      modifyTrade: (id, patch) =>
+        set((s) => ({
+          trades: s.trades.map((t) => {
+            if (t.id !== id || (t.status !== 'open' && t.status !== 'pending')) return t;
+            const next = { ...t };
+            if (patch.sl !== undefined) next.sl = roundToTick(t.symbol, patch.sl);
+            if (patch.tp !== undefined) next.tp = roundToTick(t.symbol, patch.tp);
+            if (patch.entry !== undefined && t.status === 'pending') {
+              next.entry = roundToTick(t.symbol, patch.entry);
+              next.risk = Math.round(Math.abs(next.entry - next.sl) * t.pointValue * t.lots * 100) / 100;
+            }
+            if (t.status === 'pending' && patch.sl !== undefined) {
+              next.risk = Math.round(Math.abs(next.entry - next.sl) * t.pointValue * t.lots * 100) / 100;
+            }
+            return next;
+          }),
+        })),
+
+      closePosition: (id, lots) => {
+        const state = get();
+        const trade = state.trades.find((t) => t.id === id);
+        if (!trade || trade.status !== 'open') return null;
+        const session = state.sessions.find((s) => s.id === trade.sessionId);
+        if (!session) return null;
+        const price = priceAt(trade.symbol, session.cursor);
+        const next = closeLots(trade, lots ?? trade.lots, price, session.cursor, 'manual');
+        set((s) => ({ trades: s.trades.map((t) => (t.id === id ? next : t)) }));
+        return next;
       },
 
-      setTradeNote: (id, note) => set((s) => ({ trades: s.trades.map((t) => (t.id === id ? { ...t, note } : t)) })),
+      saveJournal: (tradeId, entry) =>
+        set((s) => ({ trades: s.trades.map((t) => (t.id === tradeId ? { ...t, journal: { ...entry, updatedAt: Date.now() } } : t)) })),
+      deleteJournal: (tradeId) => set((s) => ({ trades: s.trades.map((t) => (t.id === tradeId ? { ...t, journal: undefined } : t)) })),
+      deleteTrade: (tradeId) => set((s) => ({ trades: s.trades.filter((t) => t.id !== tradeId) })),
 
       advance: (sessionId, nextCursor) => {
         const state = get();
         const session = state.sessions.find((s) => s.id === sessionId);
         if (!session || nextCursor <= session.cursor) return [];
         const from = session.cursor;
-        const closed: Trade[] = [];
+        const events: FillEvent[] = [];
 
         const trades = state.trades.map((t) => {
-          if (t.sessionId !== sessionId || t.status !== 'open') return t;
+          if (t.sessionId !== sessionId) return t;
+          const live = t.status === 'open' || t.status === 'pending';
+          const following = t.status === 'closed' && !t.idealDone;
+          if (!live && !following) return t;
+          let trade = t;
           for (const bar of bars5m(t.symbol, from, nextCursor)) {
-            const hitSl = t.side === 'buy' ? bar.low <= t.sl : bar.high >= t.sl;
-            const hitTp = t.side === 'buy' ? bar.high >= t.tp : bar.low <= t.tp;
-            // When both levels sit inside one bar, assume the stop was hit first.
-            if (hitSl || hitTp) {
-              const done = settle(t, hitSl ? t.sl : t.tp, bar.time + 5 * 60_000, hitSl ? 'sl' : 'tp');
-              closed.push(done);
-              return done;
-            }
+            if (trade.status === 'open' || trade.status === 'pending') {
+              if (trade.status === 'pending' && bar.time < trade.placedTime) continue;
+              trade = processBar(trade, bar, events);
+            } else if (trade.status === 'closed' && !trade.idealDone) {
+              trade = followIdeal(trade, bar);
+            } else break;
           }
-          return t;
+          return trade;
         });
 
         set({
@@ -232,8 +340,20 @@ export const useStore = create<State>()(
           sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, cursor: nextCursor, lastOpenedAt: Date.now() } : s)),
           replayedMs: state.replayedMs + (nextCursor - from),
         });
-        return closed;
+        return events;
       },
+
+      addGoToPreset: (p) => set((s) => ({ goToPresets: [...s.goToPresets, { ...p, id: uid('g') }] })),
+      updateGoToPreset: (id, patch) =>
+        set((s) => {
+          const exists = s.goToPresets.some((g) => g.id === id);
+          // built-in presets are stored only once they are edited
+          return {
+            goToPresets: exists ? s.goToPresets.map((g) => (g.id === id ? { ...g, ...patch } : g)) : [...s.goToPresets, { ...(patch as GoToPreset), id }],
+          };
+        }),
+      deleteGoToPreset: (id) => set((s) => ({ goToPresets: s.goToPresets.filter((g) => g.id !== id) })),
+      setNewsFilters: (patch) => set((s) => ({ newsFilters: { ...s.newsFilters, ...patch } })),
 
       addPracticeSeconds: (seconds) =>
         set((s) => {
@@ -257,9 +377,34 @@ export const useStore = create<State>()(
     {
       name: storeKey(bootSession?.userId),
       storage: createJSONStorage(() => local),
+      version: STORE_VERSION,
+      migrate: (persisted: any, version) => {
+        if (!persisted) return persisted;
+        if (version < 3) {
+          // sample data is rebuilt in the new shape; the trader's own trades are converted
+          if (persisted.hasDemoData) return { ...persisted, ...buildSeed(), hasDemoData: true };
+          persisted.trades = (persisted.trades ?? []).map(migrateTrade);
+          persisted.sessions = (persisted.sessions ?? []).map((s: Session) => ({
+            ...s,
+            notes: s.notes ?? '',
+            layout: s.layout ?? '1',
+            panes: s.panes ?? [{ symbol: s.activeSymbol, timeframe: s.timeframe }],
+          }));
+        }
+        return persisted;
+      },
     },
   ),
 );
+
+function sessionBalanceOf(session: Session, trades: Trade[]): number {
+  return session.balance + trades.filter((t) => t.sessionId === session.id).reduce((sum, t) => sum + t.partials.reduce((a, p) => a + p.pnl, 0), 0);
+}
+
+/** Current price of a session's symbol (helper for components). */
+export const marketPrice = (symbol: string, cursor: number) => priceAt(symbol, cursor);
+export const symbolDigits = (symbol: string) => SYMBOL_MAP[symbol]?.digits ?? 2;
+export const BAR = BAR_MS;
 
 // ---------- toasts (not persisted) ----------
 export interface Toast {
@@ -279,13 +424,24 @@ export const useToasts = create<ToastState>((set) => ({
   toasts: [],
   push: (text, tone = 'success') => {
     const id = ++toastId;
-    set((s) => ({ toasts: [...s.toasts, { id, text, tone }] }));
-    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3200);
+    set((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, tone }] }));
+    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3600);
   },
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
 export const toast = (text: string, tone?: Toast['tone']) => useToasts.getState().push(text, tone);
+
+// ---------- UI state that is not saved ----------
+interface UiState {
+  /** Chart page fills the whole window (sidebar and header hidden). */
+  chartExpanded: boolean;
+  setChartExpanded: (v: boolean) => void;
+}
+export const useUi = create<UiState>((set) => ({
+  chartExpanded: false,
+  setChartExpanded: (chartExpanded) => set({ chartExpanded }),
+}));
 
 /**
  * Point the dashboard store at another account's saved data (or the guest store on logout).
@@ -306,5 +462,5 @@ export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'de
     }
   }
   if (raw) void useStore.persist.rehydrate();
-  else useStore.setState({ ...freshData(account), theme, sidebarCollapsed });
+  else useStore.setState({ ...freshData(account), goToPresets: [], newsFilters: DEFAULT_NEWS_FILTERS, theme, sidebarCollapsed });
 }

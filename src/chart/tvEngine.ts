@@ -1,0 +1,348 @@
+import { PALETTES } from '../hooks/useChartTheme';
+import { SYMBOL_MAP, TF_MS, TIMEFRAMES, tfFromTv } from '../lib/market';
+import { orderTitleEn } from '../lib/trading';
+import type { Trade } from '../lib/types';
+import { createReplayDatafeed } from './tvDatafeed';
+import { TV_LIBRARY_PATH } from './tvLoader';
+import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
+
+/**
+ * Replay chart on TradingView Advanced Charts. One widget per pane. Prices come from the replay
+ * datafeed; the position tool is TradingView's own long/short position drawing; open positions
+ * are position lines (with the close X) and stop / target are draggable order lines.
+ */
+
+type Any = any; // the library's own typings are not part of this repository
+
+const tvRes = (tf: string) => TIMEFRAMES.find((t) => t.id === tf)?.tv ?? '15';
+
+function overrides(theme: 'dark' | 'light') {
+  const p = PALETTES[theme];
+  return {
+    'paneProperties.backgroundType': 'solid',
+    'paneProperties.background': theme === 'dark' ? '#120f1c' : '#ffffff',
+    'paneProperties.vertGridProperties.color': theme === 'dark' ? 'rgba(46,40,66,0.55)' : 'rgba(226,221,239,0.8)',
+    'paneProperties.horzGridProperties.color': theme === 'dark' ? 'rgba(46,40,66,0.55)' : 'rgba(226,221,239,0.8)',
+    'scalesProperties.textColor': p.axis,
+    'mainSeriesProperties.candleStyle.upColor': p.candleUp,
+    'mainSeriesProperties.candleStyle.downColor': p.candleDown,
+    'mainSeriesProperties.candleStyle.borderUpColor': p.candleUp,
+    'mainSeriesProperties.candleStyle.borderDownColor': p.candleDown,
+    'mainSeriesProperties.candleStyle.wickUpColor': p.candleUp,
+    'mainSeriesProperties.candleStyle.wickDownColor': p.candleDown,
+  };
+}
+
+interface Lines {
+  entry: Any;
+  sl: Any;
+  tp: Any | null;
+  status: Trade['status'];
+}
+
+export function createTvEngine(container: HTMLElement, initial: EngineState, cb: EngineCallbacks, TV: Any): ChartEngine {
+  let state = initial;
+  let ready = false;
+  let destroyed = false;
+  let chart: Any = null;
+  let draftId: Any = null;
+  let draftSide: DraftOrder['side'] | null = null;
+  let applyingDraft = false;
+  const lines = new Map<string, Lines>();
+  const executions = new Map<string, Any[]>();
+  let newsShapes = new Map<string, Any>();
+  let marksSig = '';
+
+  const feed = createReplayDatafeed({
+    cursor: () => state.cursor,
+    news: () => state.news,
+    symbols: () => state.sessionSymbols,
+  });
+
+  const host = document.createElement('div');
+  host.style.position = 'absolute';
+  host.style.inset = '0';
+  container.style.position = 'relative';
+  container.append(host);
+
+  const widget = new TV.widget({
+    container: host,
+    library_path: TV_LIBRARY_PATH,
+    locale: 'en',
+    datafeed: feed.datafeed,
+    symbol: state.symbol,
+    interval: tvRes(state.timeframe),
+    autosize: true,
+    theme: state.theme === 'dark' ? 'dark' : 'light',
+    timezone: 'Asia/Tehran',
+    disabled_features: ['header_compare', 'header_saveload', 'header_screenshot', 'go_to_date', 'timeframes_toolbar', 'popup_hints', 'display_market_status', 'use_localstorage_for_settings'],
+    enabled_features: ['study_templates'],
+    favorites: { intervals: TIMEFRAMES.map((t) => t.tv) },
+    loading_screen: { backgroundColor: state.theme === 'dark' ? '#120f1c' : '#ffffff', foregroundColor: '#7c5cff' },
+    overrides: overrides(state.theme),
+  });
+
+  const tick = () => 10 ** -(SYMBOL_MAP[state.symbol]?.digits ?? 2);
+
+  // ---------- draft position tool ----------
+  function readDraft() {
+    if (!draftId || !chart || applyingDraft) return;
+    try {
+      const shape = chart.getShapeById(draftId);
+      const pt = shape.getPoints()[0];
+      const props = shape.getProperties();
+      const t = tick();
+      const entry = pt.price;
+      const dir = draftSide === 'buy' ? 1 : -1;
+      cb.onDraftChange({ entry, sl: entry - dir * props.stopLevel * t, tp: entry + dir * props.profitLevel * t });
+    } catch {
+      /* shape removed */
+    }
+  }
+
+  function syncDraft() {
+    const d = state.draft;
+    if (!d) {
+      if (draftId) chart.removeEntity(draftId);
+      draftId = null;
+      draftSide = null;
+      return;
+    }
+    const t = tick();
+    const dir = d.side === 'buy' ? 1 : -1;
+    const stopLevel = Math.max(1, Math.round(((d.entry - d.sl) * dir) / t));
+    const profitLevel = Math.max(1, Math.round(((d.tp - d.entry) * dir) / t));
+    const time = Math.floor(state.cursor / 1000) - TF_MS[state.timeframe] / 1000;
+    if (draftId && draftSide !== d.side) {
+      chart.removeEntity(draftId);
+      draftId = null;
+    }
+    applyingDraft = true;
+    try {
+      if (!draftId) {
+        draftId = chart.createShape(
+          { time, price: d.entry },
+          {
+            shape: d.side === 'buy' ? 'long_position' : 'short_position',
+            disableUndo: true,
+            disableSave: true,
+            zOrder: 'top',
+            overrides: { stopLevel, profitLevel, profitBackground: 'rgba(38,194,129,0.2)', stopBackground: 'rgba(242,84,102,0.2)', accountSize: 0 },
+          },
+        );
+        draftSide = d.side;
+      } else {
+        const shape = chart.getShapeById(draftId);
+        const pt = shape.getPoints()[0];
+        const props = shape.getProperties();
+        if (Math.abs(pt.price - d.entry) > t / 2) shape.setPoints([{ time: pt.time, price: d.entry }]);
+        if (props.stopLevel !== stopLevel || props.profitLevel !== profitLevel) shape.setProperties({ stopLevel, profitLevel });
+      }
+    } catch {
+      /* drawing API not ready */
+    } finally {
+      applyingDraft = false;
+    }
+  }
+
+  // ---------- positions and orders ----------
+  function money(n: number) {
+    return `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)}`;
+  }
+
+  function styleLine(l: Any, color: string) {
+    const p = PALETTES[state.theme];
+    l.setLineColor(color)
+      .setBodyBorderColor(color)
+      .setBodyBackgroundColor(p.surface)
+      .setBodyTextColor(p.text)
+      .setQuantityBorderColor(color)
+      .setQuantityBackgroundColor(color)
+      .setQuantityTextColor('#ffffff');
+    return l;
+  }
+
+  function syncTrades() {
+    const p = PALETTES[state.theme];
+    const live = state.trades.filter((t) => t.status === 'open' || t.status === 'pending');
+    const ids = new Set(live.map((t) => t.id));
+    for (const [id, l] of lines) {
+      const t = live.find((x) => x.id === id);
+      if (!ids.has(id) || l.status !== t?.status) {
+        l.entry.remove();
+        l.sl.remove();
+        l.tp?.remove();
+        lines.delete(id);
+      }
+    }
+    for (const t of live) {
+      let l = lines.get(t.id);
+      if (!l) {
+        let entry: Any;
+        if (t.status === 'open') {
+          entry = styleLine(chart.createPositionLine(), t.side === 'buy' ? p.gain : p.loss)
+            .setCloseButtonBorderColor(p.grid)
+            .setCloseButtonBackgroundColor(p.surface)
+            .setCloseButtonIconColor(p.text)
+            .setCloseTooltip('بستن کامل یا بخشی از پوزیشن')
+            .onClose(() => cb.onLineClose(t.id));
+        } else {
+          entry = styleLine(chart.createOrderLine(), p.accent)
+            .setCancelTooltip('لغو سفارش')
+            .onCancel(() => cb.onLineClose(t.id))
+            .onMove(function (this: Any) {
+              cb.onLineMove(t.id, 'entry', this.getPrice());
+            });
+        }
+        const sl = styleLine(chart.createOrderLine(), p.loss)
+          .setCancellable(false)
+          .setLineStyle(2)
+          .onMove(function (this: Any) {
+            cb.onLineMove(t.id, 'sl', this.getPrice());
+          });
+        const tp =
+          t.tp > 0
+            ? styleLine(chart.createOrderLine(), p.gain)
+                .setCancellable(false)
+                .setLineStyle(2)
+                .onMove(function (this: Any) {
+                  cb.onLineMove(t.id, 'tp', this.getPrice());
+                })
+            : null;
+        l = { entry, sl, tp, status: t.status };
+        lines.set(t.id, l);
+      }
+      const usd = (price: number) => (price - t.entry) * (t.side === 'buy' ? 1 : -1) * t.pointValue * t.lots;
+      l.entry.setPrice(t.entry).setQuantity(String(t.lots)).setText(t.status === 'open' ? t.side.toUpperCase() : orderTitleEn(t.side, t.orderType).toUpperCase());
+      l.sl.setPrice(t.sl).setQuantity(String(t.lots)).setText(`SL ${money(usd(t.sl))}`);
+      l.tp?.setPrice(t.tp).setQuantity(String(t.lots)).setText(`TP ${money(usd(t.tp))}`);
+    }
+
+    // closed trades as execution arrows
+    const wanted = state.showHistory ? state.trades.filter((t) => t.status === 'closed') : [];
+    const wantedIds = new Set(wanted.map((t) => t.id));
+    for (const [id, shapes] of executions) {
+      if (!wantedIds.has(id)) {
+        shapes.forEach((s) => s.remove());
+        executions.delete(id);
+      }
+    }
+    for (const t of wanted) {
+      if (executions.has(t.id)) continue;
+      const step = TF_MS[state.timeframe];
+      const open = chart
+        .createExecutionShape()
+        .setTime(Math.floor(t.openTime / step) * (step / 1000))
+        .setPrice(t.entry)
+        .setDirection(t.side)
+        .setArrowColor(t.side === 'buy' ? p.gain : p.loss)
+        .setTooltip(`${t.side.toUpperCase()} ${t.lots} @ ${t.entry}`);
+      const close = chart
+        .createExecutionShape()
+        .setTime(Math.floor(((t.closeTime ?? t.openTime) - 1) / step) * (step / 1000))
+        .setPrice(t.exit ?? t.entry)
+        .setDirection(t.side === 'buy' ? 'sell' : 'buy')
+        .setArrowColor((t.pnl ?? 0) >= 0 ? p.gain : p.loss)
+        .setText(`${(t.r ?? 0) >= 0 ? '+' : ''}${(t.r ?? 0).toFixed(1)}R`)
+        .setTooltip(`${money(t.pnl ?? 0)}`);
+      executions.set(t.id, [open, close]);
+    }
+  }
+
+  // ---------- news ----------
+  function syncNews() {
+    const past = state.news.filter((e) => e.time <= state.cursor);
+    const sig = past.map((e) => e.id).join(',');
+    if (sig !== marksSig) {
+      marksSig = sig;
+      chart.refreshMarks();
+    }
+    const future = state.news.filter((e) => e.time > state.cursor);
+    const next = new Map<string, Any>();
+    const colors: Record<string, string> = { high: '#f25466', medium: '#f5a524', low: '#e8d44d', holiday: '#9b9bb0' };
+    for (const e of future) {
+      const existing = newsShapes.get(e.id);
+      if (existing) {
+        next.set(e.id, existing);
+        continue;
+      }
+      const id = chart.createShape(
+        { time: Math.floor(e.time / 1000) },
+        { shape: 'vertical_line', lock: true, disableSelection: true, disableSave: true, disableUndo: true, overrides: { linecolor: colors[e.impact], linestyle: 2, linewidth: 1, showTime: false } },
+      );
+      if (id) next.set(e.id, id);
+    }
+    for (const [id, shape] of newsShapes) if (!next.has(id)) chart.removeEntity(shape);
+    newsShapes = next;
+  }
+
+  // ---------- update ----------
+  function update(next: EngineState) {
+    const prev = state;
+    state = next;
+    if (!ready || destroyed) return;
+    if (prev.theme !== next.theme) {
+      void widget.changeTheme(next.theme).then(() => widget.applyOverrides(overrides(next.theme)));
+    }
+    if (prev.symbol !== next.symbol && chart.symbol() !== next.symbol) chart.setSymbol(next.symbol);
+    if (prev.timeframe !== next.timeframe && tfFromTv(chart.resolution()) !== next.timeframe) chart.setResolution(tvRes(next.timeframe));
+    if (prev.cursor !== next.cursor || prev.dataVersion !== next.dataVersion) {
+      if (prev.dataVersion !== next.dataVersion || !feed.push()) {
+        feed.resetAll();
+        chart.resetData();
+      }
+    }
+    syncDraft();
+    syncTrades();
+    syncNews();
+  }
+
+  widget.onChartReady(() => {
+    if (destroyed) return;
+    ready = true;
+    chart = widget.activeChart();
+    chart.onSymbolChanged().subscribe(null, () => {
+      const sym = String(chart.symbol()).split(':').pop()!;
+      if (sym !== state.symbol) cb.onSymbolChange(sym);
+    });
+    chart.onIntervalChanged().subscribe(null, (interval: string) => {
+      const tf = tfFromTv(interval);
+      if (tf !== state.timeframe) cb.onTimeframeChange(tf);
+    });
+    widget.subscribe('drawing_event', (id: Any, type: string) => {
+      if (id === draftId && (type === 'points_changed' || type === 'properties_changed' || type === 'move')) readDraft();
+      if (id === draftId && type === 'remove') draftId = null;
+    });
+    widget.subscribe('mouse_down', () => cb.onActivate?.());
+    marksSig = '';
+    update(state);
+  });
+
+  return {
+    kind: 'tradingview',
+    update: (s) => update(s),
+    async screenshot() {
+      if (!ready) return null;
+      try {
+        const canvas: HTMLCanvasElement = await widget.takeClientScreenshot();
+        const scale = Math.min(1, 1280 / canvas.width);
+        const out = document.createElement('canvas');
+        out.width = Math.round(canvas.width * scale);
+        out.height = Math.round(canvas.height * scale);
+        out.getContext('2d')!.drawImage(canvas, 0, 0, out.width, out.height);
+        return out.toDataURL('image/jpeg', 0.85);
+      } catch {
+        return null;
+      }
+    },
+    destroy() {
+      destroyed = true;
+      try {
+        widget.remove();
+      } catch {
+        /* already gone */
+      }
+      container.replaceChildren();
+    },
+  };
+}

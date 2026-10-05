@@ -14,9 +14,9 @@ import { toast, useStore } from '../store/useStore';
 const PAGE = 15;
 
 function NoteModal({ trade, onClose }: { trade: Trade | null; onClose: () => void }) {
-  const setTradeNote = useStore((s) => s.setTradeNote);
+  const saveJournal = useStore((s) => s.saveJournal);
   const [note, setNote] = useState('');
-  useEffect(() => setNote(trade?.note ?? ''), [trade]);
+  useEffect(() => setNote(trade?.journal?.notes ?? ''), [trade]);
   return (
     <Modal
       open={!!trade}
@@ -32,7 +32,7 @@ function NoteModal({ trade, onClose }: { trade: Trade | null; onClose: () => voi
             type="button"
             className="btn-primary"
             onClick={() => {
-              if (trade) setTradeNote(trade.id, note.trim());
+              if (trade) saveJournal(trade.id, { screenshots: [], checked: [], confidence: 50, rating: 0, tags: [], ...trade.journal, notes: note.trim(), updatedAt: Date.now() });
               toast('یادداشت ذخیره شد');
               onClose();
             }}
@@ -166,10 +166,10 @@ export default function Journal() {
                       <td className="px-4 py-3 text-end">
                         <button
                           type="button"
-                          className={clsx('icon-btn h-8 w-8', t.note && 'text-amber')}
+                          className={clsx('icon-btn h-8 w-8', t.journal?.notes && 'text-amber')}
                           onClick={() => setNoteFor(t)}
                           aria-label="یادداشت"
-                          title={t.note || 'افزودن یادداشت'}
+                          title={t.journal?.notes || 'افزودن یادداشت'}
                         >
                           <StickyNote size={16} />
                         </button>

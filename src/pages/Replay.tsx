@@ -1,293 +1,238 @@
 import clsx from 'clsx';
-import { ArrowRight, Check, FastForward, Pause, Play, StepForward, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { CandleChart } from '../components/charts/CandleChart';
-import { Meter, Select } from '../components/ui/controls';
-import { fmtDay, fmtMarketTime } from '../lib/calendar';
-import { faDigits, fmtNum, fmtR, fmtUsd, toLatinDigits } from '../lib/format';
-import { SYMBOL_MAP, TIMEFRAMES, priceAt, stepCursor, type Timeframe } from '../lib/market';
-import { rAt, sessionBalance, sessionEndMs, sessionProgress, sessionRemainingDays } from '../lib/stats';
-import type { Session, Trade } from '../lib/types';
-import { toast, useStore } from '../store/useStore';
+import {
+  ArrowRight,
+  BarChart3,
+  CalendarDays,
+  Camera,
+  ChevronDown,
+  ChevronUp,
+  Cpu,
+  LayoutGrid,
+  Maximize2,
+  Minimize2,
+  Minus,
+  NotebookPen,
+  Plus,
+  Send,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { loadTradingView } from '../chart/tvLoader';
+import type { ChartEngine, DraftOrder, EngineCallbacks } from '../chart/types';
+import { JournalModal, emptyJournal, type JournalContext } from '../components/journal/JournalModal';
+import { ChartPane, type EngineKind } from '../components/replay/ChartPane';
+import { CloseModal } from '../components/replay/CloseModal';
+import { GoToMenu } from '../components/replay/GoToMenu';
+import { NewsPanel } from '../components/replay/NewsPanel';
+import { PlaybackBar, SPEEDS } from '../components/replay/PlaybackBar';
+import { PositionsPanel } from '../components/replay/PositionsPanel';
+import { Modal } from '../components/ui/Modal';
+import { Meter } from '../components/ui/controls';
+import { Popover } from '../components/ui/Popover';
+import { useNews } from '../hooks/useNews';
+import { fmtDay, fmtDayLong, fmtMarketTime, msToKey } from '../lib/calendar';
+import { faDigits, fmtNum, fmtUsd, toLatinDigits } from '../lib/format';
+import { SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
+import { currenciesFor, filterNews } from '../lib/news';
+import { saveShot } from '../lib/shots';
+import { sessionBalance, sessionEndMs, sessionFloating, sessionProgress, sessionRemainingDays } from '../lib/stats';
+import { local } from '../lib/storage';
+import { fmtTehran } from '../lib/timezone';
+import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, tickOf } from '../lib/trading';
+import type { ChartPane as Pane, JournalEntry, LayoutId, Side, Trade } from '../lib/types';
+import { toast, useStore, useUi } from '../store/useStore';
 
-const SPEEDS = [
-  { value: '1', label: '۱×' },
-  { value: '2', label: '۲×' },
-  { value: '4', label: '۴×' },
-  { value: '8', label: '۸×' },
+interface Draft {
+  symbol: string;
+  side: Side;
+  entry: number;
+  sl: number;
+  tp: number;
+}
+
+const LAYOUTS: { id: LayoutId; label: string; count: number; grid: string; cells: string[] }[] = [
+  { id: '1', label: 'یک چارت', count: 1, grid: 'grid-cols-1 grid-rows-1', cells: ['col-span-2 row-span-2'] },
+  { id: '2v', label: 'دو چارت کنار هم', count: 2, grid: 'md:grid-cols-2 md:grid-rows-1', cells: ['row-span-2', 'row-span-2'] },
+  { id: '2h', label: 'دو چارت زیر هم', count: 2, grid: 'grid-rows-2', cells: ['col-span-2', 'col-span-2'] },
+  { id: '3', label: 'سه چارت', count: 3, grid: 'md:grid-cols-2 md:grid-rows-2', cells: ['md:row-span-2', '', ''] },
+  { id: '4', label: 'چهار چارت', count: 4, grid: 'md:grid-cols-2 md:grid-rows-2', cells: ['', '', '', ''] },
 ];
 
-const REASON: Record<NonNullable<Trade['closeReason']>, string> = { tp: 'حد سود', sl: 'حد ضرر', manual: 'دستی' };
-
-function NumberField({ id, label, value, onChange, suffix, step = 0.1 }: { id: string; label: string; value: string; onChange: (v: string) => void; suffix: string; step?: number }) {
+function LayoutIcon({ id }: { id: LayoutId }) {
+  const box = 'rounded-[2px] bg-current';
   return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-[11px] font-medium text-muted">
-        {label}
-      </label>
-      <div className="relative">
-        <input
-          id={id}
-          className="field num py-2 pl-12"
-          inputMode="decimal"
-          dir="ltr"
-          style={{ textAlign: 'right' }}
-          value={value}
-          step={step}
-          onChange={(e) => onChange(toLatinDigits(e.target.value).replace(/[^\d.]/g, ''))}
-        />
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[11px] text-faint">{suffix}</span>
-      </div>
-    </div>
-  );
-}
-
-function OrderPanel({ session, trades, ended }: { session: Session; trades: Trade[]; ended: boolean }) {
-  const strategies = useStore((s) => s.strategies);
-  const checklist = useStore((s) => s.checklists.find((c) => c.id === session.checklistId));
-  const placeTrade = useStore((s) => s.placeTrade);
-  const symbol = session.activeSymbol;
-  const info = SYMBOL_MAP[symbol];
-
-  const [risk, setRisk] = useState('1');
-  const [sl, setSl] = useState(String(info.defaultSl));
-  const [rr, setRr] = useState('2');
-  const [strategyId, setStrategyId] = useState(session.strategyId ?? '__none__');
-  const [checked, setChecked] = useState<string[]>([]);
-
-  useEffect(() => setSl(String(SYMBOL_MAP[symbol].defaultSl)), [symbol]);
-
-  const price = priceAt(symbol, session.cursor);
-  const balance = sessionBalance(session, trades.filter((t) => t.status === 'closed'));
-  const riskUsd = (balance * Number(risk)) / 100;
-  const slDist = Number(sl) * info.pip;
-  const tpDist = slDist * Number(rr);
-  const missing = checklist?.items.filter((i) => i.required && !checked.includes(i.id)) ?? [];
-  const inputsOk = Number(risk) > 0 && Number(risk) <= 10 && Number(sl) > 0 && Number(rr) > 0;
-  const blocked = ended ? 'بازه‌ی این جلسه تمام شده است.' : !inputsOk ? 'ریسک (۰ تا ۱۰٪)، حد ضرر و RR را درست وارد کنید.' : missing.length ? `${fmtNum(missing.length)} آیتم الزامی چک‌لیست تیک نخورده است.` : '';
-
-  const submit = (side: 'buy' | 'sell') => {
-    if (blocked) return;
-    const dir = side === 'buy' ? 1 : -1;
-    const t = placeTrade({
-      sessionId: session.id,
-      symbol,
-      side,
-      sl: price - dir * slDist,
-      tp: price + dir * tpDist,
-      risk: Math.round(riskUsd * 100) / 100,
-      strategyId: strategyId === '__none__' ? undefined : strategyId,
-    });
-    if (t) {
-      toast(`${side === 'buy' ? 'خرید' : 'فروش'} ${symbol} در ${price.toFixed(info.digits)} ثبت شد`);
-      setChecked([]);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 gap-2">
-        <NumberField id="order-risk" label="ریسک" value={risk} onChange={setRisk} suffix="٪" />
-        <NumberField id="order-sl" label="حد ضرر" value={sl} onChange={setSl} suffix="پیپ" step={1} />
-        <NumberField id="order-rr" label="ریسک به ریوارد" value={rr} onChange={setRr} suffix="R" />
-      </div>
-
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg bg-raised/60 px-3 py-2.5 text-xs">
-        <dt className="text-muted">مبلغ ریسک</dt>
-        <dd className="num text-end font-semibold">{fmtUsd(riskUsd)}</dd>
-        <dt className="text-muted">سود هدف</dt>
-        <dd className="num text-end font-semibold text-gain">{fmtUsd(riskUsd * Number(rr || 0))}</dd>
-        <dt className="text-muted">قیمت فعلی</dt>
-        <dd className="num text-end font-semibold" dir="ltr" style={{ textAlign: 'left' }}>
-          {price.toFixed(info.digits)}
-        </dd>
-      </dl>
-
-      <div>
-        <label className="mb-1 block text-[11px] font-medium text-muted" htmlFor="order-strategy">
-          استراتژی این معامله
-        </label>
-        <Select
-          id="order-strategy"
-          compact
-          value={strategyId}
-          onChange={setStrategyId}
-          options={[{ value: '__none__', label: 'بدون استراتژی' }, ...strategies.map((s) => ({ value: s.id, label: s.name }))]}
-        />
-      </div>
-
-      {checklist && (
-        <fieldset className="rounded-lg border border-line/70 p-3">
-          <legend className="px-1 text-[11px] font-semibold text-muted">چک‌لیست: {checklist.name}</legend>
-          <ul className="flex flex-col gap-1">
-            {checklist.items.map((it) => {
-              const on = checked.includes(it.id);
-              return (
-                <li key={it.id}>
-                  <button
-                    type="button"
-                    onClick={() => setChecked((c) => (on ? c.filter((x) => x !== it.id) : [...c, it.id]))}
-                    className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-start text-[13px] hover:bg-raised/60"
-                    aria-pressed={on}
-                  >
-                    <span className={clsx('flex h-4 w-4 shrink-0 items-center justify-center rounded border', on ? 'border-gain bg-gain text-white' : 'border-faint')}>
-                      {on && <Check size={11} strokeWidth={3} />}
-                    </span>
-                    <span className="min-w-0 flex-1">{it.text}</span>
-                    {it.required && <span className="text-[10px] font-bold text-amber">الزامی</span>}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </fieldset>
+    <span className="grid h-4 w-5 gap-[2px] opacity-80" style={{ gridTemplateColumns: id === '2v' || id === '3' || id === '4' ? '1fr 1fr' : '1fr', gridTemplateRows: id === '2h' || id === '3' || id === '4' ? '1fr 1fr' : '1fr' }}>
+      {id === '1' && <span className={box} />}
+      {(id === '2v' || id === '2h') && (
+        <>
+          <span className={box} />
+          <span className={box} />
+        </>
       )}
-
-      <div className="grid grid-cols-2 gap-2">
-        <button type="button" disabled={!!blocked} onClick={() => submit('buy')} className="btn flex-col gap-0 bg-gain py-2.5 text-white hover:brightness-110">
-          <span className="text-sm">خرید</span>
-          <span className="num text-[11px] font-medium opacity-80" dir="ltr">
-            SL {(price - slDist).toFixed(info.digits)}
-          </span>
-        </button>
-        <button type="button" disabled={!!blocked} onClick={() => submit('sell')} className="btn flex-col gap-0 bg-loss py-2.5 text-white hover:brightness-110">
-          <span className="text-sm">فروش</span>
-          <span className="num text-[11px] font-medium opacity-80" dir="ltr">
-            SL {(price + slDist).toFixed(info.digits)}
-          </span>
-        </button>
-      </div>
-      {blocked && <p className="-mt-2 text-xs text-amber">{blocked}</p>}
-    </div>
+      {id === '3' && (
+        <>
+          <span className={box} style={{ gridRow: 'span 2' }} />
+          <span className={box} />
+          <span className={box} />
+        </>
+      )}
+      {id === '4' && [0, 1, 2, 3].map((i) => <span key={i} className={box} />)}
+    </span>
   );
 }
 
-function Positions({ session, trades }: { session: Session; trades: Trade[] }) {
-  const closeTrade = useStore((s) => s.closeTrade);
-  const [tab, setTab] = useState<'open' | 'closed'>('open');
-  const open = trades.filter((t) => t.status === 'open');
-  const closed = trades.filter((t) => t.status === 'closed').sort((a, b) => (b.closeTime ?? 0) - (a.closeTime ?? 0)).slice(0, 30);
-  const list = tab === 'open' ? open : closed;
-
+/** Price field that keeps what the user types while focused and follows the chart otherwise. */
+function PriceInput({ id, label, value, digits, onChange, tone }: { id: string; label: string; value: number; digits: number; onChange: (v: number) => void; tone?: string }) {
+  const [text, setText] = useState(value.toFixed(digits));
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!focused.current) setText(value.toFixed(digits));
+  }, [value, digits]);
   return (
-    <div className="flex min-h-0 flex-col">
-      <div className="flex items-center gap-1 border-b border-line/70 px-3">
-        {(['open', 'closed'] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setTab(k)}
-            className={clsx('relative px-3 py-2.5 text-[13px] font-semibold transition', tab === k ? 'text-ink' : 'text-muted hover:text-ink')}
-          >
-            {k === 'open' ? 'پوزیشن‌های باز' : 'بسته‌شده'}
-            <span className="num ms-1.5 rounded bg-raised px-1.5 text-[11px]">{fmtNum(k === 'open' ? open.length : trades.length - open.length)}</span>
-            {tab === k && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-accent" />}
-          </button>
-        ))}
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        {list.length === 0 ? (
-          <p className="px-4 py-6 text-center text-xs text-muted">{tab === 'open' ? 'پوزیشن بازی ندارید. از پنل سفارش خرید یا فروش ثبت کنید.' : 'هنوز معامله‌ای بسته نشده.'}</p>
-        ) : (
-          <table className="w-full min-w-[560px] text-[12px]">
-            <thead className="text-faint">
-              <tr className="text-start">
-                <th className="px-3 py-2 text-start font-medium">نماد</th>
-                <th className="px-3 py-2 text-start font-medium">جهت</th>
-                <th className="px-3 py-2 text-start font-medium">ورود</th>
-                <th className="px-3 py-2 text-start font-medium">{tab === 'open' ? 'قیمت فعلی' : 'خروج'}</th>
-                <th className="px-3 py-2 text-start font-medium">R</th>
-                <th className="px-3 py-2 text-start font-medium">سود / زیان</th>
-                <th className="px-3 py-2 text-start font-medium">{tab === 'open' ? '' : 'دلیل'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((t) => {
-                const info = SYMBOL_MAP[t.symbol];
-                const now = t.status === 'open' ? priceAt(t.symbol, session.cursor) : t.exit ?? t.entry;
-                const r = t.status === 'open' ? rAt(t, now) : t.r ?? 0;
-                const pnl = t.status === 'open' ? r * t.risk : t.pnl ?? 0;
-                return (
-                  <tr key={t.id} className="border-t border-line/50">
-                    <td className="px-3 py-2 font-semibold" dir="ltr" style={{ textAlign: 'right' }}>
-                      {t.symbol}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className={clsx('rounded px-1.5 py-0.5 text-[11px] font-bold', t.side === 'buy' ? 'bg-gain/15 text-gain' : 'bg-loss/15 text-loss')}>
-                        {t.side === 'buy' ? 'خرید' : 'فروش'}
-                      </span>
-                    </td>
-                    <td className="num px-3 py-2" dir="ltr" style={{ textAlign: 'right' }}>
-                      {t.entry.toFixed(info.digits)}
-                    </td>
-                    <td className="num px-3 py-2" dir="ltr" style={{ textAlign: 'right' }}>
-                      {now.toFixed(info.digits)}
-                    </td>
-                    <td className={clsx('num px-3 py-2 font-semibold', r >= 0 ? 'text-gain' : 'text-loss')}>{fmtR(r)}</td>
-                    <td className={clsx('num px-3 py-2 font-semibold', pnl >= 0 ? 'text-gain' : 'text-loss')}>{fmtUsd(pnl, 2, true)}</td>
-                    <td className="px-3 py-2 text-end">
-                      {t.status === 'open' ? (
-                        <button type="button" className="btn-soft px-2 py-1 text-[11px]" onClick={() => closeTrade(t.id)}>
-                          <X size={12} /> بستن
-                        </button>
-                      ) : (
-                        <span className="text-[11px] text-muted">{REASON[t.closeReason ?? 'manual']}</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
+    <label className="flex items-center gap-1.5 rounded-xl border border-line bg-raised/70 px-2 py-1 focus-within:border-accent/70" htmlFor={id}>
+      <span className={clsx('text-[11px] font-bold', tone)}>{label}</span>
+      <input
+        id={id}
+        className="num w-[84px] bg-transparent text-[13px] font-semibold outline-none"
+        dir="ltr"
+        inputMode="decimal"
+        value={text}
+        onFocus={() => (focused.current = true)}
+        onBlur={() => {
+          focused.current = false;
+          setText(value.toFixed(digits));
+        }}
+        onChange={(e) => {
+          const t = toLatinDigits(e.target.value).replace(/[^\d.]/g, '');
+          setText(t);
+          const n = Number(t);
+          if (t && Number.isFinite(n) && n > 0) onChange(n);
+        }}
+      />
+    </label>
   );
 }
+
+const ENGINE_KEY = 'backtest:chart-engine';
+const RISK_KEY = 'backtest:risk-pct';
 
 export default function Replay() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const session = useStore((s) => s.sessions.find((x) => x.id === id));
   const allTrades = useStore((s) => s.trades);
+  const theme = useStore((s) => s.theme);
+  const checklists = useStore((s) => s.checklists);
+  const newsFilters = useStore((s) => s.newsFilters);
+  const setNewsFilters = useStore((s) => s.setNewsFilters);
+  const setLayout = useStore((s) => s.setLayout);
   const updateSession = useStore((s) => s.updateSession);
   const addPracticeSeconds = useStore((s) => s.addPracticeSeconds);
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState('1');
+  const expanded = useUi((s) => s.chartExpanded);
+  const setExpanded = useUi((s) => s.setChartExpanded);
 
+  // ---------- chart engine ----------
+  const [tv, setTv] = useState<unknown>(null);
+  const [enginePref, setEnginePref] = useState<'auto' | 'lightweight'>(() => (local.getItem(ENGINE_KEY) === 'lightweight' ? 'lightweight' : 'auto'));
+  useEffect(() => {
+    let alive = true;
+    void loadTradingView().then((lib) => {
+      if (!alive) return;
+      setTv(lib);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const engineKind: EngineKind = enginePref === 'auto' && tv ? 'tradingview' : 'lightweight';
+  const engines = useRef(new Map<number, ChartEngine>());
+  const register = useCallback((i: number, e: ChartEngine | null) => {
+    if (e) engines.current.set(i, e);
+    else engines.current.delete(i);
+  }, []);
+  const [dataVersion, setDataVersion] = useState(getDataVersion());
+  useEffect(() => onDataVersion(() => setDataVersion(getDataVersion())), []);
+
+  // ---------- layout ----------
+  const layout = session?.layout ?? '1';
+  const panes: Pane[] = useMemo(
+    () => (session?.panes?.length ? session.panes : session ? [{ symbol: session.activeSymbol, timeframe: session.timeframe }] : []),
+    [session],
+  );
+  const [activePane, setActivePane] = useState(0);
+  const active = panes[Math.min(activePane, panes.length - 1)];
+  const layoutDef = LAYOUTS.find((l) => l.id === layout) ?? LAYOUTS[0];
+
+  const changeLayout = (next: LayoutId) => {
+    if (!session) return;
+    const def = LAYOUTS.find((l) => l.id === next)!;
+    const extraTfs: Timeframe[] = ['1h', '4h', '15m', '1D', '5m'];
+    const out = panes.slice(0, def.count);
+    for (let i = out.length; i < def.count; i++) {
+      const sym = session.symbols[i] ?? panes[0].symbol;
+      const tf = session.symbols[i] ? panes[0].timeframe : extraTfs.find((t) => !out.some((p) => p.symbol === sym && p.timeframe === t)) ?? '1h';
+      out.push({ symbol: sym, timeframe: tf });
+    }
+    setLayout(session.id, next, out);
+    setActivePane((a) => Math.min(a, def.count - 1));
+  };
+  const changePane = (i: number, pane: Pane) => {
+    if (!session) return;
+    const next = panes.map((p, j) => (j === i ? pane : p));
+    setLayout(session.id, layout, next);
+    if (i === 0) updateSession(session.id, { activeSymbol: pane.symbol, timeframe: pane.timeframe });
+  };
+
+  // ---------- replay ----------
+  const [playing, setPlaying] = useState(false);
+  const [speedIndex, setSpeedIndex] = useState(2);
+  const [stepTf, setStepTf] = useState<Timeframe>(() => panes[0]?.timeframe ?? '15m');
   const trades = useMemo(() => allTrades.filter((t) => t.sessionId === id), [allTrades, id]);
 
-  const step = useCallback(
-    (tf?: Timeframe) => {
+  const notify = useCallback((events: { kind: string; trade: Trade }[]) => {
+    for (const { kind, trade: t } of events) {
+      const name = SYMBOL_MAP[t.symbol]?.ticker ?? t.symbol;
+      if (kind === 'filled') toast(`سفارش ${orderTitle(t.side, t.orderType)} ${name} فعال شد`, 'info');
+      if (kind === 'tp') toast(`حد سود ${name} خورد: ${fmtUsd(t.pnl ?? 0, 2, true)}`, 'success');
+      if (kind === 'sl') toast(`حد ضرر ${name} خورد: ${fmtUsd(t.pnl ?? 0, 2, true)}`, 'error');
+    }
+  }, []);
+
+  const jumpTo = useCallback(
+    (target: number) => {
       const st = useStore.getState();
       const s = st.sessions.find((x) => x.id === id);
       if (!s) return;
       const end = sessionEndMs(s);
-      if (s.cursor >= end) {
-        setPlaying(false);
-        return;
-      }
-      const next = Math.min(end, stepCursor(s.cursor, tf ?? s.timeframe, s.symbols));
-      const closed = st.advance(s.id, next);
-      for (const t of closed) {
-        toast(`${t.symbol} با ${t.closeReason === 'tp' ? 'حد سود' : 'حد ضرر'} بسته شد: ${fmtUsd(t.pnl ?? 0, 2, true)}`, (t.pnl ?? 0) >= 0 ? 'success' : 'error');
-      }
+      const next = Math.min(end, target);
+      if (next <= s.cursor) return;
+      notify(st.advance(s.id, next));
       if (next >= end) {
         setPlaying(false);
         toast('به پایان بازه‌ی این جلسه رسیدید', 'info');
       }
     },
-    [id],
+    [id, notify],
   );
 
-  // auto-play
+  const step = useCallback(() => {
+    const s = useStore.getState().sessions.find((x) => x.id === id);
+    if (!s) return;
+    if (s.cursor >= sessionEndMs(s)) {
+      setPlaying(false);
+      return;
+    }
+    jumpTo(stepCursor(s.cursor, stepTf, s.symbols));
+  }, [id, stepTf, jumpTo]);
+
   useEffect(() => {
     if (!playing) return;
-    const t = setInterval(() => step(), 1000 / Number(speed));
+    const t = setInterval(step, 1000 / SPEEDS[speedIndex]);
     return () => clearInterval(t);
-  }, [playing, speed, step]);
+  }, [playing, speedIndex, step]);
 
-  // count practice time while this page is visible
+  // practice time while this page is visible
   useEffect(() => {
     const t = setInterval(() => {
       if (document.visibilityState === 'visible') addPracticeSeconds(15);
@@ -299,159 +244,515 @@ export default function Replay() {
     if (id) updateSession(id, { lastOpenedAt: Date.now() });
   }, [id, updateSession]);
 
-  // keyboard: space = play/pause, → = one step
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.code === 'Space') {
-        e.preventDefault();
-        setPlaying((p) => !p);
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        step();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [step]);
+  useEffect(() => () => setExpanded(false), [setExpanded]);
 
-  if (!session) {
+  // ---------- orders ----------
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draftJournal, setDraftJournal] = useState<JournalEntry | null>(null);
+  const [riskPct, setRiskPctState] = useState(() => Math.min(10, Math.max(0.1, Number(local.getItem(RISK_KEY)) || 1)));
+  const setRiskPct = (v: number) => {
+    const r = Math.round(Math.min(10, Math.max(0.1, v)) * 10) / 10;
+    setRiskPctState(r);
+    local.setItem(RISK_KEY, String(r));
+  };
+  const [journalFor, setJournalFor] = useState<'draft' | string | null>(null);
+  const [closeId, setCloseId] = useState<string | null>(null);
+  const [shot, setShot] = useState<string | null>(null);
+  const [newsOpen, setNewsOpen] = useState(false);
+  const [positionsOpen, setPositionsOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
+
+  const news = useNews(session?.cursor ?? 0);
+
+  if (!session || !active) {
     return (
       <div className="px-6 py-20 text-center">
         <p className="mb-4 text-muted">این جلسه پیدا نشد.</p>
-        <Link to="/dashboard" className="btn-primary">
-          بازگشت به داشبورد
+        <Link to="/sessions" className="btn-primary">
+          بازگشت به جلسات
         </Link>
       </div>
     );
   }
 
-  const ended = session.cursor >= sessionEndMs(session);
-  const info = SYMBOL_MAP[session.activeSymbol];
-  const closedTrades = trades.filter((t) => t.status === 'closed');
-  const balance = sessionBalance(session, closedTrades);
-  const openPnl = trades
-    .filter((t) => t.status === 'open')
-    .reduce((s, t) => s + rAt(t, priceAt(t.symbol, session.cursor)) * t.risk, 0);
+  const cursor = session.cursor;
+  const endMs = sessionEndMs(session);
+  const ended = cursor >= endMs;
+  const balance = sessionBalance(session, trades);
+  const realized = balance - session.balance;
+  const floating = sessionFloating(session, trades);
+  const activeSym = SYMBOL_MAP[active.symbol];
+
+  const draftPrice = draft ? priceAt(draft.symbol, cursor) : 0;
+  const preview = draft ? previewOrder(draft, draftPrice, balance, riskPct, cursor) : null;
+  const draftForChart: (DraftOrder & { symbol: string }) | null =
+    draft && preview ? { ...draft, type: preview.type, rr: preview.rr, riskUsd: preview.riskUsd, rewardUsd: preview.rewardUsd, lots: preview.lots } : null;
+
+  const defaultStop = (symbol: string, tf: Timeframe) => Math.max(atr(symbol, tf, cursor) * 1.5, tickOf(symbol) * 10);
+  const idleLots = lotsForRisk(active.symbol, (balance * riskPct) / 100, priceAt(active.symbol, cursor), priceAt(active.symbol, cursor) - defaultStop(active.symbol, active.timeframe), cursor);
+
+  const startDraft = (side: Side) => {
+    if (ended) return;
+    if (draft && draft.side !== side && draft.symbol === active.symbol) {
+      // flip the drawn position to the other side, keeping the distances
+      setDraft({ ...draft, side, sl: 2 * draft.entry - draft.sl, tp: 2 * draft.entry - draft.tp });
+      return;
+    }
+    const price = priceAt(active.symbol, cursor);
+    const d = defaultStop(active.symbol, active.timeframe);
+    const dir = dirOf(side);
+    setDraft({ symbol: active.symbol, side, entry: roundToTick(active.symbol, price), sl: roundToTick(active.symbol, price - dir * d), tp: roundToTick(active.symbol, price + dir * d * 2) });
+    setDraftJournal(null);
+  };
+
+  const sessionChecklist = checklists.find((c) => c.id === (draftJournal?.checklistId ?? (draftJournal ? undefined : session.checklistId)));
+  const missingRequired = sessionChecklist?.items.filter((i) => i.required && !(draftJournal?.checked ?? []).includes(i.id)) ?? [];
+
+  const place = () => {
+    if (!draft || !preview) return;
+    if (preview.problem) {
+      toast(preview.problem, 'error');
+      return;
+    }
+    if (missingRequired.length) {
+      toast(`${fmtNum(missingRequired.length)} آیتم الزامی چک‌لیست «${sessionChecklist!.name}» تیک نخورده. ژورنال را باز کنید.`, 'error');
+      setJournalFor('draft');
+      return;
+    }
+    const t = useStore.getState().placeOrder({
+      sessionId: session.id,
+      symbol: draft.symbol,
+      side: draft.side,
+      orderType: preview.type,
+      entry: draft.entry,
+      sl: draft.sl,
+      tp: draft.tp,
+      riskPct,
+      strategyId: session.strategyId,
+      journal: draftJournal ?? undefined,
+    });
+    if (t) {
+      toast(`${orderTitle(t.side, t.orderType)} ${activeSym?.ticker ?? t.symbol} · ${fmtLots(t.lots, t.symbol)} لات ثبت شد`);
+      setDraft(null);
+      setDraftJournal(null);
+    }
+  };
+
+  const callbacksFor = (i: number): EngineCallbacks => ({
+    onDraftChange: (p) => setDraft((d) => (d ? { ...d, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, roundToTick(d.symbol, v as number)])) } : d)),
+    onLineMove: (tradeId, field, price) => {
+      useStore.getState().modifyTrade(tradeId, { [field]: price });
+      toast(field === 'sl' ? 'حد ضرر جابه‌جا شد' : field === 'tp' ? 'حد سود جابه‌جا شد' : 'قیمت سفارش تغییر کرد', 'info');
+    },
+    onLineClose: (tradeId) => {
+      const t = useStore.getState().trades.find((x) => x.id === tradeId);
+      if (!t) return;
+      if (t.status === 'pending') {
+        useStore.getState().cancelOrder(t.id);
+        toast('سفارش لغو شد', 'info');
+      } else setCloseId(t.id);
+    },
+    onSymbolChange: (symbol) => session.symbols.includes(symbol) && changePane(i, { ...panes[i], symbol }),
+    onTimeframeChange: (timeframe) => changePane(i, { ...panes[i], timeframe }),
+    onActivate: () => setActivePane(i),
+  });
+
+  const capture = async () => engines.current.get(activePane)?.screenshot() ?? null;
+
+  const journalTrade = journalFor && journalFor !== 'draft' ? trades.find((t) => t.id === journalFor) : undefined;
+  const journalCtx: JournalContext | null =
+    journalFor === 'draft' && draft && preview
+      ? { symbol: draft.symbol, side: draft.side, type: preview.type, entry: draft.entry, sl: draft.sl, tp: draft.tp, rr: preview.rr, lots: preview.lots, time: cursor, sessionName: session.name }
+      : journalTrade
+        ? {
+            symbol: journalTrade.symbol,
+            side: journalTrade.side,
+            type: journalTrade.orderType,
+            entry: journalTrade.entry,
+            sl: journalTrade.sl,
+            tp: journalTrade.tp,
+            rr: Math.abs(journalTrade.tp - journalTrade.entry) / Math.max(1e-12, Math.abs(journalTrade.entry - journalTrade.sl)),
+            lots: journalTrade.initialLots,
+            time: journalTrade.openTime,
+            sessionName: session.name,
+            pnl: journalTrade.status === 'closed' ? journalTrade.pnl : undefined,
+            r: journalTrade.r,
+          }
+        : null;
+
+  const autoCurrencies = currenciesFor(session.symbols.map((s) => SYMBOL_MAP[s]?.currencies ?? []));
+  const effectiveFilters = { ...newsFilters, currencies: newsFilters.currencies.length ? newsFilters.currencies : autoCurrencies };
+  const chartNews = filterNews(news.events, effectiveFilters, cursor);
+
+  const onKey = (e: React.KeyboardEvent) => {
+    const tag = (e.target as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (!ended) setPlaying((p) => !p);
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      step();
+    } else if (e.key === 'Escape') {
+      if (draft) setDraft(null);
+      else if (expanded) setExpanded(false);
+    }
+  };
+
+  const remaining = sessionRemainingDays(session);
 
   return (
-    <div className="flex flex-col lg:h-[calc(100vh-3.5rem)]">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line/70 bg-side px-3 py-2 sm:px-4">
-        <Link to="/dashboard" className="icon-btn" aria-label="بازگشت">
-          <ArrowRight size={18} />
-        </Link>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold">{session.name}</p>
-          <p className="num text-[11px] text-faint">
-            {fmtDay(session.startDate)} تا {fmtDay(session.endDate)}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-1 rounded-lg bg-raised p-1" dir="ltr">
-          {session.symbols.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => updateSession(session.id, { activeSymbol: s })}
-              className={clsx('rounded-md px-2.5 py-1 text-xs font-bold transition', s === session.activeSymbol ? 'bg-surface text-ink shadow' : 'text-muted hover:text-ink')}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-0.5 rounded-lg bg-raised p-1">
-          {TIMEFRAMES.map((tf) => (
-            <button
-              key={tf.id}
-              type="button"
-              onClick={() => updateSession(session.id, { timeframe: tf.id })}
-              className={clsx('rounded-md px-2 py-1 text-[11px] font-semibold transition', tf.id === session.timeframe ? 'bg-accent text-white' : 'text-muted hover:text-ink')}
-            >
-              {tf.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1 lg:ms-auto">
+    <div
+      tabIndex={-1}
+      onKeyDown={onKey}
+      className={clsx('flex flex-col bg-bg outline-none', expanded ? 'fixed inset-0 z-50 h-[100dvh]' : 'h-[calc(100dvh-3.5rem)]')}
+      style={expanded ? { paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' } : undefined}
+    >
+      {/* toolbar */}
+      {!expanded && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-line/70 bg-side px-2 py-2 sm:px-3">
+          <button type="button" className="icon-btn" onClick={() => navigate(`/sessions?id=${session.id}`)} aria-label="بازگشت به جلسه" title="بازگشت">
+            <ArrowRight size={18} />
+          </button>
+          <div className="min-w-0 max-w-[14rem]">
+            <p className="truncate text-sm font-bold">{session.name}</p>
+            <div className="flex items-center gap-2">
+              <Meter value={sessionProgress(session)} className="h-1 w-16" tone="accent" />
+              <span className="num text-[11px] text-faint">{fmtNum(remaining)} روز باقی‌مانده</span>
+            </div>
+          </div>
+          <Link to={`/journal?session=${session.id}`} className="btn-ghost py-1.5">
+            <NotebookPen size={15} /> ژورنال
+          </Link>
+          <Link to={`/analytics?session=${session.id}`} className="btn-ghost hidden py-1.5 sm:inline-flex">
+            <BarChart3 size={15} /> آنالیز
+          </Link>
           <button
             type="button"
-            className={clsx('flex h-9 w-9 items-center justify-center rounded-full text-white transition', ended ? 'bg-faint' : 'bg-accent hover:brightness-110')}
-            onClick={() => setPlaying((p) => !p)}
-            disabled={ended}
-            aria-label={playing ? 'توقف' : 'پخش'}
-            title="پخش / توقف (Space)"
+            className="icon-btn"
+            title="اسکرین‌شات چارت"
+            aria-label="اسکرین‌شات چارت"
+            onClick={async () => {
+              const s = await capture();
+              if (s) setShot(s);
+              else toast('گرفتن اسکرین‌شات انجام نشد', 'error');
+            }}
           >
-            {playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="-translate-x-[1px]" />}
+            <Camera size={17} />
           </button>
-          <button type="button" className="icon-btn" onClick={() => step()} disabled={ended} aria-label="یک کندل جلو" title="یک کندل جلو (→)">
-            <StepForward size={18} />
-          </button>
-          <button type="button" className="icon-btn" onClick={() => step('1D')} disabled={ended} aria-label="یک روز جلو" title="پرش یک روز">
-            <FastForward size={18} />
-          </button>
-          <div className="w-[72px]">
-            <Select compact value={speed} onChange={setSpeed} options={SPEEDS} />
+
+          <div className="ms-auto flex flex-wrap items-center gap-1.5">
+            <span className="num hidden rounded-xl bg-raised px-2.5 py-1.5 text-[12px] text-muted md:inline" title={`${new Date(cursor).toISOString().slice(0, 16).replace('T', ' ')} UTC`}>
+              {fmtDayLong(msToKey(cursor + 3.5 * 3_600_000), 'jalali', true)} · <b className="text-ink">{fmtTehran(cursor)}</b> تهران
+            </span>
+            <GoToMenu cursor={cursor} endMs={endMs} symbols={session.symbols} disabled={ended} onJump={(t, label) => {
+              setPlaying(false);
+              jumpTo(t);
+              toast(`رفتید به: ${label}`, 'info');
+            }} />
+            <button type="button" onClick={() => setNewsOpen((v) => !v)} aria-pressed={newsOpen} className={clsx('btn-soft py-1.5', newsOpen && 'border-accent/60 text-accent-ink')}>
+              <CalendarDays size={15} /> تقویم اقتصادی
+            </button>
+            <Popover
+              align="end"
+              panelClass="w-56 p-1.5"
+              button={({ open, toggle }) => (
+                <button type="button" onClick={toggle} aria-expanded={open} className="btn-soft py-1.5" title="تعداد چارت‌ها">
+                  <LayoutGrid size={15} /> <span className="hidden sm:inline">چیدمان</span>
+                </button>
+              )}
+            >
+              {(close) => (
+                <div className="flex flex-col gap-0.5">
+                  {LAYOUTS.map((l) => (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => {
+                        changeLayout(l.id);
+                        close();
+                      }}
+                      className={clsx('flex items-center gap-3 rounded-xl px-3 py-2 text-start text-[13px] hover:bg-raised', l.id === layout && 'bg-raised text-accent-ink')}
+                    >
+                      <LayoutIcon id={l.id} />
+                      {l.label}
+                    </button>
+                  ))}
+                  <div className="my-1 h-px bg-line" />
+                  <button
+                    type="button"
+                    className="flex items-center gap-3 rounded-xl px-3 py-2 text-start text-[12px] text-muted hover:bg-raised"
+                    onClick={() => {
+                      const next = enginePref === 'auto' ? 'lightweight' : 'auto';
+                      setEnginePref(next);
+                      local.setItem(ENGINE_KEY, next);
+                      close();
+                    }}
+                  >
+                    <Cpu size={15} />
+                    {enginePref === 'auto' ? 'استفاده از موتور چارت داخلی' : tv ? 'استفاده از TradingView' : 'TradingView نصب نیست'}
+                  </button>
+                </div>
+              )}
+            </Popover>
+            <button type="button" onClick={() => setExpanded(true)} className="btn-soft py-1.5" title="فقط چارت">
+              <Maximize2 size={15} /> <span className="hidden sm:inline">بزرگ‌نمایی</span>
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_330px]">
-        {/* Chart + positions */}
-        <div className="flex min-h-0 flex-col">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-line/50 px-4 py-2 text-xs">
-            <span className="font-bold" dir="ltr">
-              {info.ticker}
-            </span>
-            <span className="text-muted">{info.name}</span>
-            <span className="num text-muted">
-              زمان بازار: <span className="font-semibold text-ink">{fmtMarketTime(session.cursor)}</span>
-              <span className="ms-2 text-faint" dir="ltr">
-                {new Date(session.cursor).toISOString().slice(0, 16).replace('T', ' ')} UTC
-              </span>
-            </span>
-          </div>
-          <div className="relative h-[380px] min-h-0 lg:h-auto lg:flex-1">
-            <CandleChart symbol={session.activeSymbol} timeframe={session.timeframe} cursor={session.cursor} trades={trades} />
-            {ended && (
-              <div className="absolute inset-x-0 top-3 mx-auto w-fit rounded-lg border border-line bg-raised px-4 py-2 text-xs font-semibold shadow-pop">
-                این جلسه به تاریخ پایان رسیده است.
+      {/* charts + news */}
+      <div className="flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className={clsx('grid min-h-0 flex-1 grid-cols-1 gap-px bg-line/40', layoutDef.grid, layoutDef.count > 1 && 'auto-rows-[minmax(240px,1fr)] overflow-y-auto md:overflow-hidden')}>
+            {panes.slice(0, layoutDef.count).map((p, i) => (
+              <div key={i} className={clsx('min-h-0', layoutDef.cells[i])}>
+                <ChartPane
+                  index={i}
+                  pane={p}
+                  engineKind={engineKind}
+                  tv={tv}
+                  cursor={cursor}
+                  theme={theme}
+                  sessionSymbols={session.symbols}
+                  showHistory={showHistory}
+                  dataVersion={dataVersion}
+                  draft={draftForChart}
+                  trades={trades}
+                  news={chartNews}
+                  active={i === activePane}
+                  multi={layoutDef.count > 1}
+                  callbacks={callbacksFor(i)}
+                  onPaneChange={(np) => changePane(i, np)}
+                  register={register}
+                />
               </div>
-            )}
+            ))}
           </div>
-          <div className="h-[220px] shrink-0 border-t border-line/70 bg-side/60">
-            <Positions session={session} trades={trades} />
-          </div>
+          {ended && (
+            <div className="absolute inset-x-0 top-12 z-10 mx-auto w-fit rounded-xl border border-line bg-raised px-4 py-2 text-xs font-semibold shadow-pop">این جلسه به تاریخ پایان رسیده است.</div>
+          )}
+          {expanded && (
+            <button type="button" onClick={() => setExpanded(false)} className="btn-soft absolute left-3 top-3 z-20 py-1.5 shadow-pop" title="خروج از حالت بزرگ (Esc)">
+              <Minimize2 size={15} /> خروج
+            </button>
+          )}
+          <PlaybackBar
+            playing={playing}
+            onTogglePlay={() => setPlaying((p) => !p)}
+            onStep={step}
+            speedIndex={speedIndex}
+            onSpeedIndex={setSpeedIndex}
+            stepTf={stepTf}
+            onStepTf={setStepTf}
+            disabled={ended}
+          />
         </div>
-
-        {/* Order panel */}
-        <aside className="min-h-0 overflow-y-auto border-t border-line/70 bg-side p-4 lg:border-r lg:border-t-0">
-          <div className="mb-4 grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-raised/60 p-3">
-              <p className="text-[11px] text-muted">موجودی</p>
-              <p className="num text-sm font-bold">{fmtUsd(balance)}</p>
-            </div>
-            <div className="rounded-lg bg-raised/60 p-3">
-              <p className="text-[11px] text-muted">سود/زیان باز</p>
-              <p className={clsx('num text-sm font-bold', openPnl > 0 ? 'text-gain' : openPnl < 0 ? 'text-loss' : '')}>{fmtUsd(openPnl, 2, true)}</p>
-            </div>
+        {newsOpen && (
+          <div className="fixed inset-x-0 bottom-0 top-1/3 z-40 lg:static lg:z-auto">
+            <NewsPanel
+              events={news.events}
+              source={news.source}
+              loading={news.loading}
+              cursor={cursor}
+              filters={newsFilters}
+              autoCurrencies={autoCurrencies}
+              onFilters={setNewsFilters}
+              onClose={() => setNewsOpen(false)}
+            />
           </div>
-          <div className="mb-5">
-            <div className="mb-1.5 flex justify-between text-[11px] text-muted">
-              <span>پیشرفت جلسه</span>
-              <span className="num">روزهای باقی‌مانده: {fmtNum(sessionRemainingDays(session))}</span>
-            </div>
-            <Meter value={sessionProgress(session)} className="h-1" />
-          </div>
-          <h2 className="mb-3 text-sm font-bold">ثبت سفارش</h2>
-          <OrderPanel key={session.id} session={session} trades={trades} ended={ended} />
-          <p className="mt-5 text-[11px] leading-6 text-faint">
-            میانبرها: <kbd className="rounded bg-raised px-1">Space</kbd> پخش/توقف، <kbd className="rounded bg-raised px-1">→</kbd> یک کندل جلو. حد ضرر بر حسب پیپ ({faDigits(info.pip)} قیمت) است.
-          </p>
-        </aside>
+        )}
       </div>
+
+      {/* order bar */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line/70 bg-side px-3 py-2">
+        <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
+          <div className="flex items-center gap-1.5">
+            <dt className="text-muted">موجودی:</dt>
+            <dd className="num font-bold">{fmtUsd(balance)}</dd>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <dt className="text-muted">سود/زیان محقق:</dt>
+            <dd className={clsx('num font-bold', realized > 0 ? 'text-gain' : realized < 0 ? 'text-loss' : '')}>{fmtUsd(realized, 2, true)}</dd>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <dt className="text-muted">سود/زیان باز:</dt>
+            <dd className={clsx('num font-bold', floating > 0 ? 'text-gain' : floating < 0 ? 'text-loss' : '')}>{fmtUsd(floating, 2, true)}</dd>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPositionsOpen((v) => !v)}
+            aria-expanded={positionsOpen}
+            className={clsx('icon-btn h-8 w-auto gap-1 px-2 text-[12px]', positionsOpen && 'bg-raised text-ink')}
+            title="پوزیشن‌های باز و بسته"
+          >
+            {positionsOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            <span className="num">پوزیشن‌ها ({fmtNum(trades.filter((t) => t.status === 'open' || t.status === 'pending').length)})</span>
+          </button>
+        </dl>
+
+        <div className="ms-auto flex flex-wrap items-center gap-2">
+          {draft && preview ? (
+            <>
+              <span className={clsx('rounded-lg px-2 py-1 text-[12px] font-bold', draft.side === 'buy' ? 'bg-gain/15 text-gain' : 'bg-loss/15 text-loss')} title="نوع سفارش از جای قیمت ورود نسبت به قیمت فعلی تشخیص داده می‌شود">
+                {orderTitle(draft.side, preview.type)}
+              </span>
+              <PriceInput id="draft-entry" label="ورود" value={draft.entry} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(entry) => setDraft({ ...draft, entry })} />
+              {preview.type !== 'market' && (
+                <button type="button" className="chip hover:text-ink" onClick={() => setDraft({ ...draft, entry: roundToTick(draft.symbol, draftPrice) })} title="قیمت ورود = قیمت فعلی بازار">
+                  قیمت بازار
+                </button>
+              )}
+              <PriceInput id="draft-sl" label="SL" tone="text-loss" value={draft.sl} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(sl) => setDraft({ ...draft, sl })} />
+              <PriceInput id="draft-tp" label="TP" tone="text-gain" value={draft.tp} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(tp) => setDraft({ ...draft, tp })} />
+              <span className="num text-[12px] text-muted">
+                R:R <b className="text-ink">{preview.rr.toFixed(2)}</b> · ریسک <b className="text-loss">{fmtUsd(preview.riskUsd)}</b> · <b className="text-ink">{fmtLots(preview.lots, draft.symbol)}</b> لات
+              </span>
+              <button type="button" className="btn-soft py-1.5" onClick={() => setJournalFor('draft')}>
+                <NotebookPen size={15} /> ذخیره ژورنال {draftJournal && <span className="h-1.5 w-1.5 rounded-full bg-gain" />}
+              </button>
+              <button type="button" className="btn-primary py-1.5" onClick={place} disabled={!!preview.problem}>
+                <Send size={15} className="-scale-x-100" /> ثبت معامله
+              </button>
+              <button type="button" className="icon-btn h-8 w-8" onClick={() => setDraft(null)} aria-label="لغو" title="لغو (Esc)">
+                <X size={16} />
+              </button>
+              {(preview.problem || missingRequired.length > 0) && (
+                <p className="w-full text-end text-[11px] text-amber">
+                  {preview.problem || `${fmtNum(missingRequired.length)} آیتم الزامی چک‌لیست هنوز تیک نخورده (در ژورنال).`}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn-buy px-5 py-1.5" onClick={() => startDraft('buy')} disabled={ended}>
+                خرید
+              </button>
+              <button type="button" className="btn-sell px-5 py-1.5" onClick={() => startDraft('sell')} disabled={ended}>
+                فروش
+              </button>
+            </>
+          )}
+          <div className="flex items-center gap-1 rounded-xl border border-line bg-raised/70 px-1 py-0.5" title="درصد ریسک هر معامله از موجودی">
+            <button type="button" className="icon-btn h-7 w-7" onClick={() => setRiskPct(riskPct - 0.25)} aria-label="کم کردن ریسک">
+              <Minus size={14} />
+            </button>
+            <label htmlFor="risk-pct" className="text-[11px] text-muted">
+              ریسک
+            </label>
+            <input
+              id="risk-pct"
+              className="num w-10 bg-transparent text-center text-[13px] font-bold outline-none"
+              dir="ltr"
+              inputMode="decimal"
+              value={riskPct}
+              onChange={(e) => {
+                const n = Number(toLatinDigits(e.target.value).replace(/[^\d.]/g, ''));
+                if (Number.isFinite(n) && n > 0) setRiskPct(n);
+              }}
+            />
+            <span className="text-[12px] text-muted">٪</span>
+            <button type="button" className="icon-btn h-7 w-7" onClick={() => setRiskPct(riskPct + 0.25)} aria-label="زیاد کردن ریسک">
+              <Plus size={14} />
+            </button>
+          </div>
+          {!draft && (
+            <span className="num text-[12px] text-muted" title="حجم بر اساس ریسک و حد ضرر پیش‌فرض (۱٫۵ برابر ATR) محاسبه می‌شود">
+              حجم ≈ <b className="text-ink">{fmtLots(idleLots, active.symbol)}</b> لات
+            </span>
+          )}
+        </div>
+      </div>
+
+      {positionsOpen && (
+        <div className="anim-up h-[min(42vh,320px)] shrink-0 border-t border-line/70 bg-side">
+          <PositionsPanel
+            trades={trades}
+            cursor={cursor}
+            showHistory={showHistory}
+            onShowHistory={setShowHistory}
+            onClose={(t) => setCloseId(t.id)}
+            onCancel={(t) => {
+              useStore.getState().cancelOrder(t.id);
+              toast('سفارش لغو شد', 'info');
+            }}
+            onJournal={(t) => setJournalFor(t.id)}
+          />
+        </div>
+      )}
+
+      <CloseModal
+        trade={trades.find((t) => t.id === closeId && t.status === 'open') ?? null}
+        cursor={cursor}
+        onClose={() => setCloseId(null)}
+        onConfirm={(lots) => {
+          const t = useStore.getState().closePosition(closeId!, lots);
+          setCloseId(null);
+          if (t) toast(t.status === 'closed' ? `پوزیشن بسته شد: ${fmtUsd(t.pnl ?? 0, 2, true)}` : `${faDigits(lots.toFixed(2))} لات بسته شد`, (t.pnl ?? 0) >= 0 ? 'success' : 'error');
+        }}
+      />
+
+      <JournalModal
+        open={!!journalCtx}
+        ctx={journalCtx}
+        onClose={() => setJournalFor(null)}
+        initial={journalFor === 'draft' ? draftJournal ?? undefined : journalTrade?.journal}
+        defaultChecklistId={session.checklistId}
+        onCapture={capture}
+        onSave={(entry) => {
+          if (journalFor === 'draft') {
+            setDraftJournal(entry);
+            toast('ژورنال آماده شد؛ با ثبت معامله ذخیره می‌شود');
+          } else if (journalTrade) {
+            useStore.getState().saveJournal(journalTrade.id, entry);
+            toast('ژورنال ذخیره شد');
+          }
+          setJournalFor(null);
+        }}
+        onDelete={
+          journalTrade?.journal
+            ? () => {
+                useStore.getState().deleteJournal(journalTrade.id);
+                setJournalFor(null);
+                toast('ژورنال حذف شد', 'info');
+              }
+            : undefined
+        }
+      />
+
+      {shot && (
+        <Modal
+          open
+          onClose={() => setShot(null)}
+          size="xl"
+          title="اسکرین‌شات چارت"
+          footer={
+            <>
+              <a href={shot} download={`${active.symbol}-${fmtDay(msToKey(cursor)).replace(/\//g, '-')}.jpg`} className="btn-soft">
+                دانلود تصویر
+              </a>
+              {draft && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={async () => {
+                    const shotId = await saveShot(shot);
+                    setDraftJournal((j) => ({ ...(j ?? emptyJournal(session.checklistId)), screenshots: [...(j?.screenshots ?? []), shotId] }));
+                    setShot(null);
+                    toast('به ژورنال این معامله اضافه شد');
+                  }}
+                >
+                  افزودن به ژورنال معامله
+                </button>
+              )}
+            </>
+          }
+        >
+          <img src={shot} alt={`چارت ${active.symbol} در ${fmtMarketTime(cursor)}`} className="w-full rounded-xl" />
+        </Modal>
+      )}
+
     </div>
   );
 }

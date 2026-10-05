@@ -342,3 +342,41 @@ export function EmptyState({ icon, title, text, action }: { icon: ReactNode; tit
     </div>
   );
 }
+
+// ---------- Slider (round handle) ----------
+export function Slider({
+  id,
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+  label,
+  className,
+}: {
+  id?: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (v: number) => void;
+  label: string;
+  className?: string;
+}) {
+  const fill = ((value - min) / (max - min)) * 100;
+  return (
+    <input
+      id={id}
+      type="range"
+      dir="ltr"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      aria-label={label}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className={clsx('slider w-full', className)}
+      style={{ ['--fill' as string]: `${fill}%` }}
+    />
+  );
+}
