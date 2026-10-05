@@ -25,7 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from '../components/ui/AppLink';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
-import { Logo } from '../components/layout/Layout';
+import { Logo } from '../components/brand/Brand';
 import { fmtDayLong } from '../lib/calendar';
 import { faDigits, fmtNum, fmtPct } from '../lib/format';
 import { fmtPhone } from '../lib/auth';

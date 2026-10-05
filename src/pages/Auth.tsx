@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { Navigate, useLocation } from 'react-router-dom';
 import { Link } from '../components/ui/AppLink';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
-import { Logo } from '../components/layout/Layout';
+import { Logo } from '../components/brand/Brand';
 import { fmtPhone, nameError, phoneError } from '../lib/auth';
 import { faDigits, toLatinDigits } from '../lib/format';
 import { getCandles, synthetic } from '../lib/market';

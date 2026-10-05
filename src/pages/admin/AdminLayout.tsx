@@ -21,7 +21,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Link, NavLink } from '../../components/ui/AppLink';
-import { Logo } from '../../components/layout/Layout';
+import { Logo } from '../../components/brand/Brand';
 import { backend } from '../../services';
 import { useAuth } from '../../store/useAuth';
 import { useStore, useToasts } from '../../store/useStore';
