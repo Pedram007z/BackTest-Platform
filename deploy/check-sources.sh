@@ -38,8 +38,10 @@ check "ForexFactory calendar" "$FF/calendar?week=jan7.2024"
 check "ForexFactory weekly feed" "$FF_FEED"
 
 if [ "$failed" = 1 ]; then
-  echo
-  echo "Some sources are not reachable. Set up the relay (DEPLOY.md, step 8), then run this again."
+  if [ "${CHECK_SOURCES_HINT:-1}" = 1 ]; then
+    echo
+    echo "Some sources are not reachable. Set up the relay (DEPLOY.md, step 8), then run this again."
+  fi
   exit 1
 fi
 echo

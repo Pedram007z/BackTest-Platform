@@ -39,7 +39,7 @@ run('npm test', server);
 run('npm run build', server);
 cpSync(join(server, 'dist', 'server.mjs'), join(out, 'server', 'server.mjs'));
 cpSync(join(server, '.env.example'), join(out, 'server', 'env.example'));
-for (const f of ['backtestlab.service', 'nginx-site.conf', 'relay-nginx.conf', 'check-sources.sh']) cpSync(join(root, 'deploy', f), join(out, f));
+for (const f of ['install.sh', 'backtestlab.service', 'nginx-site.conf', 'relay-nginx.conf', 'check-sources.sh']) cpSync(join(root, 'deploy', f), join(out, f));
 cpSync(join(root, 'DEPLOY.md'), join(out, 'DEPLOY.md'));
 writeFileSync(join(out, 'VERSION.txt'), `built ${new Date().toISOString()} for ${siteUrl}\n`);
 
@@ -51,4 +51,4 @@ try {
 } catch {
   /* no tar: upload the folder instead */
 }
-console.log(`\nDone: ${out}${archive ? `\nArchive: ${archive}` : ''}\nNext: DEPLOY.md, step 3.`);
+console.log(`\nDone: ${out}${archive ? `\nArchive: ${archive}` : ''}\nNext: upload it with the Node .tar.xz and run  sudo bash install.sh  in it on the server (DEPLOY.md).`);
