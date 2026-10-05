@@ -15,13 +15,21 @@ The steps below use `backtestlab.ir` as the domain; use yours.
 - A domain whose A record points to the server.
 - On your own computer: Node.js 20.12 or newer, and this repository.
 
-### Choosing where to host
+### Servers in Iran
 
-- **Payment gateways and SMS providers** (Zarinpal, Zibal, Kavenegar, …) register your merchant for your
-  domain and usually require an eNamad. Some Iranian services refuse requests from servers outside Iran,
-  so ask each provider before hosting abroad. A server inside Iran is the safe choice.
-- **Dukascopy, Binance and ForexFactory** are often unreachable from servers inside Iran (Binance blocks
-  Iran). The API server can fetch them through a small relay server abroad; see step 8.
+Payment gateways and SMS providers (Zarinpal, Zibal, Kavenegar, …) work best from a server in Iran, and some
+refuse servers abroad. On an Iranian VPS, expect these; the steps below handle each one:
+
+- **Downloads from abroad are often blocked** (NodeSource, sometimes npm). Build the release on your own
+  computer (step 1) and install Node from a file you upload (step 2). `server.mjs` needs nothing else.
+- **`apt update` fails or hangs:** switch to your VPS provider's Ubuntu mirror; most Iranian datacenters run one.
+- **Market data and the calendar usually need a relay abroad.** Binance refuses Iranian servers, and Dukascopy
+  and ForexFactory are often unreachable. `check-sources.sh` tells you whether you need one; step 8 sets it up.
+- **IPv6 is often off**, which stops nginx from starting; step 2 shows the fix.
+- **During international internet disruptions** the site keeps working: sign-in, SMS and payments are
+  domestic, and market data and calendar weeks loaded before are cached on the server. Only data that was
+  never loaded is missing until the connection returns.
+- **Payment gateways** approve your merchant for your domain and usually require an eNamad (اینماد) first.
 
 ## 1. Build the release (on your computer)
 
@@ -41,31 +49,55 @@ server/server.mjs     the API server (goes to /opt/backtestlab/server)
 server/env.example    all server settings
 backtestlab.service   systemd unit
 nginx-site.conf       nginx site
-relay-nginx.conf      optional relay (step 8)
+relay-nginx.conf      relay abroad for servers in Iran (step 8)
+check-sources.sh      checks whether the server reaches the data sources (step 8)
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
+
+If `npm ci` fails with `403 Forbidden` or times out (npm sometimes refuses Iranian connections), run the
+build with a VPN on, or point npm at a mirror with `npm config set registry <mirror address>`.
 
 ## 2. Prepare the server (once)
 
 ```bash
 sudo apt update
-sudo apt install -y nginx certbot python3-certbot-nginx
+sudo apt install -y nginx certbot python3-certbot-nginx curl xz-utils
+```
 
-# Node.js 22
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-node -v        # v22.x
+If `apt install` ends with `Job for nginx.service failed`, the server has no IPv6 (common in Iran). Remove the
+IPv6 line from the default site and start nginx:
 
-# a user for the service, and the folders
+```bash
+sudo sed -i '/listen \[::\]:80/d' /etc/nginx/sites-available/default
+sudo systemctl restart nginx
+```
+
+**Node.js 22.** Ubuntu's own `nodejs` package is too old (it must be 20.12 or newer).
+
+- **Upload it (recommended in Iran).** On your computer, download **Linux Binaries (x64)**, the `.tar.xz`
+  file of version 22 LTS, from https://nodejs.org/en/download (check the server with `uname -m`:
+  `x86_64` means x64). Upload it, then on the server:
+  ```bash
+  # on your computer
+  scp node-v22.*-linux-x64.tar.xz root@SERVER_IP:/tmp/
+  # on the server
+  sudo tar -xJf /tmp/node-v22.*-linux-x64.tar.xz -C /usr/local --strip-components=1
+  sudo ln -sf /usr/local/bin/node /usr/bin/node
+  node -v        # v22.x
+  ```
+- **Or from NodeSource**, if the server can reach it:
+  ```bash
+  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+  sudo apt install -y nodejs
+  ```
+
+A user for the service, and the folders:
+
+```bash
 sudo useradd --system --home /var/lib/backtestlab --shell /usr/sbin/nologin backtestlab
 sudo mkdir -p /opt/backtestlab/server /var/www/backtestlab
 ```
-
-Ubuntu's own `nodejs` package is too old (it must be 20.12 or newer). If the NodeSource address is not
-reachable from the server, download the "Linux x64" `.tar.xz` from nodejs.org on your computer, upload it,
-and run `sudo tar -xJf node-v22.*-linux-x64.tar.xz -C /usr/local --strip-components=1`. Node is then
-`/usr/local/bin/node`: change `ExecStart` in `backtestlab.service` to that path.
 
 ## 3. Upload and install the files
 
@@ -82,6 +114,7 @@ cd /tmp && tar -xzf backtestlab-*.tar.gz
 sudo cp -r backtestlab/web/. /var/www/backtestlab/
 sudo cp backtestlab/server/server.mjs /opt/backtestlab/server/
 sudo cp backtestlab/backtestlab.service /etc/systemd/system/
+sudo cp backtestlab/check-sources.sh /opt/backtestlab/
 ```
 
 If you uploaded the folder instead of the archive, skip the `tar` line.
@@ -134,6 +167,12 @@ sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d YOUR-DOMAIN -d www.YOUR-DOMAIN
 ```
 
+- If `nginx -t` reports `socket() [::]:80 failed (97: Address family not supported by protocol)`, the
+  server has no IPv6: `sudo sed -i '/listen \[::\]:80/d' /etc/nginx/sites-available/backtestlab`, then
+  run `sudo nginx -t` again.
+- certbot needs the domain to point at this server and port 80 to be open from abroad. If it cannot verify
+  the domain during an international disruption, run the same command again later.
+
 Open `https://YOUR-DOMAIN`. You should see the landing page.
 
 ## 7. First sign-in and the admin panel
@@ -153,22 +192,50 @@ Open `https://YOUR-DOMAIN`. You should see the landing page.
    - **نمادها و داده‌ی بازار** (symbols and market data): data source per market, and which symbols users can pick.
    - **تقویم اقتصادی** (economic calendar): press sync and check that no error is shown.
 
-## 8. Relay for market data and the calendar (only if needed)
+## 8. Relay for market data and the calendar (servers in Iran)
 
-Signs that the server cannot reach the data sources: the calendar page in the admin panel shows a
-timeout or "Cloudflare" error, or charts show "داده‌ی بازار دریافت نشد".
+Check whether the server reaches the sources on its own:
 
-1. On any small server outside Iran, install nginx and certbot, then use `relay-nginx.conf`: replace
-   `relay.example.com` with the relay's domain and `203.0.113.10` with your main server's public IP
-   (only that IP may use the relay). Enable it and run certbot as written at the top of the file.
-2. On the main server, add to `.env`:
-   ```ini
-   DUKASCOPY_URL=https://relay.example.com/dukascopy
-   BINANCE_URL=https://relay.example.com/binance
-   FF_BASE_URL=https://relay.example.com/forexfactory
-   FF_FEED_URL=https://relay.example.com/ff_calendar_thisweek.json
+```bash
+bash /opt/backtestlab/check-sources.sh
+```
+
+If all four lines say `OK`, skip this step. Otherwise (the usual case in Iran) the API server fetches them
+through a relay: a small server outside Iran that forwards only these four sources, and only for your server.
+
+1. **Rent a small Ubuntu VPS outside Iran.** The smallest plan is enough (1 CPU, 512 MB–1 GB RAM); it only
+   forwards requests.
+2. **Give it a name:** in your domain's DNS, add an A record such as `relay.YOUR-DOMAIN` pointing to the
+   relay's IP.
+3. **On the relay**, install nginx and certbot and add the relay site (`relay-nginx.conf` is in the release):
+   ```bash
+   sudo apt update && sudo apt install -y nginx certbot python3-certbot-nginx
+   # upload relay-nginx.conf from the release, then:
+   sudo cp relay-nginx.conf /etc/nginx/sites-available/relay
+   sudo sed -i 's/relay\.example\.com/relay.YOUR-DOMAIN/; s/203\.0\.113\.10/MAIN_SERVER_IP/' /etc/nginx/sites-available/relay
+   sudo ln -s /etc/nginx/sites-available/relay /etc/nginx/sites-enabled/
+   sudo nginx -t && sudo systemctl reload nginx
+   sudo certbot --nginx -d relay.YOUR-DOMAIN
    ```
-3. `sudo systemctl restart backtestlab`, then sync the calendar again in the admin panel.
+   `MAIN_SERVER_IP` is your Iranian server's public IP (shown in its VPS panel). Requests from any other
+   address are refused.
+4. **On the main server**, add to `/opt/backtestlab/server/.env`:
+   ```ini
+   DUKASCOPY_URL=https://relay.YOUR-DOMAIN/dukascopy
+   BINANCE_URL=https://relay.YOUR-DOMAIN/binance
+   FF_BASE_URL=https://relay.YOUR-DOMAIN/forexfactory
+   FF_FEED_URL=https://relay.YOUR-DOMAIN/ff_calendar_thisweek.json
+   ```
+5. Restart and check again:
+   ```bash
+   sudo systemctl restart backtestlab
+   bash /opt/backtestlab/check-sources.sh
+   ```
+   Then press sync on the calendar page of the admin panel.
+
+ForexFactory protects its site with Cloudflare. If only the ForexFactory calendar line fails through the
+relay, the server falls back to the weekly feed for the current week, and the app fills older weeks from
+its sample calendar.
 
 ## Updating
 
