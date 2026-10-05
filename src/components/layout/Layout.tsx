@@ -20,6 +20,7 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Link, NavLink } from '../ui/AppLink';
+import { Logo } from '../brand/Brand';
 import { diffDays } from '../../lib/calendar';
 import { fmtNum } from '../../lib/format';
 import { planDaysLeft } from '../../lib/stats';
@@ -42,22 +43,6 @@ const ACCOUNT_NAV = [
   { to: '/support', label: 'پشتیبانی', icon: LifeBuoy },
   { to: '/settings', label: 'تنظیمات حساب', icon: Settings },
 ];
-
-export function Logo() {
-  return (
-    <div className="flex items-center gap-2 select-none">
-      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-        <rect x="1" y="1" width="24" height="24" rx="7" fill="rgb(var(--accent))" />
-        <rect x="6" y="13" width="2.6" height="7" rx="1" fill="#fff" opacity="0.55" />
-        <rect x="10.2" y="9" width="2.6" height="11" rx="1" fill="#fff" opacity="0.8" />
-        <path d="M15.5 8.2v9.6l6-4.8z" fill="#fff" />
-      </svg>
-      <span className="text-[17px] font-extrabold tracking-tight">
-        بک‌تست<span className="text-accent">لب</span>
-      </span>
-    </div>
-  );
-}
 
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const user = useStore((s) => s.user);
