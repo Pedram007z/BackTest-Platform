@@ -1,68 +1,76 @@
 import { create } from 'zustand';
-import {
-  DEMO_ACCOUNT,
-  SESSION_KEY,
-  clearSession,
-  createSession,
-  getSession,
-  signup as signupUser,
-  updateSessionName,
-  verifyLogin,
-  type Session,
-} from '../lib/auth';
-import { switchAccount } from './useStore';
+import { SESSION_KEY, clearSession, createSession, getSession, updateSession, type Session } from '../lib/auth';
+import { backend, BackendError, type AuthResult, type OtpRequest } from '../services';
+import type { AccountUser } from '../services/types';
+import { switchAccount, useStore } from './useStore';
 
 interface AuthState {
   session: Session | null;
-  login: (email: string, password: string, remember: boolean) => Promise<Session>;
+  requestOtp: (phone: string) => Promise<OtpRequest>;
+  verifyOtp: (phone: string, code: string, name: string | undefined, remember: boolean) => Promise<AuthResult>;
   loginDemo: () => Promise<Session>;
-  signup: (input: { name: string; email: string; password: string }, remember: boolean) => Promise<Session>;
   logout: () => void;
-  rename: (name: string) => void;
+  rename: (name: string) => Promise<void>;
+  /** Re-read the account from the backend (plan, role or ban changed). */
+  refresh: () => Promise<void>;
 }
 
-// Make hashing feel deliberate and keep fast failures from flashing past.
-const atLeast = async <T,>(ms: number, p: Promise<T>): Promise<T> => {
-  const [v] = await Promise.all([p, new Promise((r) => setTimeout(r, ms))]);
-  return v;
-};
+/** Copy the account's name, phone and subscription into the dashboard data. */
+async function applyAccount(user: AccountUser) {
+  let planName = user.planId;
+  try {
+    planName = (await backend.plans()).find((p) => p.id === user.planId)?.name ?? planName;
+  } catch {
+    /* keep the id */
+  }
+  useStore.getState().updateUser({ name: user.name, phone: user.phone, plan: { id: user.planId, name: planName, startedAt: user.planStartedAt, endsAt: user.planEndsAt } });
+}
 
-export const useAuth = create<AuthState>((set) => ({
+function signIn(set: (p: Partial<AuthState>) => void, res: AuthResult, remember: boolean): Session {
+  const s = createSession(res.user, res.token, remember);
+  switchAccount(s);
+  void applyAccount(res.user);
+  set({ session: s });
+  return s;
+}
+
+export const useAuth = create<AuthState>((set, get) => ({
   session: getSession(),
 
-  login: async (email, password, remember) => {
-    const user = await atLeast(450, verifyLogin(email, password));
-    const s = createSession(user, remember);
-    switchAccount(s);
-    set({ session: s });
-    return s;
+  requestOtp: (phone) => backend.requestOtp(phone),
+
+  verifyOtp: async (phone, code, name, remember) => {
+    const res = await backend.verifyOtp(phone, code, name);
+    signIn(set, res, remember);
+    return res;
   },
 
-  loginDemo: async () => {
-    const user = await atLeast(350, verifyLogin(DEMO_ACCOUNT.email, DEMO_ACCOUNT.password));
-    const s = createSession(user, true);
-    switchAccount(s);
-    set({ session: s });
-    return s;
-  },
-
-  signup: async (input, remember) => {
-    const user = await atLeast(450, signupUser(input));
-    const s = createSession(user, remember);
-    switchAccount(s);
-    set({ session: s });
-    return s;
-  },
+  loginDemo: async () => signIn(set, await backend.demoLogin(), true),
 
   logout: () => {
+    void backend.logout().catch(() => undefined);
     clearSession();
     switchAccount(null);
     set({ session: null });
   },
 
-  rename: (name) => {
-    updateSessionName(name);
+  rename: async (name) => {
+    const user = await backend.updateMe({ name });
+    updateSession({ name: user.name });
+    useStore.getState().updateUser({ name: user.name });
     set({ session: getSession() });
+  },
+
+  refresh: async () => {
+    if (!get().session) return;
+    try {
+      const user = await backend.me();
+      updateSession({ name: user.name, role: user.role });
+      await applyAccount(user);
+      set({ session: getSession() });
+    } catch (e) {
+      if (e instanceof BackendError && (e.code === 'unauthorized' || e.code === 'banned')) get().logout();
+    }
   },
 }));
 

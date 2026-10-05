@@ -287,7 +287,22 @@ input[type='range'] {
   animation: slide-in-left 0.2s ease-out;
 }
 
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.ticker {
+  animation: ticker 40s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .ticker {
+    animation: none;
+  }
   *,
   *::before,
   *::after {

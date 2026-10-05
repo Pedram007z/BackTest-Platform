@@ -23,6 +23,7 @@ import { Logo } from '../components/layout/Layout';
 import { fmtNum, fmtPct } from '../lib/format';
 import { GROUP_LABELS, SYMBOLS, type SymbolGroup } from '../lib/market';
 import { useAuth } from '../store/useAuth';
+import { fmtPhone } from '../lib/auth';
 import { useStore } from '../store/useStore';
 
 const NAV = [
@@ -273,7 +274,7 @@ export default function Landing() {
                 </button>
               )}
             </div>
-            <p className="mt-4 text-xs text-faint">{session ? `وارد شده با ${session.email}` : 'بدون کارت بانکی • پلن رایگان بدون محدودیت زمانی'}</p>
+            <p className="mt-4 text-xs text-faint">{session ? `وارد شده با ${fmtPhone(session.phone)}` : 'بدون کارت بانکی • پلن رایگان بدون محدودیت زمانی'}</p>
           </div>
           <ReplayDemo />
         </div>

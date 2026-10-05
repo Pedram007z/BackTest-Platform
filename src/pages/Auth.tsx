@@ -1,716 +1,159 @@
 import clsx from 'clsx';
-import {
-  ArrowRight,
-  CircleAlert,
-  CircleCheck,
-  Eye,
-  EyeOff,
-  Keyboard,
-  KeyRound,
-  LoaderCircle,
-  Lock,
-  Mail,
-  Moon,
-  Sun,
-  User,
-} from 'lucide-react';
-import { useEffect, useId, useRef, useState, type FormEvent, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, CircleAlert, LoaderCircle, MessageSquareText, Moon, Pencil, Phone, ShieldCheck, Sun, TrendingUp, User } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
 import { Logo } from '../components/layout/Layout';
-import { Modal } from '../components/ui/Modal';
-import {
-  AuthError,
-  DEMO_ACCOUNT,
-  emailError,
-  hasPersianLetters,
-  lockSecondsLeft,
-  nameError,
-  newPasswordError,
-  normalizeEmail,
-  passwordStrength,
-  requestPasswordReset,
-  resetPassword,
-} from '../lib/auth';
+import { fmtPhone, nameError, phoneError } from '../lib/auth';
 import { faDigits, toLatinDigits } from '../lib/format';
+import { getCandles } from '../lib/market';
+import { BackendError, backend, type OtpRequest } from '../services';
 import { useAuth } from '../store/useAuth';
 import { toast, useStore } from '../store/useStore';
 
-type Mode = 'login' | 'signup' | 'forgot';
-
 interface LocationState {
   from?: string;
-  email?: string;
   notice?: string;
 }
 
-const modeFromPath = (path: string): Mode => (path.startsWith('/signup') ? 'signup' : path.startsWith('/forgot') ? 'forgot' : 'login');
-
-// ---------- building blocks ----------
-interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
-  label: string;
-  icon: ReactNode;
-  value: string;
-  onChange: (v: string) => void;
-  error?: string;
-  hint?: ReactNode;
-  trailing?: ReactNode;
-  ltr?: boolean;
-  labelExtra?: ReactNode;
-  inputRef?: Ref<HTMLInputElement>;
-}
-
-function Field({ label, icon, value, onChange, error, hint, trailing, ltr, labelExtra, inputRef, id, ...rest }: FieldProps) {
-  const auto = useId();
-  const fid = id ?? auto;
-  const describedBy = error ? `${fid}-error` : hint ? `${fid}-hint` : undefined;
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between">
-        <label htmlFor={fid} className="text-[13px] font-medium">
-          {label}
-        </label>
-        {labelExtra}
-      </div>
-      <div
-        className={clsx(
-          'flex items-center gap-2 rounded-xl border bg-raised px-3 transition focus-within:ring-2',
-          error ? 'border-loss/70 focus-within:ring-loss/20' : 'border-line focus-within:border-accent/70 focus-within:ring-accent/20',
-        )}
-        dir={ltr ? 'ltr' : undefined}
-      >
-        <span className="shrink-0 text-faint">{icon}</span>
-        <input
-          ref={inputRef}
-          id={fid}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          aria-invalid={!!error}
-          aria-describedby={describedBy}
-          className="h-12 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-faint"
-          {...rest}
-        />
-        {trailing}
-      </div>
-      {error ? (
-        <p id={`${fid}-error`} className="mt-1.5 flex items-center gap-1.5 text-xs text-loss">
-          <CircleAlert size={13} className="shrink-0" />
-          {error}
-        </p>
-      ) : hint ? (
-        <div id={`${fid}-hint`} className="mt-1.5 text-xs">
-          {hint}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function PasswordField(props: Omit<FieldProps, 'icon' | 'trailing' | 'ltr' | 'type'> & { showStrength?: boolean }) {
-  const { showStrength, hint, value, ...rest } = props;
-  const [show, setShow] = useState(false);
-  const [caps, setCaps] = useState(false);
-  const strength = passwordStrength(value);
-  const persian = hasPersianLetters(value);
-
-  const notes: ReactNode[] = [];
-  if (persian) notes.push(<KeyboardNote key="fa" text="صفحه‌کلید روی فارسی است؛ رمز را با حروف انگلیسی بنویسید." />);
-  if (caps) notes.push(<KeyboardNote key="caps" text="Caps Lock روشن است." />);
-
-  return (
-    <Field
-      {...rest}
-      value={value}
-      ltr
-      type={show ? 'text' : 'password'}
-      icon={<Lock size={17} />}
-      onKeyDown={(e) => setCaps(e.getModifierState?.('CapsLock') ?? false)}
-      onKeyUp={(e) => setCaps(e.getModifierState?.('CapsLock') ?? false)}
-      onBlur={() => setCaps(false)}
-      trailing={
-        <button
-          type="button"
-          onClick={() => setShow((s) => !s)}
-          className="shrink-0 rounded-md p-1 text-faint transition hover:text-ink"
-          aria-label={show ? 'پنهان کردن رمز' : 'نمایش رمز'}
-          aria-pressed={show}
-        >
-          {show ? <EyeOff size={17} /> : <Eye size={17} />}
-        </button>
-      }
-      hint={
-        notes.length || (showStrength && value) || hint ? (
-          <div className="flex flex-col gap-1.5">
-            {showStrength && value && (
-              <div className="flex items-center gap-2">
-                <div className="flex flex-1 gap-1" aria-hidden="true">
-                  {[1, 2, 3, 4].map((i) => (
-                    <span
-                      key={i}
-                      className={clsx(
-                        'h-1 flex-1 rounded-full transition',
-                        i <= strength.score
-                          ? strength.score <= 1
-                            ? 'bg-loss'
-                            : strength.score === 2
-                              ? 'bg-amber'
-                              : 'bg-gain'
-                          : 'bg-raised',
-                      )}
-                    />
-                  ))}
-                </div>
-                <span className="w-16 shrink-0 text-start text-muted">قدرت: {strength.label}</span>
-              </div>
-            )}
-            {notes}
-            {hint}
-          </div>
-        ) : undefined
-      }
-    />
-  );
-}
-
-function KeyboardNote({ text }: { text: string }) {
-  return (
-    <p className="flex items-center gap-1.5 text-amber">
-      <Keyboard size={13} className="shrink-0" />
-      {text}
-    </p>
-  );
-}
-
-function Alert({ tone, children }: { tone: 'error' | 'success' | 'info'; children: ReactNode }) {
+function Alert({ tone, children }: { tone: 'error' | 'info'; children: ReactNode }) {
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
-      className={clsx(
-        'anim-fade flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[13px] leading-6',
-        tone === 'error' && 'border-loss/30 bg-loss/10 text-ink',
-        tone === 'success' && 'border-gain/30 bg-gain/10 text-ink',
-        tone === 'info' && 'border-accent/30 bg-accent/10 text-ink',
-      )}
+      className={clsx('flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[13px] leading-6', tone === 'error' ? 'border-loss/40 bg-loss/10 text-loss' : 'border-accent/40 bg-accent/10 text-accent-ink')}
     >
-      {tone === 'success' ? <CircleCheck size={17} className="mt-0.5 shrink-0 text-gain" /> : <CircleAlert size={17} className={clsx('mt-0.5 shrink-0', tone === 'error' ? 'text-loss' : 'text-accent')} />}
-      <div className="min-w-0">{children}</div>
+      <CircleAlert size={16} className="mt-1 shrink-0" />
+      <span>{children}</span>
     </div>
   );
 }
 
-function Submit({ loading, disabled, children }: { loading: boolean; disabled?: boolean; children: ReactNode }) {
-  return (
-    <button type="submit" disabled={loading || disabled} className="btn-primary h-12 w-full rounded-xl text-[15px]" aria-busy={loading}>
-      {loading ? <LoaderCircle size={19} className="animate-spin" /> : children}
-    </button>
-  );
-}
-
-// ---------- forms ----------
-function LoginForm({ initialEmail, notice }: { initialEmail: string; notice?: string }) {
-  const login = useAuth((s) => s.login);
-  const loginDemo = useAuth((s) => s.loginDemo);
-  const [email, setEmail] = useState(initialEmail);
-  const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(true);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [formError, setFormError] = useState('');
-  const [loading, setLoading] = useState<'form' | 'demo' | null>(null);
-  const [lock, setLock] = useState(() => (initialEmail ? lockSecondsLeft(initialEmail) : 0));
-  const emailRef = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    (initialEmail ? passwordRef : emailRef).current?.focus();
-  }, [initialEmail]);
-
-  // count down an active lock
-  useEffect(() => {
-    if (!lock) return;
-    const t = setInterval(() => {
-      const left = lockSecondsLeft(email);
-      setLock(left);
-      if (!left) setFormError('');
-    }, 1000);
-    return () => clearInterval(t);
-  }, [lock, email]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (loading) return;
-    const next = { email: emailError(email) || undefined, password: password ? undefined : 'رمز عبور را بنویسید.' };
-    setErrors(next);
-    setFormError('');
-    if (next.email || next.password) {
-      (next.email ? emailRef : passwordRef).current?.focus();
-      return;
-    }
-    setLoading('form');
-    try {
-      const s = await login(email, password, remember);
-      toast(`خوش آمدی، ${s.name}`);
-    } catch (err) {
-      if (err instanceof AuthError) {
-        if (err.field) setErrors({ [err.field]: err.message });
-        else setFormError(err.message);
-        if (err.code === 'locked') setLock(lockSecondsLeft(email));
-        if (err.code === 'invalid') {
-          setPassword('');
-          passwordRef.current?.focus();
-        }
-      } else setFormError('ورود انجام نشد. دوباره تلاش کنید.');
-      setLoading(null);
-    }
+/** One box per digit; accepts typing, backspace, arrow keys and pasting a whole code. */
+function CodeInput({ length, value, onChange, disabled, invalid }: { length: number; value: string; onChange: (v: string) => void; disabled?: boolean; invalid?: boolean }) {
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const digits = Array.from({ length }, (_, i) => value[i] ?? '');
+  const setAt = (i: number, d: string) => {
+    const next = (value.slice(0, i) + d + value.slice(i + 1)).slice(0, length);
+    onChange(next.replace(/\s/g, ''));
   };
-
-  const demo = async () => {
-    if (loading) return;
-    setLoading('demo');
-    setFormError('');
-    try {
-      await loginDemo();
-      toast('وارد حساب نمایشی شدید');
-    } catch (err) {
-      setFormError(err instanceof AuthError ? err.message : 'ورود به حساب نمایشی انجام نشد.');
-      setLoading(null);
-    }
-  };
-
-  return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-      {notice && <Alert tone="success">{notice}</Alert>}
-      {formError && <Alert tone="error">{formError}</Alert>}
-
-      <Field
-        inputRef={emailRef}
-        id="login-email"
-        label="ایمیل"
-        type="email"
-        inputMode="email"
-        autoComplete="username"
-        placeholder="name@example.com"
-        icon={<Mail size={17} />}
-        ltr
-        value={email}
-        onChange={(v) => {
-          setEmail(v);
-          if (errors.email) setErrors((x) => ({ ...x, email: undefined }));
-          setLock(lockSecondsLeft(v));
-        }}
-        error={errors.email}
-        hint={hasPersianLetters(email) ? <KeyboardNote text="صفحه‌کلید روی فارسی است؛ ایمیل را با حروف انگلیسی بنویسید." /> : undefined}
-      />
-      <PasswordField
-        id="login-password"
-        label="رمز عبور"
-        autoComplete="current-password"
-        placeholder="••••••••"
-        value={password}
-        onChange={(v) => {
-          setPassword(v);
-          if (errors.password) setErrors((x) => ({ ...x, password: undefined }));
-        }}
-        error={errors.password}
-        labelExtra={
-          <Link to="/forgot-password" state={{ email: normalizeEmail(email) }} className="text-xs font-semibold text-accent hover:underline">
-            رمز را فراموش کرده‌اید؟
-          </Link>
-        }
-        inputRef={passwordRef}
-      />
-
-      <label className="flex cursor-pointer select-none items-center gap-2.5 text-[13px] text-muted">
-        <input id="login-remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--accent))]" />
-        مرا به خاطر بسپار <span className="text-faint">(۳۰ روز)</span>
-      </label>
-
-      <Submit loading={loading === 'form'} disabled={lock > 0 || loading === 'demo'}>
-        {lock > 0 ? `قفل موقت: ${faDigits(lock)} ثانیه` : 'ورود'}
-      </Submit>
-
-      <div className="flex items-center gap-3 text-xs text-faint">
-        <span className="h-px flex-1 bg-line" />
-        یا
-        <span className="h-px flex-1 bg-line" />
-      </div>
-
-      <button type="button" onClick={demo} disabled={!!loading} className="btn-soft h-12 w-full rounded-xl text-[14px]">
-        {loading === 'demo' ? <LoaderCircle size={18} className="animate-spin" /> : 'ورود با حساب نمایشی'}
-      </button>
-      <p className="-mt-1 text-center text-[11px] leading-5 text-faint">
-        حساب نمایشی با داده‌ی نمونه پر شده است:{' '}
-        <span dir="ltr" className="font-semibold text-muted">
-          {DEMO_ACCOUNT.email}
-        </span>{' '}
-        /{' '}
-        <span dir="ltr" className="font-semibold text-muted">
-          {DEMO_ACCOUNT.password}
-        </span>
-      </p>
-    </form>
-  );
-}
-
-function SignupForm() {
-  const signup = useAuth((s) => s.signup);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [terms, setTerms] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
-  const [formError, setFormError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
-
   useEffect(() => {
-    formRef.current?.querySelector<HTMLInputElement>('#signup-name')?.focus();
+    refs.current[Math.min(value.length, length - 1)]?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const clear = (k: string) => errors[k] && setErrors((x) => ({ ...x, [k]: undefined }));
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (loading) return;
-    const next: Record<string, string | undefined> = {
-      name: nameError(name) || undefined,
-      email: emailError(email) || undefined,
-      password: newPasswordError(password) || undefined,
-      confirm: !confirm ? 'رمز عبور را دوباره بنویسید.' : confirm !== password ? 'دو رمز عبور یکسان نیستند.' : undefined,
-      terms: terms ? undefined : 'برای ساخت حساب باید با شرایط استفاده موافقت کنید.',
-    };
-    setErrors(next);
-    setFormError('');
-    const first = Object.keys(next).find((k) => next[k]);
-    if (first) {
-      formRef.current?.querySelector<HTMLInputElement>(`#signup-${first}`)?.focus();
-      return;
-    }
-    setLoading(true);
-    try {
-      const s = await signup({ name, email, password }, true);
-      toast(`حساب ساخته شد. خوش آمدی، ${s.name}`);
-    } catch (err) {
-      if (err instanceof AuthError && err.field) setErrors({ [err.field]: err.message });
-      else setFormError(err instanceof AuthError ? err.message : 'ساخت حساب انجام نشد. دوباره تلاش کنید.');
-      setLoading(false);
-    }
-  };
-
   return (
-    <form ref={formRef} onSubmit={submit} noValidate className="flex flex-col gap-4">
-      {formError && <Alert tone="error">{formError}</Alert>}
-      <Field
-        id="signup-name"
-        label="نام و نام خانوادگی"
-        autoComplete="name"
-        placeholder="مثلاً: سارا محمدی"
-        icon={<User size={17} />}
-        maxLength={40}
-        value={name}
-        onChange={(v) => {
-          setName(v);
-          clear('name');
-        }}
-        error={errors.name}
-      />
-      <Field
-        id="signup-email"
-        label="ایمیل"
-        type="email"
-        inputMode="email"
-        autoComplete="email"
-        placeholder="name@example.com"
-        icon={<Mail size={17} />}
-        ltr
-        value={email}
-        onChange={(v) => {
-          setEmail(v);
-          clear('email');
-        }}
-        error={errors.email}
-        hint={hasPersianLetters(email) ? <KeyboardNote text="صفحه‌کلید روی فارسی است؛ ایمیل را با حروف انگلیسی بنویسید." /> : undefined}
-      />
-      <PasswordField
-        id="signup-password"
-        label="رمز عبور"
-        autoComplete="new-password"
-        placeholder="حداقل ۸ کاراکتر، حرف و عدد"
-        value={password}
-        onChange={(v) => {
-          setPassword(v);
-          clear('password');
-        }}
-        error={errors.password}
-        showStrength
-      />
-      <PasswordField
-        id="signup-confirm"
-        label="تکرار رمز عبور"
-        autoComplete="new-password"
-        placeholder="رمز عبور را دوباره بنویسید"
-        value={confirm}
-        onChange={(v) => {
-          setConfirm(v);
-          clear('confirm');
-        }}
-        error={errors.confirm}
-        hint={confirm && confirm === password ? <p className="flex items-center gap-1.5 text-gain"><CircleCheck size={13} /> رمزها یکسان هستند.</p> : undefined}
-      />
-
-      <div>
-        <label className="flex cursor-pointer select-none items-start gap-2.5 text-[13px] leading-6 text-muted">
-          <input
-            id="signup-terms"
-            type="checkbox"
-            checked={terms}
-            onChange={(e) => {
-              setTerms(e.target.checked);
-              clear('terms');
-            }}
-            aria-invalid={!!errors.terms}
-            className="mt-1 h-4 w-4 shrink-0 accent-[rgb(var(--accent))]"
-          />
-          <span>
-            <button type="button" className="font-semibold text-accent hover:underline" onClick={() => setShowTerms(true)}>
-              شرایط استفاده
-            </button>{' '}
-            را خواندم و می‌پذیرم.
-          </span>
-        </label>
-        {errors.terms && <p className="mt-1.5 flex items-center gap-1.5 text-xs text-loss"><CircleAlert size={13} />{errors.terms}</p>}
-      </div>
-
-      <Submit loading={loading}>ساخت حساب</Submit>
-
-      <Modal
-        open={showTerms}
-        onClose={() => setShowTerms(false)}
-        title="شرایط استفاده"
-        size="sm"
-        footer={
-          <button
-            type="button"
-            className="btn-primary"
-            data-autofocus
-            onClick={() => {
-              setTerms(true);
-              clear('terms');
-              setShowTerms(false);
-            }}
-          >
-            می‌پذیرم
-          </button>
-        }
-      >
-        <ul className="flex list-disc flex-col gap-2 pr-5 text-sm leading-7 text-muted">
-          <li>بک‌تست‌لب ابزار تمرین و آموزش است و توصیه‌ی سرمایه‌گذاری نمی‌دهد.</li>
-          <li>نتیجه‌ی بک‌تست، سود یا زیان آینده را تضمین نمی‌کند. معامله در بازارهای مالی ریسک از دست دادن سرمایه دارد.</li>
-          <li>مسئولیت امنیت رمز عبور و فعالیت‌های حساب با شماست.</li>
-          <li>در این نسخه، حساب و داده‌های شما فقط در همین مرورگر ذخیره می‌شوند و به سروری فرستاده نمی‌شوند.</li>
-        </ul>
-      </Modal>
-    </form>
-  );
-}
-
-function ForgotForm({ initialEmail }: { initialEmail: string }) {
-  const navigate = useNavigate();
-  const [step, setStep] = useState<'email' | 'reset'>('email');
-  const [email, setEmail] = useState(initialEmail);
-  const [code, setCode] = useState('');
-  const [issued, setIssued] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
-  const [formError, setFormError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    formRef.current?.querySelector<HTMLInputElement>(step === 'email' ? '#forgot-email' : '#forgot-code')?.focus();
-  }, [step]);
-
-  const sendCode = (e?: FormEvent) => {
-    e?.preventDefault();
-    const err = emailError(email);
-    setErrors({ email: err || undefined });
-    setFormError('');
-    if (err) return;
-    try {
-      setIssued(requestPasswordReset(email));
-      setCode('');
-      setStep('reset');
-    } catch (x) {
-      if (x instanceof AuthError) setErrors({ email: x.message });
-    }
-  };
-
-  const reset = async (e: FormEvent) => {
-    e.preventDefault();
-    if (loading) return;
-    const next: Record<string, string | undefined> = {
-      code: toLatinDigits(code).replace(/\D/g, '').length === 6 ? undefined : 'کد ۶ رقمی را وارد کنید.',
-      password: newPasswordError(password) || undefined,
-      confirm: confirm !== password ? 'دو رمز عبور یکسان نیستند.' : undefined,
-    };
-    setErrors(next);
-    setFormError('');
-    const first = Object.keys(next).find((k) => next[k]);
-    if (first) {
-      formRef.current?.querySelector<HTMLInputElement>(`#forgot-${first}`)?.focus();
-      return;
-    }
-    setLoading(true);
-    try {
-      await resetPassword(email, code, password);
-      navigate('/login', { replace: true, state: { email: normalizeEmail(email), notice: 'رمز عبور تغییر کرد. با رمز جدید وارد شوید.' } satisfies LocationState });
-    } catch (x) {
-      if (x instanceof AuthError) {
-        if (x.code === 'expired_code') {
-          setStep('email');
-          setFormError(x.message);
-        } else if (x.field) setErrors({ [x.field]: x.message });
-        else setFormError(x.message);
-      } else setFormError('تغییر رمز انجام نشد. دوباره تلاش کنید.');
-      setLoading(false);
-    }
-  };
-
-  if (step === 'email') {
-    return (
-      <form ref={formRef} onSubmit={sendCode} noValidate className="flex flex-col gap-4">
-        {formError && <Alert tone="error">{formError}</Alert>}
-        <Field
-          id="forgot-email"
-          label="ایمیل حساب"
-          type="email"
-          inputMode="email"
-          autoComplete="username"
-          placeholder="name@example.com"
-          icon={<Mail size={17} />}
-          ltr
-          value={email}
-          onChange={(v) => {
-            setEmail(v);
-            setErrors({});
+    <div className="flex justify-center gap-2" dir="ltr" role="group" aria-label="کد تأیید">
+      {digits.map((d, i) => (
+        <input
+          key={i}
+          ref={(el) => (refs.current[i] = el)}
+          id={i === 0 ? 'otp-code' : `otp-code-${i}`}
+          value={d}
+          disabled={disabled}
+          inputMode="numeric"
+          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          aria-label={`رقم ${faDigits(i + 1)}`}
+          maxLength={length}
+          className={clsx(
+            'num h-14 w-12 rounded-2xl border bg-raised/70 text-center text-xl font-bold text-ink outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/20 sm:w-14',
+            invalid ? 'border-loss' : d ? 'border-accent/60' : 'border-line',
+          )}
+          onChange={(e) => {
+            const raw = toLatinDigits(e.target.value).replace(/\D/g, '');
+            if (raw.length > 1) {
+              // pasted or auto-filled code
+              const code = raw.slice(0, length);
+              onChange(code);
+              refs.current[Math.min(code.length, length - 1)]?.focus();
+              return;
+            }
+            setAt(i, raw);
+            if (raw && i < length - 1) refs.current[i + 1]?.focus();
           }}
-          error={errors.email}
+          onKeyDown={(e) => {
+            if (e.key === 'Backspace' && !d && i > 0) {
+              e.preventDefault();
+              setAt(i - 1, '');
+              refs.current[i - 1]?.focus();
+            } else if (e.key === 'ArrowLeft' && i > 0) refs.current[i - 1]?.focus();
+            else if (e.key === 'ArrowRight' && i < length - 1) refs.current[i + 1]?.focus();
+          }}
+          onFocus={(e) => e.target.select()}
         />
-        <Submit loading={false}>دریافت کد بازیابی</Submit>
-      </form>
-    );
-  }
-
-  return (
-    <form ref={formRef} onSubmit={reset} noValidate className="flex flex-col gap-4">
-      {formError && <Alert tone="error">{formError}</Alert>}
-      <Alert tone="info">
-        <p>
-          کد بازیابی برای <span dir="ltr" className="font-semibold">{normalizeEmail(email)}</span> ساخته شد و ۱۰ دقیقه اعتبار دارد.
-        </p>
-        <p className="mt-1 text-muted">
-          این نسخه به سرور ایمیل وصل نیست، پس کد همین‌جا نمایش داده می‌شود:{' '}
-          <span dir="ltr" className="num rounded bg-surface px-1.5 py-0.5 font-bold tracking-[0.2em] text-ink">
-            {issued}
-          </span>
-        </p>
-      </Alert>
-      <Field
-        id="forgot-code"
-        label="کد ۶ رقمی"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        placeholder="000000"
-        maxLength={6}
-        icon={<KeyRound size={17} />}
-        ltr
-        value={code}
-        onChange={(v) => {
-          setCode(toLatinDigits(v).replace(/\D/g, '').slice(0, 6));
-          setErrors((x) => ({ ...x, code: undefined }));
-        }}
-        error={errors.code}
-        className="h-12 min-w-0 flex-1 bg-transparent text-[17px] tracking-[0.35em] outline-none placeholder:text-faint"
-      />
-      <PasswordField
-        id="forgot-password"
-        label="رمز عبور جدید"
-        autoComplete="new-password"
-        placeholder="حداقل ۸ کاراکتر، حرف و عدد"
-        value={password}
-        onChange={(v) => {
-          setPassword(v);
-          setErrors((x) => ({ ...x, password: undefined }));
-        }}
-        error={errors.password}
-        showStrength
-      />
-      <PasswordField
-        id="forgot-confirm"
-        label="تکرار رمز عبور جدید"
-        autoComplete="new-password"
-        value={confirm}
-        onChange={(v) => {
-          setConfirm(v);
-          setErrors((x) => ({ ...x, confirm: undefined }));
-        }}
-        error={errors.confirm}
-      />
-      <Submit loading={loading}>تغییر رمز عبور</Submit>
-      <button type="button" className="btn-ghost w-full" onClick={() => sendCode()}>
-        کد جدید بگیر
-      </button>
-    </form>
+      ))}
+    </div>
   );
 }
 
-// ---------- page ----------
-function BrandPanel() {
+const TICKERS = ['EURUSD', 'GBPUSD', 'XAUUSD', 'NAS100', 'BTCUSD', 'USDJPY', 'US30', 'ETHUSD', 'GBPJPY', 'SPX500'];
+
+/** Left half on large screens: a live replay, a ticker strip and two figures. */
+function MarketPanel() {
+  const quotes = useMemo(() => {
+    const at = Date.UTC(2023, 4, 3, 22);
+    return TICKERS.map((s) => {
+      const c = getCandles(s, '1D', at, 2);
+      const chg = c.length === 2 ? ((c[1].close - c[0].close) / c[0].close) * 100 : 0;
+      return { s, chg };
+    });
+  }, []);
   return (
-    <aside className="relative hidden min-h-[100dvh] flex-col overflow-hidden border-l border-line/60 bg-side lg:flex">
+    <aside className="relative hidden min-h-[100dvh] flex-col overflow-hidden border-r border-line/60 bg-side lg:flex">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 70% 55% at 60% 0%, rgb(var(--accent) / 0.22), transparent 70%), radial-gradient(ellipse 45% 40% at 0% 100%, rgb(var(--violet) / 0.14), transparent 70%)',
-        }}
+        style={{ background: 'radial-gradient(ellipse 70% 55% at 40% 0%, rgb(var(--accent) / 0.24), transparent 70%), radial-gradient(ellipse 45% 40% at 100% 100%, rgb(var(--violet) / 0.14), transparent 70%)' }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        className="pointer-events-none absolute inset-0 opacity-30"
         style={{
-          backgroundImage: 'linear-gradient(rgb(var(--line) / 0.5) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--line) / 0.5) 1px, transparent 1px)',
-          backgroundSize: '44px 44px',
-          maskImage: 'radial-gradient(ellipse 80% 70% at 50% 40%, #000 30%, transparent 75%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 80% 70% at 50% 40%, #000 30%, transparent 75%)',
+          backgroundImage: 'linear-gradient(rgb(var(--line) / 0.6) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--line) / 0.6) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+          maskImage: 'radial-gradient(ellipse 80% 70% at 50% 45%, #000 30%, transparent 78%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 80% 70% at 50% 45%, #000 30%, transparent 78%)',
         }}
       />
-      <div className="relative flex flex-1 flex-col px-12 py-10 xl:px-16">
-        <Link to="/" aria-label="صفحه اصلی" className="w-fit">
-          <Logo />
-        </Link>
-        <div className="my-auto py-10">
-          <h2 className="font-display text-[30px] font-extrabold leading-[1.55] xl:text-[34px]">
-            هر معامله‌ی تمرینی،
-            <br />
-            یک داده برای <span className="text-accent">استراتژی بهتر</span>.
-          </h2>
-          <p className="mt-4 max-w-md text-[15px] leading-8 text-muted">جلسه‌هایت، استراتژی‌ها، چک‌لیست‌ها و ژورنال معاملاتت همان‌جایی است که رها کرده بودی.</p>
-          <div className="mt-8 max-w-[560px]">
+      {/* ticker strip */}
+      <div className="relative overflow-hidden border-b border-line/60 bg-bg/40 py-2.5" dir="ltr" aria-hidden="true">
+        <div className="ticker flex w-max gap-8 whitespace-nowrap px-4 text-[12px]">
+          {[...quotes, ...quotes].map((q, i) => (
+            <span key={i} className="flex items-center gap-2">
+              <b className="text-ink">{q.s}</b>
+              <span className={clsx('num font-semibold', q.chg >= 0 ? 'text-gain' : 'text-loss')}>
+                {q.chg >= 0 ? '▲' : '▼'} {Math.abs(q.chg).toFixed(2)}%
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="relative flex flex-1 flex-col px-10 py-10 xl:px-14">
+        <h2 className="max-w-lg font-display text-[30px] font-bold leading-[1.6] xl:text-[34px]">
+          بازار گذشته را <span className="text-accent-ink">کندل به کندل</span> دوباره معامله کن.
+        </h2>
+        <p className="mt-3 max-w-md text-[15px] leading-8 text-muted">جلسه‌ها، ژورنال و آمار معاملاتت منتظرت هستند؛ با شماره موبایل وارد شو و از همان‌جا ادامه بده.</p>
+        <div className="relative my-auto py-8">
+          <div className="rounded-3xl border border-line/70 bg-bg/40 p-2 shadow-pop backdrop-blur">
             <ReplayDemo />
+          </div>
+          <div className="absolute -left-4 top-2 rounded-2xl border border-line bg-surface/95 px-4 py-3 shadow-pop">
+            <p className="text-[11px] text-muted">وین‌ریت این هفته</p>
+            <p className="num flex items-center gap-1.5 text-lg font-bold">
+              <TrendingUp size={16} className="text-gain" /> ۵۴٫۲٪
+            </p>
+          </div>
+          <div className="absolute -bottom-1 right-6 rounded-2xl border border-line bg-surface/95 px-4 py-3 shadow-pop">
+            <p className="text-[11px] text-muted">زمان بازپخش‌شده</p>
+            <p className="num text-lg font-bold">۳ ماه و ۹ روز</p>
           </div>
         </div>
         <ul className="grid grid-cols-3 gap-4 text-xs text-muted">
           {[
-            ['۱۲', 'نماد در ۴ بازار'],
-            ['۵', 'تایم‌فریم'],
+            ['+۷۰', 'نماد فارکس، شاخص و کریپتو'],
+            ['۶', 'تایم‌فریم از ۵ دقیقه'],
             ['۱۳۹۳', 'شروع داده‌ی تاریخی'],
           ].map(([v, l]) => (
             <li key={l}>
-              <span className="num block font-display text-xl font-extrabold text-ink">{v}</span>
+              <span className="num block font-display text-xl font-bold text-ink">{v}</span>
               {l}
             </li>
           ))}
@@ -720,106 +163,307 @@ function BrandPanel() {
   );
 }
 
-const COPY: Record<Mode, { title: string; text: string }> = {
-  login: { title: 'ورود به حساب', text: 'برای ادامه‌ی بک‌تست‌ها وارد شوید.' },
-  signup: { title: 'ساخت حساب', text: 'رایگان شروع کنید؛ ۱۴ روز امکانات حرفه‌ای هم هدیه است.' },
-  forgot: { title: 'بازیابی رمز عبور', text: 'ایمیل حساب را بنویسید تا کد بازیابی بسازیم.' },
-};
-
 export default function AuthPage() {
   const location = useLocation();
   const session = useAuth((s) => s.session);
+  const requestOtp = useAuth((s) => s.requestOtp);
+  const verifyOtp = useAuth((s) => s.verifyOtp);
+  const loginDemo = useAuth((s) => s.loginDemo);
   const { theme, setTheme } = useStore();
-  const mode = modeFromPath(location.pathname);
+  const signup = location.pathname.startsWith('/signup');
   const state = (location.state ?? {}) as LocationState;
-  const from = state.from && !state.from.startsWith('/login') && !state.from.startsWith('/signup') ? state.from : '/dashboard';
+  const from = state.from && !/^\/(login|signup)/.test(state.from) ? state.from : '/dashboard';
+
+  const [step, setStep] = useState<'phone' | 'code'>('phone');
+  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [otp, setOtp] = useState<OtpRequest | null>(null);
+  const [error, setError] = useState<{ text: string; field?: string } | null>(null);
+  const [loading, setLoading] = useState<'otp' | 'verify' | 'demo' | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+  const [expiresIn, setExpiresIn] = useState(0);
+  const verifying = useRef(false);
+
+  useEffect(() => {
+    if (step !== 'code') return;
+    const t = setInterval(() => {
+      setResendIn((s) => Math.max(0, s - 1));
+      setExpiresIn((s) => Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [step]);
+
+  // Android Chrome can read the code from the SMS (WebOTP) when the message ends with "@host #code".
+  useEffect(() => {
+    if (step !== 'code' || !('OTPCredential' in window)) return;
+    const ac = new AbortController();
+    (navigator.credentials as any)
+      .get({ otp: { transport: ['sms'] }, signal: ac.signal })
+      .then((c: any) => c?.code && setCode(String(c.code)))
+      .catch(() => undefined);
+    return () => ac.abort();
+  }, [step]);
 
   if (session) return <Navigate to={from} replace />;
 
-  const copy = COPY[mode];
-  // keep the "return to" page when switching between login and signup
-  const carry = state.from ? { from: state.from } : undefined;
+  const sendCode = async (e?: FormEvent) => {
+    e?.preventDefault();
+    const err = phoneError(phone);
+    if (err) {
+      setError({ text: err, field: 'phone' });
+      return;
+    }
+    setLoading('otp');
+    setError(null);
+    try {
+      const r = await requestOtp(phone);
+      setOtp(r);
+      setCode('');
+      setResendIn(r.resendInSec);
+      setExpiresIn(r.ttlSec);
+      setStep('code');
+    } catch (x) {
+      setError({ text: x instanceof BackendError ? x.message : 'ارسال کد انجام نشد. دوباره تلاش کنید.', field: x instanceof BackendError ? x.field : undefined });
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const verify = async (value = code) => {
+    if (!otp || verifying.current) return;
+    if (otp.isNew) {
+      const nErr = nameError(name);
+      if (nErr) {
+        setError({ text: nErr, field: 'name' });
+        return;
+      }
+    }
+    if (value.length !== otp.length) {
+      setError({ text: `کد ${faDigits(otp.length)} رقمی را کامل وارد کنید.`, field: 'code' });
+      return;
+    }
+    verifying.current = true;
+    setLoading('verify');
+    setError(null);
+    try {
+      const res = await verifyOtp(phone, value, otp.isNew ? name.trim() : undefined, remember);
+      toast(res.isNew ? `خوش آمدید ${res.user.name}! حساب شما ساخته شد.` : `خوش آمدید ${res.user.name}`);
+    } catch (x) {
+      setError({ text: x instanceof BackendError ? x.message : 'ورود انجام نشد. دوباره تلاش کنید.', field: x instanceof BackendError ? x.field : 'code' });
+      if (x instanceof BackendError && x.field === 'code') setCode('');
+    } finally {
+      verifying.current = false;
+      setLoading(null);
+    }
+  };
+
+  const demo = async () => {
+    setLoading('demo');
+    setError(null);
+    try {
+      await loginDemo();
+      toast('وارد حساب نمایشی شدید');
+    } catch (x) {
+      setError({ text: x instanceof BackendError ? x.message : 'ورود به حساب نمایشی انجام نشد.' });
+      setLoading(null);
+    }
+  };
+
+  const title = step === 'code' ? 'کد تأیید را وارد کنید' : signup ? 'ساخت حساب با شماره موبایل' : 'ورود با شماره موبایل';
+  const subtitle =
+    step === 'code' ? (
+      <>
+        کد {faDigits(otp?.length ?? 5)} رقمی به <b className="num text-ink" dir="ltr">{fmtPhone(phone)}</b> پیامک شد.
+      </>
+    ) : signup ? (
+      'بدون رمز عبور؛ با یک کد پیامکی حساب بسازید. ۷ روز امکانات حرفه‌ای هدیه است.'
+    ) : (
+      'شماره موبایلی را که با آن ثبت‌نام کرده‌اید بنویسید.'
+    );
 
   return (
-    <div className="min-h-[100dvh] bg-bg lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
-      <BrandPanel />
-
+    <div className="min-h-[100dvh] bg-bg lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)]">
       <main className="flex min-h-[100dvh] flex-col px-5 py-6 sm:px-10">
         <div className="flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] text-muted transition hover:bg-raised hover:text-ink">
+          <Link to="/" className="inline-flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-[13px] text-muted transition hover:bg-raised hover:text-ink">
             <ArrowRight size={16} /> صفحه‌ی اصلی
           </Link>
-          <div className="lg:hidden">
-            <Logo />
-          </div>
+          <Logo />
           <button type="button" className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}>
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
 
         <div className="mx-auto my-auto w-full max-w-[400px] py-10">
-          <h1 className="font-display text-[26px] font-extrabold">{copy.title}</h1>
-          <p className="mb-7 mt-2 text-sm text-muted">{copy.text}</p>
+          <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-ink">{step === 'code' ? <ShieldCheck size={24} /> : <Phone size={22} />}</span>
+          <h1 className="font-display text-[26px] font-bold">{title}</h1>
+          <p className="mt-2 text-[14px] leading-7 text-muted">{subtitle}</p>
 
-          {mode !== 'forgot' && (
-            <div role="tablist" aria-label="ورود یا ثبت‌نام" className="mb-6 grid grid-cols-2 rounded-xl border border-line bg-surface p-1 text-sm font-semibold">
-              {(['login', 'signup'] as const).map((m) => (
-                <Link
-                  key={m}
-                  role="tab"
-                  aria-selected={mode === m}
-                  to={m === 'login' ? '/login' : '/signup'}
-                  replace
-                  state={carry}
-                  className={clsx('rounded-lg py-2.5 text-center transition', mode === m ? 'bg-accent text-white shadow' : 'text-muted hover:text-ink')}
+          <div className="mt-7 flex flex-col gap-4">
+            {state.notice && !error && <Alert tone="info">{state.notice}</Alert>}
+            {error && <Alert tone="error">{error.text}</Alert>}
+
+            {step === 'phone' ? (
+              <form onSubmit={sendCode} noValidate className="flex flex-col gap-4">
+                <div>
+                  <label className="label" htmlFor="auth-phone">
+                    شماره موبایل
+                  </label>
+                  <div className={clsx('field flex items-center gap-2 py-0 focus-within:border-accent/70 focus-within:ring-2 focus-within:ring-accent/20', error?.field === 'phone' && 'border-loss')}>
+                    <Phone size={17} className="shrink-0 text-faint" />
+                    <input
+                      id="auth-phone"
+                      autoFocus
+                      dir="ltr"
+                      inputMode="tel"
+                      autoComplete="tel-national"
+                      placeholder="0912 123 4567"
+                      value={phone}
+                      onChange={(e) => {
+                        setPhone(toLatinDigits(e.target.value).replace(/[^\d+\s]/g, ''));
+                        if (error?.field === 'phone') setError(null);
+                      }}
+                      className="num h-12 w-full bg-transparent text-left text-[16px] font-semibold tracking-wider outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-faint"
+                    />
+                    <span className="shrink-0 text-[12px] text-faint">ایران</span>
+                  </div>
+                  <p className="mt-1.5 text-[12px] text-faint">کد تأیید با پیامک فرستاده می‌شود. شماره را با ۰۹ یا ‎+98 بنویسید.</p>
+                </div>
+                <label className="flex cursor-pointer select-none items-center gap-2.5 text-[13px] text-muted">
+                  <input id="auth-remember" type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--accent))]" />
+                  مرا به خاطر بسپار <span className="text-faint">(۳۰ روز)</span>
+                </label>
+                <button type="submit" className="btn-primary h-12 rounded-2xl text-[15px]" disabled={loading !== null}>
+                  {loading === 'otp' ? <LoaderCircle size={18} className="animate-spin" /> : 'دریافت کد تأیید'}
+                </button>
+                <p className="text-center text-[12px] leading-6 text-faint">
+                  ورود یا ثبت‌نام یعنی <span className="text-muted">قوانین استفاده</span> و <span className="text-muted">حریم خصوصی</span> را پذیرفته‌اید.
+                </p>
+              </form>
+            ) : (
+              <form
+                noValidate
+                className="flex flex-col gap-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void verify();
+                }}
+              >
+                {otp?.devCode && (
+                  <div className="anim-pop flex items-start gap-3 rounded-2xl border border-line bg-raised/80 p-3 shadow-pop">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gain/15 text-gain">
+                      <MessageSquareText size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1 text-[13px]">
+                      <p className="font-semibold">پیامک {backend.mode === 'demo' ? '(حالت نمایشی)' : '(حالت توسعه)'}</p>
+                      <p className="text-muted">
+                        کد ورود شما: <b className="num tracking-[0.3em] text-ink">{faDigits(otp.devCode)}</b>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-soft shrink-0 px-2.5 py-1.5 text-[12px]"
+                      onClick={() => {
+                        setCode(otp.devCode!);
+                        if (!otp.isNew || !nameError(name)) void verify(otp.devCode!);
+                      }}
+                    >
+                      وارد کردن
+                    </button>
+                  </div>
+                )}
+                {otp?.isNew && (
+                  <div>
+                    <label className="label" htmlFor="auth-name">
+                      نام و نام خانوادگی <span className="font-normal text-faint">(حساب جدید)</span>
+                    </label>
+                    <div className={clsx('field flex items-center gap-2 py-0 focus-within:border-accent/70', error?.field === 'name' && 'border-loss')}>
+                      <User size={17} className="shrink-0 text-faint" />
+                      <input
+                        id="auth-name"
+                        autoComplete="name"
+                        value={name}
+                        onChange={(e) => {
+                          setName(e.target.value);
+                          if (error?.field === 'name') setError(null);
+                        }}
+                        placeholder="مثلاً: سارا محمدی"
+                        className="h-11 w-full bg-transparent outline-none placeholder:text-faint"
+                      />
+                    </div>
+                  </div>
+                )}
+                <CodeInput
+                  length={otp?.length ?? 5}
+                  value={code}
+                  disabled={loading === 'verify'}
+                  invalid={error?.field === 'code'}
+                  onChange={(v) => {
+                    setCode(v);
+                    if (error?.field === 'code') setError(null);
+                    if (otp && v.length === otp.length && (!otp.isNew || !nameError(name))) void verify(v);
+                  }}
+                />
+                <div className="num flex items-center justify-between text-[12px] text-muted">
+                  <span>{expiresIn > 0 ? `اعتبار کد: ${faDigits(Math.floor(expiresIn / 60))}:${faDigits(String(expiresIn % 60).padStart(2, '0'))}` : 'کد منقضی شد'}</span>
+                  {resendIn > 0 ? (
+                    <span>ارسال دوباره تا {faDigits(resendIn)} ثانیه</span>
+                  ) : (
+                    <button type="button" className="font-semibold text-accent-ink hover:underline" onClick={() => void sendCode()} disabled={loading !== null}>
+                      ارسال دوباره‌ی کد
+                    </button>
+                  )}
+                </div>
+                <label className="flex cursor-pointer select-none items-center gap-2.5 text-[13px] text-muted">
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--accent))]" />
+                  مرا به خاطر بسپار
+                </label>
+                <button type="submit" className="btn-primary h-12 rounded-2xl text-[15px]" disabled={loading !== null || code.length !== (otp?.length ?? 5)}>
+                  {loading === 'verify' ? <LoaderCircle size={18} className="animate-spin" /> : otp?.isNew ? 'ساخت حساب و ورود' : 'تأیید و ورود'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => {
+                    setStep('phone');
+                    setError(null);
+                    setCode('');
+                  }}
                 >
-                  {m === 'login' ? 'ورود' : 'ثبت‌نام'}
-                </Link>
-              ))}
-            </div>
-          )}
+                  <Pencil size={14} /> ویرایش شماره {fmtPhone(phone)}
+                </button>
+              </form>
+            )}
 
-          {mode === 'login' && (
-            <LoginForm
-              key={location.key}
-              initialEmail={state.email ?? ''}
-              notice={state.notice ?? (state.from && state.from !== '/dashboard' ? 'برای دیدن این صفحه اول وارد شوید.' : undefined)}
-            />
-          )}
-          {mode === 'signup' && <SignupForm />}
-          {mode === 'forgot' && <ForgotForm initialEmail={state.email ?? ''} />}
-
-          <p className="mt-7 text-center text-[13px] text-muted">
-            {mode === 'login' && (
+            {backend.mode === 'demo' && step === 'phone' && (
               <>
-                حساب ندارید؟{' '}
-                <Link to="/signup" replace state={carry} className="font-semibold text-accent hover:underline">
-                  ثبت‌نام کنید
-                </Link>
+                <div className="flex items-center gap-3 text-xs text-faint">
+                  <span className="h-px flex-1 bg-line" />
+                  یا
+                  <span className="h-px flex-1 bg-line" />
+                </div>
+                <button type="button" onClick={demo} disabled={loading !== null} className="btn-soft h-12 w-full rounded-2xl text-[14px]">
+                  {loading === 'demo' ? <LoaderCircle size={18} className="animate-spin" /> : 'ورود با حساب نمایشی'}
+                </button>
+                <p className="-mt-1 text-center text-[11px] leading-5 text-faint">
+                  حساب نمایشی با داده‌ی نمونه پر شده و به پنل مدیریت هم دسترسی دارد. شماره: <span className="num text-muted">{fmtPhone('09121234567')}</span>
+                </p>
               </>
             )}
-            {mode === 'signup' && (
-              <>
-                قبلاً ثبت‌نام کرده‌اید؟{' '}
-                <Link to="/login" replace state={carry} className="font-semibold text-accent hover:underline">
-                  وارد شوید
-                </Link>
-              </>
-            )}
-            {mode === 'forgot' && (
-              <Link to="/login" replace className="font-semibold text-accent hover:underline">
-                بازگشت به ورود
-              </Link>
-            )}
+          </div>
+
+          <p className="mt-8 text-center text-[13px] text-muted">
+            {signup ? 'قبلاً ثبت‌نام کرده‌اید؟ ' : 'حساب ندارید؟ '}
+            <Link to={signup ? '/login' : '/signup'} state={state.from ? { from: state.from } : undefined} className="font-semibold text-accent-ink hover:underline">
+              {signup ? 'وارد شوید' : 'رایگان ثبت‌نام کنید'}
+            </Link>
           </p>
         </div>
-
-        <p className="text-center text-[11px] text-faint">
-          <span className="inline-flex items-center gap-1">
-            <Lock size={11} /> رمز عبور به‌صورت هش‌شده ذخیره می‌شود و هرگز به‌صورت متن ساده نگه داشته نمی‌شود.
-          </span>
-        </p>
       </main>
+
+      <MarketPanel />
     </div>
   );
 }
