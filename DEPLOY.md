@@ -34,7 +34,7 @@ refuse servers abroad. On an Iranian VPS, expect these; the steps below handle e
 ## 1. Build the release (on your computer)
 
 ```bash
-cd backtest-dashboard
+cd BackTest-Platform
 # optional, for TradingView charts: install the library you licensed
 npm run setup:charts -- path/to/charting_library-master.zip
 # build for your domain

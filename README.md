@@ -1,6 +1,6 @@
-# داشبورد بک‌تست (Backtest Dashboard)
+# BackTest Platform (بک‌تست‌لب)
 
-A Persian (Farsi), right-to-left user dashboard for a trading backtesting platform. Charts keep their original left-to-right layout.
+A Persian (Farsi), right-to-left trading backtesting platform: landing page, phone sign-in, user dashboard, chart replay, analytics, journal and an admin panel, with an API server for Iranian SMS providers and payment gateways. Charts keep their original left-to-right layout.
 
 **Stack:** React 18 · TypeScript · Vite · Tailwind CSS · Recharts · lightweight-charts / TradingView Advanced Charts · Zustand · Vazirmatn font
 **API server** (`server/`): Node.js + TypeScript with no runtime dependencies: phone sign-in over Iranian SMS services, Iranian payment gateways, the ForexFactory calendar, real market data and the admin API.
@@ -10,7 +10,7 @@ A Persian (Farsi), right-to-left user dashboard for a trading backtesting platfo
 The app runs on its own in **demo mode** (everything simulated in the browser), or against the **API server**.
 
 ```bash
-cd backtest-dashboard
+cd BackTest-Platform
 npm install
 npm run dev            # demo mode: http://localhost:5173
 npm run build          # production build in dist/
@@ -20,7 +20,7 @@ npm run build:artifact # one self-contained HTML file in dist-artifact/
 With the API server:
 
 ```bash
-cd backtest-dashboard/server
+cd BackTest-Platform/server
 npm install
 echo ADMIN_PHONES=09121234567 > .env   # your number
 npm run dev                            # API on http://localhost:8787
