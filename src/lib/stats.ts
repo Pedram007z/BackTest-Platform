@@ -1,4 +1,4 @@
-import { DAY_MS, addDays, diffDays, keyToMs, localDayKey, msToKey, type DayKey } from './calendar';
+import { DAY_MS, addDays, diffDays, fromKey, keyToMs, localDayKey, msToKey, type CalendarKind, type DayKey } from './calendar';
 import { priceAt, seededRng } from './market';
 import { marketSessionOf, wallTime, type MarketSession } from './timezone';
 import { openPnl, riskDistance } from './trading';
@@ -378,18 +378,18 @@ export function byWeekday(trades: Trade[], returns: Map<string, number>) {
   return rows;
 }
 
-/** % return per calendar month (rows = years). */
-export function monthlyTable(trades: Trade[], returns: Map<string, number>) {
+/** % return per calendar month (rows = years), in the Jalali or Gregorian calendar. */
+export function monthlyTable(trades: Trade[], returns: Map<string, number>, cal: CalendarKind = 'gregorian') {
   const map = new Map<number, number[]>();
   for (const t of closedOnly(trades)) {
-    const d = new Date(t.closeTime ?? t.openTime);
-    const y = d.getUTCFullYear();
+    const { y, m } = fromKey(cal, msToKey(t.closeTime ?? t.openTime));
     if (!map.has(y)) map.set(y, Array(12).fill(NaN));
     const arr = map.get(y)!;
-    const m = d.getUTCMonth();
-    arr[m] = (Number.isNaN(arr[m]) ? 0 : arr[m]) + (returns.get(t.id) ?? 0);
+    arr[m - 1] = (Number.isNaN(arr[m - 1]) ? 0 : arr[m - 1]) + (returns.get(t.id) ?? 0);
   }
-  return [...map.entries()].sort(([a], [b]) => b - a).map(([year, months]) => ({ year, months, total: months.reduce((s, v) => s + (Number.isNaN(v) ? 0 : v), 0) }));
+  return [...map.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([year, months]) => ({ year, months, total: months.reduce((s, v) => s + (Number.isNaN(v) ? 0 : v), 0) }));
 }
 
 /** Per market day: dollars and number of trades, for the performance calendar. */
