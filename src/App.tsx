@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
-import { HashRouter, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { createMemoryHistory } from '@remix-run/router';
+import { useEffect, type ReactNode } from 'react';
+import { HashRouter, Navigate, Outlet, Route, Routes, createPath, unstable_HistoryRouter as HistoryRouter, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
+import { PageErrorBoundary } from './components/ui/ErrorBoundary';
 import Analytics from './pages/Analytics';
 import AuthPage from './pages/Auth';
 import Billing from './pages/Billing';
@@ -23,8 +25,21 @@ import { loadSiteConfig } from './services/marketFeed';
 import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
 
-// The hosted single-file preview runs in a sandboxed frame, so it routes in memory.
-const Router = import.meta.env.MODE === 'artifact' ? MemoryRouter : HashRouter;
+/**
+ * The hosted single-file preview runs in a sandboxed frame, so it routes in memory. Its links get
+ * in-page hrefs ("#login", "#admin.users"): the frame opens any other href as a separate web page,
+ * which showed an empty page instead of the route.
+ */
+function previewRouter() {
+  // v5Compat: notify the router on push/replace, as MemoryRouter does
+  const history = createMemoryHistory({ v5Compat: true });
+  history.createHref = (to) => {
+    const path = typeof to === 'string' ? to : createPath(to);
+    return `#${path.replace(/^\//, '').replace(/[^A-Za-z0-9._~-]+/g, '.') || 'home'}`;
+  };
+  return ({ children }: { children: ReactNode }) => <HistoryRouter history={history}>{children}</HistoryRouter>;
+}
+const Router = import.meta.env.MODE === 'artifact' ? previewRouter() : HashRouter;
 
 function ThemeSync() {
   const theme = useStore((s) => s.theme);
@@ -70,40 +85,42 @@ export default function App() {
       <ThemeSync />
       <AccountSync />
       <ScrollToTop />
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<AuthPage />} />
-        <Route path="/signup" element={<AuthPage />} />
-        <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
-        <Route path="/pay/sandbox" element={<SandboxPay />} />
-        <Route element={<AppShell />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/sessions" element={<Sessions />} />
-          <Route path="/strategies" element={<Strategies />} />
-          <Route path="/checklists" element={<Checklists />} />
-          <Route path="/journal" element={<Journal />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/billing" element={<Billing />} />
-          <Route path="/support" element={<Support />} />
-          <Route path="/replay/:id" element={<Replay />} />
-        </Route>
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminOverview />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="plans" element={<AdminPlans />} />
-          <Route path="payments" element={<AdminPayments />} />
-          <Route path="discounts" element={<AdminDiscounts />} />
-          <Route path="gateways" element={<AdminGateways />} />
-          <Route path="sms" element={<AdminSms />} />
-          <Route path="tickets" element={<AdminTickets />} />
-          <Route path="news" element={<AdminNews />} />
-          <Route path="market" element={<AdminMarket />} />
-          <Route path="settings" element={<AdminSettings />} />
-          <Route path="audit" element={<AdminAudit />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <PageErrorBoundary>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/signup" element={<AuthPage />} />
+          <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
+          <Route path="/pay/sandbox" element={<SandboxPay />} />
+          <Route element={<AppShell />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/sessions" element={<Sessions />} />
+            <Route path="/strategies" element={<Strategies />} />
+            <Route path="/checklists" element={<Checklists />} />
+            <Route path="/journal" element={<Journal />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/billing" element={<Billing />} />
+            <Route path="/support" element={<Support />} />
+            <Route path="/replay/:id" element={<Replay />} />
+          </Route>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="plans" element={<AdminPlans />} />
+            <Route path="payments" element={<AdminPayments />} />
+            <Route path="discounts" element={<AdminDiscounts />} />
+            <Route path="gateways" element={<AdminGateways />} />
+            <Route path="sms" element={<AdminSms />} />
+            <Route path="tickets" element={<AdminTickets />} />
+            <Route path="news" element={<AdminNews />} />
+            <Route path="market" element={<AdminMarket />} />
+            <Route path="settings" element={<AdminSettings />} />
+            <Route path="audit" element={<AdminAudit />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </PageErrorBoundary>
     </Router>
   );
 }
