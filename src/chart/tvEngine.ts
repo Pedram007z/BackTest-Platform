@@ -76,7 +76,6 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     theme: state.theme === 'dark' ? 'dark' : 'light',
     timezone: 'Asia/Tehran',
     disabled_features: ['header_compare', 'header_saveload', 'header_screenshot', 'go_to_date', 'timeframes_toolbar', 'popup_hints', 'display_market_status', 'use_localstorage_for_settings'],
-    enabled_features: ['study_templates'],
     favorites: { intervals: TIMEFRAMES.map((t) => t.tv) },
     loading_screen: { backgroundColor: state.theme === 'dark' ? '#120f1c' : '#ffffff', foregroundColor: '#7c5cff' },
     overrides: overrides(state.theme),

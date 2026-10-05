@@ -84,7 +84,7 @@ export function ChartPane(props: Props) {
 
   const sym = SYMBOL_MAP[pane.symbol];
   return (
-    <div className={clsx('relative flex min-h-0 min-w-0 flex-col bg-side', multi && 'ring-1 ring-inset', multi && (active ? 'ring-accent/70' : 'ring-line/60'))}>
+    <div className={clsx('relative flex h-full min-h-0 min-w-0 flex-col bg-side', multi && 'ring-1 ring-inset', multi && (active ? 'ring-accent/70' : 'ring-line/60'))}>
       {engineKind === 'lightweight' && (
         <div className="flex h-9 shrink-0 items-center gap-1 border-b border-line/60 px-2" dir="ltr">
           <Popover
