@@ -122,7 +122,7 @@ const wd = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d)).
 /** n-th weekday of the month (n = -1 → last). weekday: 0 = Sunday. */
 function nth(y: number, m: number, weekday: number, n: number): number {
   if (n > 0) {
-    const first = (weekday - wd(y, m, 1) + 7) % 7 + 1;
+    const first = ((weekday - wd(y, m, 1) + 7) % 7) + 1;
     return first + (n - 1) * 7;
   }
   const last = dim(y, m);
@@ -145,7 +145,11 @@ const nthBiz = (y: number, m: number, n: number) => {
   return d;
 };
 
-const MON = 1, TUE = 2, WED = 3, THU = 4, FRI = 5;
+const MON = 1,
+  TUE = 2,
+  WED = 3,
+  THU = 4,
+  FRI = 5;
 const NY = 'America/New_York';
 const FFM = 'Europe/Berlin';
 const LDN = 'Europe/London';
@@ -217,14 +221,55 @@ const RULES: Rule[] = [
   { ccy: 'CAD', tz: 'America/Toronto', title: 'CPI m/m', impact: 'high', time: '08:30', kind: 'pct', mean: 0.3, sd: 0.3, day: (y, m) => nth(y, m, TUE, 3) },
   { ccy: 'CAD', tz: 'America/Toronto', title: 'Retail Sales m/m', impact: 'medium', time: '08:30', kind: 'pct', mean: 0.3, sd: 0.6, day: (y, m) => nth(y, m, FRI, 4) },
   // AUD
-  { ccy: 'AUD', tz: 'Australia/Sydney', title: 'Cash Rate', impact: 'high', time: '14:30', kind: 'rate', mean: 4.1, months: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], day: (y, m) => nth(y, m, TUE, 1) },
-  { ccy: 'AUD', tz: 'Australia/Sydney', title: 'RBA Rate Statement', impact: 'high', time: '14:30', kind: 'none', months: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], day: (y, m) => nth(y, m, TUE, 1) },
+  {
+    ccy: 'AUD',
+    tz: 'Australia/Sydney',
+    title: 'Cash Rate',
+    impact: 'high',
+    time: '14:30',
+    kind: 'rate',
+    mean: 4.1,
+    months: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    day: (y, m) => nth(y, m, TUE, 1),
+  },
+  {
+    ccy: 'AUD',
+    tz: 'Australia/Sydney',
+    title: 'RBA Rate Statement',
+    impact: 'high',
+    time: '14:30',
+    kind: 'none',
+    months: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    day: (y, m) => nth(y, m, TUE, 1),
+  },
   { ccy: 'AUD', tz: 'Australia/Sydney', title: 'Employment Change', impact: 'high', time: '11:30', kind: 'k', mean: 25, sd: 25, day: (y, m) => nth(y, m, THU, 3) },
-  { ccy: 'AUD', tz: 'Australia/Sydney', title: 'CPI q/q', impact: 'high', time: '11:30', kind: 'pct', mean: 1.0, sd: 0.3, months: [1, 4, 7, 10], day: (y, m) => nth(y, m, WED, -1) },
+  {
+    ccy: 'AUD',
+    tz: 'Australia/Sydney',
+    title: 'CPI q/q',
+    impact: 'high',
+    time: '11:30',
+    kind: 'pct',
+    mean: 1.0,
+    sd: 0.3,
+    months: [1, 4, 7, 10],
+    day: (y, m) => nth(y, m, WED, -1),
+  },
   // NZD
   { ccy: 'NZD', tz: 'Pacific/Auckland', title: 'Official Cash Rate', impact: 'high', time: '14:00', kind: 'rate', mean: 5.5, day: RBNZ },
   { ccy: 'NZD', tz: 'Pacific/Auckland', title: 'CPI q/q', impact: 'high', time: '10:45', kind: 'pct', mean: 1.1, sd: 0.4, months: [1, 4, 7, 10], day: (y, m) => nth(y, m, WED, 3) },
-  { ccy: 'NZD', tz: 'Pacific/Auckland', title: 'Employment Change q/q', impact: 'high', time: '10:45', kind: 'pct', mean: 0.4, sd: 0.4, months: [2, 5, 8, 11], day: (y, m) => nth(y, m, WED, 1) },
+  {
+    ccy: 'NZD',
+    tz: 'Pacific/Auckland',
+    title: 'Employment Change q/q',
+    impact: 'high',
+    time: '10:45',
+    kind: 'pct',
+    mean: 0.4,
+    sd: 0.4,
+    months: [2, 5, 8, 11],
+    day: (y, m) => nth(y, m, WED, 1),
+  },
   // CNY
   { ccy: 'CNY', tz: 'Asia/Shanghai', title: 'CPI y/y', impact: 'medium', time: '09:30', kind: 'pct', mean: 0.8, sd: 0.8, day: (y, m) => nth(y, m, WED, 2) },
   { ccy: 'CNY', tz: 'Asia/Shanghai', title: 'Manufacturing PMI', impact: 'medium', time: '09:30', kind: 'idx', mean: 49.8, sd: 0.8, day: (y, m) => dim(y, m) },
@@ -354,12 +399,7 @@ export function sampleNews(fromMs: number, toMs: number): NewsEvent[] {
 }
 
 export function filterNews(events: NewsEvent[], f: NewsFilters, cursor: number): NewsEvent[] {
-  return events.filter(
-    (e) =>
-      (f.currencies.length === 0 || f.currencies.includes(e.currency)) &&
-      f.impacts.includes(e.impact) &&
-      (e.time <= cursor ? f.showPast : f.showFuture),
-  );
+  return events.filter((e) => (f.currencies.length === 0 || f.currencies.includes(e.currency)) && f.impacts.includes(e.impact) && (e.time <= cursor ? f.showPast : f.showFuture));
 }
 
 /** Currencies whose news matters for a set of symbols (USD for EURUSD and so on). */

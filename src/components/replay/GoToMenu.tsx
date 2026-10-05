@@ -76,10 +76,9 @@ export function GoToMenu({ cursor, endMs, symbols, disabled, onJump }: Props) {
   const [editing, setEditing] = useState<string | 'new' | null>(null);
 
   const builtinIds = new Set(BUILTIN_GOTO.map((b) => b.id));
-  const presets: GoToPreset[] = [
-    ...BUILTIN_GOTO.map((b) => ({ ...b, ...stored.find((s) => s.id === b.id) })),
-    ...stored.filter((s) => !builtinIds.has(s.id)),
-  ].sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite));
+  const presets: GoToPreset[] = [...BUILTIN_GOTO.map((b) => ({ ...b, ...stored.find((s) => s.id === b.id) })), ...stored.filter((s) => !builtinIds.has(s.id))].sort(
+    (a, b) => Number(!!b.favorite) - Number(!!a.favorite),
+  );
 
   const syms = symbols.map((s) => SYMBOL_MAP[s]).filter(Boolean);
   const accept = (ms: number) => syms.some((s) => isTradingDay(s, dayIndexOf(ms)));

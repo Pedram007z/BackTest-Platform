@@ -26,6 +26,12 @@ export const orderTitleEn = (side: Side, type: OrderType) => `${side === 'buy' ?
 
 export const tickOf = (symbolId: string) => 10 ** -(SYMBOL_MAP[symbolId]?.digits ?? 2);
 
+/** Round a lot amount to the lot step without floating-point dust (6.81, not 6.8100000000000005). */
+export function roundLots(lots: number, step: number): number {
+  const decimals = Math.max(0, Math.round(-Math.log10(step)));
+  return Number((Math.round(lots / step) * step).toFixed(decimals));
+}
+
 /** Lots that risk `riskUsd` between entry and stop, rounded down to the symbol's lot step (at least one step). */
 export function lotsForRisk(symbolId: string, riskUsd: number, entry: number, sl: number, time: number): number {
   const s = SYMBOL_MAP[symbolId];
@@ -33,11 +39,11 @@ export function lotsForRisk(symbolId: string, riskUsd: number, entry: number, sl
   if (!s || dist <= 0 || riskUsd <= 0) return s?.lotStep ?? 0.01;
   const raw = riskUsd / (dist * pointValueUsd(symbolId, time));
   const steps = Math.floor(raw / s.lotStep + 1e-9);
-  return Math.max(1, steps) * s.lotStep;
+  return roundLots(Math.max(1, steps) * s.lotStep, s.lotStep);
 }
 
 export const fmtLots = (lots: number, symbolId?: string) => {
-  const step = symbolId ? SYMBOL_MAP[symbolId]?.lotStep ?? 0.01 : 0.01;
+  const step = symbolId ? (SYMBOL_MAP[symbolId]?.lotStep ?? 0.01) : 0.01;
   return lots.toFixed(step < 0.01 ? 3 : 2);
 };
 
@@ -112,10 +118,10 @@ export function realizedPnl(t: Trade): number {
 export function closeLots(t: Trade, lots: number, price: number, time: number, reason: Trade['closeReason'] = 'manual'): Trade {
   if (t.status !== 'open') return t;
   const step = SYMBOL_MAP[t.symbol]?.lotStep ?? 0.01;
-  const qty = Math.min(t.lots, Math.max(step, Math.round(lots / step) * step));
+  const qty = Math.min(t.lots, Math.max(step, roundLots(lots, step)));
   const pnl = round2((price - t.entry) * dirOf(t.side) * t.pointValue * qty);
   const partials: PartialClose[] = [...t.partials, { time, price, lots: qty, pnl }];
-  const left = Math.round((t.lots - qty) / step) * step;
+  const left = roundLots(t.lots - qty, step);
   const total = round2(partials.reduce((s, p) => s + p.pnl, 0));
   const closedLots = partials.reduce((s, p) => s + p.lots, 0);
   const exit = partials.reduce((s, p) => s + p.price * p.lots, 0) / (closedLots || 1);
@@ -166,8 +172,7 @@ export function processBar(t: Trade, bar: Bar5, events: FillEvent[]): Trade {
       (trade.side === 'sell' && trade.orderType === 'stop' && bar.low <= e);
     if (!hit) return trade;
     const gapped =
-      (trade.orderType === 'stop' && (trade.side === 'buy' ? bar.open > e : bar.open < e)) ||
-      (trade.orderType === 'limit' && (trade.side === 'buy' ? bar.open < e : bar.open > e));
+      (trade.orderType === 'stop' && (trade.side === 'buy' ? bar.open > e : bar.open < e)) || (trade.orderType === 'limit' && (trade.side === 'buy' ? bar.open < e : bar.open > e));
     const fill = gapped ? bar.open : e;
     // keep 1R in dollars: shift the stop and target with the fill
     const shift = fill - e;

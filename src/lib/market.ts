@@ -40,14 +40,42 @@ export interface SymbolInfo {
 type Spec = [id: string, name: string, description: string, base: number, dailyVol: number, digits: number, pip: number];
 
 const FX_NAMES: Record<string, string> = {
-  EUR: 'یورو', USD: 'دلار', GBP: 'پوند', JPY: 'ین', CHF: 'فرانک', CAD: 'دلار کانادا', AUD: 'دلار استرالیا',
-  NZD: 'دلار نیوزیلند', TRY: 'لیر ترکیه', ZAR: 'رند', MXN: 'پزو مکزیک', SEK: 'کرون سوئد', NOK: 'کرون نروژ',
-  SGD: 'دلار سنگاپور', HKD: 'دلار هنگ‌کنگ', PLN: 'زلوتی', CNH: 'یوان',
+  EUR: 'یورو',
+  USD: 'دلار',
+  GBP: 'پوند',
+  JPY: 'ین',
+  CHF: 'فرانک',
+  CAD: 'دلار کانادا',
+  AUD: 'دلار استرالیا',
+  NZD: 'دلار نیوزیلند',
+  TRY: 'لیر ترکیه',
+  ZAR: 'رند',
+  MXN: 'پزو مکزیک',
+  SEK: 'کرون سوئد',
+  NOK: 'کرون نروژ',
+  SGD: 'دلار سنگاپور',
+  HKD: 'دلار هنگ‌کنگ',
+  PLN: 'زلوتی',
+  CNH: 'یوان',
 };
 const FX_EN: Record<string, string> = {
-  EUR: 'Euro', USD: 'U.S. Dollar', GBP: 'British Pound', JPY: 'Japanese Yen', CHF: 'Swiss Franc', CAD: 'Canadian Dollar',
-  AUD: 'Australian Dollar', NZD: 'New Zealand Dollar', TRY: 'Turkish Lira', ZAR: 'South African Rand', MXN: 'Mexican Peso',
-  SEK: 'Swedish Krona', NOK: 'Norwegian Krone', SGD: 'Singapore Dollar', HKD: 'Hong Kong Dollar', PLN: 'Polish Zloty', CNH: 'Chinese Yuan',
+  EUR: 'Euro',
+  USD: 'U.S. Dollar',
+  GBP: 'British Pound',
+  JPY: 'Japanese Yen',
+  CHF: 'Swiss Franc',
+  CAD: 'Canadian Dollar',
+  AUD: 'Australian Dollar',
+  NZD: 'New Zealand Dollar',
+  TRY: 'Turkish Lira',
+  ZAR: 'South African Rand',
+  MXN: 'Mexican Peso',
+  SEK: 'Swedish Krona',
+  NOK: 'Norwegian Krone',
+  SGD: 'Singapore Dollar',
+  HKD: 'Hong Kong Dollar',
+  PLN: 'Polish Zloty',
+  CNH: 'Chinese Yuan',
 };
 
 function fx(pair: string, fxClass: ForexClass, base: number, dailyVol: number): SymbolInfo {
@@ -74,14 +102,7 @@ function fx(pair: string, fxClass: ForexClass, base: number, dailyVol: number): 
   };
 }
 
-function cfd(
-  [id, name, description, base, dailyVol, digits, pip]: Spec,
-  group: SymbolGroup,
-  quote: string,
-  contractSize: number,
-  currencies: string[],
-  ticker = id,
-): SymbolInfo {
+function cfd([id, name, description, base, dailyVol, digits, pip]: Spec, group: SymbolGroup, quote: string, contractSize: number, currencies: string[], ticker = id): SymbolInfo {
   return { id, ticker, name, description, group, base, dailyVol, digits, pip, contractSize, quote, currencies, lotStep: 0.01, weekends: false };
 }
 

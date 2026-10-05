@@ -4,25 +4,11 @@ import { getSession, type Session as AuthSession } from '../lib/auth';
 import { addDays, keyToMs, localDayKey } from '../lib/calendar';
 import { BAR_MS, SYMBOL_MAP, bars5m, pointValueUsd, priceAt, roundToTick } from '../lib/market';
 import { closeLots, followIdeal, lotsForRisk, processBar, type FillEvent } from '../lib/trading';
-import type {
-  ChartPane,
-  Checklist,
-  GoToPreset,
-  JournalEntry,
-  LayoutId,
-  NewsFilters,
-  OrderType,
-  Session,
-  Side,
-  Strategy,
-  Trade,
-  UserProfile,
-} from '../lib/types';
+import type { ChartPane, Checklist, GoToPreset, JournalEntry, LayoutId, NewsFilters, OrderType, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
 import { local } from '../lib/storage';
 import { buildSeed, type SeedData } from './seed';
 
-export const uid = (prefix: string) =>
-  `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+export const uid = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
 // Each account keeps its own dashboard data under its own key.
 const LEGACY_KEY = 'backtest-dashboard:v1';
@@ -180,8 +166,7 @@ export const useStore = create<State>()(
         set((s) => ({ strategies: [strategy, ...s.strategies] }));
         return strategy;
       },
-      updateStrategy: (id, patch) =>
-        set((s) => ({ strategies: s.strategies.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      updateStrategy: (id, patch) => set((s) => ({ strategies: s.strategies.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
       deleteStrategy: (id) =>
         set((s) => ({
           strategies: s.strategies.filter((x) => x.id !== id),
@@ -194,8 +179,7 @@ export const useStore = create<State>()(
         set((s) => ({ checklists: [checklist, ...s.checklists] }));
         return checklist;
       },
-      updateChecklist: (id, patch) =>
-        set((s) => ({ checklists: s.checklists.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      updateChecklist: (id, patch) => set((s) => ({ checklists: s.checklists.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
       deleteChecklist: (id) =>
         set((s) => ({
           checklists: s.checklists.filter((x) => x.id !== id),
@@ -217,8 +201,7 @@ export const useStore = create<State>()(
         set((s) => ({ sessions: [session, ...s.sessions] }));
         return session;
       },
-      updateSession: (id, patch) =>
-        set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      updateSession: (id, patch) => set((s) => ({ sessions: s.sessions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
       deleteSession: (id) =>
         set((s) => ({
           sessions: s.sessions.filter((x) => x.id !== id),
@@ -306,8 +289,7 @@ export const useStore = create<State>()(
         return next;
       },
 
-      saveJournal: (tradeId, entry) =>
-        set((s) => ({ trades: s.trades.map((t) => (t.id === tradeId ? { ...t, journal: { ...entry, updatedAt: Date.now() } } : t)) })),
+      saveJournal: (tradeId, entry) => set((s) => ({ trades: s.trades.map((t) => (t.id === tradeId ? { ...t, journal: { ...entry, updatedAt: Date.now() } } : t)) })),
       deleteJournal: (tradeId) => set((s) => ({ trades: s.trades.map((t) => (t.id === tradeId ? { ...t, journal: undefined } : t)) })),
       deleteTrade: (tradeId) => set((s) => ({ trades: s.trades.filter((t) => t.id !== tradeId) })),
 

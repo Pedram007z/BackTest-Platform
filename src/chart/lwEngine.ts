@@ -158,7 +158,8 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     const up = c.close >= c.open;
     const col = up ? pal.candleUp : pal.candleDown;
     const chg = ((c.close - c.open) / c.open) * 100;
-    legend.innerHTML = `<b style="font-weight:700">${sym.ticker}</b> <span style="opacity:.6">· ${state.timeframe} · BacktestLab</span>&nbsp;&nbsp;` +
+    legend.innerHTML =
+      `<b style="font-weight:700">${sym.ticker}</b> <span style="opacity:.6">· ${state.timeframe} · BacktestLab</span>&nbsp;&nbsp;` +
       ['O', 'H', 'L', 'C'].map((k, i) => `<span style="opacity:.6">${k}</span><span style="color:${col}">${fmt([c.open, c.high, c.low, c.close][i])}</span>`).join(' ') +
       ` <span style="color:${col}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span>`;
   }
@@ -178,7 +179,14 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       const sl = lineDrag?.tradeId === t.id && lineDrag.field === 'sl' ? lineDrag.price : t.sl;
       const tp = lineDrag?.tradeId === t.id && lineDrag.field === 'tp' ? lineDrag.price : t.tp;
       priceLines.push(
-        series.createPriceLine({ price: entry, color: pending ? pal.accent : pal.line, lineWidth: 1, lineStyle: pending ? LineStyle.Dashed : LineStyle.Solid, axisLabelVisible: true, title: '' }),
+        series.createPriceLine({
+          price: entry,
+          color: pending ? pal.accent : pal.line,
+          lineWidth: 1,
+          lineStyle: pending ? LineStyle.Dashed : LineStyle.Solid,
+          axisLabelVisible: true,
+          title: '',
+        }),
         series.createPriceLine({ price: sl, color: pal.loss, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' }),
       );
       if (tp > 0) priceLines.push(series.createPriceLine({ price: tp, color: pal.gain, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' }));
@@ -191,11 +199,24 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       if (t.status === 'closed' && !state.showHistory) continue;
       const openSec = (Math.floor(t.openTime / step) * step) / 1000;
       if (openSec >= first && t.openTime <= state.cursor)
-        list.push({ time: openSec as UTCTimestamp, position: t.side === 'buy' ? 'belowBar' : 'aboveBar', shape: t.side === 'buy' ? 'arrowUp' : 'arrowDown', color: t.side === 'buy' ? pal.gain : pal.loss, size: 1 });
+        list.push({
+          time: openSec as UTCTimestamp,
+          position: t.side === 'buy' ? 'belowBar' : 'aboveBar',
+          shape: t.side === 'buy' ? 'arrowUp' : 'arrowDown',
+          color: t.side === 'buy' ? pal.gain : pal.loss,
+          size: 1,
+        });
       if (t.status === 'closed' && t.closeTime) {
         const closeSec = (Math.floor((t.closeTime - 1) / step) * step) / 1000;
         if (closeSec >= first)
-          list.push({ time: closeSec as UTCTimestamp, position: t.side === 'buy' ? 'aboveBar' : 'belowBar', shape: 'circle', color: (t.pnl ?? 0) >= 0 ? pal.gain : pal.loss, size: 0.6, text: `${(t.r ?? 0) >= 0 ? '+' : ''}${(t.r ?? 0).toFixed(1)}R` });
+          list.push({
+            time: closeSec as UTCTimestamp,
+            position: t.side === 'buy' ? 'aboveBar' : 'belowBar',
+            shape: 'circle',
+            color: (t.pnl ?? 0) >= 0 ? pal.gain : pal.loss,
+            size: 0.6,
+            text: `${(t.r ?? 0) >= 0 ? '+' : ''}${(t.r ?? 0).toFixed(1)}R`,
+          });
       }
     }
     list.sort((a, b) => (a.time as number) - (b.time as number));
@@ -302,7 +323,17 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     const h = el('div', { position: 'absolute', left: `${left}px`, top: `${top - 5}px`, width: `${width}px`, height: '10px', cursor: 'ns-resize', pointerEvents: 'auto' });
     h.title = title;
     const line = el('div', { position: 'absolute', left: '0', right: '0', top: '4px', height: '2px', background: color });
-    const knob = el('div', { position: 'absolute', left: '-5px', top: '0px', width: '10px', height: '10px', borderRadius: '50%', background: '#fff', border: `2px solid ${color}`, boxSizing: 'border-box' });
+    const knob = el('div', {
+      position: 'absolute',
+      left: '-5px',
+      top: '0px',
+      width: '10px',
+      height: '10px',
+      borderRadius: '50%',
+      background: '#fff',
+      border: `2px solid ${color}`,
+      boxSizing: 'border-box',
+    });
     h.append(line, knob);
     h.addEventListener('pointerdown', onDown);
     return h;
@@ -316,10 +347,29 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     const { x0, width, ye, ys, yt, prices } = g;
     const sym = SYMBOL_MAP[state.symbol];
     const pip = sym?.pip ?? 1;
-    const profit = el('div', { position: 'absolute', left: `${x0}px`, width: `${width}px`, top: `${Math.min(ye, yt)}px`, height: `${Math.abs(yt - ye)}px`, background: 'rgba(38,194,129,0.18)', pointerEvents: 'auto', cursor: 'move' });
-    const loss = el('div', { position: 'absolute', left: `${x0}px`, width: `${width}px`, top: `${Math.min(ye, ys)}px`, height: `${Math.abs(ys - ye)}px`, background: 'rgba(242,84,102,0.18)', pointerEvents: 'auto', cursor: 'move' });
+    const profit = el('div', {
+      position: 'absolute',
+      left: `${x0}px`,
+      width: `${width}px`,
+      top: `${Math.min(ye, yt)}px`,
+      height: `${Math.abs(yt - ye)}px`,
+      background: 'rgba(38,194,129,0.18)',
+      pointerEvents: 'auto',
+      cursor: 'move',
+    });
+    const loss = el('div', {
+      position: 'absolute',
+      left: `${x0}px`,
+      width: `${width}px`,
+      top: `${Math.min(ye, ys)}px`,
+      height: `${Math.abs(ys - ye)}px`,
+      background: 'rgba(242,84,102,0.18)',
+      pointerEvents: 'auto',
+      cursor: 'move',
+    });
     const start = { entry: d.entry, sl: d.sl, tp: d.tp };
-    for (const box of [profit, loss]) box.addEventListener('pointerdown', (e) => startDrag(e, { kind: 'draft', field: 'all', startY: e.clientY - container.getBoundingClientRect().top, start }));
+    for (const box of [profit, loss])
+      box.addEventListener('pointerdown', (e) => startDrag(e, { kind: 'draft', field: 'all', startY: e.clientY - container.getBoundingClientRect().top, start }));
     frag.append(profit, loss);
 
     const dir = dirOf(d.side);
@@ -358,7 +408,21 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       const ye = y(cur('entry'));
       if (ye !== null) {
         const pnl = openPnl(t, price);
-        const box = el('div', { position: 'absolute', top: `${ye - 10}px`, display: 'flex', alignItems: 'stretch', pointerEvents: 'auto', borderRadius: '4px', overflow: 'hidden', border: `1px solid ${t.status === 'pending' ? pal.accent : pal.line}`, fontSize: '11px', fontWeight: '600', background: pal.surface, color: pal.text, fontVariantNumeric: 'tabular-nums' });
+        const box = el('div', {
+          position: 'absolute',
+          top: `${ye - 10}px`,
+          display: 'flex',
+          alignItems: 'stretch',
+          pointerEvents: 'auto',
+          borderRadius: '4px',
+          overflow: 'hidden',
+          border: `1px solid ${t.status === 'pending' ? pal.accent : pal.line}`,
+          fontSize: '11px',
+          fontWeight: '600',
+          background: pal.surface,
+          color: pal.text,
+          fontVariantNumeric: 'tabular-nums',
+        });
         box.style.right = `${chart.priceScale('right').width() + right}px`;
         const sideTag = el('span', { padding: '1px 6px', background: t.side === 'buy' ? pal.gain : pal.loss, color: '#fff' });
         sideTag.textContent = t.status === 'pending' ? orderTitleEn(t.side, t.orderType).toUpperCase() : t.side.toUpperCase();
@@ -377,7 +441,15 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
             startDrag(e, { kind: 'line', tradeId: t.id, field: 'entry' });
           });
         }
-        const x = el('button', { padding: '0 6px', background: 'transparent', color: pal.text, border: 'none', borderInlineStart: `1px solid ${pal.grid}`, cursor: 'pointer', font: 'inherit' });
+        const x = el('button', {
+          padding: '0 6px',
+          background: 'transparent',
+          color: pal.text,
+          border: 'none',
+          borderInlineStart: `1px solid ${pal.grid}`,
+          cursor: 'pointer',
+          font: 'inherit',
+        });
         x.textContent = '✕';
         x.dataset.close = '1';
         x.title = t.status === 'open' ? 'بستن کامل یا بخشی از پوزیشن' : 'لغو سفارش';
@@ -432,7 +504,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
         `<b>${ev.currency}</b><span style="opacity:.7">${fmtTehran(ev.time)} تهران · ${IMPACT_LABEL[ev.impact]}</span></div>` +
         `<div>${newsTitleFa(ev.title)}</div>` +
         (ev.forecast || ev.previous || ev.actual
-          ? `<div style="opacity:.75;direction:ltr;text-align:right">A: ${past ? ev.actual ?? '—' : '—'} · F: ${ev.forecast ?? '—'} · P: ${ev.previous ?? '—'}</div>`
+          ? `<div style="opacity:.75;direction:ltr;text-align:right">A: ${past ? (ev.actual ?? '—') : '—'} · F: ${ev.forecast ?? '—'} · P: ${ev.previous ?? '—'}</div>`
           : '');
       card.append(row);
     }
@@ -549,7 +621,11 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
           ctx.fillRect(g.x0, Math.min(g.ye, g.yt), g.width, Math.abs(g.yt - g.ye));
           ctx.fillStyle = 'rgba(242,84,102,0.22)';
           ctx.fillRect(g.x0, Math.min(g.ye, g.ys), g.width, Math.abs(g.ys - g.ye));
-          for (const [yy, c] of [[g.ye, pal.line], [g.ys, pal.loss], [g.yt, pal.gain]] as const) {
+          for (const [yy, c] of [
+            [g.ye, pal.line],
+            [g.ys, pal.loss],
+            [g.yt, pal.gain],
+          ] as const) {
             ctx.fillStyle = c;
             ctx.fillRect(g.x0, yy - 1, g.width, 2);
           }
@@ -561,7 +637,11 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       for (const t of state.trades) {
         if (t.status !== 'open' && t.status !== 'pending') continue;
         ctx.font = '600 11px sans-serif';
-        for (const [p, c, label] of [[t.entry, pal.line, t.side.toUpperCase()], [t.sl, pal.loss, 'SL'], [t.tp, pal.gain, 'TP']] as const) {
+        for (const [p, c, label] of [
+          [t.entry, pal.line, t.side.toUpperCase()],
+          [t.sl, pal.loss, 'SL'],
+          [t.tp, pal.gain, 'TP'],
+        ] as const) {
           const yy = y(p);
           if (yy === null) continue;
           ctx.fillStyle = c;
@@ -579,13 +659,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     const prev = state;
     state = next;
     if (prev.theme !== next.theme || !loadedKey) applyTheme();
-    if (
-      !loadedKey ||
-      prev.symbol !== next.symbol ||
-      prev.timeframe !== next.timeframe ||
-      prev.cursor !== next.cursor ||
-      prev.dataVersion !== next.dataVersion
-    ) {
+    if (!loadedKey || prev.symbol !== next.symbol || prev.timeframe !== next.timeframe || prev.cursor !== next.cursor || prev.dataVersion !== next.dataVersion) {
       loadData();
       setLegend(candles[candles.length - 1]);
     }

@@ -80,7 +80,7 @@ export async function deleteShot(id: string) {
 }
 
 export function useShot(id: string | undefined): string | null {
-  const [src, setSrc] = useState<string | null>(id ? memory.get(id) ?? null : null);
+  const [src, setSrc] = useState<string | null>(id ? (memory.get(id) ?? null) : null);
   useEffect(() => {
     let alive = true;
     if (!id) {

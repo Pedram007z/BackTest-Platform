@@ -67,7 +67,10 @@ export function NewsPanel({ events, source, loading, cursor, filters, autoCurren
                   onClick={() => toggleCcy(c)}
                   aria-pressed={on}
                   title={CURRENCY_COUNTRY[c]}
-                  className={clsx('flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-bold transition', on ? 'border-accent/60 bg-accent/12 text-ink' : 'border-line text-faint hover:text-ink')}
+                  className={clsx(
+                    'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] font-bold transition',
+                    on ? 'border-accent/60 bg-accent/12 text-ink' : 'border-line text-faint hover:text-ink',
+                  )}
                 >
                   <Flag currency={c} size={16} />
                   {c}
@@ -103,7 +106,10 @@ export function NewsPanel({ events, source, loading, cursor, filters, autoCurren
                 type="button"
                 onClick={() => toggleImpact(i)}
                 aria-pressed={filters.impacts.includes(i)}
-                className={clsx('flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition', filters.impacts.includes(i) ? 'border-accent/60 bg-accent/12 text-ink' : 'border-line text-faint hover:text-ink')}
+                className={clsx(
+                  'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition',
+                  filters.impacts.includes(i) ? 'border-accent/60 bg-accent/12 text-ink' : 'border-line text-faint hover:text-ink',
+                )}
               >
                 <span className={clsx('h-2 w-2 rounded-sm', IMPACT_DOT[i])} />
                 {IMPACT_LABEL[i]}
@@ -124,7 +130,11 @@ export function NewsPanel({ events, source, loading, cursor, filters, autoCurren
                 return (
                   <li
                     key={e.id}
-                    className={clsx('rounded-xl border px-3 py-2', e.id === nextId ? 'border-accent/60 bg-accent/10' : 'border-transparent hover:bg-raised/50', !past && 'opacity-95')}
+                    className={clsx(
+                      'rounded-xl border px-3 py-2',
+                      e.id === nextId ? 'border-accent/60 bg-accent/10' : 'border-transparent hover:bg-raised/50',
+                      !past && 'opacity-95',
+                    )}
                   >
                     <div className="flex items-center gap-2 text-[11px] text-muted">
                       <span className={clsx('h-2 w-2 shrink-0 rounded-sm', IMPACT_DOT[e.impact])} title={IMPACT_LABEL[e.impact]} />
@@ -137,7 +147,7 @@ export function NewsPanel({ events, source, loading, cursor, filters, autoCurren
                     {(e.forecast || e.previous || e.actual) && (
                       <p className="num mt-0.5 flex gap-3 text-[11px] text-faint" dir="ltr" style={{ justifyContent: 'flex-end' }}>
                         <span>
-                          A: <b className={clsx(past ? 'text-ink' : 'text-faint')}>{past ? e.actual ?? '—' : '—'}</b>
+                          A: <b className={clsx(past ? 'text-ink' : 'text-faint')}>{past ? (e.actual ?? '—') : '—'}</b>
                         </span>
                         <span>F: {e.forecast ?? '—'}</span>
                         <span>P: {e.previous ?? '—'}</span>

@@ -91,7 +91,13 @@ export function ChartPane(props: Props) {
             align="end"
             panelClass="w-56 p-1"
             button={({ open, toggle }) => (
-              <button type="button" onClick={toggle} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-bold hover:bg-raised" aria-expanded={open} title="تغییر نماد">
+              <button
+                type="button"
+                onClick={toggle}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-bold hover:bg-raised"
+                aria-expanded={open}
+                title="تغییر نماد"
+              >
                 {sym?.ticker ?? pane.symbol}
                 <ChevronDown size={14} className="text-muted" />
               </button>
@@ -107,7 +113,10 @@ export function ChartPane(props: Props) {
                         onPaneChange({ ...pane, symbol: s });
                         close();
                       }}
-                      className={clsx('flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm hover:bg-raised', s === pane.symbol && 'text-accent-ink')}
+                      className={clsx(
+                        'flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm hover:bg-raised',
+                        s === pane.symbol && 'text-accent-ink',
+                      )}
                     >
                       <span className="font-bold" dir="ltr">
                         {SYMBOL_MAP[s]?.ticker ?? s}

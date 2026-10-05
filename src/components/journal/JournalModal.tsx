@@ -260,12 +260,21 @@ export function JournalModal({ open, onClose, ctx, initial, defaultChecklistId, 
                 {entry.screenshots.length < MAX_SHOTS && (
                   <div className="flex aspect-[16/10] flex-col items-stretch gap-1.5 rounded-xl border border-dashed border-line p-1.5">
                     {onCapture && (
-                      <button type="button" onClick={capture} disabled={capturing} className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg bg-accent/10 text-[12px] font-semibold text-accent-ink transition hover:bg-accent/15">
+                      <button
+                        type="button"
+                        onClick={capture}
+                        disabled={capturing}
+                        className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg bg-accent/10 text-[12px] font-semibold text-accent-ink transition hover:bg-accent/15"
+                      >
                         {capturing ? <LoaderCircle size={18} className="animate-spin" /> : <Camera size={18} />}
                         ذخیره اسکرین‌شات چارت
                       </button>
                     )}
-                    <button type="button" onClick={() => fileRef.current?.click()} className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg text-[12px] font-medium text-muted transition hover:bg-raised hover:text-ink">
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg text-[12px] font-medium text-muted transition hover:bg-raised hover:text-ink"
+                    >
                       <ImagePlus size={17} />
                       افزودن تصویر
                     </button>
@@ -328,7 +337,12 @@ export function JournalModal({ open, onClose, ctx, initial, defaultChecklistId, 
                           onClick={() => set({ checked: on ? entry.checked.filter((x) => x !== it.id) : [...entry.checked, it.id] })}
                           className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-start text-[13px] hover:bg-raised/70"
                         >
-                          <span className={clsx('flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md border', on ? 'border-gain bg-gain text-white' : 'border-faint')}>
+                          <span
+                            className={clsx(
+                              'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-md border',
+                              on ? 'border-gain bg-gain text-white' : 'border-faint',
+                            )}
+                          >
                             {on && <Check size={12} strokeWidth={3} />}
                           </span>
                           <span className="min-w-0 flex-1">{it.text}</span>

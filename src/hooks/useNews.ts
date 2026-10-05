@@ -17,7 +17,7 @@ export function useNews(cursor: number): { events: NewsEvent[]; source: NewsSour
   const key = `${start}`;
   const [state, setState] = useState<{ key: string; events: NewsEvent[]; source: NewsSource; loading: boolean }>(() => ({
     key,
-    events: hasServer ? cache.get(key) ?? [] : sampleNews(start, end),
+    events: hasServer ? (cache.get(key) ?? []) : sampleNews(start, end),
     source: hasServer ? 'forexfactory' : 'sample',
     loading: hasServer && !cache.has(key),
   }));

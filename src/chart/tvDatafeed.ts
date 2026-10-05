@@ -101,7 +101,12 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
       setTimeout(() => (s ? onResolve(symbolInfoFor(s)) : onError('unknown_symbol')));
     },
 
-    getBars(symbolInfo: any, resolution: string, period: { from: number; to: number; countBack: number; firstDataRequest: boolean }, onResult: (bars: any[], meta: { noData: boolean }) => void) {
+    getBars(
+      symbolInfo: any,
+      resolution: string,
+      period: { from: number; to: number; countBack: number; firstDataRequest: boolean },
+      onResult: (bars: any[], meta: { noData: boolean }) => void,
+    ) {
       const tf = tfFromTv(resolution);
       const cursor = src.cursor();
       const toMs = Math.min(period.to * 1000, cursor);

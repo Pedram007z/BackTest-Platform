@@ -389,9 +389,7 @@ export function monthlyTable(trades: Trade[], returns: Map<string, number>) {
     const m = d.getUTCMonth();
     arr[m] = (Number.isNaN(arr[m]) ? 0 : arr[m]) + (returns.get(t.id) ?? 0);
   }
-  return [...map.entries()]
-    .sort(([a], [b]) => b - a)
-    .map(([year, months]) => ({ year, months, total: months.reduce((s, v) => s + (Number.isNaN(v) ? 0 : v), 0) }));
+  return [...map.entries()].sort(([a], [b]) => b - a).map(([year, months]) => ({ year, months, total: months.reduce((s, v) => s + (Number.isNaN(v) ? 0 : v), 0) }));
 }
 
 /** Per market day: dollars and number of trades, for the performance calendar. */

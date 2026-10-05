@@ -75,7 +75,16 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     autosize: true,
     theme: state.theme === 'dark' ? 'dark' : 'light',
     timezone: 'Asia/Tehran',
-    disabled_features: ['header_compare', 'header_saveload', 'header_screenshot', 'go_to_date', 'timeframes_toolbar', 'popup_hints', 'display_market_status', 'use_localstorage_for_settings'],
+    disabled_features: [
+      'header_compare',
+      'header_saveload',
+      'header_screenshot',
+      'go_to_date',
+      'timeframes_toolbar',
+      'popup_hints',
+      'display_market_status',
+      'use_localstorage_for_settings',
+    ],
     favorites: { intervals: TIMEFRAMES.map((t) => t.tv) },
     loading_screen: { backgroundColor: state.theme === 'dark' ? '#120f1c' : '#ffffff', foregroundColor: '#7c5cff' },
     overrides: overrides(state.theme),
@@ -212,9 +221,18 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
         lines.set(t.id, l);
       }
       const usd = (price: number) => (price - t.entry) * (t.side === 'buy' ? 1 : -1) * t.pointValue * t.lots;
-      l.entry.setPrice(t.entry).setQuantity(String(t.lots)).setText(t.status === 'open' ? t.side.toUpperCase() : orderTitleEn(t.side, t.orderType).toUpperCase());
-      l.sl.setPrice(t.sl).setQuantity(String(t.lots)).setText(`SL ${money(usd(t.sl))}`);
-      l.tp?.setPrice(t.tp).setQuantity(String(t.lots)).setText(`TP ${money(usd(t.tp))}`);
+      l.entry
+        .setPrice(t.entry)
+        .setQuantity(String(t.lots))
+        .setText(t.status === 'open' ? t.side.toUpperCase() : orderTitleEn(t.side, t.orderType).toUpperCase());
+      l.sl
+        .setPrice(t.sl)
+        .setQuantity(String(t.lots))
+        .setText(`SL ${money(usd(t.sl))}`);
+      l.tp
+        ?.setPrice(t.tp)
+        .setQuantity(String(t.lots))
+        .setText(`TP ${money(usd(t.tp))}`);
     }
 
     // closed trades as execution arrows
@@ -267,7 +285,14 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       }
       const id = chart.createShape(
         { time: Math.floor(e.time / 1000) },
-        { shape: 'vertical_line', lock: true, disableSelection: true, disableSave: true, disableUndo: true, overrides: { linecolor: colors[e.impact], linestyle: 2, linewidth: 1, showTime: false } },
+        {
+          shape: 'vertical_line',
+          lock: true,
+          disableSelection: true,
+          disableSave: true,
+          disableUndo: true,
+          overrides: { linecolor: colors[e.impact], linestyle: 2, linewidth: 1, showTime: false },
+        },
       );
       if (id) next.set(e.id, id);
     }

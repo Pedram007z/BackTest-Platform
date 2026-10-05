@@ -33,7 +33,7 @@ const TAGS = ['ورود مارکت', 'پولبک', 'شکست', 'خلاف رون�
 
 export function buildSeed(): SeedData {
   const rng = seededRng('demo-seed-v3');
-  const pick = <T,>(arr: T[]) => arr[Math.floor(rng() * arr.length)];
+  const pick = <T>(arr: T[]) => arr[Math.floor(rng() * arr.length)];
   let idCounter = 0;
   const id = (p: string) => `${p}_demo_${(idCounter++).toString(36)}`;
 

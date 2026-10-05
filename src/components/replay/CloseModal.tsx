@@ -3,7 +3,7 @@ import { Percent, Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { faDigits, fmtUsd, toLatinDigits } from '../../lib/format';
 import { SYMBOL_MAP, fmtPx, priceAt } from '../../lib/market';
-import { fmtLots, openPnl } from '../../lib/trading';
+import { fmtLots, openPnl, roundLots as roundLotStep } from '../../lib/trading';
 import type { Trade } from '../../lib/types';
 import { Modal } from '../ui/Modal';
 
@@ -13,9 +13,9 @@ export function CloseModal({ trade, cursor, onClose, onConfirm }: { trade: Trade
   const [pct, setPct] = useState('50');
   const [lotsText, setLotsText] = useState('');
 
-  const step = trade ? SYMBOL_MAP[trade.symbol]?.lotStep ?? 0.01 : 0.01;
+  const step = trade ? (SYMBOL_MAP[trade.symbol]?.lotStep ?? 0.01) : 0.01;
   const ref = trade ? (base === 'left' ? trade.lots : trade.initialLots) : 0;
-  const roundLots = (v: number) => Math.max(step, Math.min(trade?.lots ?? 0, Math.round(v / step) * step));
+  const roundLots = (v: number) => Math.max(step, Math.min(trade?.lots ?? 0, roundLotStep(v, step)));
 
   useEffect(() => {
     if (!trade) return;

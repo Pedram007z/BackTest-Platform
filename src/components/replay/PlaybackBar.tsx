@@ -73,7 +73,13 @@ export function PlaybackBar({ playing, onTogglePlay, onStep, speedIndex, onSpeed
       role="toolbar"
       aria-label="کنترل پخش"
     >
-      <button type="button" onPointerDown={startDrag} className="flex h-8 w-5 cursor-grab items-center justify-center text-faint active:cursor-grabbing" aria-label="جابه‌جا کردن نوار پخش" title="بکشید تا جابه‌جا شود">
+      <button
+        type="button"
+        onPointerDown={startDrag}
+        className="flex h-8 w-5 cursor-grab items-center justify-center text-faint active:cursor-grabbing"
+        aria-label="جابه‌جا کردن نوار پخش"
+        title="بکشید تا جابه‌جا شود"
+      >
         <GripVertical size={16} />
       </button>
       <button
@@ -91,9 +97,7 @@ export function PlaybackBar({ playing, onTogglePlay, onStep, speedIndex, onSpeed
       </button>
       <div className="flex w-36 flex-col px-1.5 sm:w-44">
         <Slider label="سرعت پخش" min={0} max={SPEEDS.length - 1} value={speedIndex} onChange={onSpeedIndex} />
-        <span className="num -mt-0.5 text-center text-[10px] text-muted">
-          سرعت: {faDigits(speed)} کندل در ثانیه
-        </span>
+        <span className="num -mt-0.5 text-center text-[10px] text-muted">سرعت: {faDigits(speed)} کندل در ثانیه</span>
       </div>
       <label className="sr-only" htmlFor="step-tf">
         اندازه هر گام

@@ -20,7 +20,13 @@ export function Popover({
 }) {
   const [own, setOwn] = useState(false);
   const open = controlled ?? own;
-  const setOpen = useCallback((v: boolean) => (onOpenChange ? onOpenChange(v) : setOwn(v)), [onOpenChange]);
+  const setOpen = useCallback(
+    (v: boolean) => {
+      if (controlled === undefined) setOwn(v);
+      onOpenChange?.(v);
+    },
+    [controlled, onOpenChange],
+  );
   const ref = useRef<HTMLDivElement>(null);
   const refs = useMemo(() => [ref], []);
   const close = useCallback(() => setOpen(false), [setOpen]);
@@ -39,13 +45,7 @@ export function Popover({
     >
       {button({ open, toggle: () => setOpen(!open) })}
       {open && (
-        <div
-          className={clsx(
-            'anim-pop absolute top-full z-40 mt-2 rounded-2xl border border-line bg-surface shadow-pop',
-            align === 'start' ? 'right-0' : 'left-0',
-            panelClass,
-          )}
-        >
+        <div className={clsx('anim-pop absolute top-full z-40 mt-2 rounded-2xl border border-line bg-surface shadow-pop', align === 'start' ? 'right-0' : 'left-0', panelClass)}>
           {typeof children === 'function' ? children(close) : children}
         </div>
       )}

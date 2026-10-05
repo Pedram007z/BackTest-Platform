@@ -50,7 +50,9 @@ export function PositionsPanel({ trades, cursor, showHistory, onShowHistory, onC
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {list.length === 0 ? (
-          <p className="px-4 py-8 text-center text-xs text-muted">{tab === 'open' ? 'پوزیشن یا سفارش بازی ندارید. با دکمه‌ی خرید یا فروش شروع کنید.' : 'هنوز معامله‌ای در این جلسه بسته نشده.'}</p>
+          <p className="px-4 py-8 text-center text-xs text-muted">
+            {tab === 'open' ? 'پوزیشن یا سفارش بازی ندارید. با دکمه‌ی خرید یا فروش شروع کنید.' : 'هنوز معامله‌ای در این جلسه بسته نشده.'}
+          </p>
         ) : (
           <table className="w-full min-w-[1080px] text-[12px]">
             <thead className="sticky top-0 bg-side">
@@ -68,7 +70,7 @@ export function PositionsPanel({ trades, cursor, showHistory, onShowHistory, onC
                 const live = t.status === 'open';
                 const realized = t.partials.reduce((s, p) => s + p.pnl, 0);
                 const floating = live ? openPnl(t, price) : 0;
-                const maxR = live ? Math.max(t.maxR ?? 0, rOfPrice(t, price)) : t.maxR ?? 0;
+                const maxR = live ? Math.max(t.maxR ?? 0, rOfPrice(t, price)) : (t.maxR ?? 0);
                 return (
                   <tr key={t.id} className="border-t border-line/50 hover:bg-raised/30">
                     <td className="td font-bold" dir="ltr" style={{ textAlign: 'right' }}>
@@ -102,7 +104,13 @@ export function PositionsPanel({ trades, cursor, showHistory, onShowHistory, onC
                     </td>
                     <td className="td">
                       <div className="flex items-center justify-end gap-1">
-                        <button type="button" className={clsx('icon-btn h-7 w-7', t.journal && 'text-accent-ink')} onClick={() => onJournal(t)} aria-label="ژورنال" title={t.journal ? 'ویرایش ژورنال' : 'نوشتن ژورنال'}>
+                        <button
+                          type="button"
+                          className={clsx('icon-btn h-7 w-7', t.journal && 'text-accent-ink')}
+                          onClick={() => onJournal(t)}
+                          aria-label="ژورنال"
+                          title={t.journal ? 'ویرایش ژورنال' : 'نوشتن ژورنال'}
+                        >
                           <NotebookPen size={14} />
                         </button>
                         {live && (

@@ -1,21 +1,5 @@
 import clsx from 'clsx';
-import {
-  ArrowRight,
-  BarChart3,
-  CalendarDays,
-  Camera,
-  ChevronDown,
-  ChevronUp,
-  Cpu,
-  LayoutGrid,
-  Maximize2,
-  Minimize2,
-  Minus,
-  NotebookPen,
-  Plus,
-  Send,
-  X,
-} from 'lucide-react';
+import { ArrowRight, BarChart3, CalendarDays, Camera, ChevronDown, ChevronUp, Cpu, LayoutGrid, Maximize2, Minimize2, Minus, NotebookPen, Plus, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { loadTradingView } from '../chart/tvLoader';
@@ -62,7 +46,10 @@ const LAYOUTS: { id: LayoutId; label: string; count: number; grid: string; cells
 function LayoutIcon({ id }: { id: LayoutId }) {
   const box = 'rounded-[2px] bg-current';
   return (
-    <span className="grid h-4 w-5 gap-[2px] opacity-80" style={{ gridTemplateColumns: id === '2v' || id === '3' || id === '4' ? '1fr 1fr' : '1fr', gridTemplateRows: id === '2h' || id === '3' || id === '4' ? '1fr 1fr' : '1fr' }}>
+    <span
+      className="grid h-4 w-5 gap-[2px] opacity-80"
+      style={{ gridTemplateColumns: id === '2v' || id === '3' || id === '4' ? '1fr 1fr' : '1fr', gridTemplateRows: id === '2h' || id === '3' || id === '4' ? '1fr 1fr' : '1fr' }}
+    >
       {id === '1' && <span className={box} />}
       {(id === '2v' || id === '2h') && (
         <>
@@ -156,10 +143,7 @@ export default function Replay() {
 
   // ---------- layout ----------
   const layout = session?.layout ?? '1';
-  const panes: Pane[] = useMemo(
-    () => (session?.panes?.length ? session.panes : session ? [{ symbol: session.activeSymbol, timeframe: session.timeframe }] : []),
-    [session],
-  );
+  const panes: Pane[] = useMemo(() => (session?.panes?.length ? session.panes : session ? [{ symbol: session.activeSymbol, timeframe: session.timeframe }] : []), [session]);
   const [activePane, setActivePane] = useState(0);
   const active = panes[Math.min(activePane, panes.length - 1)];
   const layoutDef = LAYOUTS.find((l) => l.id === layout) ?? LAYOUTS[0];
@@ -171,7 +155,7 @@ export default function Replay() {
     const out = panes.slice(0, def.count);
     for (let i = out.length; i < def.count; i++) {
       const sym = session.symbols[i] ?? panes[0].symbol;
-      const tf = session.symbols[i] ? panes[0].timeframe : extraTfs.find((t) => !out.some((p) => p.symbol === sym && p.timeframe === t)) ?? '1h';
+      const tf = session.symbols[i] ? panes[0].timeframe : (extraTfs.find((t) => !out.some((p) => p.symbol === sym && p.timeframe === t)) ?? '1h');
       out.push({ symbol: sym, timeframe: tf });
     }
     setLayout(session.id, next, out);
@@ -289,7 +273,13 @@ export default function Replay() {
     draft && preview ? { ...draft, type: preview.type, rr: preview.rr, riskUsd: preview.riskUsd, rewardUsd: preview.rewardUsd, lots: preview.lots } : null;
 
   const defaultStop = (symbol: string, tf: Timeframe) => Math.max(atr(symbol, tf, cursor) * 1.5, tickOf(symbol) * 10);
-  const idleLots = lotsForRisk(active.symbol, (balance * riskPct) / 100, priceAt(active.symbol, cursor), priceAt(active.symbol, cursor) - defaultStop(active.symbol, active.timeframe), cursor);
+  const idleLots = lotsForRisk(
+    active.symbol,
+    (balance * riskPct) / 100,
+    priceAt(active.symbol, cursor),
+    priceAt(active.symbol, cursor) - defaultStop(active.symbol, active.timeframe),
+    cursor,
+  );
 
   const startDraft = (side: Side) => {
     if (ended) return;
@@ -301,7 +291,13 @@ export default function Replay() {
     const price = priceAt(active.symbol, cursor);
     const d = defaultStop(active.symbol, active.timeframe);
     const dir = dirOf(side);
-    setDraft({ symbol: active.symbol, side, entry: roundToTick(active.symbol, price), sl: roundToTick(active.symbol, price - dir * d), tp: roundToTick(active.symbol, price + dir * d * 2) });
+    setDraft({
+      symbol: active.symbol,
+      side,
+      entry: roundToTick(active.symbol, price),
+      sl: roundToTick(active.symbol, price - dir * d),
+      tp: roundToTick(active.symbol, price + dir * d * 2),
+    });
     setDraftJournal(null);
   };
 
@@ -362,7 +358,18 @@ export default function Replay() {
   const journalTrade = journalFor && journalFor !== 'draft' ? trades.find((t) => t.id === journalFor) : undefined;
   const journalCtx: JournalContext | null =
     journalFor === 'draft' && draft && preview
-      ? { symbol: draft.symbol, side: draft.side, type: preview.type, entry: draft.entry, sl: draft.sl, tp: draft.tp, rr: preview.rr, lots: preview.lots, time: cursor, sessionName: session.name }
+      ? {
+          symbol: draft.symbol,
+          side: draft.side,
+          type: preview.type,
+          entry: draft.entry,
+          sl: draft.sl,
+          tp: draft.tp,
+          rr: preview.rr,
+          lots: preview.lots,
+          time: cursor,
+          sessionName: session.name,
+        }
       : journalTrade
         ? {
             symbol: journalTrade.symbol,
@@ -442,15 +449,29 @@ export default function Replay() {
           </button>
 
           <div className="ms-auto flex flex-wrap items-center gap-1.5">
-            <span className="num hidden rounded-xl bg-raised px-2.5 py-1.5 text-[12px] text-muted md:inline" title={`${new Date(cursor).toISOString().slice(0, 16).replace('T', ' ')} UTC`}>
+            <span
+              className="num hidden rounded-xl bg-raised px-2.5 py-1.5 text-[12px] text-muted md:inline"
+              title={`${new Date(cursor).toISOString().slice(0, 16).replace('T', ' ')} UTC`}
+            >
               {fmtDayLong(msToKey(cursor + 3.5 * 3_600_000), 'jalali', true)} · <b className="text-ink">{fmtTehran(cursor)}</b> تهران
             </span>
-            <GoToMenu cursor={cursor} endMs={endMs} symbols={session.symbols} disabled={ended} onJump={(t, label) => {
-              setPlaying(false);
-              jumpTo(t);
-              toast(`رفتید به: ${label}`, 'info');
-            }} />
-            <button type="button" onClick={() => setNewsOpen((v) => !v)} aria-pressed={newsOpen} className={clsx('btn-soft py-1.5', newsOpen && 'border-accent/60 text-accent-ink')}>
+            <GoToMenu
+              cursor={cursor}
+              endMs={endMs}
+              symbols={session.symbols}
+              disabled={ended}
+              onJump={(t, label) => {
+                setPlaying(false);
+                jumpTo(t);
+                toast(`رفتید به: ${label}`, 'info');
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setNewsOpen((v) => !v)}
+              aria-pressed={newsOpen}
+              className={clsx('btn-soft py-1.5', newsOpen && 'border-accent/60 text-accent-ink')}
+            >
               <CalendarDays size={15} /> تقویم اقتصادی
             </button>
             <Popover
@@ -505,7 +526,13 @@ export default function Replay() {
       {/* charts + news */}
       <div className="flex min-h-0 flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className={clsx('grid min-h-0 flex-1 grid-cols-1 gap-px bg-line/40', layoutDef.grid, layoutDef.count > 1 && 'auto-rows-[minmax(240px,1fr)] overflow-y-auto md:overflow-hidden')}>
+          <div
+            className={clsx(
+              'grid min-h-0 flex-1 grid-cols-1 gap-px bg-line/40',
+              layoutDef.grid,
+              layoutDef.count > 1 && 'auto-rows-[minmax(240px,1fr)] overflow-y-auto md:overflow-hidden',
+            )}
+          >
             {panes.slice(0, layoutDef.count).map((p, i) => (
               <div key={i} className={clsx('min-h-0', layoutDef.cells[i])}>
                 <ChartPane
@@ -531,12 +558,9 @@ export default function Replay() {
             ))}
           </div>
           {ended && (
-            <div className="absolute inset-x-0 top-12 z-10 mx-auto w-fit rounded-xl border border-line bg-raised px-4 py-2 text-xs font-semibold shadow-pop">این جلسه به تاریخ پایان رسیده است.</div>
-          )}
-          {expanded && (
-            <button type="button" onClick={() => setExpanded(false)} className="btn-soft absolute left-3 top-3 z-20 py-1.5 shadow-pop" title="خروج از حالت بزرگ (Esc)">
-              <Minimize2 size={15} /> خروج
-            </button>
+            <div className="absolute inset-x-0 top-12 z-10 mx-auto w-fit rounded-xl border border-line bg-raised px-4 py-2 text-xs font-semibold shadow-pop">
+              این جلسه به تاریخ پایان رسیده است.
+            </div>
           )}
           <PlaybackBar
             playing={playing}
@@ -564,6 +588,47 @@ export default function Replay() {
           </div>
         )}
       </div>
+
+      {/* order ticket: appears after Buy / Sell */}
+      {draft && preview && (
+        <div className="anim-fade flex flex-wrap items-center gap-2 border-t border-line/70 bg-surface px-3 py-2">
+          <span
+            className={clsx('rounded-lg px-2 py-1 text-[12px] font-bold', draft.side === 'buy' ? 'bg-gain/15 text-gain' : 'bg-loss/15 text-loss')}
+            title="نوع سفارش از جای قیمت ورود نسبت به قیمت فعلی تشخیص داده می‌شود"
+          >
+            {orderTitle(draft.side, preview.type)}
+          </span>
+          <PriceInput id="draft-entry" label="ورود" value={draft.entry} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(entry) => setDraft({ ...draft, entry })} />
+          {preview.type !== 'market' && (
+            <button
+              type="button"
+              className="chip hover:text-ink"
+              onClick={() => setDraft({ ...draft, entry: roundToTick(draft.symbol, draftPrice) })}
+              title="قیمت ورود = قیمت فعلی بازار"
+            >
+              قیمت بازار
+            </button>
+          )}
+          <PriceInput id="draft-sl" label="SL" tone="text-loss" value={draft.sl} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(sl) => setDraft({ ...draft, sl })} />
+          <PriceInput id="draft-tp" label="TP" tone="text-gain" value={draft.tp} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(tp) => setDraft({ ...draft, tp })} />
+          <span className="num text-[12px] text-muted">
+            R:R <b className="text-ink">{preview.rr.toFixed(2)}</b> · ریسک <b className="text-loss">{fmtUsd(preview.riskUsd)}</b> ·{' '}
+            <b className="text-ink">{fmtLots(preview.lots, draft.symbol)}</b> لات
+          </span>
+          <button type="button" className="btn-soft py-1.5" onClick={() => setJournalFor('draft')}>
+            <NotebookPen size={15} /> ذخیره ژورنال {draftJournal && <span className="h-1.5 w-1.5 rounded-full bg-gain" />}
+          </button>
+          <button type="button" className="btn-primary py-1.5" onClick={place} disabled={!!preview.problem}>
+            <Send size={15} className="-scale-x-100" /> ثبت معامله
+          </button>
+          <button type="button" className="icon-btn h-8 w-8" onClick={() => setDraft(null)} aria-label="لغو" title="لغو (Esc)">
+            <X size={16} />
+          </button>
+          {(preview.problem || missingRequired.length > 0) && (
+            <p className="w-full text-end text-[11px] text-amber">{preview.problem || `${fmtNum(missingRequired.length)} آیتم الزامی چک‌لیست هنوز تیک نخورده (در ژورنال).`}</p>
+          )}
+        </div>
+      )}
 
       {/* order bar */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line/70 bg-side px-3 py-2">
@@ -593,47 +658,12 @@ export default function Replay() {
         </dl>
 
         <div className="ms-auto flex flex-wrap items-center gap-2">
-          {draft && preview ? (
-            <>
-              <span className={clsx('rounded-lg px-2 py-1 text-[12px] font-bold', draft.side === 'buy' ? 'bg-gain/15 text-gain' : 'bg-loss/15 text-loss')} title="نوع سفارش از جای قیمت ورود نسبت به قیمت فعلی تشخیص داده می‌شود">
-                {orderTitle(draft.side, preview.type)}
-              </span>
-              <PriceInput id="draft-entry" label="ورود" value={draft.entry} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(entry) => setDraft({ ...draft, entry })} />
-              {preview.type !== 'market' && (
-                <button type="button" className="chip hover:text-ink" onClick={() => setDraft({ ...draft, entry: roundToTick(draft.symbol, draftPrice) })} title="قیمت ورود = قیمت فعلی بازار">
-                  قیمت بازار
-                </button>
-              )}
-              <PriceInput id="draft-sl" label="SL" tone="text-loss" value={draft.sl} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(sl) => setDraft({ ...draft, sl })} />
-              <PriceInput id="draft-tp" label="TP" tone="text-gain" value={draft.tp} digits={SYMBOL_MAP[draft.symbol]?.digits ?? 2} onChange={(tp) => setDraft({ ...draft, tp })} />
-              <span className="num text-[12px] text-muted">
-                R:R <b className="text-ink">{preview.rr.toFixed(2)}</b> · ریسک <b className="text-loss">{fmtUsd(preview.riskUsd)}</b> · <b className="text-ink">{fmtLots(preview.lots, draft.symbol)}</b> لات
-              </span>
-              <button type="button" className="btn-soft py-1.5" onClick={() => setJournalFor('draft')}>
-                <NotebookPen size={15} /> ذخیره ژورنال {draftJournal && <span className="h-1.5 w-1.5 rounded-full bg-gain" />}
-              </button>
-              <button type="button" className="btn-primary py-1.5" onClick={place} disabled={!!preview.problem}>
-                <Send size={15} className="-scale-x-100" /> ثبت معامله
-              </button>
-              <button type="button" className="icon-btn h-8 w-8" onClick={() => setDraft(null)} aria-label="لغو" title="لغو (Esc)">
-                <X size={16} />
-              </button>
-              {(preview.problem || missingRequired.length > 0) && (
-                <p className="w-full text-end text-[11px] text-amber">
-                  {preview.problem || `${fmtNum(missingRequired.length)} آیتم الزامی چک‌لیست هنوز تیک نخورده (در ژورنال).`}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <button type="button" className="btn-buy px-5 py-1.5" onClick={() => startDraft('buy')} disabled={ended}>
-                خرید
-              </button>
-              <button type="button" className="btn-sell px-5 py-1.5" onClick={() => startDraft('sell')} disabled={ended}>
-                فروش
-              </button>
-            </>
-          )}
+          <button type="button" className={clsx('btn-buy px-5 py-1.5', draft?.side === 'buy' && 'ring-2 ring-gain/40')} onClick={() => startDraft('buy')} disabled={ended}>
+            خرید
+          </button>
+          <button type="button" className={clsx('btn-sell px-5 py-1.5', draft?.side === 'sell' && 'ring-2 ring-loss/40')} onClick={() => startDraft('sell')} disabled={ended}>
+            فروش
+          </button>
           <div className="flex items-center gap-1 rounded-xl border border-line bg-raised/70 px-1 py-0.5" title="درصد ریسک هر معامله از موجودی">
             <button type="button" className="icon-btn h-7 w-7" onClick={() => setRiskPct(riskPct - 0.25)} aria-label="کم کردن ریسک">
               <Minus size={14} />
@@ -657,6 +687,11 @@ export default function Replay() {
               <Plus size={14} />
             </button>
           </div>
+          {expanded && (
+            <button type="button" onClick={() => setExpanded(false)} className="btn-soft py-1.5" title="خروج از حالت بزرگ (Esc)">
+              <Minimize2 size={15} /> خروج از بزرگ‌نمایی
+            </button>
+          )}
           {!draft && (
             <span className="num text-[12px] text-muted" title="حجم بر اساس ریسک و حد ضرر پیش‌فرض (۱٫۵ برابر ATR) محاسبه می‌شود">
               حجم ≈ <b className="text-ink">{fmtLots(idleLots, active.symbol)}</b> لات
@@ -689,7 +724,8 @@ export default function Replay() {
         onConfirm={(lots) => {
           const t = useStore.getState().closePosition(closeId!, lots);
           setCloseId(null);
-          if (t) toast(t.status === 'closed' ? `پوزیشن بسته شد: ${fmtUsd(t.pnl ?? 0, 2, true)}` : `${faDigits(lots.toFixed(2))} لات بسته شد`, (t.pnl ?? 0) >= 0 ? 'success' : 'error');
+          if (t)
+            toast(t.status === 'closed' ? `پوزیشن بسته شد: ${fmtUsd(t.pnl ?? 0, 2, true)}` : `${faDigits(lots.toFixed(2))} لات بسته شد`, (t.pnl ?? 0) >= 0 ? 'success' : 'error');
         }}
       />
 
@@ -697,7 +733,7 @@ export default function Replay() {
         open={!!journalCtx}
         ctx={journalCtx}
         onClose={() => setJournalFor(null)}
-        initial={journalFor === 'draft' ? draftJournal ?? undefined : journalTrade?.journal}
+        initial={journalFor === 'draft' ? (draftJournal ?? undefined) : journalTrade?.journal}
         defaultChecklistId={session.checklistId}
         onCapture={capture}
         onSave={(entry) => {
@@ -752,7 +788,6 @@ export default function Replay() {
           <img src={shot} alt={`چارت ${active.symbol} در ${fmtMarketTime(cursor)}`} className="w-full rounded-xl" />
         </Modal>
       )}
-
     </div>
   );
 }
