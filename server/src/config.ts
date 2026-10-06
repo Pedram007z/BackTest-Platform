@@ -43,6 +43,9 @@ export const config = {
   dataDir: resolve(env('DATA_DIR', './data')),
   /** Phones that are made admins when they sign in (comma separated, 09xxxxxxxxx). */
   adminPhones: list('ADMIN_PHONES'),
+  /** An admin who signs in with a username and password (make-admin.sh --username sets both). */
+  adminUsername: env('ADMIN_USERNAME').toLowerCase(),
+  adminPasswordHash: env('ADMIN_PASSWORD_HASH'),
   /** Read X-Forwarded-For (behind nginx / a load balancer). */
   trustProxy: bool('TRUST_PROXY', false),
   /** Return the sign-in code in the API response while real SMS sending is off. Never enable on a public server. */

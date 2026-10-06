@@ -245,6 +245,11 @@ export function rateLimit(key: string, max: number, windowMs: number, message = 
   b.count++;
   if (b.count > max) throw new HttpError(429, 'rate_limited', message);
 }
+/** Throws 429 when `key` already reached `max` in its window, without counting this call (failures are counted with rateLimit). */
+export function checkRateLimit(key: string, max: number, message?: string) {
+  const b = buckets.get(key);
+  if (b && b.resetAt >= Date.now() && b.count >= max) throw new HttpError(429, 'rate_limited', message ?? 'تعداد درخواست‌ها زیاد است؛ چند دقیقه بعد دوباره تلاش کنید.');
+}
 setInterval(() => {
   const now = Date.now();
   for (const [k, b] of buckets) if (b.resetAt < now) buckets.delete(k);

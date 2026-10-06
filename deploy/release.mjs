@@ -43,7 +43,7 @@ run('npm test', server);
 run('npm run build', server);
 cpSync(join(server, 'dist', 'server.mjs'), join(out, 'server', 'server.mjs'));
 cpSync(join(server, '.env.example'), join(out, 'server', 'env.example'));
-for (const f of ['backtestlab.service', 'nginx-site.conf', 'relay-nginx.conf', 'check-sources.sh']) cpSync(join(root, 'deploy', f), join(out, f));
+for (const f of ['backtestlab.service', 'nginx-site.conf', 'relay-nginx.conf', 'check-sources.sh', 'make-admin.sh']) cpSync(join(root, 'deploy', f), join(out, f));
 cpSync(join(root, 'DEPLOY.md'), join(out, 'DEPLOY.md'));
 writeFileSync(join(out, 'VERSION.txt'), `built ${new Date().toISOString()} for ${siteUrl}\n`);
 

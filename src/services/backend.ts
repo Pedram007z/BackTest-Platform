@@ -84,6 +84,10 @@ export interface AdminApi {
   marketStorage(): Promise<MarketStorage>;
   startMarketDownload(input: { kind?: 'm1' | 's1'; symbols?: string[]; from?: string; to?: string }): Promise<MarketDownloadJob>;
   stopMarketDownload(): Promise<MarketDownloadJob | null>;
+  /** The signed-in admin's username for signing in with a password (null when not set). */
+  credentials(): Promise<{ username: string | null }>;
+  saveCredentials(input: { username: string; password: string; currentPassword?: string }): Promise<{ username: string }>;
+  removeCredentials(): Promise<void>;
 }
 
 export interface Backend {
@@ -94,6 +98,8 @@ export interface Backend {
   verifyOtp(phone: string, code: string, name?: string): Promise<AuthResult>;
   /** The sample account (demo mode only). */
   demoLogin(): Promise<AuthResult>;
+  /** Admins: sign in with a username and password. */
+  adminLogin(username: string, password: string): Promise<AuthResult>;
   me(): Promise<AccountUser>;
   updateMe(patch: { name?: string }): Promise<AccountUser>;
   logout(): Promise<void>;

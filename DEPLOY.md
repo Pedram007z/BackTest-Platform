@@ -52,6 +52,7 @@ backtestlab.service   systemd unit
 nginx-site.conf       nginx site
 relay-nginx.conf      relay abroad for servers in Iran (step 8)
 check-sources.sh      checks whether the server reaches the data sources (step 8)
+make-admin.sh         admin sign-in: username and password, or a mobile number (step 7)
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
@@ -119,7 +120,7 @@ cd /tmp && tar -xzf backtestlab-*.tar.gz
 sudo cp -r backtestlab/web/. /var/www/backtestlab/
 sudo cp backtestlab/server/server.mjs /opt/backtestlab/server/
 sudo cp backtestlab/backtestlab.service /etc/systemd/system/
-sudo cp backtestlab/check-sources.sh /opt/backtestlab/
+sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh /opt/backtestlab/
 ```
 
 If you uploaded the folder instead of the archive, skip the `tar` line.
@@ -141,6 +142,8 @@ TRUST_PROXY=true
 ```
 
 - `ADMIN_PHONES`: your mobile number(s), comma separated. These accounts get the admin panel.
+- An admin can also sign in with a username and password instead (`ADMIN_USERNAME` and
+  `ADMIN_PASSWORD_HASH`): `make-admin.sh --username` sets both (step 7). Never write the password itself here.
 - `HOST=127.0.0.1` keeps the API reachable only through nginx.
 - Every other setting (SMS keys, gateways, prices, data sources) is set later in the admin panel.
   `backtestlab/server/env.example` lists the rest.
@@ -182,11 +185,35 @@ Open `https://YOUR-DOMAIN`. You should see the landing page.
 
 ## 7. First sign-in and the admin panel
 
-1. Click **ورود** and enter a number from `ADMIN_PHONES`. Real SMS sending is still off, so the code is
-   in the server log:
+Users sign in with a mobile number and a code sent by SMS. Admins can do the same, or use a username and
+password, which needs no SMS. Pick one:
+
+**A. Username and password (simplest).**
+
+```bash
+sudo bash /opt/backtestlab/make-admin.sh --username admin
+```
+
+It asks for a password twice (at least 8 characters; nothing is shown while you type), writes
+`ADMIN_USERNAME` and a hash of the password (`ADMIN_PASSWORD_HASH`, never the password itself) to the `.env`
+and restarts the API server. Then open `https://YOUR-DOMAIN/#/admin-login` (or the sign-in page →
+«مدیر سایت هستید؟ ورود با نام کاربری و رمز»), enter the username and password, and you are in the admin
+panel. Change them later in **پنل مدیریت → تنظیمات سایت → ورود مدیر با نام کاربری و رمز**; forgot the
+password? Run the command again. Ten wrong passwords in 15 minutes block further tries for 15 minutes.
+
+**B. Mobile number.** A number becomes an admin when it is listed in `ADMIN_PHONES` (step 4). To add one:
+
+```bash
+sudo bash /opt/backtestlab/make-admin.sh 09121234567
+```
+
+1. Open `https://YOUR-DOMAIN/#/login` (or click **ورود**) and enter that number. Real SMS sending is still
+   off, so the code is in the server log; run this right after pressing the button:
    ```bash
-   sudo journalctl -u backtestlab -n 20 | grep sms:dev
+   sudo journalctl -u backtestlab -n 30 --no-pager | grep sms:dev
    ```
+   The last line reads `[sms:dev] 09121234567 ← 12345`; enter that code (and your name, the first time).
+   The menu then shows **پنل مدیریت** (admin panel).
 2. Open **پنل مدیریت** (admin panel):
    - **پیامک** (SMS): choose your provider, enter the API key, sender line and OTP template, send a test
      message, then turn on **ارسال واقعی** (real sending).

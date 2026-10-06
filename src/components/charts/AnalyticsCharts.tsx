@@ -27,9 +27,8 @@ import { useChartTheme, type ChartPalette } from '../../hooks/useChartTheme';
 import { fmtCompact, fmtNum, fmtPct, fmtUsd } from '../../lib/format';
 
 /*
- * Analytics charts. Always left-to-right inside `.chart-ltr`. Profit and loss use green / red AND
- * position (above / below or right / left of zero) plus signed numbers, so polarity never relies on
- * color alone.
+ * Analytics charts. Always left-to-right inside `.chart-ltr`. Bars all stand on the baseline (their
+ * size is the amount): profit is green, loss is red, and tooltips give the signed numbers.
  */
 
 const tick = (p: ChartPalette) => ({ fill: p.axis, fontSize: 11 });
@@ -132,7 +131,6 @@ export function DailyPnlChart({ data, height = 280 }: { data: { day: string; pnl
           <CartesianGrid vertical={false} stroke={p.grid} strokeDasharray="4 4" />
           <XAxis dataKey="day" tick={tick(p)} tickLine={false} axisLine={{ stroke: p.grid }} minTickGap={40} tickFormatter={(d: string) => d.slice(2, 7)} />
           <YAxis tickFormatter={fmtCompact} tick={tick(p)} tickLine={false} axisLine={false} width={58} />
-          <ReferenceLine y={0} stroke={p.axis} strokeOpacity={0.7} />
           <Tooltip
             cursor={{ fill: p.cursor }}
             content={tip(p, (r) => ({
@@ -143,7 +141,7 @@ export function DailyPnlChart({ data, height = 280 }: { data: { day: string; pnl
               ],
             }))}
           />
-          <Bar dataKey="pnl" maxBarSize={10} isAnimationActive={false}>
+          <Bar dataKey={(d: { pnl: number }) => Math.abs(d.pnl)} maxBarSize={10} radius={[2, 2, 0, 0]} isAnimationActive={false}>
             {data.map((d) => (
               <Cell key={d.day} fill={d.pnl >= 0 ? p.gain : p.loss} />
             ))}
@@ -291,11 +289,10 @@ export function HourChart({
   return (
     <div className="chart-ltr" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 10, right: 8, left: -4, bottom: 0 }} stackOffset="sign" barCategoryGap="22%">
+        <BarChart data={data} margin={{ top: 10, right: 8, left: -4, bottom: 0 }} barCategoryGap="22%" barGap={1}>
           <CartesianGrid vertical={false} stroke={p.grid} strokeDasharray="4 4" />
           <XAxis dataKey="hour" tickFormatter={label} tick={tick(p)} tickLine={false} axisLine={{ stroke: p.grid }} interval={1} />
           <YAxis tickFormatter={mode === 'pnl' ? fmtCompact : (v) => fmtNum(v, 1)} tick={tick(p)} tickLine={false} axisLine={false} width={52} />
-          <ReferenceLine y={0} stroke={p.axis} strokeOpacity={0.7} />
           <Tooltip
             cursor={{ fill: p.cursor }}
             content={tip(p, (r) =>
@@ -316,13 +313,13 @@ export function HourChart({
           />
           {mode === 'pnl' ? (
             <>
-              <Bar dataKey="gain" stackId="s" fill={p.gain} radius={[4, 4, 0, 0]} maxBarSize={26} isAnimationActive={false} />
-              <Bar dataKey="loss" stackId="s" fill={p.loss} radius={[0, 0, 4, 4]} maxBarSize={26} isAnimationActive={false} />
+              <Bar dataKey="gain" fill={p.gain} radius={[3, 3, 0, 0]} maxBarSize={13} isAnimationActive={false} />
+              <Bar dataKey={(d: { loss: number }) => Math.abs(d.loss)} fill={p.loss} radius={[3, 3, 0, 0]} maxBarSize={13} isAnimationActive={false} />
             </>
           ) : (
-            <Bar dataKey={key} maxBarSize={26} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+            <Bar dataKey={(d: Record<string, number>) => Math.abs(d[key])} maxBarSize={26} radius={[4, 4, 0, 0]} isAnimationActive={false}>
               {data.map((d) => (
-                <Cell key={d.hour} fill={(d as any)[key] >= 0 ? p.gain : p.loss} radius={((d as any)[key] >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4]) as any} />
+                <Cell key={d.hour} fill={(d as any)[key] >= 0 ? p.gain : p.loss} />
               ))}
             </Bar>
           )}
@@ -332,17 +329,16 @@ export function HourChart({
   );
 }
 
-// ---------- weekday (horizontal, diverging) ----------
+// ---------- weekday (horizontal: profit and loss side by side) ----------
 export function WeekdayChart({ data, height = 280 }: { data: { label: string; gain: number; loss: number; net: number; count: number }[]; height?: number }) {
   const p = useChartTheme();
   return (
     <div className="chart-ltr" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout="vertical" stackOffset="sign" margin={{ top: 4, right: 12, left: 4, bottom: 0 }} barCategoryGap="28%">
+        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }} barCategoryGap="22%" barGap={1}>
           <CartesianGrid horizontal={false} stroke={p.grid} strokeDasharray="4 4" />
           <XAxis type="number" tickFormatter={(v) => fmtPct(v, 0)} tick={tick(p)} tickLine={false} axisLine={{ stroke: p.grid }} />
           <YAxis type="category" dataKey="label" tick={tick(p)} tickLine={false} axisLine={false} width={64} />
-          <ReferenceLine x={0} stroke={p.axis} strokeOpacity={0.7} />
           <Tooltip
             cursor={{ fill: p.cursor }}
             content={tip(p, (r) => ({
@@ -354,8 +350,8 @@ export function WeekdayChart({ data, height = 280 }: { data: { label: string; ga
               ],
             }))}
           />
-          <Bar dataKey="gain" stackId="w" fill={p.gain} radius={[0, 4, 4, 0]} maxBarSize={22} isAnimationActive={false} />
-          <Bar dataKey="loss" stackId="w" fill={p.loss} radius={[4, 0, 0, 4]} maxBarSize={22} isAnimationActive={false} />
+          <Bar dataKey="gain" fill={p.gain} radius={[0, 4, 4, 0]} maxBarSize={12} isAnimationActive={false} />
+          <Bar dataKey={(d: { loss: number }) => Math.abs(d.loss)} fill={p.loss} radius={[0, 4, 4, 0]} maxBarSize={12} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -372,7 +368,6 @@ export function MonthBars({ data, height = 200 }: { data: { label: string; value
           <CartesianGrid vertical={false} stroke={p.grid} strokeDasharray="4 4" />
           <XAxis dataKey="label" tick={tick(p)} tickLine={false} axisLine={{ stroke: p.grid }} interval={0} />
           <YAxis tickFormatter={(v) => fmtPct(v, 0)} tick={tick(p)} tickLine={false} axisLine={false} width={48} />
-          <ReferenceLine y={0} stroke={p.axis} strokeOpacity={0.7} />
           <Tooltip
             cursor={{ fill: p.cursor }}
             content={tip(p, (r) => ({
@@ -380,9 +375,9 @@ export function MonthBars({ data, height = 200 }: { data: { label: string; value
               rows: [{ label: 'بازده', value: r.value === null ? 'بدون معامله' : fmtPct(r.value, 2), color: (r.value ?? 0) >= 0 ? p.gain : p.loss }],
             }))}
           />
-          <Bar dataKey="value" maxBarSize={30} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+          <Bar dataKey={(d: { value: number | null }) => (d.value === null ? null : Math.abs(d.value))} maxBarSize={30} radius={[4, 4, 0, 0]} isAnimationActive={false}>
             {data.map((d) => (
-              <Cell key={d.label} fill={(d.value ?? 0) >= 0 ? p.gain : p.loss} radius={((d.value ?? 0) >= 0 ? [4, 4, 0, 0] : [0, 0, 4, 4]) as any} />
+              <Cell key={d.label} fill={(d.value ?? 0) >= 0 ? p.gain : p.loss} />
             ))}
           </Bar>
         </BarChart>

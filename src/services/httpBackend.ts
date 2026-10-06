@@ -28,6 +28,7 @@ export const httpBackend: Backend = {
   requestOtp: (phone) => post('/api/auth/otp', { phone }),
   verifyOtp: (phone, code, name) => post('/api/auth/verify', { phone, code, name }),
   demoLogin: () => Promise.reject(new BackendError('unsupported', 'حساب نمایشی فقط در نسخه‌ی بدون سرور در دسترس است.')),
+  adminLogin: (username, password) => post('/api/auth/admin-login', { username, password }),
   me: () => get('/api/me'),
   updateMe: (patch) => put('/api/me', patch),
   logout: () => post('/api/auth/logout'),
@@ -72,5 +73,8 @@ export const httpBackend: Backend = {
     marketStorage: () => get('/api/admin/market/storage'),
     startMarketDownload: (input) => post('/api/admin/market/download', input),
     stopMarketDownload: () => post('/api/admin/market/download/stop'),
+    credentials: () => get('/api/admin/credentials'),
+    saveCredentials: (input) => put('/api/admin/credentials', input),
+    removeCredentials: () => del('/api/admin/credentials'),
   },
 };

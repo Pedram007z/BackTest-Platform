@@ -66,6 +66,16 @@ export interface Db {
   otps: Record<string, OtpRecord>;
   /** sha256(token) → session */
   sessions: Record<string, AuthSessionRecord>;
+  /** user id → admin username and password hash (never sent to the app) */
+  credentials: Record<string, AdminCredential>;
+}
+
+export interface AdminCredential {
+  username: string;
+  hash: string;
+  /** the ADMIN_PASSWORD_HASH this came from, so a changed .env value is applied once */
+  fromEnv?: string;
+  updatedAt: number;
 }
 
 export const DEFAULT_PLANS: Plan[] = [
@@ -166,6 +176,7 @@ function fresh(): Db {
     audit: [],
     otps: {},
     sessions: {},
+    credentials: {},
   };
 }
 

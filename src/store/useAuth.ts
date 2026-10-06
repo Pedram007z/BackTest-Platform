@@ -9,6 +9,7 @@ interface AuthState {
   requestOtp: (phone: string) => Promise<OtpRequest>;
   verifyOtp: (phone: string, code: string, name: string | undefined, remember: boolean) => Promise<AuthResult>;
   loginDemo: () => Promise<Session>;
+  adminLogin: (username: string, password: string, remember: boolean) => Promise<AuthResult>;
   logout: () => void;
   rename: (name: string) => Promise<void>;
   /** Re-read the account from the backend (plan, role or ban changed). */
@@ -46,6 +47,12 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   loginDemo: async () => signIn(set, await backend.demoLogin(), true),
+
+  adminLogin: async (username, password, remember) => {
+    const res = await backend.adminLogin(username, password);
+    signIn(set, res, remember);
+    return res;
+  },
 
   logout: () => {
     void backend.logout().catch(() => undefined);

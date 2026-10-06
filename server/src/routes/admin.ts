@@ -1,4 +1,4 @@
-import { dropSessions, requireAdmin } from '../auth';
+import { dropSessions, ownCredentials, removeCredentials, requireAdmin, saveCredentials } from '../auth';
 import { db, save } from '../db';
 import { HttpError, badRequest, bool, notFound, num, oneOf, str, type Ctx, type Router } from '../http';
 import { INSTRUMENTS } from '../market/instruments';
@@ -218,6 +218,7 @@ export function adminRoutes(r: Router) {
       const u = findUser(ctx.params.id);
       const d = db();
       d.users = d.users.filter((x) => x.id !== u.id);
+      delete d.credentials[u.id];
       dropSessions(u.id);
       audit(ctx, 'حذف کاربر', u.name);
       save();
@@ -485,6 +486,28 @@ export function adminRoutes(r: Router) {
       const status = await syncNews();
       audit(ctx, 'همگام‌سازی تقویم اقتصادی', 'ForexFactory');
       return status;
+    }),
+  );
+
+  // ---------- the signed-in admin's username and password ----------
+  r.get(
+    '/api/admin/credentials',
+    admin((ctx) => ownCredentials(ctx.user!)),
+  );
+  r.put(
+    '/api/admin/credentials',
+    admin(async (ctx) => {
+      const result = await saveCredentials(ctx, ctx.user!);
+      audit(ctx, 'تنظیم نام کاربری و رمز مدیر', result.username);
+      return result;
+    }),
+  );
+  r.delete(
+    '/api/admin/credentials',
+    admin((ctx) => {
+      removeCredentials(ctx.user!);
+      audit(ctx, 'حذف ورود با نام کاربری مدیر');
+      return undefined;
     }),
   );
 

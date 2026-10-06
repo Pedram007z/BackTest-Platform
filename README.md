@@ -30,7 +30,9 @@ VITE_API_URL=http://localhost:8787 npm run dev
 ```
 
 Sign in with a number from `ADMIN_PHONES` to become admin. While real SMS sending is off (the default), the code is
-printed in the server console and shown on the sign-in page in development. Then open **پنل مدیریت** (`/#/admin`)
+printed in the server console and shown on the sign-in page in development. Admins can also sign in with a username
+and password at `/#/admin-login` (`ADMIN_USERNAME` + `ADMIN_PASSWORD_HASH` from `node server/dist/server.mjs
+hash-password`, or set in the admin panel's settings). Then open **پنل مدیریت** (`/#/admin`)
 to add your SMS provider's key and your payment gateways' merchant ids.
 
 ## Pages

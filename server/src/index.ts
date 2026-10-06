@@ -7,6 +7,10 @@ if (dataDir) process.env.DATA_DIR = dataDir.slice('--data-dir='.length);
 if (command === 'download') {
   const { runDownloadCli } = await import('./market/cli');
   process.exit(await runDownloadCli(args));
+} else if (command === 'hash-password') {
+  // the admin password hash for ADMIN_PASSWORD_HASH (make-admin.sh --username uses it)
+  const { runHashPassword } = await import('./password');
+  process.exit(await runHashPassword());
 } else {
   await import('./server');
 }

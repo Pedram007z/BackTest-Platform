@@ -1,6 +1,7 @@
 import { config } from './config';
 import { db, save } from './db';
-import { HttpError, badRequest, rateLimit, type Ctx } from './http';
+import { USERNAME, checkPassword, hashPassword, isPasswordHash, passwordError } from './password';
+import { HttpError, badRequest, checkRateLimit, rateLimit, type Ctx } from './http';
 import { normalizePhone, type AccountUser } from './shared';
 import { sendOtpSms } from './sms';
 import { DAY_MS, addDays, clone, hmac, otpCode, randomToken, safeEqual, sha256, toLatinDigits, todayKey, uid } from './util';
@@ -93,8 +94,12 @@ export async function verifyOtp(ctx: Ctx) {
   }
   if (user.status === 'banned') throw banned();
   delete d.otps[phone];
-  user.lastLoginAt = Date.now();
+  return startSession(ctx, user, isNew);
+}
 
+function startSession(ctx: Ctx, user: AccountUser, isNew: boolean) {
+  const d = db();
+  user.lastLoginAt = Date.now();
   const token = randomToken();
   d.sessions[sha256(token)] = {
     userId: user.id,
@@ -106,6 +111,108 @@ export async function verifyOtp(ctx: Ctx) {
   };
   save();
   return { token, user: clone(user), isNew };
+}
+
+// ---------- admins: username and password ----------
+const badLogin = () => badRequest('bad_login', 'نام کاربری یا رمز عبور درست نیست.', 'password');
+/** Compared against when the username does not exist, so both cases take as long. */
+let dummyHash: Promise<string> | null = null;
+
+const FAILURES = 10;
+const FAILURE_WINDOW = 15 * 60_000;
+
+/** POST /api/auth/admin-login { username, password }: admins only. 10 failed tries per IP and per username in 15 minutes. */
+export async function adminLogin(ctx: Ctx) {
+  const tooMany = 'تلاش‌های ناموفق زیاد بود؛ ۱۵ دقیقه بعد دوباره امتحان کنید.';
+  const username = String(ctx.body.username ?? '')
+    .trim()
+    .toLowerCase()
+    .slice(0, 64);
+  const password = String(ctx.body.password ?? '').slice(0, 200);
+  checkRateLimit(`admin-login-ip:${ctx.ip}`, FAILURES, tooMany);
+  checkRateLimit(`admin-login-user:${username}`, FAILURES, tooMany);
+  if (!username || !password) throw badRequest('invalid', 'نام کاربری و رمز عبور را بنویسید.', username ? 'password' : 'username');
+  const d = db();
+  const entry = Object.entries(d.credentials).find(([, c]) => c.username === username);
+  const user = entry && d.users.find((u) => u.id === entry[0]);
+  const ok = await checkPassword(password, entry?.[1].hash ?? (await (dummyHash ??= hashPassword('not a password'))));
+  if (!ok || !user || user.role !== 'admin') {
+    rateLimit(`admin-login-ip:${ctx.ip}`, FAILURES + 1, FAILURE_WINDOW);
+    rateLimit(`admin-login-user:${username}`, FAILURES + 1, FAILURE_WINDOW);
+    throw badLogin();
+  }
+  if (user.status === 'banned') throw banned();
+  return startSession(ctx, user, false);
+}
+
+/** GET /api/admin/credentials: the signed-in admin's username (null when not set). */
+export function ownCredentials(user: AccountUser) {
+  return { username: db().credentials[user.id]?.username ?? null };
+}
+
+/** PUT /api/admin/credentials { username, password, currentPassword }: set or change one's own. */
+export async function saveCredentials(ctx: Ctx, user: AccountUser) {
+  const d = db();
+  const username = String(ctx.body.username ?? '')
+    .trim()
+    .toLowerCase();
+  if (!USERNAME.test(username)) throw badRequest('invalid', 'نام کاربری ۳ تا ۳۲ حرف انگلیسی، عدد یا _ . - باشد.', 'username');
+  const taken = Object.entries(d.credentials).some(([id, c]) => id !== user.id && c.username === username);
+  if (taken) throw badRequest('taken', 'این نام کاربری برای مدیر دیگری است.', 'username');
+  const password = String(ctx.body.password ?? '');
+  const err = passwordError(password);
+  if (err) throw badRequest('invalid', err, 'password');
+  const current = d.credentials[user.id];
+  if (current && !(await checkPassword(String(ctx.body.currentPassword ?? ''), current.hash))) throw badRequest('bad_password', 'رمز فعلی درست نیست.', 'currentPassword');
+  d.credentials[user.id] = { username, hash: await hashPassword(password), fromEnv: current?.fromEnv, updatedAt: Date.now() };
+  save();
+  return { username };
+}
+
+/** DELETE /api/admin/credentials: back to signing in by phone only. */
+export function removeCredentials(user: AccountUser) {
+  delete db().credentials[user.id];
+  save();
+}
+
+/**
+ * ADMIN_USERNAME + ADMIN_PASSWORD_HASH in .env: an admin who can sign in with them (created when the
+ * username is new). A password changed later in the admin panel is kept until the .env value changes.
+ */
+export function applyAdminLoginFromEnv() {
+  const { adminUsername: username, adminPasswordHash: hash } = config;
+  if (!username && !hash) return;
+  if (!USERNAME.test(username) || !isPasswordHash(hash)) {
+    console.warn('[auth] ADMIN_USERNAME / ADMIN_PASSWORD_HASH are not valid; run make-admin.sh --username to set them.');
+    return;
+  }
+  const d = db();
+  // the account with this username, or the one an earlier ADMIN_USERNAME made (renamed)
+  const entries = Object.entries(d.credentials);
+  let id = (entries.find(([, c]) => c.username === username) ?? entries.find(([, c]) => c.fromEnv))?.[0];
+  let user = id ? d.users.find((u) => u.id === id) : undefined;
+  if (!user) {
+    const today = todayKey();
+    user = {
+      id: uid('u'),
+      phone: '',
+      name: 'مدیر سایت',
+      role: 'admin',
+      status: 'active',
+      planId: 'free',
+      planStartedAt: today,
+      planEndsAt: addDays(today, 3650),
+      createdAt: Date.now(),
+    };
+    d.users.push(user);
+    id = user.id;
+  }
+  user.role = 'admin';
+  if (user.status === 'banned') user.status = 'active';
+  const current = d.credentials[user.id];
+  const free = !entries.some(([other, c]) => other !== user.id && c.username === username);
+  if (free && (!current || current.fromEnv !== hash || current.username !== username)) d.credentials[user.id] = { username, hash, fromEnv: hash, updatedAt: Date.now() };
+  save();
 }
 
 function bearer(ctx: Ctx): string | null {

@@ -32,9 +32,11 @@ export async function startServer(env: Record<string, string> = {}) {
 
   const { createServer } = await import('node:http');
   const { loadDb, db, flush } = await import('../src/db');
+  const { applyAdminLoginFromEnv } = await import('../src/auth');
   const { loadNews } = await import('../src/news');
   const { buildRouter } = await import('../src/routes');
   loadDb();
+  applyAdminLoginFromEnv();
   loadNews();
   const router = buildRouter();
   const server = createServer((req, res) => void router.handle(req, res));
