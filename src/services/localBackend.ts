@@ -453,6 +453,10 @@ export const localBackend: Backend = {
     return delay({ token: `local.${user.id}`, user: clone(user), isNew }, 350);
   },
 
+  async adminLogin() {
+    throw new BackendError('unsupported', 'ورود با نام کاربری و رمز فقط روی سرور فعال است؛ در نسخه‌ی نمایشی از «ورود با حساب نمایشی» استفاده کنید.', 'username');
+  },
+
   async demoLogin() {
     const d = db();
     let user = d.users.find((u) => u.id === DEMO_USER_ID);
@@ -811,6 +815,17 @@ export const localBackend: Backend = {
     async stopMarketDownload() {
       requireAdmin();
       return null;
+    },
+    async credentials() {
+      requireAdmin();
+      return { username: null };
+    },
+    async saveCredentials() {
+      requireAdmin();
+      throw new BackendError('unsupported', 'ورود با نام کاربری و رمز فقط روی سرور API فعال است.');
+    },
+    async removeCredentials() {
+      requireAdmin();
     },
   },
 };

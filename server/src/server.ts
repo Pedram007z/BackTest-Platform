@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { config } from './config';
+import { applyAdminLoginFromEnv } from './auth';
 import { db, flush, loadDb, prune } from './db';
 import { autoDownload } from './market/download';
 import { flushNews, loadNews, syncNews } from './news';
@@ -7,6 +8,7 @@ import { expireStalePayments } from './payments';
 import { buildRouter } from './routes';
 
 loadDb();
+applyAdminLoginFromEnv();
 loadNews();
 const router = buildRouter();
 
@@ -16,7 +18,8 @@ server.listen(config.port, config.host, () => {
   console.log(`[server] listening on http://${config.host}:${config.port} (app: ${config.appUrl}, data: ${config.dataDir})`);
   if (config.paymentSimulator) console.warn('[server] PAYMENT_SIMULATOR is on: checkouts skip the bank. Turn it off in production.');
   if (config.devOtpEcho) console.warn('[server] OTP_DEV_ECHO is on: sign-in codes are returned to the browser while SMS sending is off.');
-  if (!db().users.some((u) => u.role === 'admin') && !config.adminPhones.length) console.warn('[server] no admin yet: set ADMIN_PHONES=09xxxxxxxxx and sign in with that number.');
+  if (!db().users.some((u) => u.role === 'admin') && !config.adminPhones.length)
+    console.warn('[server] no admin yet: run make-admin.sh --username admin (or set ADMIN_PHONES=09xxxxxxxxx and sign in with that number).');
 });
 
 // ---------- background jobs ----------

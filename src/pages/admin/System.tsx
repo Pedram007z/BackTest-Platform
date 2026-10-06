@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { CalendarSync, Check, LoaderCircle, Megaphone, Search, Send, TestTube2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { AdminCredentialsCard } from '../../components/admin/AdminCredentials';
 import { MarketStoragePanel } from '../../components/admin/MarketStorage';
 import { Badge, Field, Loading, PageHeader, act, dateTime, useLoad } from '../../components/admin/kit';
 import { Modal } from '../../components/ui/Modal';
@@ -573,6 +574,7 @@ export function AdminSettings() {
             <Toggle checked={d.newsAutoSync} onChange={(newsAutoSync) => setD({ ...d, newsAutoSync })} label="همگام‌سازی خودکار" />
           </label>
         </section>
+        <AdminCredentialsCard />
       </div>
     </>
   );
