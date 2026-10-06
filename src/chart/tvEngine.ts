@@ -1,5 +1,5 @@
 import { PALETTES } from '../hooks/useChartTheme';
-import { SYMBOL_MAP, TF_MS, TIMEFRAMES, tfFromTv } from '../lib/market';
+import { SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, tfFromTv } from '../lib/market';
 import { orderTitleEn } from '../lib/trading';
 import type { Trade } from '../lib/types';
 import { createReplayDatafeed } from './tvDatafeed';
@@ -270,17 +270,19 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     }
     for (const t of wanted) {
       if (executions.has(t.id)) continue;
+      const sym = SYMBOL_MAP[t.symbol];
       const step = TF_MS[state.timeframe];
+      const barOf = (time: number) => (sym ? candleTime(sym, state.timeframe, time) : Math.floor(time / step) * step) / 1000;
       const open = chart
         .createExecutionShape()
-        .setTime(Math.floor(t.openTime / step) * (step / 1000))
+        .setTime(barOf(t.openTime))
         .setPrice(t.entry)
         .setDirection(t.side)
         .setArrowColor(t.side === 'buy' ? p.gain : p.loss)
         .setTooltip(`${t.side.toUpperCase()} ${t.lots} @ ${t.entry}`);
       const close = chart
         .createExecutionShape()
-        .setTime(Math.floor(((t.closeTime ?? t.openTime) - 1) / step) * (step / 1000))
+        .setTime(barOf((t.closeTime ?? t.openTime) - 1))
         .setPrice(t.exit ?? t.entry)
         .setDirection(t.side === 'buy' ? 'sell' : 'buy')
         .setArrowColor((t.pnl ?? 0) >= 0 ? p.gain : p.loss)

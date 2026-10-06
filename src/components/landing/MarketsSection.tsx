@@ -3,7 +3,7 @@ import { ArrowLeft, ChevronUp, Crown, Database, Gift } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { fmtDayLong } from '../../lib/calendar';
 import { fmtNum } from '../../lib/format';
-import { DATA_START, FX_CLASS_LABELS, GROUP_LABELS, SYMBOLS, TIMEFRAMES, type SymbolGroup, type SymbolInfo } from '../../lib/market';
+import { DATA_START, FX_CLASS_LABELS, GROUP_LABELS, SYMBOLS, TIMEFRAMES, dataStartOf, type SymbolGroup, type SymbolInfo } from '../../lib/market';
 import { MarketIcon } from './MarketIcon';
 
 const GROUPS = Object.keys(GROUP_LABELS) as SymbolGroup[];
@@ -22,7 +22,7 @@ const SOURCES = (s: SymbolInfo) => (s.group !== 'crypto' ? ['Dukascopy'] : ['BTC
 
 function category(s: SymbolInfo) {
   if (s.group === 'forex' && s.fxClass) return `فارکس · ${FX_CLASS_LABELS[s.fxClass]}`;
-  if (s.group === 'index') return s.id === 'NQ' || s.id === 'ES' ? 'آتی شاخص' : 'شاخص';
+  if (s.group === 'index') return s.id === 'NQ' || s.id === 'ES' ? 'شاخص · E-mini' : 'شاخص';
   return { metal: 'فلز', energy: 'انرژی', crypto: 'کریپتو' }[s.group as 'metal' | 'energy' | 'crypto'];
 }
 
@@ -78,7 +78,7 @@ function MarketCard({ s }: { s: SymbolInfo }) {
           </span>
         </Row>
         <Row label="شروع داده">
-          <span className="text-[13px] font-semibold">{fmtDayLong(DATA_START)}</span>
+          <span className="text-[13px] font-semibold">{fmtDayLong(dataStartOf(s.id))}</span>
         </Row>
       </dl>
     </article>

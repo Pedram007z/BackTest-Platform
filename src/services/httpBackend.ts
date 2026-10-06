@@ -3,7 +3,7 @@ import { BackendError, type Backend } from './backend';
 
 /** Backend over the API server in server/. Routes mirror the method names. */
 
-const wrap = async <T,>(p: Promise<T>): Promise<T> => {
+const wrap = async <T>(p: Promise<T>): Promise<T> => {
   try {
     return await p;
   } catch (e) {
@@ -11,9 +11,9 @@ const wrap = async <T,>(p: Promise<T>): Promise<T> => {
     throw e;
   }
 };
-const get = <T,>(path: string) => wrap(api<T>(path));
-const post = <T,>(path: string, json?: unknown) => wrap(api<T>(path, { method: 'POST', json: json ?? {} }));
-const put = <T,>(path: string, json: unknown) => wrap(api<T>(path, { method: 'PUT', json }));
+const get = <T>(path: string) => wrap(api<T>(path));
+const post = <T>(path: string, json?: unknown) => wrap(api<T>(path, { method: 'POST', json: json ?? {} }));
+const put = <T>(path: string, json: unknown) => wrap(api<T>(path, { method: 'PUT', json }));
 const del = (path: string) => wrap(api<void>(path, { method: 'DELETE' }));
 const qs = (o: object) =>
   '?' +
@@ -69,5 +69,8 @@ export const httpBackend: Backend = {
     audit: () => get('/api/admin/audit'),
     newsStatus: () => get('/api/admin/news'),
     syncNews: () => post('/api/admin/news/sync'),
+    marketStorage: () => get('/api/admin/market/storage'),
+    startMarketDownload: (input) => post('/api/admin/market/download', input),
+    stopMarketDownload: () => post('/api/admin/market/download/stop'),
   },
 };

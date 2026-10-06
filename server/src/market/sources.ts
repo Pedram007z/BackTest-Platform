@@ -2,6 +2,7 @@ import { config } from '../config';
 import { DAY_MS, UpstreamError, fetchWithTimeout, limiter } from '../util';
 import type { Instrument } from './instruments';
 import { lzmaDecompress } from './lzma';
+import { unzip } from './zip';
 
 /**
  * Real bars for the replay: a Float64Array of n × [open, high, low, close] (NaN where there was no
@@ -109,8 +110,125 @@ export function parseDukascopyTicks(raw: Uint8Array, factor: number): DayBars {
   return hasBars(out) ? out : null;
 }
 
+// ---------- Dukascopy ----------
+/**
+ * Dukascopy serves the same history two ways: its data API (JSON, used by dukascopy-node since
+ * 2026) and the older datafeed (LZMA-packed .bi5 files). The API is tried first; when it cannot be
+ * reached or does not answer with data, the datafeed is used.
+ */
+
+/** Instrument code in the data API: EUR-USD, XAU-USD, USA30.IDX-USD, LIGHT.CMD-USD. */
+export function dukascopyCode(name: string): string {
+  const m = /^(.+?)(IDX|CMD)([A-Z]{3})$/.exec(name);
+  return m ? `${m[1]}.${m[2]}-${m[3]}` : `${name.slice(0, 3)}-${name.slice(3)}`;
+}
+
+/** Decimals of a price step such as 0.00001 or 1e-5. */
+function decimalsOf(multiplier: number): number {
+  const [coef, exp = '0'] = multiplier.toString().toLowerCase().split('e');
+  return Math.max(0, (coef.split('.')[1]?.length ?? 0) - Number(exp));
+}
+
+const isNums = (v: unknown, n: number): v is number[] => Array.isArray(v) && v.length === n && v.every((x) => Number.isFinite(x));
+const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * Data API candles into `count` bars of `barMs` from `start`. The reply holds a base candle and, per
+ * bar, the time step (in bars) and the price changes (in steps of `multiplier`) from the previous one.
+ * Minutes without volume or movement are gaps (market closed), as in the datafeed files.
+ */
+export function parseDukascopyApiCandles(data: unknown, start: number, count: number, barMs: number): DayBars {
+  const d = data as Record<string, unknown> | null;
+  const n = Array.isArray(d?.times) ? d.times.length : -1;
+  if (!d || n < 0 || !num(d.timestamp)) throw new UpstreamError('Dukascopy API: پاسخ نامعتبر');
+  if (n === 0) return null;
+  if (!num(d.multiplier) || d.multiplier <= 0 || !num(d.shift) || d.shift <= 0 || ![d.open, d.high, d.low, d.close].every(num))
+    throw new UpstreamError('Dukascopy API: پاسخ نامعتبر');
+  if (![d.times, d.opens, d.highs, d.lows, d.closes].every((c) => isNums(c, n))) throw new UpstreamError('Dukascopy API: پاسخ نامعتبر');
+  const times = d.times as number[];
+  const [opens, highs, lows, closes] = [d.opens, d.highs, d.lows, d.closes] as number[][];
+  const volumes = Array.isArray(d.volumes) && d.volumes.length === n ? (d.volumes as number[]) : null;
+  const mult = d.multiplier;
+  const scale = decimalsOf(mult);
+  const px = (units: number) => Number((units * mult).toFixed(scale));
+  let t = d.timestamp;
+  let o = Math.round((d.open as number) / mult);
+  let h = Math.round((d.high as number) / mult);
+  let l = Math.round((d.low as number) / mult);
+  let c = Math.round((d.close as number) / mult);
+  const out = empty(count);
+  for (let i = 0; i < n; i++) {
+    t += times[i] * d.shift;
+    o += opens[i];
+    h += highs[i];
+    l += lows[i];
+    c += closes[i];
+    if (volumes && volumes[i] === 0 && o === c && h === l && o === h) continue;
+    const j = Math.floor((t - start) / barMs);
+    if (j < 0 || j >= count) continue;
+    addToBar(out, j, px(o), px(h), px(l), px(c));
+  }
+  return hasBars(out) ? out : null;
+}
+
+/** Data API ticks of one hour into 3600 one-second bars of the bid (times in ms, prices in steps). */
+export function parseDukascopyApiTicks(data: unknown, hourStart: number): DayBars {
+  const d = data as Record<string, unknown> | null;
+  const n = Array.isArray(d?.times) ? d.times.length : -1;
+  if (!d || n < 0 || !num(d.timestamp)) throw new UpstreamError('Dukascopy API: پاسخ نامعتبر');
+  if (n === 0) return null;
+  if (!num(d.multiplier) || d.multiplier <= 0 || !num(d.bid) || !isNums(d.times, n) || !isNums(d.bids, n)) throw new UpstreamError('Dukascopy API: پاسخ نامعتبر');
+  const mult = d.multiplier;
+  const scale = decimalsOf(mult);
+  const times = d.times;
+  const bids = d.bids;
+  let t = d.timestamp;
+  let bid = Math.round(d.bid / mult);
+  const out = empty(SECONDS_PER_HOUR);
+  for (let i = 0; i < n; i++) {
+    t += times[i];
+    bid += bids[i];
+    const j = Math.floor((t - hourStart) / 1000);
+    if (j < 0 || j >= SECONDS_PER_HOUR) continue;
+    const p = Number((bid * mult).toFixed(scale));
+    addToBar(out, j, p, p, p, p);
+  }
+  return hasBars(out) ? out : null;
+}
+
+/** After the data API could not be reached, the datafeed is used alone for a while. */
+const API_PAUSE_MS = 10 * 60_000;
+let apiPausedUntil = 0;
+
+/** A completed period has a fixed address; the current one is asked for with ?from= (changing data). */
+function apiUrl(kind: 'minute' | 'ticks', code: string, start: number, periodMs: number): string {
+  const d = new Date(start);
+  const base = kind === 'ticks' ? `${config.dukascopyApiUrl}/ticks/${code}` : `${config.dukascopyApiUrl}/candles/minute/${code}/BID`;
+  if (start + periodMs > Date.now()) return `${base}?from=${start}`;
+  const ymd = `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  return kind === 'ticks' ? `${base}/${ymd}/${d.getUTCHours()}` : `${base}/${ymd}`;
+}
+
+/** The API's data for a period, or undefined when the datafeed should be asked instead. */
+async function fromApi<T>(url: string, parse: (data: unknown) => T): Promise<T | undefined> {
+  if (config.dukascopyApiUrl === 'off' || Date.now() < apiPausedUntil) return undefined;
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0 backtest-dashboard', Accept: 'application/json' } });
+  } catch {
+    apiPausedUntil = Date.now() + API_PAUSE_MS;
+    return undefined;
+  }
+  if (!res.ok) return undefined;
+  try {
+    return parse(JSON.parse(await res.text()));
+  } catch {
+    return undefined;
+  }
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
-/** Dukascopy folders count months from 0. */
+/** Datafeed folders count months from 0. */
 const dukascopyDir = (name: string, ms: number) => {
   const d = new Date(ms);
   return `${config.dukascopyUrl}/${name}/${d.getUTCFullYear()}/${pad(d.getUTCMonth())}/${pad(d.getUTCDate())}`;
@@ -132,21 +250,20 @@ export async function dukascopyDayMinutes(inst: Instrument, dayStart: number): P
   if (!inst.dukascopy) throw new UpstreamError(`${inst.id} در Dukascopy موجود نیست`);
   const { name, factor } = inst.dukascopy;
   return dukascopyQueue(async () => {
+    const api = await fromApi(apiUrl('minute', dukascopyCode(name), dayStart, DAY_MS), (d) => parseDukascopyApiCandles(d, dayStart, MINUTES_PER_DAY, 60_000));
+    if (api !== undefined) return api;
     const raw = await dukascopyFile(`${dukascopyDir(name, dayStart)}/BID_candles_min_1.bi5`, dayStart, `${name} ${new Date(dayStart).toISOString().slice(0, 10)}`);
     return raw ? parseDukascopyMinuteBars(raw, factor) : null;
   });
 }
 
-/** One UTC day as 288 five-minute bars. */
-export async function dukascopyDay(inst: Instrument, dayStart: number): Promise<DayBars> {
-  return aggregate(await dukascopyDayMinutes(inst, dayStart), 5);
-}
-
-/** One UTC hour as 3600 one-second bars, from the tick file. */
+/** One UTC hour as 3600 one-second bars, from the ticks. */
 export async function dukascopyHour(inst: Instrument, hourStart: number): Promise<DayBars> {
   if (!inst.dukascopy) throw new UpstreamError(`${inst.id} در Dukascopy موجود نیست`);
   const { name, factor } = inst.dukascopy;
   return dukascopyQueue(async () => {
+    const api = await fromApi(apiUrl('ticks', dukascopyCode(name), hourStart, HOUR_MS), (d) => parseDukascopyApiTicks(d, hourStart));
+    if (api !== undefined) return api;
     const hh = pad(new Date(hourStart).getUTCHours());
     const raw = await dukascopyFile(`${dukascopyDir(name, hourStart)}/${hh}h_ticks.bi5`, hourStart, `${name} ${new Date(hourStart).toISOString().slice(0, 13)}h`);
     return raw ? parseDukascopyTicks(raw, factor) : null;
@@ -192,11 +309,6 @@ async function binanceKlines(inst: Instrument, interval: string, start: number, 
   return rows;
 }
 
-/** Up to three consecutive days of five-minute bars (864 bars fit in one request). */
-export async function binanceDays(inst: Instrument, firstDay: number, days: number): Promise<DayBars[]> {
-  return parseBinanceKlines(await binanceKlines(inst, '5m', firstDay, firstDay + days * DAY_MS - 1, 300_000), firstDay, days);
-}
-
 /** One UTC day of one-minute bars (two requests). */
 export async function binanceDayMinutes(inst: Instrument, dayStart: number): Promise<DayBars> {
   return parseBinanceKlines(await binanceKlines(inst, '1m', dayStart, dayStart + DAY_MS - 1, 60_000), dayStart, 1, DAY_MS, 60_000)[0];
@@ -205,4 +317,65 @@ export async function binanceDayMinutes(inst: Instrument, dayStart: number): Pro
 /** One UTC hour of one-second bars (four requests). */
 export async function binanceHour(inst: Instrument, hourStart: number): Promise<DayBars> {
   return parseBinanceKlines(await binanceKlines(inst, '1s', hourStart, hourStart + HOUR_MS - 1, 1000), hourStart, 1, HOUR_MS, 1000)[0];
+}
+
+/** A UTC day of 1-second bars (86 400), from Dukascopy's ticks (24 files). */
+export async function dukascopyDaySeconds(inst: Instrument, dayStart: number): Promise<DayBars> {
+  const hours = await Promise.all(Array.from({ length: 24 }, (_, h) => dukascopyHour(inst, dayStart + h * HOUR_MS)));
+  return joinHours(hours);
+}
+
+/** 24 hours of 3600 one-second bars as one day; null when all were closed. */
+export function joinHours(hours: DayBars[]): DayBars {
+  if (hours.every((h) => !h)) return null;
+  const out = empty(24 * SECONDS_PER_HOUR);
+  hours.forEach((h, i) => h && out.set(h, i * SECONDS_PER_HOUR * 4));
+  return out;
+}
+
+// ---------- Binance history archives (data.binance.vision) ----------
+/**
+ * Klines rows of a Binance archive (CSV: open time, open, high, low, close, ...). Open times are in
+ * milliseconds, or microseconds in archives from 2025 on. undefined when the archive does not exist.
+ */
+async function binanceArchive(inst: Instrument, path: string): Promise<number[][] | undefined> {
+  if (!inst.binance) throw new UpstreamError(`${inst.id} در Binance موجود نیست`);
+  return binanceQueue(async () => {
+    const res = await fetchWithTimeout(`${config.binanceVisionUrl}/data/spot/${path}`, {}, Math.max(config.upstreamTimeoutMs, 60_000));
+    if (res.status === 404) return undefined;
+    if (!res.ok) throw new UpstreamError(`Binance archive: HTTP ${res.status}`, res.status);
+    const files = unzip(new Uint8Array(await res.arrayBuffer()));
+    const rows: number[][] = [];
+    for (const f of files) {
+      for (const line of f.data.toString('utf8').split('\n')) {
+        const cells = line.split(',');
+        let t = Number(cells[0]);
+        if (cells.length < 5 || !Number.isFinite(t)) continue; // header or empty line
+        if (t > 1e14) t = Math.floor(t / 1000);
+        rows.push([t, Number(cells[1]), Number(cells[2]), Number(cells[3]), Number(cells[4])]);
+      }
+    }
+    return rows;
+  });
+}
+
+const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/** A whole month of 1-minute bars from the monthly archive: the month's days, or undefined when not published. */
+export async function binanceArchiveMonth(inst: Instrument, monthStart: number, days: number): Promise<DayBars[] | undefined> {
+  const sym = inst.binance!;
+  const rows = await binanceArchive(inst, `monthly/klines/${sym}/1m/${sym}-1m-${ymd(monthStart).slice(0, 7)}.zip`);
+  return rows && parseBinanceKlines(rows, monthStart, days, DAY_MS, 60_000);
+}
+
+/** One day of 1-second (or 1-minute) bars from the daily archive; undefined when not published. */
+export async function binanceArchiveDay(inst: Instrument, dayStart: number, interval: '1s' | '1m'): Promise<DayBars | undefined> {
+  const sym = inst.binance!;
+  const rows = await binanceArchive(inst, `daily/klines/${sym}/${interval}/${sym}-${interval}-${ymd(dayStart)}.zip`);
+  return rows && parseBinanceKlines(rows, dayStart, 1, DAY_MS, interval === '1s' ? 1000 : 60_000)[0];
+}
+
+/** One UTC day of 1-second bars from the klines API (96 requests): when the archive has no file yet. */
+export async function binanceDaySeconds(inst: Instrument, dayStart: number): Promise<DayBars> {
+  return joinHours(await Promise.all(Array.from({ length: 24 }, (_, h) => binanceHour(inst, dayStart + h * HOUR_MS))));
 }

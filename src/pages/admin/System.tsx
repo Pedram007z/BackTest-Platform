@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { CalendarSync, Check, LoaderCircle, Megaphone, Search, Send, TestTube2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { MarketStoragePanel } from '../../components/admin/MarketStorage';
 import { Badge, Field, Loading, PageHeader, act, dateTime, useLoad } from '../../components/admin/kit';
 import { Modal } from '../../components/ui/Modal';
 import { Select, Toggle } from '../../components/ui/controls';
@@ -392,7 +393,6 @@ export function AdminNews() {
 const SOURCES: { value: DataSource; label: string }[] = [
   { value: 'dukascopy', label: 'Dukascopy (تاریخی)' },
   { value: 'binance', label: 'Binance (کریپتو)' },
-  { value: 'synthetic', label: 'داده‌ی ساختگی (آزمایشی)' },
 ];
 
 export function AdminMarket() {
@@ -428,6 +428,14 @@ export function AdminMarket() {
           </button>
         }
       />
+      <MarketStoragePanel
+        autoDownload={d.marketAutoDownload}
+        onAutoDownload={async (marketAutoDownload) => {
+          const next = { ...d, marketAutoDownload };
+          setD(next);
+          await act(backend.admin.saveSettings(next), marketAutoDownload ? 'دانلود خودکار روشن شد' : 'دانلود خودکار خاموش شد');
+        }}
+      />
       <section className="card mb-4 p-5">
         <h2 className="mb-3 font-bold">منبع داده‌ی هر بازار</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -443,7 +451,8 @@ export function AdminMarket() {
           ))}
         </div>
         <p className="mt-3 text-xs leading-6 text-faint">
-          داده‌ی واقعی را سرور دریافت و ذخیره می‌کند (کندل ۵ و ۱ دقیقه، و کندل ۱ ثانیه برای تایم‌فریم‌های ثانیه‌ای). بدون سرور، برنامه از داده‌ی ساختگی تکرارپذیر استفاده می‌کند.
+          همه‌ی قیمت‌ها داده‌ی واقعی تاریخی هستند: Dukascopy (قیمت Bid) و Binance. منبع فقط برای دانلودهای بعدی است؛ روزهای ذخیره‌شده تغییر نمی‌کنند. کندل‌های روزانه و ۴ ساعته مثل
+          بروکرها با بسته‌شدن ساعت ۱۷ نیویورک تشکیل می‌شوند؛ کریپتو با روز UTC.
         </p>
       </section>
       <section className="card p-5">

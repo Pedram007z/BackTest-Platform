@@ -5,6 +5,8 @@ import type {
   DiscountCode,
   GatewayConfig,
   GatewayId,
+  MarketDownloadJob,
+  MarketStorage,
   NewsSyncStatus,
   Page,
   Payment,
@@ -78,6 +80,10 @@ export interface AdminApi {
   audit(): Promise<AuditEntry[]>;
   newsStatus(): Promise<NewsSyncStatus>;
   syncNews(): Promise<NewsSyncStatus>;
+  /** Market history stored on the server, and its downloads. */
+  marketStorage(): Promise<MarketStorage>;
+  startMarketDownload(input: { kind?: 'm1' | 's1'; symbols?: string[]; from?: string; to?: string }): Promise<MarketDownloadJob>;
+  stopMarketDownload(): Promise<MarketDownloadJob | null>;
 }
 
 export interface Backend {

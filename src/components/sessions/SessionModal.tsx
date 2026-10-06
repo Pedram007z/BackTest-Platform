@@ -2,7 +2,7 @@ import { DollarSign, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { DAY_MS, addDays, addMonths, fmtDayLong, keyToMs } from '../../lib/calendar';
 import { fmtNum, toLatinDigits } from '../../lib/format';
-import { DATA_START, GROUP_LABELS, SYMBOLS, dataEnd } from '../../lib/market';
+import { GROUP_LABELS, SYMBOLS, dataEnd, dataStartOf } from '../../lib/market';
 import { useEnabledSymbols } from '../../services/marketFeed';
 import type { Session } from '../../lib/types';
 import { toast, useStore } from '../../store/useStore';
@@ -72,6 +72,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
     if (!(balanceNum >= 100)) e.balance = 'موجودی حساب باید حداقل ۱۰۰ دلار باشد.';
     if (symbols.length === 0) e.symbols = 'حداقل یک دارایی انتخاب کنید.';
     if (!start) e.start = 'تاریخ شروع را انتخاب کنید.';
+    else if (start < dataStartOf(...symbols)) e.start = `داده‌ی واقعی این نمادها از ${fmtDayLong(dataStartOf(...symbols))} شروع می‌شود.`;
     if (!end) e.end = 'تاریخ پایان را انتخاب کنید.';
     if (start && end && end <= start) e.end = 'تاریخ پایان باید بعد از تاریخ شروع باشد.';
     return e;
@@ -79,7 +80,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
   const valid = Object.keys(errors).length === 0;
 
   const quickEnd = (fn: (k: string) => string) => {
-    const base = start || DATA_START;
+    const base = start || dataStartOf(...symbols);
     let k = fn(base);
     if (k > max) k = max;
     setEnd(k);
@@ -114,7 +115,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
     onClose();
   };
 
-  const err = (k: string) => touched && errors[k] ? <p className="mt-1.5 text-xs text-loss">{errors[k]}</p> : null;
+  const err = (k: string) => (touched && errors[k] ? <p className="mt-1.5 text-xs text-loss">{errors[k]}</p> : null);
 
   // the admin can limit which symbols new sessions offer; an edited session keeps the ones it has
   const symbolOptions = SYMBOLS.filter((s) => !enabledSymbols || enabledSymbols.has(s.id) || session?.symbols.includes(s.id)).map((s) => ({
@@ -123,14 +124,8 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
     hint: s.name,
     group: GROUP_LABELS[s.group],
   }));
-  const strategyOptions = [
-    { value: NONE, label: 'بدون استراتژی' },
-    ...strategies.map((s) => ({ value: s.id, label: s.name, hint: s.description.slice(0, 60) })),
-  ];
-  const checklistOptions = [
-    { value: NONE, label: 'بدون چک‌لیست' },
-    ...checklists.map((c) => ({ value: c.id, label: c.name, hint: `${fmtNum(c.items.length)} آیتم` })),
-  ];
+  const strategyOptions = [{ value: NONE, label: 'بدون استراتژی' }, ...strategies.map((s) => ({ value: s.id, label: s.name, hint: s.description.slice(0, 60) }))];
+  const checklistOptions = [{ value: NONE, label: 'بدون چک‌لیست' }, ...checklists.map((c) => ({ value: c.id, label: c.name, hint: `${fmtNum(c.items.length)} آیتم` }))];
 
   return (
     <Modal
@@ -252,8 +247,8 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
             <label className="label" htmlFor="session-start">
               تاریخ شروع
             </label>
-            <DatePicker id="session-start" value={start} onChange={setStart} min={DATA_START} max={addDays(max, -1)} rangeWith={end} />
-            <p className="mt-1.5 text-xs text-faint">حداقل: {fmtDayLong(DATA_START)}</p>
+            <DatePicker id="session-start" value={start} onChange={setStart} min={dataStartOf(...symbols)} max={addDays(max, -1)} rangeWith={end} />
+            <p className="mt-1.5 text-xs text-faint">حداقل: {fmtDayLong(dataStartOf(...symbols))}</p>
             {err('start')}
           </div>
           <div>
@@ -279,7 +274,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
                 ))}
               </div>
             </div>
-            <DatePicker id="session-end" value={end} onChange={setEnd} min={start ? addDays(start, 1) : DATA_START} max={max} rangeWith={start} />
+            <DatePicker id="session-end" value={end} onChange={setEnd} min={start ? addDays(start, 1) : addDays(dataStartOf(...symbols), 1)} max={max} rangeWith={start} />
             <p className="mt-1.5 text-xs text-faint">حداکثر: {fmtDayLong(max)}</p>
             {err('end')}
           </div>

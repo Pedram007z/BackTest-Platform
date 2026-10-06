@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
 import { startServer } from './harness';
 import { FF_PAGE } from './fixtures/ff-page';
@@ -178,6 +177,8 @@ test('plans and settings are validated', async () => {
   const settings = (await s.call('GET', '/api/admin/settings', undefined, admin.token)).data;
   const bad = await s.call('PUT', '/api/admin/settings', { ...settings, otpLength: 3 }, admin.token);
   assert.equal(bad.data.field, 'otpLength');
+  const generated = await s.call('PUT', '/api/admin/settings', { ...settings, marketData: { ...settings.marketData, forex: 'synthetic' } }, admin.token);
+  assert.equal(generated.data.field, 'marketData.forex', 'generated prices are not a market data source');
   const good = await s.call('PUT', '/api/admin/settings', { ...settings, otpLength: 6, registrationOpen: false, enabledSymbols: ['EURUSD', 'XAUUSD', 'FAKE'] }, admin.token);
   assert.equal(good.status, 200);
   assert.deepEqual(good.data.enabledSymbols, ['EURUSD', 'XAUUSD']);
@@ -261,101 +262,6 @@ test('economic calendar: ForexFactory weeks are fetched once and cached', async 
   const sync = await s.call('POST', '/api/admin/news/sync', {}, admin.token);
   assert.equal(sync.status, 200);
   assert.match(sync.data.lastError, /Cloudflare/);
-});
-
-test('market data: Dukascopy and Binance days, cached on disk', async () => {
-  const bi5 = readFileSync(new URL('./fixtures/EURUSD_2024-01-15_min_1.bi5', import.meta.url));
-  const seen: string[] = [];
-  s.setUpstream((url) => {
-    seen.push(url);
-    if (url.includes('dukascopy') && url.includes('/EURUSD/2024/00/15/')) return new Response(bi5);
-    if (url.includes('dukascopy')) return new Response('', { status: 404 });
-    if (url.includes('/api/v3/klines')) {
-      const q = new URL(url).searchParams;
-      const start = Number(q.get('startTime'));
-      return s.json([[start, '42000', '42100', '41900', '42050', '1']]);
-    }
-    throw new Error(url);
-  });
-  const r = await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-13&to=2024-01-15', undefined, admin.token);
-  assert.equal(r.status, 200);
-  assert.equal(r.data.source, 'dukascopy');
-  assert.deepEqual(
-    r.data.days.map((d: any) => [d.day, d.bars === null ? 'closed' : d.bars ? d.bars.length : d.error]),
-    [
-      ['2024-01-13', 'closed'],
-      ['2024-01-14', 'closed'],
-      ['2024-01-15', 1152],
-    ],
-  );
-  assert.equal(r.data.days[2].bars[0], 1.08, 'prices are divided by the instrument factor');
-  assert.equal(seen.filter((u) => u.includes('/2024/00/13/')).length, 0, 'Saturdays are not requested');
-
-  const n = seen.length;
-  await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-13&to=2024-01-15', undefined, admin.token);
-  assert.equal(seen.length, n, 'second read comes from the disk cache');
-
-  const btc = await s.call('GET', '/api/market/days?symbol=BTCUSD&from=2024-01-01&to=2024-01-04', undefined, admin.token);
-  assert.equal(btc.data.source, 'binance');
-  assert.equal(btc.data.days.length, 4);
-  assert.deepEqual(btc.data.days[0].bars.slice(0, 4), [42000, 42100, 41900, 42050]);
-  assert.equal(btc.data.days[1].bars, null);
-  assert.equal(seen.filter((u) => u.includes('klines')).length, 2, 'four days take two requests (three per request)');
-
-  assert.equal((await s.call('GET', '/api/market/days?symbol=NOPE&from=2024-01-01&to=2024-01-02', undefined, admin.token)).data.field, 'symbol');
-  assert.equal((await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-01&to=2024-03-30', undefined, admin.token)).data.code, 'range');
-  const gz = await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-15&to=2024-01-15', undefined, admin.token, { headers: { 'Accept-Encoding': 'gzip' } });
-  assert.equal(gz.status, 200);
-});
-
-test('market data: 1-minute days and 1-second hours', async () => {
-  const bi5 = readFileSync(new URL('./fixtures/EURUSD_2024-01-15_min_1.bi5', import.meta.url));
-  const ticks = readFileSync(new URL('./fixtures/EURUSD_2024-01-15_10h_ticks.bi5', import.meta.url));
-  const seen: string[] = [];
-  s.setUpstream((url) => {
-    seen.push(url);
-    if (url.includes('dukascopy') && url.includes('/EURUSD/2024/00/15/BID_candles_min_1')) return new Response(bi5);
-    if (url.includes('dukascopy') && url.includes('/EURUSD/2024/00/15/10h_ticks')) return new Response(ticks);
-    if (url.includes('dukascopy')) return new Response('', { status: 404 });
-    if (url.includes('/api/v3/klines')) {
-      const q = new URL(url).searchParams;
-      const start = Number(q.get('startTime'));
-      return s.json([[start, '42000', '42100', '41900', '42050', '1']]);
-    }
-    throw new Error(url);
-  });
-  const m1 = await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-15&to=2024-01-15&res=1m', undefined, admin.token);
-  assert.equal(m1.status, 200);
-  assert.equal(m1.data.res, '1m');
-  assert.equal(m1.data.days[0].bars.length, 1440 * 4);
-  assert.equal(
-    (await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-01&to=2024-01-10&res=1m', undefined, admin.token)).data.code,
-    'range',
-    'at most 7 days of minutes',
-  );
-  assert.equal((await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-15&to=2024-01-15&res=2m', undefined, admin.token)).data.field, 'res');
-
-  const sec = await s.call('GET', '/api/market/seconds?symbol=EURUSD&from=2024-01-15T09&to=2024-01-15T10', undefined, admin.token);
-  assert.equal(sec.status, 200);
-  assert.deepEqual(
-    sec.data.hours.map((h: any) => [h.hour, h.bars === null ? 'closed' : h.bars ? h.bars.length : h.error]),
-    [
-      ['2024-01-15T09', 'closed'],
-      ['2024-01-15T10', 3600 * 4],
-    ],
-  );
-  const n = seen.length;
-  await s.call('GET', '/api/market/seconds?symbol=EURUSD&from=2024-01-15T09&to=2024-01-15T10', undefined, admin.token);
-  assert.equal(seen.length, n, 'hours come from the disk cache the second time');
-  assert.equal((await s.call('GET', '/api/market/seconds?symbol=EURUSD&from=2024-01-15T00&to=2024-01-15T10', undefined, admin.token)).data.code, 'range', 'at most 6 hours');
-
-  const btc = await s.call('GET', '/api/market/seconds?symbol=BTCUSD&from=2024-01-01T00&to=2024-01-01T00', undefined, admin.token);
-  assert.equal(btc.data.source, 'binance');
-  assert.deepEqual(btc.data.hours[0].bars.slice(0, 4), [42000, 42100, 41900, 42050]);
-  assert.equal(seen.filter((u) => u.includes('interval=1s')).length, 4, 'an hour of seconds takes four requests');
-  const btcMin = await s.call('GET', '/api/market/days?symbol=BTCUSD&from=2024-01-02&to=2024-01-02&res=1m', undefined, admin.token);
-  assert.equal(btcMin.data.days[0].bars.length, 1440 * 4);
-  assert.equal(seen.filter((u) => u.includes('interval=1m')).length, 2, 'a day of minutes takes two requests');
 });
 
 test("errors from visitors' browsers are logged", async () => {

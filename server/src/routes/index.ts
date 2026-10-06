@@ -1,7 +1,7 @@
 import { logout, requestOtp, requireUser, verifyOtp } from '../auth';
 import { db, save } from '../db';
 import { HttpError, Router, badRequest, notFound, rateLimit, str } from '../http';
-import { marketConfig, marketDays, marketSeconds } from '../market';
+import { marketConfig, marketDays, marketSeconds, marketShowcase } from '../market';
 import { eventsBetween } from '../news';
 import { checkDiscount, checkout, enabledGateways, handleCallback, publicPayment, simulatorComplete, simulatorPage } from '../payments';
 import type { Ticket } from '../shared';
@@ -28,9 +28,13 @@ export function buildRouter(): Router {
       maintenance: s.maintenance,
       supportPhone: s.supportPhone,
       enabledSymbols: s.enabledSymbols,
-      /** symbol → 'dukascopy' | 'binance' | 'synthetic' */
+      /** symbol → 'dukascopy' | 'binance' */
       market: marketConfig(),
     };
+  });
+  r.get('/api/market/showcase', (ctx) => {
+    rateLimit(`showcase:${ctx.ip}`, 60, 60_000);
+    return marketShowcase();
   });
   r.get('/api/plans', () =>
     clone(

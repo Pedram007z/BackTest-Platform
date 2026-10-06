@@ -16,7 +16,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import { PALETTES } from '../hooks/useChartTheme';
-import { SYMBOL_MAP, TF_MS, dayIndexOf, getCandles, isTradingDay, roundToTick, type Candle } from '../lib/market';
+import { SYMBOL_MAP, TF_MS, candleTime, dayIndexOf, getCandles, isTradingDay, roundToTick, type Candle } from '../lib/market';
 import { IMPACT_LABEL, newsTitleFa, type NewsEvent } from '../lib/news';
 import { fmtTehran } from '../lib/timezone';
 import { dirOf, openPnl, orderTitleEn } from '../lib/trading';
@@ -73,6 +73,8 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
 
   let candles: Candle[] = [];
   let loadedKey = '';
+  /** Cursor of the last load: a daily candle can carry a later date than the cursor (Sunday evening is Monday). */
+  let loadedCursor = 0;
   let priceLines: IPriceLine[] = [];
   let drag: DragTarget | null = null;
   let dragPrices: { entry: number; sl: number; tp: number } | null = null;
@@ -115,9 +117,10 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   function loadData() {
     const key = `${state.symbol}:${state.timeframe}:${state.dataVersion}`;
     const lastSec = candles[candles.length - 1]?.time ?? 0;
-    const behind = state.cursor / 1000 < lastSec;
+    const behind = state.cursor < loadedCursor;
     const farJump = state.cursor / 1000 - lastSec > tfSec() * 300;
     const ts = chart.timeScale();
+    loadedCursor = state.cursor;
 
     if (key !== loadedKey || behind || farJump || candles.length === 0) {
       const sameSeries = key.split(':').slice(0, 2).join(':') === loadedKey.split(':').slice(0, 2).join(':');
@@ -193,12 +196,13 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       if (tp > 0) priceLines.push(series.createPriceLine({ price: tp, color: pal.gain, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' }));
     }
     const list: SeriesMarker<Time>[] = [];
-    const step = TF_MS[state.timeframe];
+    const sym = SYMBOL_MAP[state.symbol];
+    const barOf = (t: number) => (sym ? candleTime(sym, state.timeframe, t) : Math.floor(t / TF_MS[state.timeframe]) * TF_MS[state.timeframe]) / 1000;
     const first = candles[0]?.time ?? 0;
     for (const t of state.trades) {
       if (t.status === 'pending' || t.status === 'cancelled') continue;
       if (t.status === 'closed' && !state.showHistory) continue;
-      const openSec = (Math.floor(t.openTime / step) * step) / 1000;
+      const openSec = barOf(t.openTime);
       if (openSec >= first && t.openTime <= state.cursor)
         list.push({
           time: openSec as UTCTimestamp,
@@ -208,7 +212,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
           size: 1,
         });
       if (t.status === 'closed' && t.closeTime) {
-        const closeSec = (Math.floor((t.closeTime - 1) / step) * step) / 1000;
+        const closeSec = barOf(t.closeTime - 1);
         if (closeSec >= first)
           list.push({
             time: closeSec as UTCTimestamp,
@@ -525,10 +529,11 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     if (!state.news.length) return;
     const ts = chart.timeScale();
     const { h, w } = plotBox();
+    const sym = SYMBOL_MAP[state.symbol];
     const step = TF_MS[state.timeframe];
     const groups = new Map<number, NewsEvent[]>();
     for (const ev of state.news) {
-      const b = Math.floor(ev.time / step) * step;
+      const b = sym ? candleTime(sym, state.timeframe, ev.time) : Math.floor(ev.time / step) * step;
       if (!groups.has(b)) groups.set(b, []);
       groups.get(b)!.push(ev);
     }
@@ -537,7 +542,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       const x = ts.timeToCoordinate((bucket / 1000) as UTCTimestamp);
       if (x === null || x < 0 || x > w) continue;
       const top = events.sort((a, b) => order.indexOf(a.impact) - order.indexOf(b.impact))[0];
-      const future = bucket > state.cursor;
+      const future = events.every((e) => e.time > state.cursor);
       if (future) {
         frag.append(el('div', { position: 'absolute', left: `${x}px`, top: '0', height: `${h}px`, borderLeft: `1px dashed ${IMPACT_COLOR[top.impact]}`, opacity: '0.7' }));
       }
