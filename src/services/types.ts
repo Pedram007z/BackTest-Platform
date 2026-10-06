@@ -38,7 +38,10 @@ export interface Plan {
 }
 
 export type GatewayId = 'zarinpal' | 'zibal' | 'idpay' | 'nextpay' | 'payir';
-export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded';
+/** A bank gateway, or 'card': a card-to-card transfer that an admin confirms. */
+export type PaymentMethod = GatewayId | 'card';
+/** review: a card-to-card transfer the payer reported as sent, waiting for an admin. */
+export type PaymentStatus = 'pending' | 'review' | 'paid' | 'failed' | 'refunded';
 
 export interface Payment {
   id: string;
@@ -49,7 +52,7 @@ export interface Payment {
   planName: string;
   amountToman: number;
   discountCode?: string;
-  gateway: GatewayId;
+  gateway: PaymentMethod;
   status: PaymentStatus;
   /** Gateway's id for the payment request (authority / trackId). */
   authority?: string;
@@ -58,6 +61,64 @@ export interface Payment {
   cardPan?: string;
   createdAt: number;
   paidAt?: number;
+  /** card-to-card payments only */
+  transfer?: CardTransfer;
+}
+
+/**
+ * A card-to-card payment: the payer sends exactly `amountRial` to the card. The last three digits
+ * of the amount (`code`) belong to this payment alone while it is open, so a deposit in the bank
+ * account can be matched to it by its amount.
+ */
+export interface CardTransfer {
+  cardId: string;
+  cardNumber: string;
+  holder: string;
+  bank: string;
+  /** 1–999: the last three digits of amountRial */
+  code: number;
+  amountRial: number;
+  /** transfer before this time; a reported transfer waits for an admin without a time limit */
+  expiresAt: number;
+  /** the admin's note for payers (card-to-card settings) when the payment was made */
+  instructions?: string;
+  /** what the payer reported: the last 4 digits of their card and the bank's tracking number */
+  payerCard?: string;
+  payerRef?: string;
+  sentAt?: number;
+  /** why it was closed unpaid */
+  closed?: 'expired' | 'cancelled' | 'rejected';
+  reviewedBy?: string;
+  reviewedAt?: number;
+  /** the reason given when an admin rejects it, shown to the payer */
+  note?: string;
+}
+
+/** A bank card that receives card-to-card payments (admin panel → کارت به کارت). */
+export interface PaymentCard {
+  id: string;
+  /** 16 digits */
+  number: string;
+  /** the name on the card, shown to the payer (their bank shows the same name before sending) */
+  holder: string;
+  bank: string;
+  active: boolean;
+  createdAt: number;
+  /** cards take turns: each payment gets the active card used longest ago */
+  lastUsedAt?: number;
+}
+
+export interface CardToCardSettings {
+  enabled: boolean;
+  /** minutes the payer has to make the transfer */
+  payMinutes: number;
+  /** extra text under the card on the payment page */
+  note: string;
+}
+
+export interface CardAdmin {
+  settings: CardToCardSettings;
+  cards: (PaymentCard & { open: number; paidCount: number; paidToman: number })[];
 }
 
 export interface DiscountCode {
@@ -180,7 +241,7 @@ export interface AdminStats {
   smsMonth: number;
   signupsByDay: { day: string; count: number }[];
   revenueByDay: { day: string; amount: number }[];
-  byGateway: { gateway: GatewayId; amount: number; count: number }[];
+  byGateway: { gateway: PaymentMethod; amount: number; count: number }[];
   planMix: { planId: string; name: string; count: number }[];
 }
 
@@ -256,7 +317,7 @@ export interface UserQuery {
 export interface PaymentQuery {
   q?: string;
   status?: PaymentStatus | 'all';
-  gateway?: GatewayId | 'all';
+  gateway?: PaymentMethod | 'all';
   page?: number;
   pageSize?: number;
 }
@@ -268,6 +329,8 @@ export const GATEWAY_NAMES: Record<GatewayId, string> = {
   nextpay: 'نکست‌پی',
   payir: 'پی‌دات‌آی‌آر',
 };
+
+export const PAYMENT_METHOD_NAMES: Record<PaymentMethod, string> = { ...GATEWAY_NAMES, card: 'کارت به کارت' };
 
 export const SMS_PROVIDER_NAMES: Record<SmsProviderId, string> = {
   kavenegar: 'کاوه‌نگار',

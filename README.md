@@ -48,9 +48,10 @@ to add your SMS provider's key and your payment gateways' merchant ids.
 | `/analytics` | آنالیز (Analytics) | Net P&L, profit factor, expectancy, max drawdown, cumulative P&L, P&L by symbol, win rate by weekday, long vs short |
 | `/settings` | تنظیمات حساب (Account) | Name, profile picture upload, subscription renewal, theme, clear data or restore the sample data |
 | `/login` | ورود / ثبت‌نام | Phone number → SMS code (5 digits by default); new numbers also give their name. Candlestick chart on the left half |
-| `/billing` | اشتراک و پرداخت | Plans, discount codes, gateway choice, payment history; the bank sends the user back here with the result |
+| `/billing` | اشتراک و پرداخت | Plans, discount codes, payment method (a bank gateway or card to card), payment history; the bank sends the user back here with the result |
+| `/billing/card` | پرداخت کارت به کارت | The card, its holder's name and the exact amount in rial (with this payment's own last three digits), a countdown, and «واریز کردم» (I have paid) |
 | `/support` | پشتیبانی | Tickets with replies from the admins |
-| `/admin/*` | پنل مدیریت | Overview, users (search, ban, plan changes, admin role), plans, transactions and refunds, discount codes, gateways (with connection test), SMS (provider, test, bulk messages, log), tickets, economic calendar sync, symbols and market data sources, site settings, audit log |
+| `/admin/*` | پنل مدیریت | Overview, users (search, ban, plan changes, admin role), plans, transactions and refunds, discount codes, gateways (with connection test), card to card (cards, settings, confirming transfers), SMS (provider, test, bulk messages, log), tickets, economic calendar sync, symbols and market data sources, site settings, audit log |
 | `/replay/:id` | Chart (Play button) | Candlestick replay with play/pause, step, speed and a skip-a-day button; 5m–1D timeframes; buy/sell with risk %, stop in pips and RR; SL/TP filled automatically as candles advance; a session checklist must have its required items ticked before an order goes through |
 
 ### Session row
@@ -78,6 +79,7 @@ The menu items, then Account Settings, then the profile picture, current subscri
 | Sign-in | `POST /api/auth/otp`, `POST /api/auth/verify`. Codes are stored as HMACs, expire (120 s by default), allow 5 tries and one resend per minute; requests are rate limited per IP and per number. Sessions are random bearer tokens (30 days) stored hashed. |
 | SMS (پیامک) | Kavenegar (verify lookup), SMS.ir (verify template), Melipayamak (shared service number, REST or console API), Ghasedak (OTP template), FarazSMS / IPPanel (pattern). With a template set the code goes through the provider's OTP service; otherwise as a normal message. In the template field, `id:VARIABLE` sets the template's variable name. Every message is logged. |
 | Payments | Zarinpal (v4), Zibal, IDPay, NextPay and Pay.ir, each with its sandbox. Checkout registers the payment, the browser goes to the bank, the bank returns to `/api/payments/callback/<gateway>`, and the server verifies it server-to-server (and checks the amount) before extending the plan. Repeated and forged callbacks are ignored. Unfinished payments expire after two hours. |
+| Card to card | Admins add the cards that receive money (card number checked, bank found from its first six digits, holder name) and switch the method on. Each payment gets one of the active cards in turn and an amount in **rial** whose last three digits are a code no other open payment has (the price rounded up to whole thousands of rial, plus 1–999). The payer transfers that exact amount and presses «واریز کردم», optionally with the last 4 digits of their card and the bank's tracking number. The admin finds the deposit by its last three digits on the **کارت به کارت** page and confirms it (the plan starts) or rejects it (the payer sees the reason). Unreported payments close at the deadline (30 minutes by default) but keep their code for a day, so a late transfer can still be reported and confirmed. Code in `server/src/payments/card.ts` and `src/services/cards.ts`. |
 | Calendar | ForexFactory calendar pages (with actual values) by week, cached; past weeks are fetched once, the current and next week refresh hourly; the weekly JSON feed covers the current week if the page is blocked. Weeks that cannot be fetched are filled from the sample calendar in the app. |
 | Market data | `GET /api/market/days?symbol=EURUSD&from=2024-01-01&to=2024-01-30[&res=1m]` and `GET /api/market/seconds?...` read the stored history only. The downloader fills it from Dukascopy's data API (JSON) or its datafeed files (`.bi5`, decoded by a built-in LZMA decoder), and Binance's monthly archives (data.binance.vision) or klines: every hour by itself, from the admin panel (`/api/admin/market/*`), or with `node server.mjs download`. `GET /api/market/showcase` (public): stored prices for the landing and sign-in pages. |
 | Admin | Everything under `/api/admin/*` that the admin panel uses, with input validation and an audit log. |
@@ -86,7 +88,7 @@ Data lives in `server/data/` (`db.json` for accounts, payments and settings; `ne
 The database is one JSON file written atomically, which fits a single server process.
 
 ```bash
-npm test          # 27 tests: sign-in, payments (simulator and each gateway's verify flow), SMS providers, calendar and market parsers, admin API
+npm test          # sign-in, payments (simulator, each gateway's verify flow, card to card), SMS providers, calendar and market parsers, market storage, admin API
 npm run typecheck
 npm run build     # bundles to dist/server.mjs; run with `npm start`
 ```

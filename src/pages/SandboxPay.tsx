@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { faDigits, fmtNum } from '../lib/format';
 import { completeSandboxPayment, sandboxPaymentInfo } from '../services/localBackend';
-import { GATEWAY_NAMES } from '../services/types';
+import { PAYMENT_METHOD_NAMES } from '../services/types';
 
 /**
  * Stand-in for the bank's payment page in the demo (no server, no real gateway).
@@ -50,7 +50,7 @@ export default function SandboxPay() {
         <div className="flex items-center justify-between bg-[#1f3c88] px-5 py-4 text-white">
           <div>
             <p className="text-[11px] opacity-80">درگاه پرداخت اینترنتی</p>
-            <p className="font-bold">{GATEWAY_NAMES[payment.gateway]}</p>
+            <p className="font-bold">{PAYMENT_METHOD_NAMES[payment.gateway]}</p>
           </div>
           <span className="rounded-md bg-amber px-2 py-0.5 text-[11px] font-bold text-black">سندباکس — پرداخت آزمایشی</span>
         </div>

@@ -1,13 +1,14 @@
 import clsx from 'clsx';
-import { BadgePercent, Check, CircleCheck, CircleX, CreditCard, Crown, LoaderCircle, ShieldCheck } from 'lucide-react';
+import { BadgePercent, Check, CircleCheck, CircleX, CreditCard, Crown, Hourglass, LoaderCircle, ShieldCheck, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link } from '../components/ui/AppLink';
 import { Meter } from '../components/ui/controls';
 import { diffDays, fmtDayLong, localDayKey } from '../lib/calendar';
 import { faDigits, fmtNum } from '../lib/format';
 import { planDaysLeft } from '../lib/stats';
 import { BackendError, backend } from '../services';
-import { GATEWAY_NAMES, type GatewayId, type Payment, type Plan } from '../services/types';
+import { PAYMENT_METHOD_NAMES, type Payment, type PaymentMethod, type Plan } from '../services/types';
 import { useAuth } from '../store/useAuth';
 import { toast, useStore } from '../store/useStore';
 
@@ -16,6 +17,7 @@ export const toman = (n: number) => `${fmtNum(n)} تومان`;
 const STATUS: Record<Payment['status'], { label: string; cls: string }> = {
   paid: { label: 'موفق', cls: 'bg-gain/15 text-gain' },
   pending: { label: 'در انتظار', cls: 'bg-amber/15 text-amber' },
+  review: { label: 'در انتظار تأیید', cls: 'bg-accent/15 text-accent-ink' },
   failed: { label: 'ناموفق', cls: 'bg-loss/15 text-loss' },
   refunded: { label: 'مسترد شده', cls: 'bg-raised text-muted' },
 };
@@ -26,10 +28,10 @@ export default function Billing() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [gateways, setGateways] = useState<{ id: GatewayId; name: string }[]>([]);
+  const [gateways, setGateways] = useState<{ id: PaymentMethod; name: string }[]>([]);
   const [history, setHistory] = useState<Payment[]>([]);
   const [planId, setPlanId] = useState<string>('');
-  const [gateway, setGateway] = useState<GatewayId | ''>('');
+  const [gateway, setGateway] = useState<PaymentMethod | ''>('');
   const [code, setCode] = useState('');
   const [discount, setDiscount] = useState<{ code: string; percent: number; finalToman: number } | null>(null);
   const [codeError, setCodeError] = useState('');
@@ -106,20 +108,37 @@ export default function Billing() {
   return (
     <div className="mx-auto max-w-[1100px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
       <h1 className="font-display text-2xl font-bold">اشتراک و پرداخت</h1>
-      <p className="mb-6 mt-1 text-sm text-muted">پلن را انتخاب کنید و از درگاه بانکی پرداخت کنید؛ روزهای باقی‌مانده‌ی اشتراک فعلی به پلن جدید اضافه می‌شود.</p>
+      <p className="mb-6 mt-1 text-sm text-muted">پلن را انتخاب کنید و پرداخت کنید؛ روزهای باقی‌مانده‌ی اشتراک فعلی به پلن جدید اضافه می‌شود.</p>
 
       {result && (
         <div
           role="status"
-          className={clsx('mb-5 flex flex-wrap items-center gap-3 rounded-2xl border p-4', result.status === 'paid' ? 'border-gain/50 bg-gain/10' : 'border-loss/50 bg-loss/10')}
+          className={clsx(
+            'mb-5 flex flex-wrap items-center gap-3 rounded-2xl border p-4',
+            result.status === 'paid' ? 'border-gain/50 bg-gain/10' : result.status === 'review' || result.status === 'pending' ? 'border-accent/50 bg-accent/10' : 'border-loss/50 bg-loss/10',
+          )}
         >
-          {result.status === 'paid' ? <CircleCheck className="text-gain" size={24} /> : <CircleX className="text-loss" size={24} />}
+          {result.status === 'paid' ? (
+            <CircleCheck className="text-gain" size={24} />
+          ) : result.status === 'review' || result.status === 'pending' ? (
+            <Hourglass className="text-accent-ink" size={24} />
+          ) : (
+            <CircleX className="text-loss" size={24} />
+          )}
           <div className="min-w-0 flex-1">
-            <p className="font-bold">{result.status === 'paid' ? `پرداخت موفق — ${result.planName} فعال شد` : 'پرداخت انجام نشد'}</p>
+            <p className="font-bold">
+              {result.status === 'paid'
+                ? `پرداخت موفق — ${result.planName} فعال شد`
+                : result.status === 'review'
+                  ? 'پرداخت ثبت شد و در انتظار تأیید است'
+                  : result.status === 'pending'
+                    ? 'پرداخت هنوز کامل نشده است'
+                    : 'پرداخت انجام نشد'}
+            </p>
             <p className="num text-xs text-muted">
-              {toman(result.amountToman)} · {GATEWAY_NAMES[result.gateway]}
+              {toman(result.amountToman)} · {PAYMENT_METHOD_NAMES[result.gateway]}
               {result.refId && ` · کد پیگیری: ${faDigits(result.refId)}`}
-              {result.status !== 'paid' && ' · اگر مبلغی کسر شده باشد تا ۷۲ ساعت به حسابتان برمی‌گردد.'}
+              {result.status === 'failed' && (result.transfer ? ` · ${result.transfer.note ?? 'این پرداخت بسته شد.'}` : ' · اگر مبلغی کسر شده باشد تا ۷۲ ساعت به حسابتان برمی‌گردد.')}
             </p>
           </div>
           <button
@@ -234,9 +253,9 @@ export default function Billing() {
               </div>
               {codeError && <p className="mt-1.5 text-xs text-loss">{codeError}</p>}
 
-              <p className="label mt-5">درگاه پرداخت</p>
-              <div className="flex flex-col gap-2" role="radiogroup" aria-label="درگاه پرداخت">
-                {gateways.length === 0 && <p className="text-xs text-muted">درگاه فعالی تعریف نشده است.</p>}
+              <p className="label mt-5">روش پرداخت</p>
+              <div className="flex flex-col gap-2" role="radiogroup" aria-label="روش پرداخت">
+                {gateways.length === 0 && <p className="text-xs text-muted">روش پرداختی فعال نشده است.</p>}
                 {gateways.map((g) => (
                   <button
                     key={g.id}
@@ -249,17 +268,20 @@ export default function Billing() {
                     <span className={clsx('flex h-4 w-4 items-center justify-center rounded-full border-2', gateway === g.id ? 'border-accent' : 'border-faint')}>
                       {gateway === g.id && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
                     </span>
-                    <CreditCard size={16} className="text-muted" />
-                    {g.name}
+                    {g.id === 'card' ? <WalletCards size={16} className="text-muted" /> : <CreditCard size={16} className="text-muted" />}
+                    <span className="flex-1">{g.name}</span>
+                    {g.id === 'card' && <span className="text-[11px] text-faint">با هر کارت بانکی</span>}
                   </button>
                 ))}
               </div>
               <button type="button" className="btn-primary mt-5 h-11 w-full rounded-xl" disabled={!gateway || busy !== null} onClick={pay}>
-                {busy === 'pay' ? <LoaderCircle size={17} className="animate-spin" /> : `پرداخت ${toman(price)}`}
+                {busy === 'pay' ? <LoaderCircle size={17} className="animate-spin" /> : gateway === 'card' ? 'ادامه: کارت به کارت' : `پرداخت ${toman(price)}`}
               </button>
               <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-5 text-faint">
                 <ShieldCheck size={13} className="mt-0.5 shrink-0" />
-                پرداخت در صفحه‌ی امن بانک (شاپرک) انجام می‌شود و اطلاعات کارت شما نزد ما ذخیره نمی‌شود.
+                {gateway === 'card'
+                  ? 'شماره‌ی کارت و مبلغ دقیق (به ریال) در صفحه‌ی بعد نمایش داده می‌شود. پس از تأیید واریز، اشتراک فعال می‌شود.'
+                  : 'پرداخت در صفحه‌ی امن بانک (شاپرک) انجام می‌شود و اطلاعات کارت شما نزد ما ذخیره نمی‌شود.'}
               </p>
             </>
           ) : (
@@ -276,7 +298,7 @@ export default function Billing() {
           <table className="w-full min-w-[640px] text-[13px]">
             <thead className="bg-raised/40">
               <tr>
-                {['تاریخ', 'پلن', 'مبلغ', 'درگاه', 'کد پیگیری', 'وضعیت'].map((h) => (
+                {['تاریخ', 'پلن', 'مبلغ', 'روش پرداخت', 'کد پیگیری', 'وضعیت', ''].map((h) => (
                   <th key={h} className="th">
                     {h}
                   </th>
@@ -289,10 +311,17 @@ export default function Billing() {
                   <td className="td num">{fmtDayLong(localDayKey(new Date(p.createdAt)))}</td>
                   <td className="td">{p.planName}</td>
                   <td className="td num">{toman(p.amountToman)}</td>
-                  <td className="td">{GATEWAY_NAMES[p.gateway]}</td>
+                  <td className="td">{PAYMENT_METHOD_NAMES[p.gateway]}</td>
                   <td className="td num">{p.refId ? faDigits(p.refId) : '—'}</td>
                   <td className="td">
                     <span className={clsx('rounded-md px-2 py-0.5 text-[11px] font-bold', STATUS[p.status].cls)}>{STATUS[p.status].label}</span>
+                  </td>
+                  <td className="td text-end">
+                    {p.transfer && (
+                      <Link to={`/billing/card?payment=${encodeURIComponent(p.id)}`} className="text-[12px] font-semibold text-accent-ink hover:underline">
+                        {p.status === 'pending' ? 'ادامه‌ی پرداخت' : 'جزئیات'}
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}

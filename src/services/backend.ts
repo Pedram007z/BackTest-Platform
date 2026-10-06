@@ -2,6 +2,8 @@ import type {
   AccountUser,
   AdminStats,
   AuditEntry,
+  CardAdmin,
+  CardToCardSettings,
   DiscountCode,
   GatewayConfig,
   GatewayId,
@@ -10,6 +12,8 @@ import type {
   NewsSyncStatus,
   Page,
   Payment,
+  PaymentCard,
+  PaymentMethod,
   PaymentQuery,
   Plan,
   SiteConfig,
@@ -61,6 +65,13 @@ export interface AdminApi {
   deletePlan(id: string): Promise<void>;
   payments(q: PaymentQuery): Promise<Page<Payment>>;
   refundPayment(id: string): Promise<Payment>;
+  /** Card to card: the money arrived (starts the plan), or it did not (the reason is shown to the payer). */
+  confirmPayment(id: string, refId?: string): Promise<Payment>;
+  rejectPayment(id: string, reason: string): Promise<Payment>;
+  cards(): Promise<CardAdmin>;
+  saveCard(card: Pick<PaymentCard, 'id' | 'number' | 'holder' | 'bank' | 'active'>): Promise<PaymentCard>;
+  deleteCard(id: string): Promise<void>;
+  saveCardSettings(s: CardToCardSettings): Promise<CardToCardSettings>;
   discounts(): Promise<DiscountCode[]>;
   saveDiscount(d: DiscountCode): Promise<DiscountCode>;
   deleteDiscount(id: string): Promise<void>;
@@ -104,10 +115,13 @@ export interface Backend {
   updateMe(patch: { name?: string }): Promise<AccountUser>;
   logout(): Promise<void>;
   plans(): Promise<Plan[]>;
-  gateways(): Promise<{ id: GatewayId; name: string }[]>;
+  gateways(): Promise<{ id: PaymentMethod; name: string }[]>;
   checkDiscount(code: string, planId: string): Promise<{ percent: number; finalToman: number }>;
-  checkout(input: { planId: string; gateway: GatewayId; discountCode?: string }): Promise<CheckoutResult>;
+  checkout(input: { planId: string; gateway: PaymentMethod; discountCode?: string }): Promise<CheckoutResult>;
   payment(id: string): Promise<Payment>;
+  /** Card to card: the payer has sent the money (both details optional), or gives up before sending. */
+  reportTransfer(id: string, input: { payerCard?: string; payerRef?: string }): Promise<Payment>;
+  cancelTransfer(id: string): Promise<Payment>;
   myPayments(): Promise<Payment[]>;
   myTickets(): Promise<Ticket[]>;
   createTicket(subject: string, text: string): Promise<Ticket>;

@@ -4,6 +4,7 @@ import { HttpError, Router, badRequest, notFound, rateLimit, str } from '../http
 import { marketConfig, marketDays, marketSeconds, marketShowcase } from '../market';
 import { eventsBetween } from '../news';
 import { checkDiscount, checkout, enabledGateways, handleCallback, publicPayment, simulatorComplete, simulatorPage } from '../payments';
+import { cancelTransfer, expireTransfers, reportTransfer } from '../payments/card';
 import type { Ticket } from '../shared';
 import { DAY_MS, clone, uid } from '../util';
 import { adminRoutes } from './admin';
@@ -60,6 +61,7 @@ export function buildRouter(): Router {
   });
   r.get('/api/me/payments', (ctx) => {
     const u = requireUser(ctx);
+    expireTransfers();
     return db()
       .payments.filter((p) => p.userId === u.id)
       .map(publicPayment);
@@ -108,8 +110,12 @@ export function buildRouter(): Router {
   }
   r.get('/api/payments/simulate/:id', (ctx) => simulatorPage(ctx.params.id));
   r.post('/api/payments/simulate/:id', (ctx) => simulatorComplete(ctx.params.id, ctx.body.action));
+  // card to card: the payer reports the transfer as sent, or gives up on it
+  r.post('/api/payments/:id/sent', (ctx) => publicPayment(reportTransfer(requireUser(ctx), ctx.params.id, ctx.body)));
+  r.post('/api/payments/:id/cancel', (ctx) => publicPayment(cancelTransfer(requireUser(ctx), ctx.params.id)));
   r.get('/api/payments/:id', (ctx) => {
     const u = requireUser(ctx);
+    expireTransfers();
     const p = db().payments.find((x) => x.id === ctx.params.id);
     if (!p || (p.userId !== u.id && u.role !== 'admin')) throw notFound('تراکنش پیدا نشد.');
     return publicPayment(p);

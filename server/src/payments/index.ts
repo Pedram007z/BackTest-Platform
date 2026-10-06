@@ -1,12 +1,14 @@
 import { config } from '../config';
 import { db, save, type StoredPayment } from '../db';
 import { HttpError, Reply, badRequest, notFound, oneOf, str } from '../http';
-import type { AccountUser, DiscountCode, GatewayId, Plan } from '../shared';
-import { GATEWAY_NAMES } from '../shared';
+import type { AccountUser, DiscountCode, GatewayId, PaymentMethod, Plan } from '../shared';
+import { GATEWAY_NAMES, PAYMENT_METHOD_NAMES } from '../shared';
 import { UpstreamError, addDays, clone, faNum, todayKey, uid } from '../util';
+import { cardPaymentsOpen, expireTransfers, startCardPayment } from './card';
 import { GATEWAYS, GatewayError, toRial } from './gateways';
 
 export const GATEWAY_IDS = Object.keys(GATEWAY_NAMES) as GatewayId[];
+export const METHOD_IDS = Object.keys(PAYMENT_METHOD_NAMES) as PaymentMethod[];
 
 /** The public view of a payment (internal fields removed). */
 export function publicPayment(p: StoredPayment) {
@@ -33,11 +35,14 @@ export function extendPlan(user: AccountUser, plan: Plan) {
   user.planEndsAt = addDays(from, plan.durationDays);
 }
 
-export function enabledGateways() {
-  return db()
+/** Ways to pay offered at checkout: enabled gateways by priority, then card to card when it has an active card. */
+export function enabledGateways(): { id: PaymentMethod; name: string }[] {
+  const list: { id: PaymentMethod; name: string }[] = db()
     .gateways.filter((g) => g.enabled)
     .sort((a, b) => a.priority - b.priority)
     .map((g) => ({ id: g.id, name: g.name }));
+  if (cardPaymentsOpen()) list.push({ id: 'card', name: PAYMENT_METHOD_NAMES.card });
+  return list;
 }
 
 export function checkDiscount(body: any) {
@@ -51,11 +56,13 @@ export async function checkout(user: AccountUser, body: any) {
   const d = db();
   const plan = d.plans.find((p) => p.id === body.planId && p.active);
   if (!plan || plan.priceToman <= 0) throw notFound('این پلن قابل خرید نیست.');
-  const gatewayId = oneOf(body.gateway, GATEWAY_IDS, 'gateway');
-  const g = d.gateways.find((x) => x.id === gatewayId && x.enabled);
-  if (!g) throw badRequest('gateway', 'این درگاه فعال نیست.', 'gateway');
+  const method = oneOf(body.gateway, METHOD_IDS, 'gateway');
   const disc = discountFor(typeof body.discountCode === 'string' ? body.discountCode : undefined, plan);
   if (disc.finalToman < 1000) throw badRequest('amount', 'مبلغ پرداخت کمتر از حداقل مجاز درگاه است.', 'discount');
+  if (method === 'card') return startCardPayment(user, plan, disc.finalToman, disc.dc?.code);
+  const gatewayId = method;
+  const g = d.gateways.find((x) => x.id === gatewayId && x.enabled);
+  if (!g) throw badRequest('gateway', 'این درگاه فعال نیست.', 'gateway');
 
   const p: StoredPayment = {
     id: uid('pay'),
@@ -103,7 +110,7 @@ export async function checkout(user: AccountUser, body: any) {
 const callbackUrl = (gateway: GatewayId, paymentId: string) => `${config.publicUrl}/api/payments/callback/${gateway}?pid=${encodeURIComponent(paymentId)}`;
 const backToApp = (paymentId: string) => Reply.redirect(`${config.appUrl}/#/billing?payment=${encodeURIComponent(paymentId)}`);
 
-function markPaid(p: StoredPayment, refId?: string, cardPan?: string) {
+export function markPaid(p: StoredPayment, refId?: string, cardPan?: string) {
   const d = db();
   p.status = 'paid';
   p.paidAt = Date.now();
@@ -135,7 +142,7 @@ export async function handleCallback(gatewayId: string, query: URLSearchParams, 
   for (const [k, v] of Object.entries(body ?? {})) if (typeof v === 'string' || typeof v === 'number') params[k] = String(v);
   const pid = params.pid ?? params.order_id ?? params.orderId ?? params.factorNumber ?? '';
   const p = db().payments.find((x) => x.id === pid);
-  if (!p || p.gateway !== gatewayId) return Reply.redirect(`${config.appUrl}/#/billing`);
+  if (!p || p.gateway !== gatewayId || p.gateway === 'card') return Reply.redirect(`${config.appUrl}/#/billing`);
 
   if (!inflight.has(p.id)) {
     inflight.set(
@@ -148,7 +155,7 @@ export async function handleCallback(gatewayId: string, query: URLSearchParams, 
 }
 
 async function verifyPayment(p: StoredPayment, params: Record<string, string>) {
-  if (p.status !== 'pending') return;
+  if (p.status !== 'pending' || p.gateway === 'card') return;
   const gw = GATEWAYS[p.gateway];
   const info = gw.callback(params);
   if (info.authority && p.authority && info.authority !== p.authority) {
@@ -191,7 +198,7 @@ button{height:44px;border-radius:12px;border:0;font:inherit;font-weight:700;curs
 .ok{background:#1f9d55;color:#fff}.no{background:#fff;border:1px solid #d6dbe6;color:#5b6577}
 p{margin:0 20px 16px;font-size:12px;color:#7a5600;background:#fff6e0;padding:8px 12px;border-radius:10px;line-height:1.8}
 </style></head><body><div class="card">
-<div class="head"><div><div style="font-size:11px;opacity:.8">درگاه پرداخت</div><b>${esc(GATEWAY_NAMES[p.gateway])}</b></div><span class="tag">شبیه‌ساز توسعه</span></div>
+<div class="head"><div><div style="font-size:11px;opacity:.8">درگاه پرداخت</div><b>${esc(PAYMENT_METHOD_NAMES[p.gateway])}</b></div><span class="tag">شبیه‌ساز توسعه</span></div>
 <dl><dt>بابت</dt><dd>${esc(p.planName)}</dd><dt>پرداخت‌کننده</dt><dd dir="ltr">${esc(p.phone)}</dd><dt>مبلغ</dt><dd>${faNum(p.amountToman * 10)} ریال</dd></dl>
 <p>این صفحه فقط وقتی PAYMENT_SIMULATOR روشن است نمایش داده می‌شود و پولی جابه‌جا نمی‌شود. روی سرور اصلی آن را خاموش کنید تا کاربر به درگاه واقعی برود.</p>
 ${
@@ -232,12 +239,13 @@ export async function testGateway(id: GatewayId): Promise<{ ok: boolean; message
   }
 }
 
-/** Pending payments older than two hours will not complete any more. */
+/** Gateway payments still pending after two hours will not complete any more; card transfers end at their own deadline. */
 export function expireStalePayments() {
+  expireTransfers();
   const cutoff = Date.now() - 2 * 3_600_000;
   let changed = false;
   for (const p of db().payments) {
-    if (p.status === 'pending' && p.createdAt < cutoff) {
+    if (p.status === 'pending' && !p.transfer && p.createdAt < cutoff) {
       p.status = 'failed';
       p.gatewayMessage = p.gatewayMessage ?? 'مهلت پرداخت تمام شد.';
       changed = true;

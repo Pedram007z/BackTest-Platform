@@ -5,6 +5,7 @@ import { PageErrorBoundary } from './components/ui/ErrorBoundary';
 import Analytics from './pages/Analytics';
 import AuthPage from './pages/Auth';
 import Billing from './pages/Billing';
+import CardPay from './pages/CardPay';
 import Checklists from './pages/Checklists';
 import Dashboard from './pages/Dashboard';
 import Journal from './pages/Journal';
@@ -16,6 +17,7 @@ import Settings from './pages/Settings';
 import Strategies from './pages/Strategies';
 import Support from './pages/Support';
 import AdminLayout from './pages/admin/AdminLayout';
+import { AdminCards } from './pages/admin/Cards';
 import { AdminDiscounts, AdminGateways, AdminPayments, AdminPlans } from './pages/admin/Commerce';
 import AdminOverview from './pages/admin/Overview';
 import { AdminAudit, AdminMarket, AdminNews, AdminSettings, AdminSms, AdminTickets } from './pages/admin/System';
@@ -88,6 +90,7 @@ export default function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/billing/card" element={<CardPay />} />
             <Route path="/support" element={<Support />} />
             <Route path="/replay/:id" element={<Replay />} />
           </Route>
@@ -98,6 +101,7 @@ export default function App() {
             <Route path="payments" element={<AdminPayments />} />
             <Route path="discounts" element={<AdminDiscounts />} />
             <Route path="gateways" element={<AdminGateways />} />
+            <Route path="cards" element={<AdminCards />} />
             <Route path="sms" element={<AdminSms />} />
             <Route path="tickets" element={<AdminTickets />} />
             <Route path="news" element={<AdminNews />} />
