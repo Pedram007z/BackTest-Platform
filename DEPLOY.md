@@ -35,7 +35,7 @@ refuse servers abroad. On an Iranian VPS, expect these; the steps below handle e
 
 ```bash
 cd BackTest-Platform
-# optional, for TradingView charts: install the library you licensed
+# TradingView chart (drawing tools, indicators, seconds): install the library you licensed, once
 npm run setup:charts -- path/to/charting_library-master.zip
 # build for your domain
 npm run release -- https://backtestlab.ir
@@ -54,6 +54,10 @@ check-sources.sh      checks whether the server reaches the data sources (step 8
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
+
+The TradingView Charting Library is licensed to you and is not part of this repository. `setup:charts` copies
+it into `public/charting_library/` (kept out of git), and the release then ships it in `web/charting_library/`.
+Without it the replay uses the built-in chart; the release output says which chart it was built with.
 
 If `npm ci` fails with `403 Forbidden` or times out (npm sometimes refuses Iranian connections), run the
 build with a VPN on, or point npm at a mirror with `npm config set registry <mirror address>`.
@@ -269,5 +273,8 @@ sudo crontab -e
 | No sign-in code arrives | Admin panel → پیامک → send a test message; the SMS log shows the provider's error |
 | Payment returns as failed | Merchant id and sandbox setting in the admin panel; the gateway's callback domain must match your site |
 | Settings are not saved after a restart | `DATA_DIR` must be `/var/lib/backtestlab` (the only folder the service may write to) |
+| A click shows an **empty page** until you refresh | Errors from visitors' browsers are logged: `sudo journalctl -u backtestlab \| grep client-error`. Common causes: the browser's translator (turn off "Translate this page"), an extension, or a CDN/firewall "optimization" (ArvanCloud/Cloudflare minify, Rocket Loader, script rewriting): turn those off for the site. Serve the release's `web/` folder, not the source code or `npm run dev` |
+| Replay shows the simple chart, not TradingView's | The library was not installed when the release was built: `npm run setup:charts -- …zip`, build again, upload `web/` |
+| 1-second charts take long to open | Second bars are downloaded per hour on first use (Dukascopy tick files / Binance 1s klines) and cached in `DATA_DIR/market` |
 
 Run a single copy of the API server: its database is one file and is not shared between processes.

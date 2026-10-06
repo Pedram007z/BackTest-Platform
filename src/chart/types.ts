@@ -39,6 +39,8 @@ export interface EngineState {
   news: NewsEvent[];
   /** Bumps when remote market data arrives, so the engine reloads bars. */
   dataVersion: number;
+  /** Where the chart's own layout (drawings, indicators) is kept: one per session and pane. */
+  layoutKey?: string;
 }
 
 export interface EngineCallbacks {

@@ -123,6 +123,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       const sameSeries = key.split(':').slice(0, 2).join(':') === loadedKey.split(':').slice(0, 2).join(':');
       candles = getCandles(state.symbol, state.timeframe, state.cursor, HISTORY);
       series.applyOptions({ priceFormat: { type: 'price', precision: digits(), minMove: 1 / 10 ** digits() } });
+      chart.applyOptions({ timeScale: { secondsVisible: tfSec() < 60 } });
       series.setData(candles.map((c) => ({ ...c, time: c.time as UTCTimestamp })));
       spacer.setData(futureTimes(candles[candles.length - 1]?.time ?? state.cursor / 1000));
       const n = candles.length;

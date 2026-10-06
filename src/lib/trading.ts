@@ -1,4 +1,4 @@
-import { BAR_MS, SYMBOL_MAP, bars5m, pointValueUsd, type Bar5 } from './market';
+import { BAR_MS, SYMBOL_MAP, bars5m, pointValueUsd, type Bar } from './market';
 import type { OrderType, PartialClose, Side, Trade } from './types';
 
 /**
@@ -143,7 +143,7 @@ export function closeLots(t: Trade, lots: number, price: number, time: number, r
 }
 
 /** Track the best price reached, for max RR. */
-function track(t: Trade, bar: Bar5): Trade {
+function track(t: Trade, bar: Bar): Trade {
   const best = t.side === 'buy' ? Math.max(t.bestPrice ?? t.entry, bar.high) : Math.min(t.bestPrice ?? t.entry, bar.low);
   const maxR = Math.max(0, round2(rOfPrice(t, best)));
   return { ...t, bestPrice: best, maxR, idealR: Math.max(t.idealR ?? 0, maxR) };
@@ -155,13 +155,13 @@ export interface FillEvent {
 }
 
 /**
- * Run one completed 5-minute bar through a trade. Pending orders fill when price trades through
+ * Run one completed bar (5-minute, 1-minute or 1-second) through a trade. Pending orders fill when price trades through
  * the entry (at the open if the bar gaps past it). Open positions stop out or take profit; when
  * both levels sit inside one bar the stop is assumed to come first.
  */
-export function processBar(t: Trade, bar: Bar5, events: FillEvent[]): Trade {
+export function processBar(t: Trade, bar: Bar, events: FillEvent[]): Trade {
   let trade = t;
-  const end = bar.time + BAR_MS;
+  const end = bar.time + bar.ms;
 
   if (trade.status === 'pending') {
     const e = trade.entry;
@@ -211,7 +211,7 @@ const IDEAL_WINDOW = 5 * 86_400_000;
  * After a trade closes, keep following price (only up to the replay cursor) to see how far it ran
  * before the original stop would have been hit: the "ideal" RR.
  */
-export function followIdeal(t: Trade, bar: Bar5): Trade {
+export function followIdeal(t: Trade, bar: Bar): Trade {
   if (t.status !== 'closed' || t.idealDone || !t.closeTime || bar.time < t.closeTime) return t;
   const rd = riskDistance(t);
   if (rd <= 0) return { ...t, idealDone: true };

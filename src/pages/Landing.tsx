@@ -24,12 +24,13 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link } from '../components/ui/AppLink';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
+import { MarketsSection } from '../components/landing/MarketsSection';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
 import { Logo } from '../components/brand/Brand';
 import { fmtDayLong } from '../lib/calendar';
 import { faDigits, fmtNum, fmtPct } from '../lib/format';
 import { fmtPhone } from '../lib/auth';
-import { DATA_START, GROUP_LABELS, SYMBOLS, TIMEFRAMES, type SymbolGroup } from '../lib/market';
+import { DATA_START, GROUP_LABELS, SYMBOLS, TIMEFRAMES } from '../lib/market';
 import { backend } from '../services';
 import { DEFAULT_PLANS } from '../services/localBackend';
 import type { Plan } from '../services/types';
@@ -117,7 +118,7 @@ const FAQ = [
   },
   {
     q: 'کدام بازارها پشتیبانی می‌شوند؟',
-    a: `${fmtNum(SYMBOLS.length)} نماد: جفت‌ارزهای اصلی، فرعی و اگزوتیک فارکس، طلا و نقره، نفت و گاز، شاخص‌های آمریکا، اروپا و آسیا و ارزهای دیجیتال اصلی؛ با تایم‌فریم‌های ۵ دقیقه تا روزانه.`,
+    a: `${fmtNum(SYMBOLS.length)} نماد: جفت‌ارزهای اصلی، فرعی و اگزوتیک فارکس، طلا و نقره، نفت و گاز، شاخص‌های آمریکا، اروپا و آسیا و ارزهای دیجیتال اصلی؛ با تایم‌فریم‌های ۱ ثانیه تا روزانه.`,
   },
   { q: 'ثبت‌نام چطور است؟', a: 'فقط با شماره موبایل. کد تأیید با پیامک می‌آید و نیازی به ایمیل یا رمز عبور نیست.' },
   {
@@ -201,8 +202,6 @@ export default function Landing() {
   }, []);
   const monthly = plans.find((p) => p.priceToman > 0 && Math.round(p.durationDays / 30) === 1)?.priceToman;
   const planTo = session ? '/billing' : '/signup';
-
-  const groups = Object.keys(GROUP_LABELS) as SymbolGroup[];
 
   return (
     <div className="min-h-full bg-bg">
@@ -307,7 +306,7 @@ export default function Landing() {
         <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-8 sm:px-6 md:grid-cols-4">
           {[
             { v: fmtNum(SYMBOLS.length), l: `نماد در ${fmtNum(Object.keys(GROUP_LABELS).length)} بازار` },
-            { v: fmtNum(TIMEFRAMES.length), l: 'تایم‌فریم، از ۵ دقیقه تا روزانه' },
+            { v: fmtNum(TIMEFRAMES.length), l: 'تایم‌فریم، از ۱ ثانیه تا روزانه' },
             { v: faDigits(DATA_START.slice(0, 4)), l: `شروع داده‌ی تاریخی (${fmtDayLong(DATA_START)})` },
             { v: '۴', l: 'چارت هم‌زمان در یک صفحه' },
           ].map((s) => (
@@ -437,25 +436,7 @@ export default function Landing() {
       </section>
 
       {/* Markets */}
-      <section id="markets" className="scroll-mt-20 bg-side/60 py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <SectionHead eyebrow="بازارها" title="بازارهایی که معامله می‌کنی" text="داده‌ی تاریخی از دی ۱۳۹۳ تا دیروز، با کندل‌های ۵ دقیقه تا روزانه." />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {groups.map((g) => (
-              <div key={g} className="card p-5">
-                <h3 className="mb-3 text-sm font-bold">{GROUP_LABELS[g]}</h3>
-                <ul className="flex flex-wrap gap-1.5">
-                  {SYMBOLS.filter((s) => s.group === g).map((s) => (
-                    <li key={s.id} className="rounded-md bg-raised px-2 py-1 text-xs font-bold" dir="ltr" title={s.name}>
-                      {s.id}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <MarketsSection />
 
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">

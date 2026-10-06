@@ -442,7 +442,9 @@ export function AdminMarket() {
             </Field>
           ))}
         </div>
-        <p className="mt-3 text-xs leading-6 text-faint">داده‌ی واقعی را سرور دریافت و ذخیره می‌کند (کندل ۵ دقیقه). بدون سرور، برنامه از داده‌ی ساختگی تکرارپذیر استفاده می‌کند.</p>
+        <p className="mt-3 text-xs leading-6 text-faint">
+          داده‌ی واقعی را سرور دریافت و ذخیره می‌کند (کندل ۵ و ۱ دقیقه، و کندل ۱ ثانیه برای تایم‌فریم‌های ثانیه‌ای). بدون سرور، برنامه از داده‌ی ساختگی تکرارپذیر استفاده می‌کند.
+        </p>
       </section>
       <section className="card p-5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
