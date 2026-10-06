@@ -380,11 +380,12 @@ export function adminRoutes(r: Router) {
         used: num(b.used ?? 0, 'used', { min: 0, int: true, label: 'تعداد استفاده' }),
         expiresAt: b.expiresAt || undefined,
         active: bool(b.active),
+        firstPurchaseOnly: bool(b.firstPurchaseOnly) || undefined,
       };
       const i = d.discounts.findIndex((x) => x.id === next.id);
       if (i >= 0) d.discounts[i] = next;
       else d.discounts.unshift(next);
-      audit(ctx, i >= 0 ? 'ویرایش کد تخفیف' : 'ساخت کد تخفیف', code);
+      audit(ctx, i >= 0 ? 'ویرایش کد تخفیف' : 'ساخت کد تخفیف', next.firstPurchaseOnly ? `${code} (فقط اولین خرید)` : code);
       save();
       return clone(next);
     }),

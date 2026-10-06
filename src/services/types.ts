@@ -130,6 +130,8 @@ export interface DiscountCode {
   /** Gregorian day key, inclusive. */
   expiresAt?: string;
   active: boolean;
+  /** Only for customers who have never completed a purchase (no paid or refunded payment). */
+  firstPurchaseOnly?: boolean;
 }
 
 export interface GatewayConfig {

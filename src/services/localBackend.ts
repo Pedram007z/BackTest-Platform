@@ -307,6 +307,7 @@ function seed(): Db {
     discounts: [
       { id: 'dc1', code: 'NOROOZ1405', percent: 30, maxUses: 500, used: 137, expiresAt: '2026-04-15', active: true },
       { id: 'dc4', code: 'PAEEZ1405', percent: 20, maxUses: 300, used: 46, expiresAt: addDays(localDayKey(), 45), active: true },
+      { id: 'dc5', code: 'WELCOME20', percent: 20, maxUses: 5000, used: 64, active: true, firstPurchaseOnly: true },
       { id: 'dc2', code: 'WELCOME15', percent: 15, maxUses: 10_000, used: 412, active: true },
       { id: 'dc3', code: 'VIP50', percent: 50, maxUses: 20, used: 20, expiresAt: '2025-12-31', active: false },
     ],
@@ -399,12 +400,18 @@ function extendPlan(user: AccountUser, plan: Plan) {
   user.planEndsAt = addDays(from, plan.durationDays);
 }
 
-function discountFor(code: string | undefined, plan: Plan): { percent: number; finalToman: number; dc?: DiscountCode } {
+/** Whether the user has completed a purchase before (a refunded one counts too). */
+function hasPurchased(userId: string): boolean {
+  return db().payments.some((p) => p.userId === userId && (p.status === 'paid' || p.status === 'refunded'));
+}
+
+function discountFor(code: string | undefined, plan: Plan, user?: AccountUser): { percent: number; finalToman: number; dc?: DiscountCode } {
   if (!code) return { percent: 0, finalToman: plan.priceToman };
   const dc = db().discounts.find((x) => x.code.toUpperCase() === code.trim().toUpperCase());
   if (!dc || !dc.active) throw new BackendError('bad_code', 'این کد تخفیف معتبر نیست.', 'discount');
   if (dc.expiresAt && dc.expiresAt < localDayKey()) throw new BackendError('expired', 'مهلت این کد تخفیف تمام شده است.', 'discount');
   if (dc.used >= dc.maxUses) throw new BackendError('used_up', 'ظرفیت این کد تخفیف پر شده است.', 'discount');
+  if (dc.firstPurchaseOnly && user && hasPurchased(user.id)) throw new BackendError('first_purchase', 'این کد تخفیف فقط برای اولین خرید است.', 'discount');
   return { percent: dc.percent, finalToman: Math.round((plan.priceToman * (100 - dc.percent)) / 100), dc };
 }
 
@@ -626,7 +633,13 @@ export const localBackend: Backend = {
   async checkDiscount(code, planId) {
     const plan = db().plans.find((p) => p.id === planId);
     if (!plan) throw new BackendError('not_found', 'پلن پیدا نشد.');
-    const r = discountFor(code, plan);
+    let user: AccountUser | undefined;
+    try {
+      user = currentUser();
+    } catch {
+      user = undefined;
+    }
+    const r = discountFor(code, plan, user);
     return delay({ percent: r.percent, finalToman: r.finalToman });
   },
   async checkout({ planId, gateway, discountCode }) {
@@ -635,14 +648,14 @@ export const localBackend: Backend = {
     const plan = d.plans.find((p) => p.id === planId && p.active);
     if (!plan || plan.priceToman <= 0) throw new BackendError('not_found', 'این پلن قابل خرید نیست.');
     if (gateway === 'card') {
-      const disc = discountFor(discountCode, plan);
+      const disc = discountFor(discountCode, plan, user);
       const t = startCardPayment(user, plan, disc.finalToman, disc.dc?.code);
       save();
       return delay({ paymentId: t.id, amountToman: t.amountToman, redirectUrl: `#/billing/card?payment=${t.id}` }, 400);
     }
     const g = d.gateways.find((x) => x.id === gateway && x.enabled);
     if (!g) throw new BackendError('gateway', 'این درگاه فعال نیست.');
-    const disc = discountFor(discountCode, plan);
+    const disc = discountFor(discountCode, plan, user);
     const p: Payment = {
       id: uid('pay'),
       userId: user.id,
@@ -921,11 +934,11 @@ export const localBackend: Backend = {
       const code = dc.code.trim().toUpperCase();
       if (!/^[A-Z0-9_-]{3,24}$/.test(code)) throw new BackendError('bad_code', 'کد باید ۳ تا ۲۴ حرف انگلیسی یا عدد باشد.', 'code');
       if (d.discounts.some((x) => x.code === code && x.id !== dc.id)) throw new BackendError('exists', 'این کد قبلاً ساخته شده است.', 'code');
-      const next = { ...dc, code };
+      const next = { ...dc, code, firstPurchaseOnly: dc.firstPurchaseOnly || undefined };
       const i = d.discounts.findIndex((x) => x.id === dc.id);
       if (i >= 0) d.discounts[i] = next;
       else d.discounts.unshift(next);
-      log(i >= 0 ? 'ویرایش کد تخفیف' : 'ساخت کد تخفیف', code);
+      log(i >= 0 ? 'ویرایش کد تخفیف' : 'ساخت کد تخفیف', next.firstPurchaseOnly ? `${code} (فقط اولین خرید)` : code);
       save();
       return clone(next);
     },

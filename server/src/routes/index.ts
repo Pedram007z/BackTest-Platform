@@ -1,4 +1,4 @@
-import { adminGate, adminLogin, logout, requestOtp, requireUser, verifyOtp } from '../auth';
+import { adminGate, adminLogin, logout, optionalUser, requestOtp, requireUser, verifyOtp } from '../auth';
 import { db, save } from '../db';
 import { HttpError, Router, badRequest, notFound, rateLimit, str } from '../http';
 import { marketConfig, marketDays, marketSeconds, marketShowcase } from '../market';
@@ -104,7 +104,8 @@ export function buildRouter(): Router {
 
   // ---------- payments ----------
   r.get('/api/payments/gateways', () => enabledGateways());
-  r.post('/api/payments/discount', (ctx) => checkDiscount(ctx.body));
+  // signed in: first-purchase-only codes are checked against the user's purchases right away
+  r.post('/api/payments/discount', (ctx) => checkDiscount(ctx.body, optionalUser(ctx)));
   r.post('/api/payments/checkout', (ctx) => checkout(requireUser(ctx), ctx.body));
   for (const method of ['GET', 'POST']) {
     r.on(method, '/api/payments/callback/:gateway', (ctx) => handleCallback(ctx.params.gateway, ctx.query, ctx.body));

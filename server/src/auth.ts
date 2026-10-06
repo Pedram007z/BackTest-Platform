@@ -271,6 +271,16 @@ function bearer(ctx: Ctx): string | null {
 }
 
 /** The signed-in account, or 401. Also refreshes the session's last-seen time. */
+/** The signed-in user, or undefined for a visitor or an ended session (never throws). */
+export function optionalUser(ctx: Ctx): AccountUser | undefined {
+  if (!bearer(ctx)) return undefined;
+  try {
+    return requireUser(ctx);
+  } catch {
+    return undefined;
+  }
+}
+
 export function requireUser(ctx: Ctx): AccountUser {
   const token = bearer(ctx);
   if (!token) throw unauthorized();
