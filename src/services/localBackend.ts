@@ -4,18 +4,22 @@ import { sampleNews } from '../lib/news';
 import { local, readJson, writeJson } from '../lib/storage';
 import { getToken } from './api';
 import { BackendError, type Backend } from './backend';
+import { bankOfCard, canReportTransfer, cardAmountRial, cardDigits, fmtCardNumber, holdsCode, isCardNumber, pickCardCode, transferReportError } from './cards';
 import {
   GATEWAY_NAMES,
+  PAYMENT_METHOD_NAMES,
   SMS_PROVIDER_NAMES,
   normalizePhone,
   type AccountUser,
   type AdminStats,
   type AuditEntry,
+  type CardToCardSettings,
   type DiscountCode,
   type GatewayConfig,
   type GatewayId,
   type NewsSyncStatus,
   type Payment,
+  type PaymentCard,
   type Plan,
   type SiteSettings,
   type SmsLog,
@@ -39,6 +43,8 @@ interface Db {
   payments: Payment[];
   discounts: DiscountCode[];
   gateways: GatewayConfig[];
+  cards: PaymentCard[];
+  cardToCard: CardToCardSettings;
   sms: SmsSettings;
   smsLogs: SmsLog[];
   tickets: Ticket[];
@@ -194,6 +200,49 @@ function seed(): Db {
       });
     }
   }
+  // card to card: two transfers waiting for the admin, one confirmed
+  const cards: PaymentCard[] = [
+    { id: 'card_demo1', number: '6037997512345670', holder: 'آرش کریمی', bank: bankOfCard('6037997512345670'), active: true, createdAt: now - 40 * DAY, lastUsedAt: now - 2 * 3_600_000 },
+    { id: 'card_demo2', number: '6104331287452107', holder: 'آرش کریمی', bank: bankOfCard('6104331287452107'), active: true, createdAt: now - 12 * DAY, lastUsedAt: now - 3_600_000 },
+  ];
+  [
+    [users[5], 'pro-1m', 'review', 347, 25],
+    [users[11], 'pro-3m', 'review', 128, 70],
+    [users[20], 'pro-1m', 'paid', 615, 26 * 60],
+  ].forEach(([u, planId, status, code, minutesAgo], i) => {
+    const user = u as AccountUser;
+    const plan = DEFAULT_PLANS.find((p) => p.id === planId)!;
+    const c = cards[i % 2];
+    const created = now - (minutesAgo as number) * 60_000;
+    payments.unshift({
+      id: `pay_seed_card_${i}`,
+      userId: user.id,
+      userName: user.name,
+      phone: user.phone,
+      planId: plan.id,
+      planName: plan.name,
+      amountToman: plan.priceToman,
+      gateway: 'card',
+      status: status as Payment['status'],
+      refId: status === 'paid' ? '730112' : undefined,
+      createdAt: created,
+      paidAt: status === 'paid' ? created + 40 * 60_000 : undefined,
+      transfer: {
+        cardId: c.id,
+        cardNumber: c.number,
+        holder: c.holder,
+        bank: c.bank,
+        code: code as number,
+        amountRial: cardAmountRial(plan.priceToman, code as number),
+        expiresAt: created + 30 * 60_000,
+        payerCard: ['4421', '9038', '1176'][i],
+        payerRef: i === 1 ? undefined : String(400_000 + i * 70_311),
+        sentAt: created + 6 * 60_000,
+        reviewedBy: status === 'paid' ? 'مدیر سیستم' : undefined,
+        reviewedAt: status === 'paid' ? created + 40 * 60_000 : undefined,
+      },
+    });
+  });
   payments.sort((a, b) => b.createdAt - a.createdAt);
 
   const smsLogs: SmsLog[] = [];
@@ -268,6 +317,8 @@ function seed(): Db {
       { id: 'nextpay', name: GATEWAY_NAMES.nextpay, enabled: false, sandbox: false, merchantId: '', priority: 4 },
       { id: 'payir', name: GATEWAY_NAMES.payir, enabled: false, sandbox: true, merchantId: 'test', priority: 5 },
     ],
+    cards,
+    cardToCard: { ...DEFAULT_CARD_TO_CARD, enabled: true },
     sms: {
       active: 'kavenegar',
       enabled: false,
@@ -288,10 +339,17 @@ function seed(): Db {
   };
 }
 
+const DEFAULT_CARD_TO_CARD: CardToCardSettings = { enabled: false, payMinutes: 30, note: '' };
+
 // ---------- storage ----------
 let cache: Db | null = null;
 function db(): Db {
-  if (!cache) cache = readJson<Db | null>(local, KEY, null) ?? seed();
+  if (!cache) {
+    cache = readJson<Db | null>(local, KEY, null) ?? seed();
+    // saved before card to card existed
+    cache.cards ??= [];
+    cache.cardToCard ??= { ...DEFAULT_CARD_TO_CARD };
+  }
   return cache;
 }
 function save() {
@@ -354,28 +412,98 @@ function page<T>(items: T[], p = 1, size = 20) {
   return { items: items.slice((p - 1) * size, p * size), total: items.length };
 }
 
+function markPaid(p: Payment, refId?: string, cardPan?: string) {
+  const d = db();
+  p.status = 'paid';
+  p.paidAt = Date.now();
+  p.refId = refId;
+  p.cardPan = cardPan;
+  const user = d.users.find((u) => u.id === p.userId);
+  const plan = d.plans.find((x) => x.id === p.planId);
+  if (user && plan) extendPlan(user, plan);
+  if (p.discountCode) {
+    const dc = d.discounts.find((x) => x.code === p.discountCode);
+    if (dc) dc.used++;
+  }
+}
+
 /** Called by the sandbox gateway page in demo mode. */
 export function completeSandboxPayment(paymentId: string, ok: boolean): Payment {
   const d = db();
   const p = d.payments.find((x) => x.id === paymentId);
   if (!p) throw new BackendError('not_found', 'تراکنش پیدا نشد.');
-  if (p.status !== 'pending') return clone(p);
-  if (ok) {
-    p.status = 'paid';
-    p.paidAt = Date.now();
-    p.refId = String(Math.floor(Math.random() * 1e9));
-    p.cardPan = '6037-99**-****-1234';
-    const user = d.users.find((u) => u.id === p.userId);
-    const plan = d.plans.find((x) => x.id === p.planId);
-    if (user && plan) extendPlan(user, plan);
-    if (p.discountCode) {
-      const dc = d.discounts.find((x) => x.code === p.discountCode);
-      if (dc) dc.used++;
-    }
-  } else p.status = 'failed';
+  if (p.status !== 'pending' || p.transfer) return clone(p);
+  if (ok) markPaid(p, String(Math.floor(Math.random() * 1e9)), '6037-99**-****-1234');
+  else p.status = 'failed';
   save();
   return clone(p);
 }
+
+// ---------- card to card (same rules as server/src/payments/card.ts) ----------
+const cardPaymentsOpen = () => db().cardToCard.enabled && db().cards.some((c) => c.active);
+
+function expireTransfers(now = Date.now()) {
+  for (const p of db().payments) {
+    if (p.transfer && p.status === 'pending' && p.transfer.expiresAt < now) {
+      p.status = 'failed';
+      p.transfer.closed = 'expired';
+    }
+  }
+}
+
+function startCardPayment(user: AccountUser, plan: Plan, finalToman: number, discountCode: string | undefined) {
+  const d = db();
+  if (!cardPaymentsOpen()) throw new BackendError('gateway', 'پرداخت کارت به کارت فعال نیست.', 'gateway');
+  const now = Date.now();
+  expireTransfers(now);
+  const mine = d.payments.filter((p) => p.userId === user.id && p.transfer);
+  if (mine.filter((p) => p.status === 'review').length >= 3) {
+    throw new BackendError('too_many', 'سه پرداخت کارت به کارت شما در انتظار تأیید است؛ پس از بررسی آن‌ها دوباره تلاش کنید.', 'gateway');
+  }
+  const same = mine.find((p) => p.status === 'pending' && p.planId === plan.id && p.amountToman === finalToman && p.discountCode === discountCode);
+  if (same) return same;
+  for (const p of mine) {
+    if (p.status === 'pending') {
+      p.status = 'failed';
+      p.transfer!.closed = 'cancelled';
+    }
+  }
+  const code = pickCardCode(new Set(d.payments.filter((p) => holdsCode(p, now)).map((p) => p.transfer!.code)));
+  if (code === null) throw new BackendError('busy', 'ظرفیت پرداخت کارت به کارت موقتاً پر است؛ کمی بعد یا با درگاه بانکی پرداخت کنید.', 'gateway');
+  const card = d.cards.filter((c) => c.active).sort((a, b) => (a.lastUsedAt ?? 0) - (b.lastUsedAt ?? 0))[0];
+  card.lastUsedAt = now;
+  const p: Payment = {
+    id: uid('pay'),
+    userId: user.id,
+    userName: user.name,
+    phone: user.phone,
+    planId: plan.id,
+    planName: plan.name,
+    amountToman: finalToman,
+    discountCode,
+    gateway: 'card',
+    status: 'pending',
+    createdAt: now,
+    transfer: { cardId: card.id, cardNumber: card.number, holder: card.holder, bank: card.bank, code, amountRial: cardAmountRial(finalToman, code), expiresAt: now + d.cardToCard.payMinutes * 60_000, instructions: d.cardToCard.note || undefined },
+  };
+  d.payments.unshift(p);
+  return p;
+}
+
+function ownTransfer(id: string) {
+  const u = currentUser();
+  const p = db().payments.find((x) => x.id === id && x.userId === u.id);
+  if (!p?.transfer) throw new BackendError('not_found', 'پرداخت پیدا نشد.');
+  return p;
+}
+
+function adminTransfer(id: string) {
+  const p = db().payments.find((x) => x.id === id);
+  if (!p?.transfer) throw new BackendError('not_found', 'پرداخت کارت به کارت پیدا نشد.');
+  return p;
+}
+
+const latin = (v: string | undefined) => (v ?? '').replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0)).trim();
 
 export function sandboxPaymentInfo(paymentId: string): Payment | null {
   const p = db().payments.find((x) => x.id === paymentId);
@@ -484,13 +612,12 @@ export const localBackend: Backend = {
     return delay(clone(db().plans.filter((p) => p.active).sort((a, b) => a.sort - b.sort)), 80);
   },
   async gateways() {
-    return delay(
-      db()
-        .gateways.filter((g) => g.enabled)
-        .sort((a, b) => a.priority - b.priority)
-        .map((g) => ({ id: g.id, name: g.name })),
-      80,
-    );
+    const list: { id: Payment['gateway']; name: string }[] = db()
+      .gateways.filter((g) => g.enabled)
+      .sort((a, b) => a.priority - b.priority)
+      .map((g) => ({ id: g.id, name: g.name }));
+    if (cardPaymentsOpen()) list.push({ id: 'card', name: PAYMENT_METHOD_NAMES.card });
+    return delay(list, 80);
   },
   async checkDiscount(code, planId) {
     const plan = db().plans.find((p) => p.id === planId);
@@ -503,6 +630,12 @@ export const localBackend: Backend = {
     const d = db();
     const plan = d.plans.find((p) => p.id === planId && p.active);
     if (!plan || plan.priceToman <= 0) throw new BackendError('not_found', 'این پلن قابل خرید نیست.');
+    if (gateway === 'card') {
+      const disc = discountFor(discountCode, plan);
+      const t = startCardPayment(user, plan, disc.finalToman, disc.dc?.code);
+      save();
+      return delay({ paymentId: t.id, amountToman: t.amountToman, redirectUrl: `#/billing/card?payment=${t.id}` }, 400);
+    }
     const g = d.gateways.find((x) => x.id === gateway && x.enabled);
     if (!g) throw new BackendError('gateway', 'این درگاه فعال نیست.');
     const disc = discountFor(discountCode, plan);
@@ -525,12 +658,37 @@ export const localBackend: Backend = {
     return delay({ paymentId: p.id, amountToman: p.amountToman, redirectUrl: `#/pay/sandbox?payment=${p.id}` }, 500);
   },
   async payment(id) {
+    expireTransfers();
     const p = db().payments.find((x) => x.id === id);
     if (!p) throw new BackendError('not_found', 'تراکنش پیدا نشد.');
     return clone(p);
   },
+  async reportTransfer(id, input) {
+    expireTransfers();
+    const p = ownTransfer(id);
+    if (p.status !== 'review') {
+      if (!canReportTransfer(p)) throw new BackendError('bad_state', 'این پرداخت بسته شده است؛ از صفحه‌ی اشتراک دوباره پرداخت کنید.');
+      const payerCard = latin(input.payerCard);
+      const payerRef = latin(input.payerRef);
+      const err = transferReportError(payerCard, payerRef);
+      if (err) throw new BackendError('invalid', err.message, err.field);
+      p.status = 'review';
+      Object.assign(p.transfer!, { closed: undefined, payerCard: payerCard || undefined, payerRef: payerRef || undefined, sentAt: Date.now() });
+      save();
+    }
+    return delay(clone(p), 400);
+  },
+  async cancelTransfer(id) {
+    const p = ownTransfer(id);
+    if (p.status !== 'pending') throw new BackendError('bad_state', 'فقط پرداختی که هنوز گزارش نشده لغو می‌شود.');
+    p.status = 'failed';
+    p.transfer!.closed = 'cancelled';
+    save();
+    return clone(p);
+  },
   async myPayments() {
     const u = currentUser();
+    expireTransfers();
     return clone(db().payments.filter((p) => p.userId === u.id));
   },
   async myTickets() {
@@ -648,9 +806,21 @@ export const localBackend: Backend = {
     },
     async payments(q) {
       requireAdmin();
-      const text = (q.q ?? '').trim();
+      expireTransfers();
+      const text = latin(q.q).replace(/[,٬]/g, '');
+      const code = /^\d{1,3}$/.test(text) ? Number(text) : null;
       const list = db()
-        .payments.filter((p) => !text || p.userName.includes(text) || p.phone.includes(text) || (p.refId ?? '').includes(text) || (p.authority ?? '').includes(text))
+        .payments.filter(
+          (p) =>
+            !text ||
+            (code !== null
+              ? p.transfer?.code === code
+              : p.userName.includes(text) ||
+                p.phone.includes(text) ||
+                (p.refId ?? '').includes(text) ||
+                (p.authority ?? '').includes(text) ||
+                (!!p.transfer && (String(p.transfer.amountRial).includes(text) || p.transfer.payerRef === text || p.transfer.cardNumber.includes(text)))),
+        )
         .filter((p) => !q.status || q.status === 'all' || p.status === q.status)
         .filter((p) => !q.gateway || q.gateway === 'all' || p.gateway === q.gateway);
       return delay(clone(page(list, q.page, q.pageSize)), 150);
@@ -663,6 +833,79 @@ export const localBackend: Backend = {
       log('استرداد وجه', `${p.userName} — ${p.amountToman.toLocaleString('fa-IR')} تومان`);
       save();
       return clone(p);
+    },
+    async confirmPayment(id, refId) {
+      const admin = requireAdmin();
+      const p = adminTransfer(id);
+      if (p.status === 'paid' || p.status === 'refunded') throw new BackendError('bad_state', 'این پرداخت قبلاً تأیید شده است.');
+      const ref = latin(refId);
+      if (ref && !/^[0-9A-Za-z-]{4,30}$/.test(ref)) throw new BackendError('invalid', 'شماره‌ی پیگیری معتبر نیست.', 'refId');
+      Object.assign(p.transfer!, { closed: undefined, reviewedBy: admin.name, reviewedAt: Date.now() });
+      markPaid(p, ref || p.transfer!.payerRef, p.transfer!.payerCard ? `****-${p.transfer!.payerCard}` : undefined);
+      log('تأیید کارت به کارت', `${p.userName} — ${p.transfer!.amountRial.toLocaleString('fa-IR')} ریال`);
+      save();
+      return delay(clone(p));
+    },
+    async rejectPayment(id, reason) {
+      const admin = requireAdmin();
+      const p = adminTransfer(id);
+      if (p.status !== 'pending' && p.status !== 'review') throw new BackendError('bad_state', 'فقط پرداخت‌های باز رد می‌شوند.');
+      p.status = 'failed';
+      Object.assign(p.transfer!, { closed: 'rejected', note: reason.trim().slice(0, 200) || 'واریزی با این مبلغ به حساب نرسید.', reviewedBy: admin.name, reviewedAt: Date.now() });
+      log('رد کارت به کارت', `${p.userName} — ${p.transfer!.amountRial.toLocaleString('fa-IR')} ریال`);
+      save();
+      return delay(clone(p));
+    },
+    async cards() {
+      requireAdmin();
+      const d = db();
+      return delay(
+        clone({
+          settings: d.cardToCard,
+          cards: d.cards.map((c) => {
+            const list = d.payments.filter((p) => p.transfer?.cardId === c.id);
+            const paid = list.filter((p) => p.status === 'paid');
+            return { ...c, open: list.filter((p) => p.status === 'pending' || p.status === 'review').length, paidCount: paid.length, paidToman: paid.reduce((s, p) => s + p.amountToman, 0) };
+          }),
+        }),
+        150,
+      );
+    },
+    async saveCard(input) {
+      requireAdmin();
+      const d = db();
+      const number = cardDigits(input.number);
+      if (!isCardNumber(number)) throw new BackendError('invalid', 'شماره‌ی کارت ۱۶ رقمی معتبر نیست.', 'number');
+      const holder = input.holder.trim();
+      if (holder.length < 2 || holder.length > 60) throw new BackendError('invalid', 'نام صاحب کارت را وارد کنید (حداکثر ۶۰ حرف).', 'holder');
+      if (d.cards.some((c) => c.number === number && c.id !== input.id)) throw new BackendError('exists', 'این کارت قبلاً اضافه شده است.', 'number');
+      const old = d.cards.find((c) => c.id === input.id);
+      const card: PaymentCard = { id: input.id, number, holder, bank: input.bank.trim().slice(0, 40) || bankOfCard(number), active: input.active, createdAt: old?.createdAt ?? Date.now(), lastUsedAt: old?.lastUsedAt };
+      d.cards = old ? d.cards.map((c) => (c.id === card.id ? card : c)) : [...d.cards, card];
+      log(old ? 'ویرایش کارت' : 'افزودن کارت', `${holder} — ${fmtCardNumber(number)}${card.active ? '' : ' (غیرفعال)'}`);
+      save();
+      return delay(clone(card));
+    },
+    async deleteCard(id) {
+      requireAdmin();
+      const d = db();
+      const card = d.cards.find((c) => c.id === id);
+      if (!card) throw new BackendError('not_found', 'کارت پیدا نشد.');
+      const open = d.payments.filter((p) => p.transfer?.cardId === id && (p.status === 'pending' || p.status === 'review')).length;
+      if (open) throw new BackendError('in_use', `${open.toLocaleString('fa-IR')} پرداخت باز روی این کارت است؛ فعلاً آن را غیرفعال کنید و پس از بستن آن‌ها حذفش کنید.`);
+      d.cards = d.cards.filter((c) => c.id !== id);
+      log('حذف کارت', `${card.holder} — ${fmtCardNumber(card.number)}`);
+      save();
+    },
+    async saveCardSettings(input) {
+      requireAdmin();
+      const minutes = Number(latin(String(input.payMinutes)));
+      if (!Number.isInteger(minutes) || minutes < 5 || minutes > 1440) throw new BackendError('invalid', 'مهلت پرداخت باید بین ۵ تا ۱۴۴۰ دقیقه باشد.', 'payMinutes');
+      if (input.note.trim().length > 300) throw new BackendError('invalid', 'توضیح حداکثر ۳۰۰ حرف است.', 'note');
+      db().cardToCard = { enabled: input.enabled, payMinutes: minutes, note: input.note.trim() };
+      log('تنظیم کارت به کارت', input.enabled ? 'فعال' : 'غیرفعال');
+      save();
+      return clone(db().cardToCard);
     },
     async discounts() {
       requireAdmin();

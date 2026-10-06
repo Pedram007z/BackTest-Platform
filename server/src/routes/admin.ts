@@ -1,12 +1,14 @@
 import { dropSessions, ownCredentials, removeCredentials, requireAdmin, saveCredentials } from '../auth';
-import { db, save } from '../db';
+import { db, save, type StoredPayment } from '../db';
 import { HttpError, badRequest, bool, notFound, num, oneOf, str, type Ctx, type Router } from '../http';
 import { INSTRUMENTS } from '../market/instruments';
 import { marketStorage, startDownload, stopDownload } from '../market/download';
 import { newsStatus, syncNews } from '../news';
-import { GATEWAY_IDS, publicPayment, testGateway } from '../payments';
+import { GATEWAY_IDS, markPaid, publicPayment, testGateway } from '../payments';
+import { cardAdmin, deleteCard, expireTransfers, rejectTransfer, saveCard, saveCardSettings, transferToReview } from '../payments/card';
 import {
   SMS_PROVIDER_NAMES,
+  fmtCardNumber,
   normalizePhone,
   type AccountUser,
   type AdminStats,
@@ -262,13 +264,25 @@ export function adminRoutes(r: Router) {
   r.get(
     '/api/admin/payments',
     admin(({ query }) => {
-      const text = (query.get('q') ?? '').trim();
+      expireTransfers();
+      const text = toLatinDigits(query.get('q') ?? '')
+        .trim()
+        .replace(/,/g, '');
       const status = query.get('status');
       const gateway = query.get('gateway');
+      // 1–3 digits: the last three digits of a card-to-card amount
+      const code = /^\d{1,3}$/.test(text) ? Number(text) : null;
+      const matches = (p: StoredPayment) =>
+        code !== null
+          ? p.transfer?.code === code
+          : p.userName.includes(text) ||
+            p.phone.includes(text) ||
+            (p.refId ?? '').includes(text) ||
+            (p.authority ?? '').includes(text) ||
+            p.id === text ||
+            (!!p.transfer && (String(p.transfer.amountRial).includes(text) || p.transfer.payerRef === text || p.transfer.cardNumber.includes(text)));
       const list = db()
-        .payments.filter(
-          (p) => !text || p.userName.includes(text) || p.phone.includes(text) || (p.refId ?? '').includes(text) || (p.authority ?? '').includes(text) || p.id === text,
-        )
+        .payments.filter((p) => !text || matches(p))
         .filter((p) => !status || status === 'all' || p.status === status)
         .filter((p) => !gateway || gateway === 'all' || p.gateway === gateway);
       return clone(page(list, query));
@@ -283,6 +297,62 @@ export function adminRoutes(r: Router) {
       audit(ctx, 'استرداد وجه', `${p.userName} — ${faNum(p.amountToman)} تومان`);
       save();
       return publicPayment(p);
+    }),
+  );
+
+  r.post(
+    '/api/admin/payments/:id/confirm',
+    admin((ctx) => {
+      const p = transferToReview(ctx.params.id);
+      if (p.status === 'paid' || p.status === 'refunded') throw badRequest('bad_state', 'این پرداخت قبلاً تأیید شده است.');
+      const refId = toLatinDigits(String(ctx.body.refId ?? '')).trim();
+      if (refId && !/^[0-9A-Za-z-]{4,30}$/.test(refId)) throw badRequest('invalid', 'شماره‌ی پیگیری معتبر نیست.', 'refId');
+      p.gatewayMessage = undefined;
+      p.transfer!.closed = undefined;
+      p.transfer!.reviewedBy = ctx.user!.name;
+      p.transfer!.reviewedAt = Date.now();
+      markPaid(p, refId || p.transfer!.payerRef, p.transfer!.payerCard ? `****-${p.transfer!.payerCard}` : undefined);
+      audit(ctx, 'تأیید کارت به کارت', `${p.userName} — ${faNum(p.transfer!.amountRial)} ریال`);
+      return publicPayment(p);
+    }),
+  );
+  r.post(
+    '/api/admin/payments/:id/reject',
+    admin((ctx) => {
+      const p = transferToReview(ctx.params.id);
+      rejectTransfer(p, ctx.body.reason, ctx.user!.name);
+      audit(ctx, 'رد کارت به کارت', `${p.userName} — ${faNum(p.transfer!.amountRial)} ریال`);
+      return publicPayment(p);
+    }),
+  );
+
+  // ---------- card to card ----------
+  r.get(
+    '/api/admin/cards',
+    admin(() => cardAdmin()),
+  );
+  r.put(
+    '/api/admin/cards/settings',
+    admin((ctx) => {
+      const s = saveCardSettings(ctx.body);
+      audit(ctx, 'تنظیم کارت به کارت', s.enabled ? 'فعال' : 'غیرفعال');
+      return s;
+    }),
+  );
+  r.put(
+    '/api/admin/cards/:id',
+    admin((ctx) => {
+      const isNew = !db().cards.some((c) => c.id === ctx.params.id);
+      const c = saveCard(ctx.params.id, ctx.body);
+      audit(ctx, isNew ? 'افزودن کارت' : 'ویرایش کارت', `${c.holder} — ${fmtCardNumber(c.number)}${c.active ? '' : ' (غیرفعال)'}`);
+      return c;
+    }),
+  );
+  r.delete(
+    '/api/admin/cards/:id',
+    admin((ctx) => {
+      const c = deleteCard(ctx.params.id);
+      audit(ctx, 'حذف کارت', `${c.holder} — ${fmtCardNumber(c.number)}`);
     }),
   );
 

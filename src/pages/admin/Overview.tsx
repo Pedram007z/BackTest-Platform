@@ -6,7 +6,7 @@ import { useChartTheme } from '../../hooks/useChartTheme';
 import { fmtDayShort } from '../../lib/calendar';
 import { fmtNum } from '../../lib/format';
 import { backend } from '../../services';
-import { GATEWAY_NAMES } from '../../services/types';
+import { PAYMENT_METHOD_NAMES } from '../../services/types';
 
 export default function AdminOverview() {
   const { data, loading, reload } = useLoad(() => backend.admin.stats());
@@ -70,7 +70,7 @@ export default function AdminOverview() {
                     return (
                       <li key={g.gateway}>
                         <div className="num mb-1 flex justify-between text-[13px]">
-                          <span className="font-semibold">{GATEWAY_NAMES[g.gateway]}</span>
+                          <span className="font-semibold">{PAYMENT_METHOD_NAMES[g.gateway]}</span>
                           <span className="text-muted">
                             {tomanFmt(g.amount)} · {fmtNum(g.count)} تراکنش
                           </span>

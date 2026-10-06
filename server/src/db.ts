@@ -6,10 +6,12 @@ import {
   SMS_PROVIDER_NAMES,
   type AccountUser,
   type AuditEntry,
+  type CardToCardSettings,
   type DiscountCode,
   type GatewayConfig,
   type GatewayId,
   type Payment,
+  type PaymentCard,
   type Plan,
   type SiteSettings,
   type SmsLog,
@@ -58,6 +60,9 @@ export interface Db {
   payments: StoredPayment[];
   discounts: DiscountCode[];
   gateways: GatewayConfig[];
+  /** cards that receive card-to-card payments */
+  cards: PaymentCard[];
+  cardToCard: CardToCardSettings;
   sms: SmsSettings;
   smsLogs: SmsLog[];
   tickets: Ticket[];
@@ -138,6 +143,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   marketAutoDownload: true,
 };
 
+export const DEFAULT_CARD_TO_CARD: CardToCardSettings = { enabled: false, payMinutes: 30, note: '' };
+
 const GATEWAY_ORDER: GatewayId[] = ['zarinpal', 'zibal', 'idpay', 'nextpay', 'payir'];
 
 function defaultGateways(): GatewayConfig[] {
@@ -169,6 +176,8 @@ function fresh(): Db {
     payments: [],
     discounts: [],
     gateways: defaultGateways(),
+    cards: [],
+    cardToCard: { ...DEFAULT_CARD_TO_CARD },
     sms: defaultSms(),
     smsLogs: [],
     tickets: [],
@@ -189,6 +198,7 @@ function upgrade(d: Partial<Db>): Db {
   for (const g of Object.keys(out.settings.marketData) as (keyof typeof out.settings.marketData)[]) {
     if (out.settings.marketData[g] === 'synthetic') out.settings.marketData[g] = base.settings.marketData[g];
   }
+  out.cardToCard = { ...base.cardToCard, ...(d.cardToCard ?? {}) };
   out.gateways = GATEWAY_ORDER.map((id) => d.gateways?.find((g) => g.id === id) ?? base.gateways.find((g) => g.id === id)!);
   const sms = d.sms ?? base.sms;
   out.sms = { ...sms, providers: base.sms.providers.map((p) => sms.providers.find((x) => x.id === p.id) ?? p) };

@@ -220,6 +220,11 @@ sudo bash /opt/backtestlab/make-admin.sh 09121234567
    - **درگاه‌های پرداخت** (gateways): enter each merchant id, turn sandbox off, and press the connection test.
      If a gateway asks for a callback address, it is `https://YOUR-DOMAIN/api/payments/callback/zarinpal`
      (or `zibal`, `idpay`, `nextpay`, `payir`).
+   - **کارت به کارت** (card to card, optional, works without a gateway): add your cards (number and the
+     holder's name) and switch on «پرداخت کارت به کارت در صفحه‌ی خرید». Each payment's amount is in rial and
+     its last three digits are its own; when the bank tells you a deposit arrived (SMS or account history),
+     type those three digits in the search box of the **واریزها** list and press **تأیید** (confirm). The
+     plan starts at once. The menu shows how many reported transfers are waiting.
    - **پلن‌ها** (plans) and **کدهای تخفیف** (discount codes): prices and offers.
    - **نمادها و داده‌ی بازار** (symbols and market data): the stored market history and its download (step 9),
      data source per market, and which symbols users can pick.
