@@ -2,6 +2,7 @@ import { dropSessions, requireAdmin } from '../auth';
 import { db, save } from '../db';
 import { HttpError, badRequest, bool, notFound, num, oneOf, str, type Ctx, type Router } from '../http';
 import { INSTRUMENTS } from '../market/instruments';
+import { marketStorage, startDownload, stopDownload } from '../market/download';
 import { newsStatus, syncNews } from '../news';
 import { GATEWAY_IDS, publicPayment, testGateway } from '../payments';
 import {
@@ -133,6 +134,7 @@ function validSettings(b: any): SiteSettings {
     },
     enabledSymbols: enabled.length === Object.keys(INSTRUMENTS).length ? [] : enabled,
     newsAutoSync: bool(b.newsAutoSync),
+    marketAutoDownload: bool(b.marketAutoDownload),
   };
 }
 
@@ -483,6 +485,32 @@ export function adminRoutes(r: Router) {
       const status = await syncNews();
       audit(ctx, 'همگام‌سازی تقویم اقتصادی', 'ForexFactory');
       return status;
+    }),
+  );
+
+  // ---------- market history in storage ----------
+  r.get(
+    '/api/admin/market/storage',
+    admin(() => marketStorage()),
+  );
+  r.post(
+    '/api/admin/market/download',
+    admin((ctx) => {
+      const job = startDownload({ kind: ctx.body.kind, symbols: ctx.body.symbols, from: ctx.body.from, to: ctx.body.to, by: 'admin' });
+      audit(
+        ctx,
+        job.kind === 's1' ? 'دانلود داده‌ی ثانیه‌ای' : 'دانلود داده‌ی بازار',
+        `${job.symbols.length > 3 ? `${job.symbols.length} نماد` : job.symbols.join('، ')} · ${job.from} تا ${job.to}`,
+      );
+      return job;
+    }),
+  );
+  r.post(
+    '/api/admin/market/download/stop',
+    admin((ctx) => {
+      const job = stopDownload();
+      if (job) audit(ctx, 'توقف دانلود داده‌ی بازار');
+      return job;
     }),
   );
 }

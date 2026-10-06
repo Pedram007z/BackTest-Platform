@@ -2,6 +2,7 @@ import { config } from '../config';
 import { DAY_MS, UpstreamError, fetchWithTimeout, limiter } from '../util';
 import type { Instrument } from './instruments';
 import { lzmaDecompress } from './lzma';
+import { unzip } from './zip';
 
 /**
  * Real bars for the replay: a Float64Array of n × [open, high, low, close] (NaN where there was no
@@ -256,11 +257,6 @@ export async function dukascopyDayMinutes(inst: Instrument, dayStart: number): P
   });
 }
 
-/** One UTC day as 288 five-minute bars. */
-export async function dukascopyDay(inst: Instrument, dayStart: number): Promise<DayBars> {
-  return aggregate(await dukascopyDayMinutes(inst, dayStart), 5);
-}
-
 /** One UTC hour as 3600 one-second bars, from the ticks. */
 export async function dukascopyHour(inst: Instrument, hourStart: number): Promise<DayBars> {
   if (!inst.dukascopy) throw new UpstreamError(`${inst.id} در Dukascopy موجود نیست`);
@@ -313,11 +309,6 @@ async function binanceKlines(inst: Instrument, interval: string, start: number, 
   return rows;
 }
 
-/** Up to three consecutive days of five-minute bars (864 bars fit in one request). */
-export async function binanceDays(inst: Instrument, firstDay: number, days: number): Promise<DayBars[]> {
-  return parseBinanceKlines(await binanceKlines(inst, '5m', firstDay, firstDay + days * DAY_MS - 1, 300_000), firstDay, days);
-}
-
 /** One UTC day of one-minute bars (two requests). */
 export async function binanceDayMinutes(inst: Instrument, dayStart: number): Promise<DayBars> {
   return parseBinanceKlines(await binanceKlines(inst, '1m', dayStart, dayStart + DAY_MS - 1, 60_000), dayStart, 1, DAY_MS, 60_000)[0];
@@ -326,4 +317,65 @@ export async function binanceDayMinutes(inst: Instrument, dayStart: number): Pro
 /** One UTC hour of one-second bars (four requests). */
 export async function binanceHour(inst: Instrument, hourStart: number): Promise<DayBars> {
   return parseBinanceKlines(await binanceKlines(inst, '1s', hourStart, hourStart + HOUR_MS - 1, 1000), hourStart, 1, HOUR_MS, 1000)[0];
+}
+
+/** A UTC day of 1-second bars (86 400), from Dukascopy's ticks (24 files). */
+export async function dukascopyDaySeconds(inst: Instrument, dayStart: number): Promise<DayBars> {
+  const hours = await Promise.all(Array.from({ length: 24 }, (_, h) => dukascopyHour(inst, dayStart + h * HOUR_MS)));
+  return joinHours(hours);
+}
+
+/** 24 hours of 3600 one-second bars as one day; null when all were closed. */
+export function joinHours(hours: DayBars[]): DayBars {
+  if (hours.every((h) => !h)) return null;
+  const out = empty(24 * SECONDS_PER_HOUR);
+  hours.forEach((h, i) => h && out.set(h, i * SECONDS_PER_HOUR * 4));
+  return out;
+}
+
+// ---------- Binance history archives (data.binance.vision) ----------
+/**
+ * Klines rows of a Binance archive (CSV: open time, open, high, low, close, ...). Open times are in
+ * milliseconds, or microseconds in archives from 2025 on. undefined when the archive does not exist.
+ */
+async function binanceArchive(inst: Instrument, path: string): Promise<number[][] | undefined> {
+  if (!inst.binance) throw new UpstreamError(`${inst.id} در Binance موجود نیست`);
+  return binanceQueue(async () => {
+    const res = await fetchWithTimeout(`${config.binanceVisionUrl}/data/spot/${path}`, {}, Math.max(config.upstreamTimeoutMs, 60_000));
+    if (res.status === 404) return undefined;
+    if (!res.ok) throw new UpstreamError(`Binance archive: HTTP ${res.status}`, res.status);
+    const files = unzip(new Uint8Array(await res.arrayBuffer()));
+    const rows: number[][] = [];
+    for (const f of files) {
+      for (const line of f.data.toString('utf8').split('\n')) {
+        const cells = line.split(',');
+        let t = Number(cells[0]);
+        if (cells.length < 5 || !Number.isFinite(t)) continue; // header or empty line
+        if (t > 1e14) t = Math.floor(t / 1000);
+        rows.push([t, Number(cells[1]), Number(cells[2]), Number(cells[3]), Number(cells[4])]);
+      }
+    }
+    return rows;
+  });
+}
+
+const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/** A whole month of 1-minute bars from the monthly archive: the month's days, or undefined when not published. */
+export async function binanceArchiveMonth(inst: Instrument, monthStart: number, days: number): Promise<DayBars[] | undefined> {
+  const sym = inst.binance!;
+  const rows = await binanceArchive(inst, `monthly/klines/${sym}/1m/${sym}-1m-${ymd(monthStart).slice(0, 7)}.zip`);
+  return rows && parseBinanceKlines(rows, monthStart, days, DAY_MS, 60_000);
+}
+
+/** One day of 1-second (or 1-minute) bars from the daily archive; undefined when not published. */
+export async function binanceArchiveDay(inst: Instrument, dayStart: number, interval: '1s' | '1m'): Promise<DayBars | undefined> {
+  const sym = inst.binance!;
+  const rows = await binanceArchive(inst, `daily/klines/${sym}/${interval}/${sym}-${interval}-${ymd(dayStart)}.zip`);
+  return rows && parseBinanceKlines(rows, dayStart, 1, DAY_MS, interval === '1s' ? 1000 : 60_000)[0];
+}
+
+/** One UTC day of 1-second bars from the klines API (96 requests): when the archive has no file yet. */
+export async function binanceDaySeconds(inst: Instrument, dayStart: number): Promise<DayBars> {
+  return joinHours(await Promise.all(Array.from({ length: 24 }, (_, h) => binanceHour(inst, dayStart + h * HOUR_MS))));
 }

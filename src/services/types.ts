@@ -146,6 +146,8 @@ export interface SiteSettings {
   /** Symbols users can pick when creating a session (empty = all). */
   enabledSymbols: string[];
   newsAutoSync: boolean;
+  /** The server downloads missing market history by itself (and each new day) into its storage. */
+  marketAutoDownload: boolean;
 }
 
 /** Public settings the app reads at start (GET /api/config). */
@@ -188,6 +190,53 @@ export interface NewsSyncStatus {
   events: number;
   weeks: number;
   lastError?: string;
+}
+
+/** A download of market history into the server's storage (admin panel, command line, or automatic). */
+export interface MarketDownloadJob {
+  /** m1: 1-minute bars (all timeframes from 1 minute up); s1: 1-second bars */
+  kind: 'm1' | 's1';
+  symbols: string[];
+  from: string;
+  to: string;
+  by: 'admin' | 'auto' | 'cli';
+  state: 'running' | 'done' | 'stopped' | 'failed';
+  /** days to download, and how they went */
+  total: number;
+  done: number;
+  stored: number;
+  closed: number;
+  failed: number;
+  /** recent days the source has not published yet: tried again later */
+  later: number;
+  current?: string;
+  errors: { symbol: string; day: string; error: string }[];
+  message?: string;
+  startedAt: number;
+  finishedAt?: number;
+}
+
+export interface MarketStorageSymbol {
+  id: string;
+  source: DataSource;
+  /** first day of history kept for this symbol */
+  start: string;
+  /** days downloaded (traded or closed) of the days from `start` to yesterday */
+  days: number;
+  expected: number;
+  first?: string;
+  last?: string;
+  bytes: number;
+  /** days of 1-second bars */
+  secondDays: number;
+}
+
+export interface MarketStorage {
+  symbols: MarketStorageSymbol[];
+  bytes: number;
+  job: MarketDownloadJob | null;
+  lastJob: MarketDownloadJob | null;
+  autoDownload: boolean;
 }
 
 export interface Page<T> {

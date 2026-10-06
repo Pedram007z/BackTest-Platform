@@ -115,6 +115,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   marketData: { forex: 'dukascopy', index: 'dukascopy', metal: 'dukascopy', energy: 'dukascopy', crypto: 'binance' },
   enabledSymbols: [],
   newsAutoSync: true,
+  marketAutoDownload: true,
 };
 
 function seed(): Db {
