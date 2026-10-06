@@ -1,6 +1,8 @@
 import type { Timeframe } from '../lib/market';
 import type { NewsEvent } from '../lib/news';
 import type { OrderType, Side, Trade } from '../lib/types';
+import type { DrawingApi } from './lwDrawings';
+import type { IndicatorApi } from './lwIndicators';
 
 /**
  * Both chart engines (TradingView Advanced Charts and the built-in lightweight-charts engine)
@@ -54,6 +56,8 @@ export interface EngineCallbacks {
   onNewsClick?: (event: NewsEvent) => void;
   /** The pane was clicked (multi-chart layouts follow the active pane). */
   onActivate?: () => void;
+  /** Built-in chart: the gear next to an indicator in the legend. */
+  onIndicatorSettings?: (id: string) => void;
 }
 
 export interface ChartEngine {
@@ -61,6 +65,9 @@ export interface ChartEngine {
   update(state: EngineState): void;
   /** JPEG data URL of the chart with its drawings. */
   screenshot(): Promise<string | null>;
+  /** Built-in chart only (TradingView has its own toolbar and indicators). */
+  drawings?: DrawingApi;
+  indicators?: IndicatorApi;
   destroy(): void;
 }
 
