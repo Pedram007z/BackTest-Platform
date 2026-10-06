@@ -53,6 +53,8 @@ export const config = {
   /** Upstream hosts; point them at a mirror or relay if the server cannot reach them directly. */
   forexFactoryUrl: env('FF_BASE_URL', 'https://www.forexfactory.com').replace(/\/$/, ''),
   forexFactoryFeedUrl: env('FF_FEED_URL', 'https://nfs.faireconomy.media/ff_calendar_thisweek.json'),
+  /** Dukascopy's data API (JSON); `off` uses only the older datafeed files below. */
+  dukascopyApiUrl: env('DUKASCOPY_API_URL', 'https://jetta.dukascopy.com/v1').replace(/\/$/, ''),
   dukascopyUrl: env('DUKASCOPY_URL', 'https://datafeed.dukascopy.com/datafeed').replace(/\/$/, ''),
   binanceUrl: env('BINANCE_URL', 'https://data-api.binance.vision').replace(/\/$/, ''),
   /** Hourly refresh of the current calendar week. */

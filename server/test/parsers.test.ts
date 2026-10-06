@@ -3,7 +3,17 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { parseCalendarPage, parseFeed, weekParam, weekStart } from '../src/news/forexfactory';
 import { lzmaDecompress } from '../src/market/lzma';
-import { aggregate, parseBinanceKlines, parseDukascopyMinuteBars, parseDukascopyMinutes, parseDukascopyTicks } from '../src/market/sources';
+import {
+  aggregate,
+  dukascopyCode,
+  parseBinanceKlines,
+  parseDukascopyApiCandles,
+  parseDukascopyApiTicks,
+  parseDukascopyMinuteBars,
+  parseDukascopyMinutes,
+  parseDukascopyTicks,
+} from '../src/market/sources';
+import { toApiCandles } from './fixtures/dukascopy-api';
 import { FF_PAGE } from './fixtures/ff-page';
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url));
@@ -129,4 +139,77 @@ test('Binance klines split into hours of 1-second bars', () => {
   assert.deepEqual(Array.from(hour!.slice(0, 4)), [1, 2, 0.5, 1.5]);
   assert.deepEqual(Array.from(hour!.slice(3599 * 4)), [3, 4, 2, 3.5]);
   assert.equal(next![3], 9);
+});
+
+test('Dukascopy data API: instrument codes', () => {
+  assert.deepEqual(['EURUSD', 'XAUUSD', 'USA30IDXUSD', 'USSC2000IDXUSD', 'LIGHTCMDUSD', 'XPTCMDUSD', 'BTCUSD'].map(dukascopyCode), [
+    'EUR-USD',
+    'XAU-USD',
+    'USA30.IDX-USD',
+    'USSC2000.IDX-USD',
+    'LIGHT.CMD-USD',
+    'XPT.CMD-USD',
+    'BTC-USD',
+  ]);
+});
+
+test('Dukascopy data API: candles decode to the same bars as the datafeed file', () => {
+  const day = Date.UTC(2024, 0, 15);
+  const file = parseDukascopyMinuteBars(fixture('EURUSD_2024-01-15_min_1.bi5'), 1e5)!;
+  const api = parseDukascopyApiCandles(JSON.parse(JSON.stringify(toApiCandles(file, day, 0.00001))), day, 1440, 60_000)!;
+  assert.equal(api.length, file.length);
+  for (let i = 0; i < file.length; i++) {
+    if (Number.isNaN(file[i])) assert.ok(Number.isNaN(api[i]), `gap at ${i}`);
+    else assert.ok(Math.abs(api[i] - file[i]) < 1e-9, `value ${i}: ${api[i]} vs ${file[i]}`);
+  }
+  // no data: closed
+  assert.equal(parseDukascopyApiCandles({ timestamp: day, times: [] }, day, 1440, 60_000), null);
+  // zero-volume flat minutes are gaps
+  const flat = parseDukascopyApiCandles(
+    {
+      timestamp: day,
+      shift: 60_000,
+      multiplier: 0.001,
+      open: 2.5,
+      high: 2.5,
+      low: 2.5,
+      close: 2.5,
+      times: [0, 1],
+      opens: [0, 1],
+      highs: [0, 2],
+      lows: [0, 0],
+      closes: [0, 2],
+      volumes: [0, 3],
+    },
+    day,
+    1440,
+    60_000,
+  )!;
+  assert.ok(Number.isNaN(flat[0]));
+  assert.deepEqual(Array.from(flat.slice(4, 8)), [2.501, 2.502, 2.5, 2.502]);
+  assert.throws(() => parseDukascopyApiCandles({ error: 'nope' }, day, 1440, 60_000), /نامعتبر/);
+  assert.throws(() => parseDukascopyApiCandles({ timestamp: day, times: [0], opens: [] }, day, 1440, 60_000), /نامعتبر/);
+});
+
+test('Dukascopy data API: ticks become 1-second bars of the bid', () => {
+  const hour = Date.UTC(2024, 0, 15, 10);
+  const bars = parseDukascopyApiTicks(
+    {
+      timestamp: hour,
+      multiplier: 0.00001,
+      ask: 1.09502,
+      bid: 1.095,
+      times: [100, 800, 600, 3_000_000],
+      asks: [0, 1, 2, 0],
+      bids: [0, 2, -3, 5],
+      askVolumes: [1, 1, 1, 1],
+      bidVolumes: [1, 1, 1, 1],
+    },
+    hour,
+  )!;
+  assert.deepEqual(Array.from(bars.slice(0, 4)), [1.095, 1.09502, 1.095, 1.09502], 'second 0: two ticks');
+  assert.deepEqual(Array.from(bars.slice(4, 8)), [1.09499, 1.09499, 1.09499, 1.09499], 'second 1');
+  assert.equal(bars[3001 * 4], 1.09504, 'second 3001');
+  assert.ok(Number.isNaN(bars[2 * 4]));
+  assert.equal(parseDukascopyApiTicks({ timestamp: hour, times: [] }, hour), null);
 });
