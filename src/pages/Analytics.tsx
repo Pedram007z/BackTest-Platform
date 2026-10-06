@@ -418,7 +418,7 @@ export default function Analytics() {
           </Box>
 
           {/* by weekday */}
-          <SectionTitle info="مجموع درصد سود (راست، سبز) و زیان (چپ، قرمز) برای هر روز هفته‌ی بسته شدن معامله.">عملکرد روزانه</SectionTitle>
+          <SectionTitle info="مجموع درصد سود (سبز) و زیان (قرمز) برای هر روز هفته‌ی بسته شدن معامله.">عملکرد روزانه</SectionTitle>
           <Box>
             <WeekdayChart data={weekdays} />
           </Box>

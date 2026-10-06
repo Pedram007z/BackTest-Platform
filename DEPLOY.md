@@ -52,6 +52,7 @@ backtestlab.service   systemd unit
 nginx-site.conf       nginx site
 relay-nginx.conf      relay abroad for servers in Iran (step 8)
 check-sources.sh      checks whether the server reaches the data sources (step 8)
+make-admin.sh         makes a mobile number an admin (step 7)
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
@@ -119,7 +120,7 @@ cd /tmp && tar -xzf backtestlab-*.tar.gz
 sudo cp -r backtestlab/web/. /var/www/backtestlab/
 sudo cp backtestlab/server/server.mjs /opt/backtestlab/server/
 sudo cp backtestlab/backtestlab.service /etc/systemd/system/
-sudo cp backtestlab/check-sources.sh /opt/backtestlab/
+sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh /opt/backtestlab/
 ```
 
 If you uploaded the folder instead of the archive, skip the `tar` line.
@@ -182,11 +183,20 @@ Open `https://YOUR-DOMAIN`. You should see the landing page.
 
 ## 7. First sign-in and the admin panel
 
-1. Click **ورود** and enter a number from `ADMIN_PHONES`. Real SMS sending is still off, so the code is
-   in the server log:
+There are no usernames or passwords: everyone, admins included, signs in with a mobile number and a code
+sent by SMS. A number becomes an admin when it is listed in `ADMIN_PHONES` (step 4). To add one later:
+
+```bash
+sudo bash /opt/backtestlab/make-admin.sh 09121234567
+```
+
+1. Open `https://YOUR-DOMAIN/#/login` (or click **ورود**) and enter that number. Real SMS sending is still
+   off, so the code is in the server log; run this right after pressing the button:
    ```bash
-   sudo journalctl -u backtestlab -n 20 | grep sms:dev
+   sudo journalctl -u backtestlab -n 30 --no-pager | grep sms:dev
    ```
+   The last line reads `[sms:dev] 09121234567 ← 12345`; enter that code (and your name, the first time).
+   The menu then shows **پنل مدیریت** (admin panel).
 2. Open **پنل مدیریت** (admin panel):
    - **پیامک** (SMS): choose your provider, enter the API key, sender line and OTP template, send a test
      message, then turn on **ارسال واقعی** (real sending).
