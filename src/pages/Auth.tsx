@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { ArrowRight, CircleAlert, Eye, EyeOff, KeyRound, LoaderCircle, Lock, MessageSquareText, Moon, Pencil, Phone, ShieldCheck, Sun, TrendingUp, User } from 'lucide-react';
+import { ArrowRight, CircleAlert, LoaderCircle, MessageSquareText, Moon, Pencil, Phone, ShieldCheck, Sun, TrendingUp, User } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Link } from '../components/ui/AppLink';
@@ -18,7 +18,7 @@ interface LocationState {
   notice?: string;
 }
 
-function Alert({ tone, children }: { tone: 'error' | 'info'; children: ReactNode }) {
+export function Alert({ tone, children }: { tone: 'error' | 'info'; children: ReactNode }) {
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
@@ -173,13 +173,10 @@ export default function AuthPage() {
   const requestOtp = useAuth((s) => s.requestOtp);
   const verifyOtp = useAuth((s) => s.verifyOtp);
   const loginDemo = useAuth((s) => s.loginDemo);
-  const adminLogin = useAuth((s) => s.adminLogin);
   const { theme, setTheme } = useStore();
   const signup = location.pathname.startsWith('/signup');
-  // admins can also sign in with a username and password (/#/admin-login)
-  const [mode, setMode] = useState<'phone' | 'admin'>(location.pathname.startsWith('/admin-login') ? 'admin' : 'phone');
   const state = (location.state ?? {}) as LocationState;
-  const from = state.from && !/^\/(login|signup|admin-login)/.test(state.from) ? state.from : mode === 'admin' ? '/admin' : '/dashboard';
+  const from = state.from && !/^\/(login|signup)/.test(state.from) ? state.from : '/dashboard';
 
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
@@ -188,10 +185,7 @@ export default function AuthPage() {
   const [remember, setRemember] = useState(true);
   const [otp, setOtp] = useState<OtpRequest | null>(null);
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
-  const [loading, setLoading] = useState<'otp' | 'verify' | 'demo' | 'admin' | null>(null);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState<'otp' | 'verify' | 'demo' | null>(null);
   const [resendIn, setResendIn] = useState(0);
   const [expiresIn, setExpiresIn] = useState(0);
   const verifying = useRef(false);
@@ -269,30 +263,6 @@ export default function AuthPage() {
     }
   };
 
-  const signInAdmin = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!username.trim() || !password) {
-      setError({ text: 'نام کاربری و رمز عبور را بنویسید.', field: username.trim() ? 'password' : 'username' });
-      return;
-    }
-    setLoading('admin');
-    setError(null);
-    try {
-      const res = await adminLogin(username.trim(), password, remember);
-      toast(`خوش آمدید ${res.user.name}`);
-    } catch (x) {
-      setError({ text: x instanceof BackendError ? x.message : 'ورود انجام نشد. دوباره تلاش کنید.', field: x instanceof BackendError ? x.field : 'password' });
-      setPassword('');
-      setLoading(null);
-    }
-  };
-
-  const switchMode = (next: 'phone' | 'admin') => {
-    setMode(next);
-    setStep('phone');
-    setError(null);
-  };
-
   const demo = async () => {
     setLoading('demo');
     setError(null);
@@ -305,11 +275,9 @@ export default function AuthPage() {
     }
   };
 
-  const title = mode === 'admin' ? 'ورود مدیر' : step === 'code' ? 'کد تأیید را وارد کنید' : signup ? 'ساخت حساب با شماره موبایل' : 'ورود با شماره موبایل';
+  const title = step === 'code' ? 'کد تأیید را وارد کنید' : signup ? 'ساخت حساب با شماره موبایل' : 'ورود با شماره موبایل';
   const subtitle =
-    mode === 'admin' ? (
-      'با نام کاربری و رمز عبوری که برای مدیر سایت تنظیم شده وارد شوید.'
-    ) : step === 'code' ? (
+    step === 'code' ? (
       <>
         کد {faDigits(otp?.length ?? 5)} رقمی به <b className="num text-ink" dir="ltr">{fmtPhone(phone)}</b> پیامک شد.
       </>
@@ -334,7 +302,7 @@ export default function AuthPage() {
 
         <div className="mx-auto my-auto w-full max-w-[400px] py-10">
           <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-ink">
-            {mode === 'admin' ? <KeyRound size={22} /> : step === 'code' ? <ShieldCheck size={24} /> : <Phone size={22} />}
+            {step === 'code' ? <ShieldCheck size={24} /> : <Phone size={22} />}
           </span>
           <h1 className="font-display text-[26px] font-bold">{title}</h1>
           <p className="mt-2 text-[14px] leading-7 text-muted">{subtitle}</p>
@@ -343,65 +311,7 @@ export default function AuthPage() {
             {state.notice && !error && <Alert tone="info">{state.notice}</Alert>}
             {error && <Alert tone="error">{error.text}</Alert>}
 
-            {mode === 'admin' ? (
-              <form onSubmit={signInAdmin} noValidate className="flex flex-col gap-4">
-                <div>
-                  <label className="label" htmlFor="auth-username">
-                    نام کاربری
-                  </label>
-                  <div className={clsx('field flex items-center gap-2 py-0 focus-within:border-accent/70 focus-within:ring-2 focus-within:ring-accent/20', error?.field === 'username' && 'border-loss')}>
-                    <User size={17} className="shrink-0 text-faint" />
-                    <input
-                      id="auth-username"
-                      autoFocus
-                      dir="ltr"
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      value={username}
-                      onChange={(e) => {
-                        setUsername(e.target.value);
-                        if (error) setError(null);
-                      }}
-                      className="h-12 w-full bg-transparent text-left text-[15px] outline-none"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="label" htmlFor="auth-password">
-                    رمز عبور
-                  </label>
-                  <div className={clsx('field flex items-center gap-2 py-0 focus-within:border-accent/70 focus-within:ring-2 focus-within:ring-accent/20', error?.field === 'password' && 'border-loss')}>
-                    <Lock size={17} className="shrink-0 text-faint" />
-                    <input
-                      id="auth-password"
-                      dir="ltr"
-                      type={showPassword ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (error) setError(null);
-                      }}
-                      className="h-12 w-full bg-transparent text-left text-[15px] outline-none"
-                    />
-                    <button type="button" className="shrink-0 text-faint hover:text-ink" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'پنهان کردن رمز' : 'نمایش رمز'}>
-                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                    </button>
-                  </div>
-                </div>
-                <label className="flex cursor-pointer select-none items-center gap-2.5 text-[13px] text-muted">
-                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-4 w-4 accent-[rgb(var(--accent))]" />
-                  مرا به خاطر بسپار <span className="text-faint">(۳۰ روز)</span>
-                </label>
-                <button type="submit" className="btn-primary h-12 rounded-2xl text-[15px]" disabled={loading !== null}>
-                  {loading === 'admin' ? <LoaderCircle size={18} className="animate-spin" /> : 'ورود به پنل مدیریت'}
-                </button>
-                <button type="button" className="btn-ghost" onClick={() => switchMode('phone')}>
-                  <Phone size={14} /> ورود با شماره موبایل
-                </button>
-              </form>
-            ) : step === 'phone' ? (
+            {step === 'phone' ? (
               <form onSubmit={sendCode} noValidate className="flex flex-col gap-4">
                 <div>
                   <label className="label" htmlFor="auth-phone">
@@ -533,7 +443,7 @@ export default function AuthPage() {
               </form>
             )}
 
-            {backend.mode === 'demo' && step === 'phone' && mode === 'phone' && (
+            {backend.mode === 'demo' && step === 'phone' && (
               <>
                 <div className="flex items-center gap-3 text-xs text-faint">
                   <span className="h-px flex-1 bg-line" />
@@ -550,11 +460,6 @@ export default function AuthPage() {
             )}
           </div>
 
-          {mode === 'phone' && step === 'phone' && !signup && (
-            <button type="button" className="mx-auto mt-6 flex items-center gap-1.5 text-[12px] text-faint transition hover:text-ink" onClick={() => switchMode('admin')}>
-              <KeyRound size={13} /> مدیر سایت هستید؟ ورود با نام کاربری و رمز
-            </button>
-          )}
           <p className="mt-8 text-center text-[13px] text-muted">
             {signup ? 'قبلاً ثبت‌نام کرده‌اید؟ ' : 'حساب ندارید؟ '}
             <Link to={signup ? '/login' : '/signup'} state={state.from ? { from: state.from } : undefined} className="font-semibold text-accent-ink hover:underline">

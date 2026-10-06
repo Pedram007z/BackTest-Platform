@@ -46,6 +46,11 @@ export const config = {
   /** An admin who signs in with a username and password (make-admin.sh --username sets both). */
   adminUsername: env('ADMIN_USERNAME').toLowerCase(),
   adminPasswordHash: env('ADMIN_PASSWORD_HASH'),
+  /**
+   * The secret part of the admin sign-in address (APP_URL/#/k/<key>); without it the address and the
+   * admin sign-in API answer "not found". Empty: a random key made on first start and kept in db.json.
+   */
+  adminLoginKey: env('ADMIN_LOGIN_KEY'),
   /** Read X-Forwarded-For (behind nginx / a load balancer). */
   trustProxy: bool('TRUST_PROXY', false),
   /** Return the sign-in code in the API response while real SMS sending is off. Never enable on a public server. */

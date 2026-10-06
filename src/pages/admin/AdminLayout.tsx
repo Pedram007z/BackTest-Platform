@@ -117,7 +117,8 @@ export default function AdminLayout() {
   const location = useLocation();
   useEffect(() => setDrawer(false), [location.pathname]);
 
-  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  // signed out: the home page, as for any unknown address (nothing here points at the admin sign-in page)
+  if (!session) return <Navigate to="/" replace />;
   if (session.role !== 'admin') return <Navigate to="/dashboard" replace />;
 
   return (

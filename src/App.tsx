@@ -16,6 +16,7 @@ import Sessions from './pages/Sessions';
 import Settings from './pages/Settings';
 import Strategies from './pages/Strategies';
 import Support from './pages/Support';
+import AdminLogin from './pages/AdminLogin';
 import AdminLayout from './pages/admin/AdminLayout';
 import { AdminCards } from './pages/admin/Cards';
 import { AdminDiscounts, AdminGateways, AdminPayments, AdminPlans } from './pages/admin/Commerce';
@@ -78,7 +79,8 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/signup" element={<AuthPage />} />
-          <Route path="/admin-login" element={<AuthPage />} />
+          {/* the admin panel's sign-in page: its address holds a secret key the server checks */}
+          <Route path="/k/:key" element={<AdminLogin />} />
           <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
           <Route path="/pay/sandbox" element={<SandboxPay />} />
           <Route element={<AppShell />}>

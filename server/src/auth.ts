@@ -1,9 +1,10 @@
 import { config } from './config';
 import { db, save } from './db';
 import { USERNAME, checkPassword, hashPassword, isPasswordHash, passwordError } from './password';
-import { HttpError, badRequest, checkRateLimit, rateLimit, type Ctx } from './http';
+import { HttpError, badRequest, checkRateLimit, notFound, rateLimit, type Ctx } from './http';
 import { normalizePhone, type AccountUser } from './shared';
 import { sendOtpSms } from './sms';
+import { randomBytes } from 'node:crypto';
 import { DAY_MS, addDays, clone, hmac, otpCode, randomToken, safeEqual, sha256, toLatinDigits, todayKey, uid } from './util';
 
 const RESEND_SEC = 60;
@@ -113,6 +114,51 @@ function startSession(ctx: Ctx, user: AccountUser, isNew: boolean) {
   return { token, user: clone(user), isNew };
 }
 
+// ---------- the admin sign-in address ----------
+const KEY = /^[A-Za-z0-9_-]{16,128}$/;
+
+/** The secret part of the admin sign-in address (/#/k/<key>): ADMIN_LOGIN_KEY, or a random one kept in db.json. */
+export function adminGateKey(): string {
+  if (KEY.test(config.adminLoginKey)) return config.adminLoginKey;
+  const d = db();
+  if (!d.adminGateKey) {
+    d.adminGateKey = randomBytes(24).toString('base64url');
+    save();
+  }
+  return d.adminGateKey;
+}
+
+/** At start: make sure a key exists (the key itself is never written to the log). */
+export function applyAdminGate() {
+  if (config.adminLoginKey && !KEY.test(config.adminLoginKey)) {
+    console.warn('[auth] ADMIN_LOGIN_KEY must be 16-128 of A-Z a-z 0-9 _ -; using the key saved on the server. Run make-admin.sh --new-url.');
+  }
+  adminGateKey();
+}
+
+/** Wrong keys per IP: after 20 in 15 minutes even the right one is refused for a while. */
+const gateFailures = new Map<string, { n: number; until: number }>();
+const GATE_TRIES = 20;
+function gateOk(ctx: Ctx, key: unknown): boolean {
+  const now = Date.now();
+  if (gateFailures.size > 10_000) for (const [ip, f] of gateFailures) if (f.until < now) gateFailures.delete(ip);
+  const f = gateFailures.get(ctx.ip);
+  if (f && f.until > now && f.n >= GATE_TRIES) return false;
+  if (typeof key === 'string' && safeEqual(key, adminGateKey())) return true;
+  const next = f && f.until > now ? f : { n: 0, until: now + 15 * 60_000 };
+  next.n++;
+  gateFailures.set(ctx.ip, next);
+  return false;
+}
+/** the same answer as an address that does not exist */
+const hidden = () => notFound('مسیر API پیدا نشد.');
+
+/** POST /api/auth/admin-gate { key }: whether the admin sign-in page may be shown. */
+export function adminGate(ctx: Ctx) {
+  if (!gateOk(ctx, ctx.body.key)) throw hidden();
+  return { ok: true };
+}
+
 // ---------- admins: username and password ----------
 const badLogin = () => badRequest('bad_login', 'نام کاربری یا رمز عبور درست نیست.', 'password');
 /** Compared against when the username does not exist, so both cases take as long. */
@@ -121,8 +167,12 @@ let dummyHash: Promise<string> | null = null;
 const FAILURES = 10;
 const FAILURE_WINDOW = 15 * 60_000;
 
-/** POST /api/auth/admin-login { username, password }: admins only. 10 failed tries per IP and per username in 15 minutes. */
+/**
+ * POST /api/auth/admin-login { key, username, password }: admins only, and only with the sign-in
+ * address key (otherwise "not found"). 10 failed tries per IP and per username in 15 minutes.
+ */
 export async function adminLogin(ctx: Ctx) {
+  if (!gateOk(ctx, ctx.body.key)) throw hidden();
   const tooMany = 'تلاش‌های ناموفق زیاد بود؛ ۱۵ دقیقه بعد دوباره امتحان کنید.';
   const username = String(ctx.body.username ?? '')
     .trim()
@@ -145,9 +195,9 @@ export async function adminLogin(ctx: Ctx) {
   return startSession(ctx, user, false);
 }
 
-/** GET /api/admin/credentials: the signed-in admin's username (null when not set). */
+/** GET /api/admin/credentials: the signed-in admin's username (null when not set) and the admin sign-in address. */
 export function ownCredentials(user: AccountUser) {
-  return { username: db().credentials[user.id]?.username ?? null };
+  return { username: db().credentials[user.id]?.username ?? null, loginPath: `/k/${adminGateKey()}`, keyFromEnv: KEY.test(config.adminLoginKey) };
 }
 
 /** PUT /api/admin/credentials { username, password, currentPassword }: set or change one's own. */
