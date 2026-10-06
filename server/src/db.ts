@@ -73,6 +73,8 @@ export interface Db {
   sessions: Record<string, AuthSessionRecord>;
   /** user id → admin username and password hash (never sent to the app) */
   credentials: Record<string, AdminCredential>;
+  /** admin sign-in address key made by the server when .env has no ADMIN_LOGIN_KEY */
+  adminGateKey?: string;
 }
 
 export interface AdminCredential {

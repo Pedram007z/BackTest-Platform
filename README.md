@@ -31,7 +31,7 @@ VITE_API_URL=http://localhost:8787 npm run dev
 
 Sign in with a number from `ADMIN_PHONES` to become admin. While real SMS sending is off (the default), the code is
 printed in the server console and shown on the sign-in page in development. Admins can also sign in with a username
-and password on the admin sign-in page `/#/admin/login`, which the normal sign-in page does not link to (`ADMIN_USERNAME` + `ADMIN_PASSWORD_HASH` from `node server/dist/server.mjs
+and password on the admin sign-in page, whose address is secret: `/#/k/<ADMIN_LOGIN_KEY>`; the site never links to it and the server answers "not found" without the key (`ADMIN_USERNAME` + `ADMIN_PASSWORD_HASH` from `node server/dist/server.mjs
 hash-password`, or set in the admin panel's settings). Then open **پنل مدیریت** (`/#/admin`)
 to add your SMS provider's key and your payment gateways' merchant ids.
 
@@ -51,7 +51,7 @@ to add your SMS provider's key and your payment gateways' merchant ids.
 | `/billing` | اشتراک و پرداخت | Plans, discount codes, payment method (a bank gateway or card to card), payment history; the bank sends the user back here with the result |
 | `/billing/card` | پرداخت کارت به کارت | The card, its holder's name and the exact amount in rial (with this payment's own last three digits), a countdown, and «واریز کردم» (I have paid) |
 | `/support` | پشتیبانی | Tickets with replies from the admins |
-| `/admin/login` | ورود به پنل مدیریت | The admin panel's own sign-in page (username and password). Not linked from the site; `/admin` leads here when signed out |
+| `/k/<key>` | ورود به پنل مدیریت | The admin sign-in page (username and password) at a secret address: the key is `ADMIN_LOGIN_KEY` on the server (make-admin.sh sets it), checked by the server before the page shows. Any other key, `/admin` while signed out, and the old `/admin/login` lead to the home page |
 | `/admin/*` | پنل مدیریت | Overview, users (search, ban, plan changes, admin role), plans, transactions and refunds, discount codes, gateways (with connection test), card to card (cards, settings, confirming transfers), SMS (provider, test, bulk messages, log), tickets, economic calendar sync, symbols and market data sources, site settings, audit log |
 | `/replay/:id` | Chart (Play button) | Candlestick replay with play/pause, step, speed and a skip-a-day button; 1s–1D timeframes; Buy/Sell opens a long or short position tool whose entry, stop (SL) and target (TP) lines are dragged on the chart (risk %, lots and R:R follow); SL/TP filled automatically as candles advance; a session checklist must have its required items ticked before an order goes through. Drawing tools on the chart's left side and indicators come from TradingView when its library is installed, otherwise from the built-in chart (below) |
 

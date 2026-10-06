@@ -1,12 +1,13 @@
-import { KeyRound, Trash2 } from 'lucide-react';
+import { Copy, KeyRound, Trash2 } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { BackendError, backend } from '../../services';
 import { toast } from '../../store/useStore';
 import { Field } from './kit';
 
-/** The signed-in admin's username and password for /#/admin/login (sign-in by phone keeps working). */
+/** The signed-in admin's username and password, and the secret address of the admin sign-in page (sign-in by phone keeps working). */
 export function AdminCredentialsCard() {
   const [current, setCurrent] = useState<string | null | undefined>(undefined);
+  const [address, setAddress] = useState<{ url: string; fromEnv: boolean } | null>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -20,6 +21,7 @@ export function AdminCredentialsCard() {
       .then((c) => {
         setCurrent(c.username);
         setUsername(c.username ?? '');
+        if (c.loginPath) setAddress({ url: `${location.origin}${location.pathname}#${c.loginPath}`, fromEnv: c.keyFromEnv });
       })
       .catch(() => setCurrent(null));
   }, []);
@@ -71,7 +73,7 @@ export function AdminCredentialsCard() {
         <div>
           <h2 className="font-bold">ورود مدیر با نام کاربری و رمز</h2>
           <p className="mt-1 text-xs leading-6 text-faint">
-            برای حساب خودتان؛ صفحه‌ی ورود مدیر: <span dir="ltr">/#/admin/login</span>. ورود با موبایل هم کار می‌کند.
+            برای حساب خودتان؛ ورود از آدرس مخفی پایین. ورود با موبایل هم کار می‌کند.
             {current === undefined ? (
               ''
             ) : current ? (
@@ -88,6 +90,34 @@ export function AdminCredentialsCard() {
           </p>
         </div>
       </div>
+      {address && (
+        <div className="rounded-xl border border-line/70 bg-raised/40 p-3">
+          <p className="text-[13px] font-semibold">آدرس مخفی صفحه‌ی ورود مدیر</p>
+          <p className="mt-1 text-[12px] leading-6 text-faint">
+            در سایت به این آدرس لینکی نیست و بدون کلید آخر آن، صفحه و API ورود مدیر «پیدا نشد» جواب می‌دهند. آن را ذخیره کنید و به کسی ندهید. برای ساخت آدرس تازه (و باطل شدن این
+            یکی) روی سرور اجرا کنید:
+            {!address.fromEnv && ' (این آدرس را سرور خودش ساخته است.)'}
+          </p>
+          <code className="mt-1 block rounded-lg bg-bg/60 px-2 py-1 text-[11px] text-muted" dir="ltr">
+            sudo bash /opt/backtestlab/make-admin.sh --new-url
+          </code>
+          <div className="mt-2 flex items-center gap-2">
+            <input className="field num h-9 flex-1 text-[12px]" dir="ltr" readOnly value={address.url} aria-label="آدرس ورود مدیر" onFocus={(e) => e.target.select()} />
+            <button
+              type="button"
+              className="btn-soft h-9 shrink-0 px-3 text-[12px]"
+              onClick={() =>
+                navigator.clipboard.writeText(address.url).then(
+                  () => toast('آدرس کپی شد'),
+                  () => toast('کپی نشد؛ آدرس را دستی کپی کنید.', 'error'),
+                )
+              }
+            >
+              <Copy size={14} /> کپی
+            </button>
+          </div>
+        </div>
+      )}
       <form className="flex flex-col gap-3" onSubmit={save} noValidate>
         {error && <p className="rounded-xl bg-loss/10 px-3 py-2 text-[13px] text-loss">{error.text}</p>}
         <Field label="نام کاربری" htmlFor="cred-username" hint="۳ تا ۳۲ حرف انگلیسی، عدد یا _ . -">

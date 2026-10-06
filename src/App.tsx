@@ -79,9 +79,8 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/signup" element={<AuthPage />} />
-          {/* the admin panel's own sign-in page; the old address still leads there */}
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin-login" element={<Navigate to="/admin/login" replace />} />
+          {/* the admin panel's sign-in page: its address holds a secret key the server checks */}
+          <Route path="/k/:key" element={<AdminLogin />} />
           <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
           <Route path="/pay/sandbox" element={<SandboxPay />} />
           <Route element={<AppShell />}>

@@ -1,18 +1,23 @@
 import clsx from 'clsx';
 import { Eye, EyeOff, KeyRound, LoaderCircle, Lock, Moon, Sun, User } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { Logo } from '../components/brand/Brand';
-import { BackendError } from '../services';
+import { BackendError, backend } from '../services';
 import { useAuth } from '../store/useAuth';
 import { toast, useStore } from '../store/useStore';
 import { Alert } from './Auth';
 
 /**
- * The admin panel's own sign-in page (/#/admin/login): username and password only. The normal
- * sign-in page does not link here, so visitors never see an admin option.
+ * The admin panel's sign-in page, at a secret address: /#/k/<key>, where the key is known only to
+ * the server (ADMIN_LOGIN_KEY). The server checks the key before the page shows anything; a wrong
+ * one leads to the home page, as any unknown address does. Nothing on the site links here, and the
+ * key is not in the site's code. (The part after # is never sent in requests, so it is not in
+ * server logs either.)
  */
 export default function AdminLogin() {
+  const { key = '' } = useParams();
+  const [gate, setGate] = useState<'checking' | 'open' | 'closed' | 'offline'>('checking');
   const session = useAuth((s) => s.session);
   const adminLogin = useAuth((s) => s.adminLogin);
   const { theme, setTheme } = useStore();
@@ -23,7 +28,21 @@ export default function AdminLogin() {
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    let live = true;
+    setGate('checking');
+    backend
+      .adminGate(key)
+      .then((ok) => live && setGate(ok ? 'open' : 'closed'))
+      .catch(() => live && setGate('offline'));
+    return () => {
+      live = false;
+    };
+  }, [key]);
+
   if (session?.role === 'admin') return <Navigate to="/admin" replace />;
+  if (gate === 'closed') return <Navigate to="/" replace />;
+  if (gate === 'checking') return <div className="min-h-[100dvh] bg-bg" />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,7 +53,7 @@ export default function AdminLogin() {
     setLoading(true);
     setError(null);
     try {
-      const res = await adminLogin(username.trim(), password, remember);
+      const res = await adminLogin(username.trim(), password, remember, key);
       toast(`خوش آمدید ${res.user.name}`);
     } catch (x) {
       setError({ text: x instanceof BackendError ? x.message : 'ورود انجام نشد. دوباره تلاش کنید.', field: x instanceof BackendError ? x.field : 'password' });
@@ -64,6 +83,7 @@ export default function AdminLogin() {
           <p className="mt-2 text-[14px] leading-7 text-muted">با نام کاربری و رمز عبور مدیر وارد شوید.</p>
 
           <form onSubmit={submit} noValidate className="mt-7 flex flex-col gap-4">
+            {gate === 'offline' && !error && <Alert tone="error">اتصال به سرور برقرار نشد؛ کمی بعد دوباره امتحان کنید.</Alert>}
             {session && !error && <Alert tone="info">با حساب کاربری عادی وارد شده‌اید؛ این حساب به پنل مدیریت دسترسی ندارد.</Alert>}
             {error && <Alert tone="error">{error.text}</Alert>}
             <div>

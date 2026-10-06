@@ -3,7 +3,12 @@
 #
 #   sudo bash make-admin.sh --username admin   an admin who signs in with a username and password
 #                                               (asks for the password; .env keeps only its hash)
+#   sudo bash make-admin.sh --new-url           a new secret address for the admin sign-in page
+#                                               (the old one stops working)
 #   sudo bash make-admin.sh 09121234567         a mobile number that becomes admin (sign-in by SMS code)
+#
+# The admin sign-in page has a secret address, SITE/#/k/KEY. KEY (ADMIN_LOGIN_KEY in .env) is random;
+# without it the page and the admin sign-in API answer "not found". The site never links to it.
 #
 # ENV_FILE, SERVICE, SERVER_JS and NODE change the defaults below. ADMIN_PASSWORD=... skips the prompt.
 set -euo pipefail
@@ -14,6 +19,7 @@ NODE="${NODE:-node}"
 
 usage() {
   echo "Usage: sudo bash make-admin.sh --username admin      (username and password)"
+  echo "       sudo bash make-admin.sh --new-url             (new secret admin sign-in address)"
   echo "       sudo bash make-admin.sh 09121234567           (mobile number, English digits)"
   exit 1
 }
@@ -43,6 +49,33 @@ restart() {
 site="$(setting APP_URL)"
 site="${site:-https://YOUR-DOMAIN}"
 
+# 32 random URL-safe characters
+new_key() { head -c 24 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n'; }
+# the admin sign-in key: the one in .env, or a new one
+login_key() {
+  local key
+  key="$(setting ADMIN_LOGIN_KEY)"
+  if [[ ! "$key" =~ ^[A-Za-z0-9_-]{16,128}$ ]]; then
+    key="$(new_key)"
+    set_setting ADMIN_LOGIN_KEY "$key"
+  fi
+  printf '%s' "$key"
+}
+
+if [ "${1:-}" = "--new-url" ]; then
+  key="$(new_key)"
+  set_setting ADMIN_LOGIN_KEY "$key"
+  restart
+  cat <<EOF
+
+Done. The admin sign-in page is now at:
+  ${site}/#/k/${key}
+The previous address no longer works. Save this one (a password manager or a private note) and do
+not share it; the site has no link to it.
+EOF
+  exit 0
+fi
+
 if [ "${1:-}" = "--username" ]; then
   username="$(printf '%s' "${2:-}" | tr 'A-Z' 'a-z')"
   [[ "$username" =~ ^[a-z0-9_.-]{3,32}$ ]] || { echo "The username must be 3-32 of a-z, 0-9 and _ . -"; usage; }
@@ -58,12 +91,15 @@ if [ "${1:-}" = "--username" ]; then
   hash="$(printf '%s' "$password" | "$NODE" "$SERVER_JS" hash-password)"
   set_setting ADMIN_USERNAME "$username"
   set_setting ADMIN_PASSWORD_HASH "$hash"
+  key="$(login_key)"
   restart
   cat <<EOF
 
 Done. To sign in as admin:
-  1. Open the admin sign-in page: ${site}/#/admin/login
-     (it is not linked from the site; bookmark it)
+  1. Open the secret admin sign-in page:
+       ${site}/#/k/${key}
+     The site has no link to it and without the key it shows nothing: save it and do not share it.
+     (sudo bash make-admin.sh --new-url makes a new one.)
   2. Username: ${username}
      Password: the one you just typed
   3. You land in the admin panel («پنل مدیریت»).

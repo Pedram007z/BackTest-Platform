@@ -581,6 +581,10 @@ export const localBackend: Backend = {
     return delay({ token: `local.${user.id}`, user: clone(user), isNew }, 350);
   },
 
+  /** the demo has no admin sign-in page: its sample account already opens the panel */
+  async adminGate() {
+    return false;
+  },
   async adminLogin() {
     throw new BackendError('unsupported', 'ورود با نام کاربری و رمز فقط روی سرور فعال است؛ در نسخه‌ی نمایشی از «ورود با حساب نمایشی» استفاده کنید.', 'username');
   },
@@ -1061,7 +1065,7 @@ export const localBackend: Backend = {
     },
     async credentials() {
       requireAdmin();
-      return { username: null };
+      return { username: null, loginPath: '', keyFromEnv: false };
     },
     async saveCredentials() {
       requireAdmin();

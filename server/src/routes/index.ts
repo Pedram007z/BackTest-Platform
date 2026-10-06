@@ -1,4 +1,4 @@
-import { adminLogin, logout, requestOtp, requireUser, verifyOtp } from '../auth';
+import { adminGate, adminLogin, logout, requestOtp, requireUser, verifyOtp } from '../auth';
 import { db, save } from '../db';
 import { HttpError, Router, badRequest, notFound, rateLimit, str } from '../http';
 import { marketConfig, marketDays, marketSeconds, marketShowcase } from '../market';
@@ -48,6 +48,7 @@ export function buildRouter(): Router {
   // ---------- sign-in ----------
   r.post('/api/auth/otp', requestOtp);
   r.post('/api/auth/verify', verifyOtp);
+  r.post('/api/auth/admin-gate', adminGate);
   r.post('/api/auth/admin-login', adminLogin);
   r.post('/api/auth/logout', (ctx) => logout(ctx));
 

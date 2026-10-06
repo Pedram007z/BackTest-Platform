@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { config } from './config';
-import { applyAdminLoginFromEnv } from './auth';
+import { applyAdminGate, applyAdminLoginFromEnv } from './auth';
 import { db, flush, loadDb, prune } from './db';
 import { autoDownload } from './market/download';
 import { flushNews, loadNews, syncNews } from './news';
@@ -9,6 +9,7 @@ import { buildRouter } from './routes';
 
 loadDb();
 applyAdminLoginFromEnv();
+applyAdminGate();
 loadNews();
 const router = buildRouter();
 

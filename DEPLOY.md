@@ -196,9 +196,12 @@ sudo bash /opt/backtestlab/make-admin.sh --username admin
 
 It asks for a password twice (at least 8 characters; nothing is shown while you type), writes
 `ADMIN_USERNAME` and a hash of the password (`ADMIN_PASSWORD_HASH`, never the password itself) to the `.env`
-and restarts the API server. Then open the admin sign-in page `https://YOUR-DOMAIN/#/admin/login` (it is not
-linked from the site, so bookmark it; `/#/admin` also leads there when you are signed out), enter the username
-and password, and you are in the admin panel. Change them later in **پنل مدیریت → تنظیمات سایت → ورود مدیر با نام کاربری و رمز**; forgot the
+and restarts the API server. It also gives the admin sign-in page a secret address and prints it:
+`https://YOUR-DOMAIN/#/k/` followed by 32 random characters (`ADMIN_LOGIN_KEY` in `.env`). The site has no link to
+it, and without the key the page leads to the home page and the admin sign-in API answers "not found", so it
+cannot be guessed or found in the site's code. Save it privately (a password manager), open it, enter the
+username and password, and you are in the admin panel. Signed-in admins also see it in **تنظیمات سایت**. To
+replace it (the old one stops working): `sudo bash /opt/backtestlab/make-admin.sh --new-url`. Change them later in **پنل مدیریت → تنظیمات سایت → ورود مدیر با نام کاربری و رمز**; forgot the
 password? Run the command again. Ten wrong passwords in 15 minutes block further tries for 15 minutes.
 
 **B. Mobile number.** A number becomes an admin when it is listed in `ADMIN_PHONES` (step 4). To add one:

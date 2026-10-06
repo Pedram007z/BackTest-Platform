@@ -96,7 +96,7 @@ export interface AdminApi {
   startMarketDownload(input: { kind?: 'm1' | 's1'; symbols?: string[]; from?: string; to?: string }): Promise<MarketDownloadJob>;
   stopMarketDownload(): Promise<MarketDownloadJob | null>;
   /** The signed-in admin's username for signing in with a password (null when not set). */
-  credentials(): Promise<{ username: string | null }>;
+  credentials(): Promise<{ username: string | null; loginPath: string; keyFromEnv: boolean }>;
   saveCredentials(input: { username: string; password: string; currentPassword?: string }): Promise<{ username: string }>;
   removeCredentials(): Promise<void>;
 }
@@ -110,7 +110,9 @@ export interface Backend {
   /** The sample account (demo mode only). */
   demoLogin(): Promise<AuthResult>;
   /** Admins: sign in with a username and password. */
-  adminLogin(username: string, password: string): Promise<AuthResult>;
+  adminLogin(username: string, password: string, key: string): Promise<AuthResult>;
+  /** Whether `key` opens the admin sign-in page (its secret address /#/k/<key>). */
+  adminGate(key: string): Promise<boolean>;
   me(): Promise<AccountUser>;
   updateMe(patch: { name?: string }): Promise<AccountUser>;
   logout(): Promise<void>;

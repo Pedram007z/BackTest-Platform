@@ -28,7 +28,16 @@ export const httpBackend: Backend = {
   requestOtp: (phone) => post('/api/auth/otp', { phone }),
   verifyOtp: (phone, code, name) => post('/api/auth/verify', { phone, code, name }),
   demoLogin: () => Promise.reject(new BackendError('unsupported', 'حساب نمایشی فقط در نسخه‌ی بدون سرور در دسترس است.')),
-  adminLogin: (username, password) => post('/api/auth/admin-login', { username, password }),
+  adminLogin: (username, password, key) => post('/api/auth/admin-login', { key, username, password }),
+  adminGate: (key) =>
+    post('/api/auth/admin-gate', { key }).then(
+      () => true,
+      (e) => {
+        // a wrong key looks like a missing address; other errors (server down) are reported
+        if (e instanceof BackendError && e.code === 'not_found') return false;
+        throw e;
+      },
+    ),
   me: () => get('/api/me'),
   updateMe: (patch) => put('/api/me', patch),
   logout: () => post('/api/auth/logout'),
