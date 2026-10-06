@@ -6,18 +6,34 @@ import { badRequest } from '../http';
 import type { DataSource } from '../shared';
 import { DAY_MS, isDayKey, keyToMs, utcDayKey } from '../util';
 import { INSTRUMENTS, type Instrument } from './instruments';
-import { BARS_PER_DAY, binanceDays, dukascopyDay, type DayBars } from './sources';
+import {
+  BARS_PER_DAY,
+  HOUR_MS,
+  MINUTES_PER_DAY,
+  SECONDS_PER_HOUR,
+  aggregate,
+  binanceDayMinutes,
+  binanceDays,
+  binanceHour,
+  dukascopyDayMinutes,
+  dukascopyHour,
+  type DayBars,
+} from './sources';
 
 /**
- * 5-minute bars for the replay, one UTC day at a time. Days are fetched from Dukascopy or
- * Binance (per market, chosen in the admin panel) and kept on disk, so each day is downloaded once.
+ * Bars for the replay, fetched from Dukascopy or Binance (per market, chosen in the admin panel) and
+ * kept on disk, so each period is downloaded once:
+ * - days of 5-minute bars (the whole history) and of 1-minute bars (1-minute charts),
+ * - hours of 1-second bars (second charts; from Dukascopy's tick files or Binance's 1s klines).
  */
 
-const MAX_DAYS = 45;
-/** A day is cached once it ended this long ago (late ticks and publishing delay). */
+const MAX_DAYS = { '5m': 45, '1m': 7 } as const;
+const MAX_HOURS = 6;
+/** A period is cached once it ended this long ago (late ticks and publishing delay). */
 const SETTLE_MS = 6 * 3_600_000;
 
 type Remote = Exclude<DataSource, 'synthetic'>;
+type DayRes = keyof typeof MAX_DAYS;
 
 export function sourceFor(inst: Instrument): DataSource {
   const chosen = db().settings.marketData[inst.group] ?? 'synthetic';
@@ -28,65 +44,94 @@ export function sourceFor(inst: Instrument): DataSource {
   return inst.dukascopy ? 'dukascopy' : inst.binance ? 'binance' : 'synthetic';
 }
 
-const cacheFile = (source: Remote, id: string, day: string) => join(config.dataDir, 'market', source, id, day.slice(0, 4), `${day.slice(5)}.f32`);
+// ---------- disk cache (float32; an empty file is a closed period) ----------
+const dayFile = (source: Remote, id: string, day: string, res: DayRes) =>
+  join(config.dataDir, 'market', source, id, day.slice(0, 4), `${day.slice(5)}${res === '1m' ? '.m1' : ''}.f32`);
+const hourFile = (source: Remote, id: string, hour: number) => {
+  const key = new Date(hour).toISOString();
+  return join(config.dataDir, 'market', source, id, key.slice(0, 4), key.slice(5, 10), `${key.slice(11, 13)}.s1.f32`);
+};
 
-function readCache(source: Remote, id: string, day: string): DayBars | undefined {
-  const f = cacheFile(source, id, day);
-  if (!existsSync(f)) return undefined;
-  const buf = readFileSync(f);
+function readCache(file: string, bars: number): DayBars | undefined {
+  if (!existsSync(file)) return undefined;
+  const buf = readFileSync(file);
   if (buf.length === 0) return null;
-  if (buf.length !== BARS_PER_DAY * 4 * 4) return undefined;
-  const f32 = new Float32Array(buf.buffer, buf.byteOffset, BARS_PER_DAY * 4);
-  return Float64Array.from(f32);
+  if (buf.length !== bars * 4 * 4) return undefined;
+  return Float64Array.from(new Float32Array(buf.buffer, buf.byteOffset, bars * 4));
 }
 
-function writeCache(source: Remote, id: string, day: string, bars: DayBars) {
-  const f = cacheFile(source, id, day);
-  mkdirSync(dirname(f), { recursive: true });
-  const tmp = `${f}.tmp`;
+function writeCache(file: string, bars: DayBars) {
+  mkdirSync(dirname(file), { recursive: true });
+  const tmp = `${file}.tmp`;
   writeFileSync(tmp, bars ? Buffer.from(Float32Array.from(bars).buffer) : Buffer.alloc(0));
-  renameSync(tmp, f);
+  renameSync(tmp, file);
 }
 
-const inflight = new Map<string, Promise<DayBars>>();
+const settled = (periodEnd: number) => periodEnd + SETTLE_MS < Date.now();
 
-async function loadDays(inst: Instrument, source: Remote, starts: number[]): Promise<Map<number, DayBars | Error>> {
+/** One download per key at a time, shared by concurrent requests. */
+const inflight = new Map<string, Promise<unknown>>();
+function shared<T>(key: string, run: () => Promise<T>): Promise<T> {
+  let p = inflight.get(key) as Promise<T> | undefined;
+  if (!p) {
+    p = run().finally(() => inflight.delete(key));
+    inflight.set(key, p);
+  }
+  return p;
+}
+
+const closedDay = (inst: Instrument, s: number) => !inst.weekends && new Date(s).getUTCDay() === 6;
+
+/** Dukascopy publishes one minute file per day: it fills both the 1-minute and the 5-minute cache. */
+async function dukascopyBoth(inst: Instrument, s: number): Promise<{ m1: DayBars; m5: DayBars }> {
+  return shared(`dukascopy:${inst.id}:${s}`, async () => {
+    const m1 = closedDay(inst, s) ? null : await dukascopyDayMinutes(inst, s);
+    const m5 = aggregate(m1, 5);
+    if (settled(s + DAY_MS)) {
+      writeCache(dayFile('dukascopy', inst.id, utcDayKey(s), '1m'), m1);
+      writeCache(dayFile('dukascopy', inst.id, utcDayKey(s), '5m'), m5);
+    }
+    return { m1, m5 };
+  });
+}
+
+async function loadDays(inst: Instrument, source: Remote, starts: number[], res: DayRes): Promise<Map<number, DayBars | Error>> {
   const result = new Map<number, DayBars | Error>();
+  const per = res === '1m' ? MINUTES_PER_DAY : BARS_PER_DAY;
   const todo: number[] = [];
   for (const s of starts) {
-    const hit = readCache(source, inst.id, utcDayKey(s));
+    const hit = readCache(dayFile(source, inst.id, utcDayKey(s), res), per);
     if (hit !== undefined) result.set(s, hit);
     else todo.push(s);
   }
-
-  const settle = (s: number, bars: DayBars) => {
-    if (s + DAY_MS + SETTLE_MS < Date.now()) writeCache(source, inst.id, utcDayKey(s), bars);
-    return bars;
-  };
-  const shared = (s: number, run: () => Promise<DayBars>) => {
-    const key = `${source}:${inst.id}:${s}`;
-    let p = inflight.get(key);
-    if (!p) {
-      p = run().finally(() => inflight.delete(key));
-      inflight.set(key, p);
-    }
-    return p.then(
+  const keep = (s: number, job: Promise<DayBars>) =>
+    job.then(
       (bars) => void result.set(s, bars),
       (e: Error) => void result.set(s, e),
     );
+  const store = (s: number, bars: DayBars) => {
+    if (settled(s + DAY_MS)) writeCache(dayFile(source, inst.id, utcDayKey(s), res), bars);
+    return bars;
   };
 
   const jobs: Promise<void>[] = [];
   if (source === 'dukascopy') {
-    for (const s of todo) {
-      // weekends never trade outside crypto; skip the request
-      const wd = new Date(s).getUTCDay();
-      if (!inst.weekends && wd === 6) {
-        result.set(s, settle(s, null));
-        continue;
-      }
-      jobs.push(shared(s, async () => settle(s, await dukascopyDay(inst, s))));
-    }
+    // weekends never trade outside crypto; Saturdays are not requested
+    for (const s of todo)
+      jobs.push(
+        keep(
+          s,
+          dukascopyBoth(inst, s).then((b) => (res === '1m' ? b.m1 : b.m5)),
+        ),
+      );
+  } else if (res === '1m') {
+    for (const s of todo)
+      jobs.push(
+        keep(
+          s,
+          shared(`binance:1m:${inst.id}:${s}`, async () => store(s, await binanceDayMinutes(inst, s))),
+        ),
+      );
   } else {
     // consecutive missing days in groups of three per request
     for (let i = 0; i < todo.length;) {
@@ -94,10 +139,39 @@ async function loadDays(inst: Instrument, source: Remote, starts: number[]): Pro
       while (group.length < 3 && todo[i + group.length] === group[0] + group.length * DAY_MS) group.push(todo[i + group.length]);
       i += group.length;
       const batch = binanceDays(inst, group[0], group.length);
-      group.forEach((s, k) => jobs.push(shared(s, async () => settle(s, (await batch)[k]))));
+      group.forEach((s, k) =>
+        jobs.push(
+          keep(
+            s,
+            shared(`binance:5m:${inst.id}:${s}`, async () => store(s, (await batch)[k])),
+          ),
+        ),
+      );
     }
   }
   await Promise.all(jobs);
+  return result;
+}
+
+async function loadHours(inst: Instrument, source: Remote, starts: number[]): Promise<Map<number, DayBars | Error>> {
+  const result = new Map<number, DayBars | Error>();
+  await Promise.all(
+    starts.map(async (h) => {
+      const file = hourFile(source, inst.id, h);
+      const hit = readCache(file, SECONDS_PER_HOUR);
+      if (hit !== undefined) return void result.set(h, hit);
+      try {
+        const bars = await shared(`${source}:1s:${inst.id}:${h}`, async () => {
+          const b = source === 'dukascopy' ? (closedDay(inst, h) ? null : await dukascopyHour(inst, h)) : await binanceHour(inst, h);
+          if (settled(h + HOUR_MS)) writeCache(file, b);
+          return b;
+        });
+        result.set(h, bars);
+      } catch (e) {
+        result.set(h, e as Error);
+      }
+    }),
+  );
   return result;
 }
 
@@ -105,33 +179,75 @@ const round = (v: number, digits: number) => {
   const m = 10 ** (digits + 1);
   return Math.round(v * m) / m;
 };
+const encode = (bars: DayBars, digits: number) => (bars ? Array.from(bars, (x) => (Number.isNaN(x) ? null : round(x, digits))) : null);
 
-/** GET /api/market/days?symbol=EURUSD&from=2024-01-01&to=2024-01-31 (inclusive UTC days). */
-export async function marketDays(query: URLSearchParams) {
-  const symbol = query.get('symbol') ?? '';
-  const inst = INSTRUMENTS[symbol];
+function instrumentOf(query: URLSearchParams): Instrument {
+  const inst = INSTRUMENTS[query.get('symbol') ?? ''];
   if (!inst) throw badRequest('symbol', 'نماد پشتیبانی نمی‌شود.', 'symbol');
+  return inst;
+}
+
+/**
+ * GET /api/market/days?symbol=EURUSD&from=2024-01-01&to=2024-01-31[&res=1m] (inclusive UTC days).
+ * res=5m (default): 288 five-minute bars a day; res=1m: 1440 one-minute bars a day.
+ */
+export async function marketDays(query: URLSearchParams) {
+  const inst = instrumentOf(query);
+  const res = (query.get('res') ?? '5m') as DayRes;
+  if (!(res in MAX_DAYS)) throw badRequest('res', 'دقت داده معتبر نیست.', 'res');
   const from = query.get('from');
   const to = query.get('to');
   if (!isDayKey(from) || !isDayKey(to) || to < from) throw badRequest('range', 'بازه‌ی تاریخ معتبر نیست.');
   const first = keyToMs(from);
   const last = Math.min(keyToMs(to), Math.floor(Date.now() / DAY_MS) * DAY_MS);
   const count = Math.floor((last - first) / DAY_MS) + 1;
-  if (count > MAX_DAYS) throw badRequest('range', `حداکثر ${MAX_DAYS} روز در هر درخواست.`);
+  if (count > MAX_DAYS[res]) throw badRequest('range', `حداکثر ${MAX_DAYS[res]} روز در هر درخواست.`);
 
   const source = sourceFor(inst);
-  if (source === 'synthetic') return { symbol, source, days: [] };
+  if (source === 'synthetic') return { symbol: inst.id, source, res, days: [] };
   const starts = Array.from({ length: Math.max(0, count) }, (_, i) => first + i * DAY_MS);
-  const loaded = await loadDays(inst, source, starts);
+  const loaded = await loadDays(inst, source, starts, res);
   return {
-    symbol,
+    symbol: inst.id,
     source,
+    res,
     days: starts.map((s) => {
       const v = loaded.get(s);
       const day = utcDayKey(s);
       if (v instanceof Error) return { day, error: v.message };
-      if (!v) return { day, bars: null };
-      return { day, bars: Array.from(v, (x) => (Number.isNaN(x) ? null : round(x, inst.digits))) };
+      return { day, bars: encode(v ?? null, inst.digits) };
+    }),
+  };
+}
+
+const HOUR_KEY = /^\d{4}-\d{2}-\d{2}T\d{2}$/;
+const hourToMs = (key: string | null) => (key && HOUR_KEY.test(key) ? Date.parse(`${key}:00:00Z`) : NaN);
+
+/**
+ * GET /api/market/seconds?symbol=EURUSD&from=2024-01-15T10&to=2024-01-15T12 (inclusive UTC hours):
+ * 3600 one-second bars an hour.
+ */
+export async function marketSeconds(query: URLSearchParams) {
+  const inst = instrumentOf(query);
+  const first = hourToMs(query.get('from'));
+  const lastAsked = hourToMs(query.get('to'));
+  if (!Number.isFinite(first) || !Number.isFinite(lastAsked) || lastAsked < first) throw badRequest('range', 'بازه‌ی ساعت معتبر نیست.');
+  const last = Math.min(lastAsked, Math.floor(Date.now() / HOUR_MS) * HOUR_MS);
+  const count = Math.floor((last - first) / HOUR_MS) + 1;
+  if (count > MAX_HOURS) throw badRequest('range', `حداکثر ${MAX_HOURS} ساعت در هر درخواست.`);
+
+  const source = sourceFor(inst);
+  if (source === 'synthetic') return { symbol: inst.id, source, hours: [] };
+  const starts = Array.from({ length: Math.max(0, count) }, (_, i) => first + i * HOUR_MS);
+  const loaded = await loadHours(inst, source, starts);
+  return {
+    symbol: inst.id,
+    source,
+    hours: starts.map((h) => {
+      const v = loaded.get(h);
+      const hour = new Date(h).toISOString().slice(0, 13);
+      if (v instanceof Error) return { hour, error: v.message };
+      return { hour, bars: encode(v ?? null, inst.digits) };
     }),
   };
 }

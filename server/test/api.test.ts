@@ -308,6 +308,73 @@ test('market data: Dukascopy and Binance days, cached on disk', async () => {
   assert.equal(gz.status, 200);
 });
 
+test('market data: 1-minute days and 1-second hours', async () => {
+  const bi5 = readFileSync(new URL('./fixtures/EURUSD_2024-01-15_min_1.bi5', import.meta.url));
+  const ticks = readFileSync(new URL('./fixtures/EURUSD_2024-01-15_10h_ticks.bi5', import.meta.url));
+  const seen: string[] = [];
+  s.setUpstream((url) => {
+    seen.push(url);
+    if (url.includes('dukascopy') && url.includes('/EURUSD/2024/00/15/BID_candles_min_1')) return new Response(bi5);
+    if (url.includes('dukascopy') && url.includes('/EURUSD/2024/00/15/10h_ticks')) return new Response(ticks);
+    if (url.includes('dukascopy')) return new Response('', { status: 404 });
+    if (url.includes('/api/v3/klines')) {
+      const q = new URL(url).searchParams;
+      const start = Number(q.get('startTime'));
+      return s.json([[start, '42000', '42100', '41900', '42050', '1']]);
+    }
+    throw new Error(url);
+  });
+  const m1 = await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-15&to=2024-01-15&res=1m', undefined, admin.token);
+  assert.equal(m1.status, 200);
+  assert.equal(m1.data.res, '1m');
+  assert.equal(m1.data.days[0].bars.length, 1440 * 4);
+  assert.equal(
+    (await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-01&to=2024-01-10&res=1m', undefined, admin.token)).data.code,
+    'range',
+    'at most 7 days of minutes',
+  );
+  assert.equal((await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-15&to=2024-01-15&res=2m', undefined, admin.token)).data.field, 'res');
+
+  const sec = await s.call('GET', '/api/market/seconds?symbol=EURUSD&from=2024-01-15T09&to=2024-01-15T10', undefined, admin.token);
+  assert.equal(sec.status, 200);
+  assert.deepEqual(
+    sec.data.hours.map((h: any) => [h.hour, h.bars === null ? 'closed' : h.bars ? h.bars.length : h.error]),
+    [
+      ['2024-01-15T09', 'closed'],
+      ['2024-01-15T10', 3600 * 4],
+    ],
+  );
+  const n = seen.length;
+  await s.call('GET', '/api/market/seconds?symbol=EURUSD&from=2024-01-15T09&to=2024-01-15T10', undefined, admin.token);
+  assert.equal(seen.length, n, 'hours come from the disk cache the second time');
+  assert.equal((await s.call('GET', '/api/market/seconds?symbol=EURUSD&from=2024-01-15T00&to=2024-01-15T10', undefined, admin.token)).data.code, 'range', 'at most 6 hours');
+
+  const btc = await s.call('GET', '/api/market/seconds?symbol=BTCUSD&from=2024-01-01T00&to=2024-01-01T00', undefined, admin.token);
+  assert.equal(btc.data.source, 'binance');
+  assert.deepEqual(btc.data.hours[0].bars.slice(0, 4), [42000, 42100, 41900, 42050]);
+  assert.equal(seen.filter((u) => u.includes('interval=1s')).length, 4, 'an hour of seconds takes four requests');
+  const btcMin = await s.call('GET', '/api/market/days?symbol=BTCUSD&from=2024-01-02&to=2024-01-02&res=1m', undefined, admin.token);
+  assert.equal(btcMin.data.days[0].bars.length, 1440 * 4);
+  assert.equal(seen.filter((u) => u.includes('interval=1m')).length, 2, 'a day of minutes takes two requests');
+});
+
+test("errors from visitors' browsers are logged", async () => {
+  const logged: string[] = [];
+  const warn = console.warn;
+  console.warn = (...a: unknown[]) => void logged.push(a.join(' '));
+  try {
+    // sent as text/plain (no CORS preflight), the way the app reports them
+    const r = await s.call('POST', '/api/client-errors', JSON.stringify({ message: 'boom\nline 2', stack: 'at x', url: 'https://app.test/#/sessions' }), undefined, {
+      headers: { 'Content-Type': 'text/plain' },
+    });
+    assert.ok(r.status < 300, `status ${r.status}`);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /^\[client-error\] .*#\/sessions :: boom line 2 :: at x/);
+});
+
 test('CORS allows the app origin only', async () => {
   const pre = await s.call('OPTIONS', '/api/me', undefined, undefined, { headers: { Origin: 'https://app.test', 'Access-Control-Request-Method': 'GET' } });
   assert.equal(pre.status, 204);

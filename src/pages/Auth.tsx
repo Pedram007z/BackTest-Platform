@@ -150,7 +150,7 @@ function MarketPanel() {
         <ul className="grid grid-cols-3 gap-4 text-xs text-muted">
           {[
             ['+۷۰', 'نماد فارکس، شاخص و کریپتو'],
-            ['۶', 'تایم‌فریم از ۵ دقیقه'],
+            ['۱۱', 'تایم‌فریم از ۱ ثانیه'],
             ['۱۳۹۳', 'شروع داده‌ی تاریخی'],
           ].map(([v, l]) => (
             <li key={l}>

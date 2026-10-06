@@ -35,7 +35,7 @@ import { Popover } from '../components/ui/Popover';
 import { useNews } from '../hooks/useNews';
 import { DAY_MS, fmtDay, fmtDayLong, fmtMarketTime, msToKey } from '../lib/calendar';
 import { faDigits, fmtNum, fmtUsd, toLatinDigits } from '../lib/format';
-import { SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
+import { BAR_MS, HOUR_MS, MIN_MS, SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
 import { currenciesFor, filterNews } from '../lib/news';
 import { saveShot } from '../lib/shots';
 import { sessionBalance, sessionEndMs, sessionFloating, sessionProgress, sessionRemainingDays } from '../lib/stats';
@@ -43,7 +43,7 @@ import { local } from '../lib/storage';
 import { fmtTehran } from '../lib/timezone';
 import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, tickOf } from '../lib/trading';
 import type { ChartPane as Pane, JournalEntry, LayoutId, Side, Trade } from '../lib/types';
-import { ensureRange, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
+import { ensureFine, ensureRange, fineReady, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
 import { toast, useStore, useUi } from '../store/useStore';
 
 interface Draft {
@@ -215,20 +215,29 @@ export default function Replay() {
   }, []);
 
   const jumpTo = useCallback(
-    (target: number) => {
+    (target: number, fineTried = false) => {
       const st = useStore.getState();
       const s = st.sessions.find((x) => x.id === id);
       if (!s) return;
       const end = sessionEndMs(s);
       const next = Math.min(end, target);
       if (next <= s.cursor) return;
-      // orders fill on the bars in between, so they have to be loaded first
-      if (!rangeReady(s.symbols, s.cursor, next)) {
+      // orders fill on the bars in between, so they have to be loaded first; a step inside a 5-minute
+      // bar also waits once for the 1-minute / 1-second data (without it the 5-minute bar is used)
+      const fine = fineTried
+        ? []
+        : ([...(next % BAR_MS || s.cursor % BAR_MS ? ['m1'] : []), ...(next % MIN_MS || s.cursor % MIN_MS ? ['s1'] : [])] as ('m1' | 's1')[]).filter(
+            (k) => !fineReady(k, s.symbols, s.cursor, next),
+          );
+      if (!rangeReady(s.symbols, s.cursor, next) || fine.length) {
         if (waitingForData.current) return;
         waitingForData.current = true;
-        void ensureRange(s.symbols, s.cursor - DAY_MS, next + 3 * DAY_MS).then((ok) => {
+        void Promise.all([
+          ensureRange(s.symbols, s.cursor - DAY_MS, next + 3 * DAY_MS),
+          ...fine.map((k) => ensureFine(k, s.symbols, s.cursor, next + (k === 'm1' ? DAY_MS : HOUR_MS))),
+        ]).then(([ok]) => {
           waitingForData.current = false;
-          if (ok) jumpTo(target);
+          if (ok) jumpTo(target, true);
           else {
             setPlaying(false);
             toast('داده‌ی بازار این بازه هنوز دریافت نشده؛ کمی بعد دوباره تلاش کنید', 'error');
@@ -588,6 +597,7 @@ export default function Replay() {
                   cursor={cursor}
                   theme={theme}
                   sessionSymbols={session.symbols}
+                  sessionId={session.id}
                   showHistory={showHistory}
                   dataVersion={dataVersion}
                   draft={draftForChart}

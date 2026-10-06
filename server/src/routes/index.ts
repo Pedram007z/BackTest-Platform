@@ -1,7 +1,7 @@
 import { logout, requestOtp, requireUser, verifyOtp } from '../auth';
 import { db, save } from '../db';
-import { HttpError, Router, badRequest, notFound, str } from '../http';
-import { marketConfig, marketDays } from '../market';
+import { HttpError, Router, badRequest, notFound, rateLimit, str } from '../http';
+import { marketConfig, marketDays, marketSeconds } from '../market';
 import { eventsBetween } from '../news';
 import { checkDiscount, checkout, enabledGateways, handleCallback, publicPayment, simulatorComplete, simulatorPage } from '../payments';
 import type { Ticket } from '../shared';
@@ -13,6 +13,13 @@ export function buildRouter(): Router {
 
   // ---------- public ----------
   r.get('/api/health', () => ({ ok: true, time: Date.now() }));
+  // Errors a visitor's browser hit (the app reports them), so a page that went blank on someone's machine shows in the log.
+  r.post('/api/client-errors', (ctx) => {
+    rateLimit(`client-error:${ctx.ip}`, 20, 10 * 60_000);
+    const s = (v: unknown, max: number) => (typeof v === 'string' ? v : '').replace(/\s+/g, ' ').slice(0, max);
+    console.warn(`[client-error] ${ctx.ip} ${s(ctx.body.url, 200)} :: ${s(ctx.body.message, 300)} :: ${s(ctx.body.stack, 800)} :: ${ctx.userAgent}`);
+    return undefined;
+  });
   r.get('/api/config', () => {
     const s = db().settings;
     return {
@@ -115,6 +122,10 @@ export function buildRouter(): Router {
   r.get('/api/market/days', (ctx) => {
     requireUser(ctx);
     return marketDays(ctx.query);
+  });
+  r.get('/api/market/seconds', (ctx) => {
+    requireUser(ctx);
+    return marketSeconds(ctx.query);
   });
 
   adminRoutes(r);

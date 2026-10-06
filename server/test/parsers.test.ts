@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { parseCalendarPage, parseFeed, weekParam, weekStart } from '../src/news/forexfactory';
 import { lzmaDecompress } from '../src/market/lzma';
-import { parseBinanceKlines, parseDukascopyMinutes } from '../src/market/sources';
+import { aggregate, parseBinanceKlines, parseDukascopyMinuteBars, parseDukascopyMinutes, parseDukascopyTicks } from '../src/market/sources';
 import { FF_PAGE } from './fixtures/ff-page';
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url));
@@ -90,4 +90,43 @@ test('Binance klines are split into UTC days', () => {
   assert.deepEqual(Array.from(days[0]!.slice(0, 8)), [42000.1, 42010.5, 41990, 42005.2, 42005.2, 42020, 42000, 42015]);
   assert.equal(days[1]![287 * 4 + 3], 43000.5);
   assert.equal(days[2], null, 'a day without klines is closed');
+});
+
+test('Dukascopy minutes as 1-minute bars aggregate exactly to the 5-minute bars', () => {
+  const m1 = parseDukascopyMinuteBars(fixture('EURUSD_2024-01-15_min_1.bi5'), 1e5)!;
+  const m5 = parseDukascopyMinutes(fixture('EURUSD_2024-01-15_min_1.bi5'), 1e5)!;
+  assert.equal(m1.length, 1440 * 4);
+  const again = aggregate(m1, 5)!;
+  for (let i = 0; i < m5.length; i++) assert.ok(Object.is(again[i], m5[i]) || Math.abs(again[i] - m5[i]) < 1e-12, `value ${i}`);
+  assert.ok(Number.isNaN(m1[21 * 60 * 4 + 4 * 30]), '21:30 is a gap');
+});
+
+test('Dukascopy ticks become 1-second bars of the bid', () => {
+  const s1 = parseDukascopyTicks(fixture('EURUSD_2024-01-15_10h_ticks.bi5'), 1e5)!;
+  assert.equal(s1.length, 3600 * 4);
+  // the fixture has a tick every 700 ms with bid starting near 1.0952, and no ticks in 10:20–10:21
+  let filled = 0;
+  for (let j = 0; j < 3600; j++) {
+    const b = j * 4;
+    if (Number.isNaN(s1[b])) continue;
+    filled++;
+    assert.ok(s1[b + 2] <= Math.min(s1[b], s1[b + 3]) && s1[b + 1] >= Math.max(s1[b], s1[b + 3]), `second ${j} is a valid bar`);
+    assert.ok(s1[b] > 1.09 && s1[b] < 1.1);
+  }
+  for (let j = 1200; j < 1260; j++) assert.ok(Number.isNaN(s1[j * 4]), `second ${j} has no ticks`);
+  assert.equal(filled, 3600 - 60, 'every second has a tick except the quiet minute');
+  assert.equal(parseDukascopyTicks(new Uint8Array(0), 1e5), null, 'an empty file is a closed hour');
+});
+
+test('Binance klines split into hours of 1-second bars', () => {
+  const h0 = Date.UTC(2024, 0, 1, 10);
+  const rows = [
+    [h0, '1', '2', '0.5', '1.5', '1'],
+    [h0 + 3599_000, '3', '4', '2', '3.5', '1'],
+    [h0 + 3600_000, '9', '9', '9', '9', '1'],
+  ];
+  const [hour, next] = parseBinanceKlines(rows, h0, 2, 3_600_000, 1000);
+  assert.deepEqual(Array.from(hour!.slice(0, 4)), [1, 2, 0.5, 1.5]);
+  assert.deepEqual(Array.from(hour!.slice(3599 * 4)), [3, 4, 2, 3.5]);
+  assert.equal(next![3], 9);
 });

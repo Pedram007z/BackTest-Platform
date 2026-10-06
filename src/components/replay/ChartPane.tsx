@@ -19,6 +19,8 @@ interface Props {
   cursor: number;
   theme: 'dark' | 'light';
   sessionSymbols: string[];
+  /** Session id: TradingView keeps each pane's drawings and indicators under it. */
+  sessionId: string;
   showHistory: boolean;
   dataVersion: number;
   draft: (DraftOrder & { symbol: string }) | null;
@@ -51,6 +53,7 @@ export function ChartPane(props: Props) {
     showHistory: props.showHistory,
     news: props.news.filter((e) => currencies.includes(e.currency) || (e.currency === 'CNY' && currencies.includes('HKD'))),
     dataVersion: props.dataVersion,
+    layoutKey: `${props.sessionId}:${index}`,
   };
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -128,17 +131,24 @@ export function ChartPane(props: Props) {
               </ul>
             )}
           </Popover>
-          <span className="mx-1 h-4 w-px bg-line" />
-          {TIMEFRAMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => onPaneChange({ ...pane, timeframe: t.id as Timeframe })}
-              className={clsx('rounded-md px-1.5 py-0.5 text-[12px] font-semibold transition', t.id === pane.timeframe ? 'text-accent-ink' : 'text-muted hover:text-ink')}
-            >
-              {t.short}
-            </button>
-          ))}
+          <span className="mx-1 h-4 w-px shrink-0 bg-line" />
+          {/* eleven timeframes: narrow panes scroll them sideways */}
+          <div className="flex min-w-0 items-center overflow-x-auto [scrollbar-width:none]">
+            {TIMEFRAMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => onPaneChange({ ...pane, timeframe: t.id as Timeframe })}
+                className={clsx(
+                  'shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-semibold transition',
+                  t.id === pane.timeframe ? 'text-accent-ink' : 'text-muted hover:text-ink',
+                )}
+                title={t.label}
+              >
+                {t.short}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       <div ref={host} className="chart-ltr relative min-h-0 flex-1" />

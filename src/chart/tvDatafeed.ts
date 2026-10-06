@@ -1,8 +1,8 @@
-import { DATA_START, SYMBOL_MAP, TF_MS, TIMEFRAMES, candlesBetween, getCandles, tfFromTv, type SymbolInfo, type Timeframe } from '../lib/market';
+import { DATA_START, HOUR_MS, SYMBOL_MAP, TF_MS, TIMEFRAMES, candlesBetween, getCandles, tfFromTv, type SymbolInfo, type Timeframe } from '../lib/market';
 import { DAY_MS, keyToMs } from '../lib/calendar';
 import { newsTitleFa, type NewsEvent } from '../lib/news';
 import { hasServer } from '../services/api';
-import { ensureRange } from '../services/marketFeed';
+import { ensureFine, ensureRange, fineKindOf } from '../services/marketFeed';
 
 /**
  * TradingView JS-API datafeed for a replay: bars never go past the replay cursor, new bars are
@@ -38,7 +38,9 @@ export function symbolInfoFor(s: SymbolInfo) {
     pricescale: 10 ** s.digits,
     minmov: 1,
     has_intraday: true,
-    intraday_multipliers: ['5', '15', '30', '60', '240'],
+    intraday_multipliers: ['1', '5', '15', '30', '60', '240'],
+    has_seconds: true,
+    seconds_multipliers: ['1', '5', '15', '30'],
     has_daily: true,
     daily_multipliers: ['1'],
     has_weekly_and_monthly: false,
@@ -127,9 +129,12 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
         setTimeout(answer);
         return;
       }
-      // real data: load the requested range (with room for weekends) before answering
+      // real data: load the requested range (with room for weekends) before answering; minute and
+      // second charts also need the 1-minute days / 1-second hours of it (a few days / hours at most)
       const fromMs = Math.min(period.from * 1000, toMs - period.countBack * TF_MS[tf] * 1.45);
-      void ensureRange([symbolInfo.name], Math.max(START_MS, fromMs - DAY_MS), toMs).finally(answer);
+      const kind = fineKindOf(tf);
+      const fine = kind ? ensureFine(kind, [symbolInfo.name], Math.max(fromMs, toMs - (kind === 's1' ? 6 * HOUR_MS : 4 * DAY_MS)), toMs) : Promise.resolve(true);
+      void Promise.all([ensureRange([symbolInfo.name], Math.max(START_MS, fromMs - DAY_MS), toMs), fine]).finally(answer);
     },
 
     subscribeBars(symbolInfo: any, resolution: string, onTick: (bar: any) => void, guid: string, onReset: () => void) {

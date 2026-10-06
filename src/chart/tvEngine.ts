@@ -9,12 +9,32 @@ import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './ty
 /**
  * Replay chart on TradingView Advanced Charts. One widget per pane. Prices come from the replay
  * datafeed; the position tool is TradingView's own long/short position drawing; open positions
- * are position lines (with the close X) and stop / target are draggable order lines.
+ * are position lines (with the close X) and stop / target are draggable order lines. The drawing
+ * toolbar and the indicators work as in TradingView; each pane's drawings and indicators are saved
+ * in this browser per session and come back when the session is opened again.
  */
 
 type Any = any; // the library's own typings are not part of this repository
 
 const tvRes = (tf: string) => TIMEFRAMES.find((t) => t.id === tf)?.tv ?? '15';
+
+const LAYOUT_PREFIX = 'btl:tv-layout:';
+function readLayout(key: string | undefined): object | undefined {
+  if (!key) return undefined;
+  try {
+    const raw = localStorage.getItem(LAYOUT_PREFIX + key);
+    return raw ? (JSON.parse(raw) as object) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function writeLayout(key: string, layout: object) {
+  try {
+    localStorage.setItem(LAYOUT_PREFIX + key, JSON.stringify(layout));
+  } catch {
+    /* storage full or blocked: drawings stay for this visit */
+  }
+}
 
 function overrides(theme: 'dark' | 'light') {
   const p = PALETTES[theme];
@@ -65,6 +85,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
   container.style.position = 'relative';
   container.append(host);
 
+  const savedLayout = readLayout(state.layoutKey);
   const widget = new TV.widget({
     container: host,
     library_path: TV_LIBRARY_PATH,
@@ -72,6 +93,8 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     datafeed: feed.datafeed,
     symbol: state.symbol,
     interval: tvRes(state.timeframe),
+    ...(savedLayout ? { saved_data: savedLayout } : {}),
+    auto_save_delay: 2,
     autosize: true,
     theme: state.theme === 'dark' ? 'dark' : 'light',
     timezone: 'Asia/Tehran',
@@ -85,6 +108,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       'display_market_status',
       'use_localstorage_for_settings',
     ],
+    enabled_features: ['seconds_resolution'],
     favorites: { intervals: TIMEFRAMES.map((t) => t.tv) },
     loading_screen: { backgroundColor: state.theme === 'dark' ? '#120f1c' : '#ffffff', foregroundColor: '#7c5cff' },
     overrides: overrides(state.theme),
@@ -338,6 +362,14 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       if (id === draftId && type === 'remove') draftId = null;
     });
     widget.subscribe('mouse_down', () => cb.onActivate?.());
+    // keep the pane's drawings and indicators (our own lines and markers are not saved)
+    widget.subscribe('onAutoSaveNeeded', () => {
+      const key = state.layoutKey;
+      if (key && !destroyed) widget.save((layout: object) => writeLayout(key, layout));
+    });
+    // a restored layout brings its own symbol and timeframe: the session's win
+    if (String(chart.symbol()).split(':').pop() !== state.symbol) chart.setSymbol(state.symbol);
+    if (tfFromTv(chart.resolution()) !== state.timeframe) chart.setResolution(tvRes(state.timeframe));
     marksSig = '';
     update(state);
   });

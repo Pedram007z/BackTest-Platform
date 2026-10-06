@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { getSession, type Session as AuthSession } from '../lib/auth';
 import { addDays, keyToMs, localDayKey } from '../lib/calendar';
-import { BAR_MS, SYMBOL_MAP, bars5m, pointValueUsd, priceAt, roundToTick } from '../lib/market';
+import { BAR_MS, SYMBOL_MAP, pointValueUsd, priceAt, replayBars, roundToTick } from '../lib/market';
 import { closeLots, followIdeal, lotsForRisk, processBar, type FillEvent } from '../lib/trading';
 import type { ChartPane, Checklist, GoToPreset, JournalEntry, LayoutId, NewsFilters, OrderType, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
 import { local } from '../lib/storage';
@@ -306,7 +306,7 @@ export const useStore = create<State>()(
           const following = t.status === 'closed' && !t.idealDone;
           if (!live && !following) return t;
           let trade = t;
-          for (const bar of bars5m(t.symbol, from, nextCursor)) {
+          for (const bar of replayBars(t.symbol, from, nextCursor)) {
             if (trade.status === 'open' || trade.status === 'pending') {
               if (trade.status === 'pending' && bar.time < trade.placedTime) continue;
               trade = processBar(trade, bar, events);
