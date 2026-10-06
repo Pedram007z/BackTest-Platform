@@ -392,7 +392,6 @@ export function AdminNews() {
 const SOURCES: { value: DataSource; label: string }[] = [
   { value: 'dukascopy', label: 'Dukascopy (تاریخی)' },
   { value: 'binance', label: 'Binance (کریپتو)' },
-  { value: 'synthetic', label: 'داده‌ی ساختگی (آزمایشی)' },
 ];
 
 export function AdminMarket() {
@@ -443,7 +442,8 @@ export function AdminMarket() {
           ))}
         </div>
         <p className="mt-3 text-xs leading-6 text-faint">
-          داده‌ی واقعی را سرور دریافت و ذخیره می‌کند (کندل ۵ و ۱ دقیقه، و کندل ۱ ثانیه برای تایم‌فریم‌های ثانیه‌ای). بدون سرور، برنامه از داده‌ی ساختگی تکرارپذیر استفاده می‌کند.
+          همه‌ی قیمت‌ها داده‌ی واقعی تاریخی هستند: سرور آن‌ها را از Dukascopy (قیمت Bid) و Binance دریافت و ذخیره می‌کند (کندل ۵ و ۱ دقیقه، و کندل ۱ ثانیه برای تایم‌فریم‌های
+          ثانیه‌ای). کندل‌های روزانه و ۴ ساعته مثل بروکرها با بسته‌شدن ساعت ۱۷ نیویورک تشکیل می‌شوند؛ کریپتو با روز UTC.
         </p>
       </section>
       <section className="card p-5">

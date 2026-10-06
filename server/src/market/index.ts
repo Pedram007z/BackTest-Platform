@@ -36,8 +36,7 @@ type Remote = Exclude<DataSource, 'synthetic'>;
 type DayRes = keyof typeof MAX_DAYS;
 
 export function sourceFor(inst: Instrument): DataSource {
-  const chosen = db().settings.marketData[inst.group] ?? 'synthetic';
-  if (chosen === 'synthetic') return 'synthetic';
+  const chosen = db().settings.marketData[inst.group];
   if (chosen === 'binance' && inst.binance) return 'binance';
   if (chosen === 'dukascopy' && inst.dukascopy) return 'dukascopy';
   // fall back to whichever real source has the symbol
@@ -250,6 +249,75 @@ export async function marketSeconds(query: URLSearchParams) {
       return { hour, bars: encode(v ?? null, inst.digits) };
     }),
   };
+}
+
+// ---------- landing and sign-in pages ----------
+/** Symbols of the sign-in page's ticker strip. */
+const SHOWCASE_TICKERS = ['EURUSD', 'GBPUSD', 'XAUUSD', 'NAS100', 'BTCUSD', 'USDJPY', 'US30', 'ETHUSD', 'GBPJPY', 'SPX500'];
+/** The landing page's sample replay: three fixed days of EURUSD, downloaded once. */
+const SAMPLE = { symbol: 'EURUSD', from: '2024-03-04', days: 3 };
+let showcase: { at: number; ttl: number; value: Promise<Showcase> } | null = null;
+
+export interface Showcase {
+  /** 5-minute bars as [time (s), open, high, low, close] */
+  sample: { symbol: string; bars: number[][] } | null;
+  /** change over the last 24 hours of the last settled days, in percent */
+  quotes: { symbol: string; change: number }[];
+}
+
+/** Bars of these days, oldest first, as [time (ms), close] and the full rows. */
+async function barsOf(inst: Instrument, starts: number[]): Promise<{ t: number; o: number; h: number; l: number; c: number }[]> {
+  const source = sourceFor(inst);
+  if (source === 'synthetic') return [];
+  const loaded = await loadDays(inst, source, starts, '5m');
+  const out: { t: number; o: number; h: number; l: number; c: number }[] = [];
+  for (const s of starts) {
+    const v = loaded.get(s);
+    if (!(v instanceof Float64Array)) continue;
+    for (let j = 0; j < BARS_PER_DAY; j++) if (!Number.isNaN(v[j * 4])) out.push({ t: s + j * 300_000, o: v[j * 4], h: v[j * 4 + 1], l: v[j * 4 + 2], c: v[j * 4 + 3] });
+  }
+  return out;
+}
+
+async function buildShowcase(): Promise<Showcase> {
+  const inst = INSTRUMENTS[SAMPLE.symbol];
+  const first = keyToMs(SAMPLE.from);
+  const sampleBars = await barsOf(
+    inst,
+    Array.from({ length: SAMPLE.days }, (_, i) => first + i * DAY_MS),
+  ).catch(() => []);
+  // the last seven settled days (a long weekend included)
+  const yesterday = Math.floor(Date.now() / DAY_MS) * DAY_MS - DAY_MS;
+  const week = Array.from({ length: 7 }, (_, i) => yesterday - (6 - i) * DAY_MS);
+  const quotes = await Promise.all(
+    SHOWCASE_TICKERS.map(async (symbol) => {
+      const bars = await barsOf(INSTRUMENTS[symbol], week).catch(() => []);
+      const last = bars[bars.length - 1];
+      if (!last) return null;
+      const before = [...bars].reverse().find((b) => b.t <= last.t - DAY_MS);
+      return before ? { symbol, change: Math.round(((last.c - before.c) / before.c) * 1e4) / 100 } : null;
+    }),
+  );
+  return {
+    sample: sampleBars.length
+      ? { symbol: SAMPLE.symbol, bars: sampleBars.map((b) => [b.t / 1000, round(b.o, inst.digits), round(b.h, inst.digits), round(b.l, inst.digits), round(b.c, inst.digits)]) }
+      : null,
+    quotes: quotes.filter((q): q is { symbol: string; change: number } => q !== null),
+  };
+}
+
+/** GET /api/market/showcase (public): real prices for the landing page's sample replay and the sign-in page's ticker. */
+export function marketShowcase(): Promise<Showcase> {
+  if (!showcase || Date.now() - showcase.at > showcase.ttl) {
+    const value = buildShowcase();
+    const entry = { at: Date.now(), ttl: 60 * 60_000, value };
+    showcase = entry;
+    // an incomplete answer is tried again sooner
+    void value.then((v) => {
+      if (!v.sample || v.quotes.length < SHOWCASE_TICKERS.length) entry.ttl = 5 * 60_000;
+    });
+  }
+  return showcase.value;
 }
 
 /** Which real source each market uses, for the app's settings. */

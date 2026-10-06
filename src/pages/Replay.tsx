@@ -44,6 +44,7 @@ import { fmtTehran } from '../lib/timezone';
 import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, tickOf } from '../lib/trading';
 import type { ChartPane as Pane, JournalEntry, LayoutId, Side, Trade } from '../lib/types';
 import { ensureFine, ensureRange, fineReady, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
+import { hasServer } from '../services/api';
 import { toast, useStore, useUi } from '../store/useStore';
 
 interface Draft {
@@ -482,6 +483,14 @@ export default function Replay() {
               <span className="num text-[11px] text-faint">{fmtNum(remaining)} روز باقی‌مانده</span>
             </div>
           </div>
+          {!hasServer && (
+            <span
+              className="rounded-lg bg-amber/15 px-2 py-1 text-[11px] font-semibold text-amber"
+              title="این نسخه بدون سرور API اجرا می‌شود و قیمت‌ها نمونه‌ی ساختگی هستند. برای داده‌ی واقعی تاریخی، سایت را همراه سرور نصب کنید (DEPLOY.md)."
+            >
+              داده‌ی نمونه
+            </span>
+          )}
           <Link to={`/journal?session=${session.id}`} className="btn-ghost py-1.5">
             <NotebookPen size={15} /> ژورنال
           </Link>

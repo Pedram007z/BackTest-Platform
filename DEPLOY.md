@@ -204,8 +204,9 @@ Check whether the server reaches the sources on its own:
 bash /opt/backtestlab/check-sources.sh
 ```
 
-If all four lines say `OK`, skip this step. Otherwise (the usual case in Iran) the API server fetches them
-through a relay: a small server outside Iran that forwards only these four sources, and only for your server.
+If it ends with `All sources reachable.`, skip this step (for Dukascopy one of its two addresses is enough).
+Otherwise (the usual case in Iran) the API server fetches them through a relay: a small server outside Iran
+that forwards only these sources, and only for your server.
 
 1. **Rent a small Ubuntu VPS outside Iran.** The smallest plan is enough (1 CPU, 512 MB–1 GB RAM); it only
    forwards requests.
@@ -225,6 +226,7 @@ through a relay: a small server outside Iran that forwards only these four sourc
    address are refused.
 4. **On the main server**, add to `/opt/backtestlab/server/.env`:
    ```ini
+   DUKASCOPY_API_URL=https://relay.YOUR-DOMAIN/dukascopy-api
    DUKASCOPY_URL=https://relay.YOUR-DOMAIN/dukascopy
    BINANCE_URL=https://relay.YOUR-DOMAIN/binance
    FF_BASE_URL=https://relay.YOUR-DOMAIN/forexfactory
@@ -273,6 +275,9 @@ sudo crontab -e
 | No sign-in code arrives | Admin panel → پیامک → send a test message; the SMS log shows the provider's error |
 | Payment returns as failed | Merchant id and sandbox setting in the admin panel; the gateway's callback domain must match your site |
 | Settings are not saved after a restart | `DATA_DIR` must be `/var/lib/backtestlab` (the only folder the service may write to) |
+| Replay candles look made up, with a «داده‌ی نمونه» badge | The app was built without the API server (demo mode). Build with `npm run release -- https://YOUR-DOMAIN` (step 1) and install the API server; only then are prices real |
+| Prices differ slightly from your broker | Normal: prices are Dukascopy's (bid) and Binance's; brokers' feeds differ by a few points. Daily and 4-hour candles close at 17:00 New York like most brokers; crypto days are UTC |
+| Charts stay empty, with «دریافت نشد» messages | The server cannot reach Dukascopy or Binance: `bash /opt/backtestlab/check-sources.sh`, then set up the relay (step 8) |
 | A click shows an **empty page** until you refresh | Errors from visitors' browsers are logged: `sudo journalctl -u backtestlab \| grep client-error`. Common causes: the browser's translator (turn off "Translate this page"), an extension, or a CDN/firewall "optimization" (ArvanCloud/Cloudflare minify, Rocket Loader, script rewriting): turn those off for the site. Serve the release's `web/` folder, not the source code or `npm run dev` |
 | Replay shows the simple chart, not TradingView's | The library was not installed when the release was built: `npm run setup:charts -- …zip`, build again, upload `web/` |
 | 1-second charts take long to open | Second bars are downloaded per hour on first use (Dukascopy tick files / Binance 1s klines) and cached in `DATA_DIR/market` |

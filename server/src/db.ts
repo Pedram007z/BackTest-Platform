@@ -173,6 +173,10 @@ function upgrade(d: Partial<Db>): Db {
   const base = fresh();
   const out = { ...base, ...d } as Db;
   out.settings = { ...base.settings, ...(d.settings ?? {}), marketData: { ...base.settings.marketData, ...(d.settings?.marketData ?? {}) } };
+  // generated prices are no longer offered: markets that used them get their real source
+  for (const g of Object.keys(out.settings.marketData) as (keyof typeof out.settings.marketData)[]) {
+    if (out.settings.marketData[g] === 'synthetic') out.settings.marketData[g] = base.settings.marketData[g];
+  }
   out.gateways = GATEWAY_ORDER.map((id) => d.gateways?.find((g) => g.id === id) ?? base.gateways.find((g) => g.id === id)!);
   const sms = d.sms ?? base.sms;
   out.sms = { ...sms, providers: base.sms.providers.map((p) => sms.providers.find((x) => x.id === p.id) ?? p) };

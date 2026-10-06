@@ -7,7 +7,8 @@ import { ReplayDemo } from '../components/landing/ReplayDemo';
 import { Logo } from '../components/brand/Brand';
 import { fmtPhone, nameError, phoneError } from '../lib/auth';
 import { faDigits, toLatinDigits } from '../lib/format';
-import { getCandles, synthetic } from '../lib/market';
+import { SYMBOL_MAP } from '../lib/market';
+import { useShowcase } from '../services/marketFeed';
 import { BackendError, backend, type OtpRequest } from '../services';
 import { useAuth } from '../store/useAuth';
 import { toast, useStore } from '../store/useStore';
@@ -89,14 +90,12 @@ const TICKERS = ['EURUSD', 'GBPUSD', 'XAUUSD', 'NAS100', 'BTCUSD', 'USDJPY', 'US
 
 /** Left half on large screens: a live replay, a ticker strip and two figures. */
 function MarketPanel() {
+  // real 24-hour changes from the server; without one (or before they load) just the symbols
+  const showcase = useShowcase();
   const quotes = useMemo(() => {
-    const at = Date.UTC(2023, 4, 3, 22);
-    return TICKERS.map((s) => {
-      const c = synthetic(() => getCandles(s, '1D', at, 2));
-      const chg = c.length === 2 ? ((c[1].close - c[0].close) / c[0].close) * 100 : 0;
-      return { s, chg };
-    });
-  }, []);
+    const change = new Map(showcase?.quotes.map((q) => [q.symbol, q.change]));
+    return TICKERS.map((s) => ({ s, chg: change.get(s) }));
+  }, [showcase]);
   return (
     <aside className="relative hidden min-h-[100dvh] flex-col overflow-hidden border-r border-line/60 bg-side lg:flex">
       <div
@@ -120,9 +119,13 @@ function MarketPanel() {
           {[...quotes, ...quotes].map((q, i) => (
             <span key={i} className="flex items-center gap-2">
               <b className="text-ink">{q.s}</b>
-              <span className={clsx('num font-semibold', q.chg >= 0 ? 'text-gain' : 'text-loss')}>
-                {q.chg >= 0 ? '▲' : '▼'} {Math.abs(q.chg).toFixed(2)}%
-              </span>
+              {q.chg === undefined ? (
+                <span className="text-faint">{SYMBOL_MAP[q.s]?.name}</span>
+              ) : (
+                <span className={clsx('num font-semibold', q.chg >= 0 ? 'text-gain' : 'text-loss')}>
+                  {q.chg >= 0 ? '▲' : '▼'} {Math.abs(q.chg).toFixed(2)}%
+                </span>
+              )}
             </span>
           ))}
         </div>

@@ -35,7 +35,8 @@ function page<T>(items: T[], q: URLSearchParams) {
   return { items: items.slice((p - 1) * size, p * size), total: items.length };
 }
 
-const SOURCES: DataSource[] = ['synthetic', 'dukascopy', 'binance'];
+/** Real sources only: the replay never shows generated prices when it has a server. */
+const SOURCES: DataSource[] = ['dukascopy', 'binance'];
 const SMS_IDS = Object.keys(SMS_PROVIDER_NAMES) as SmsProviderId[];
 
 function stats(): AdminStats {

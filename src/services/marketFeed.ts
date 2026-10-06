@@ -31,11 +31,11 @@ import type { SiteConfig } from './types';
  * Real market data from the API server (Dukascopy / Binance, chosen per market by the admin).
  * 5-minute days are loaded into lib/market.ts with `setRemoteDay()` in 30-day chunks that callers
  * share; minute and second charts also load 1-minute days (3 per request) and 1-second hours
- * (3 per request) around the replay position. Charts redraw through the data version. Without a
- * server everything stays synthetic.
+ * (3 per request) around the replay position. Charts redraw through the data version. Only the
+ * demo build without a server uses generated prices.
  */
 
-// Until the server says otherwise, every symbol waits for real data (never shows synthetic prices).
+// With a server every symbol uses real data: a chart without it stays empty, it never shows generated prices.
 if (hasServer) {
   marketSource.mode = 'remote';
   marketSource.remote = new Set(SYMBOLS.map((s) => s.id));
@@ -50,14 +50,6 @@ export function loadSiteConfig(): Promise<void> {
     .siteConfig()
     .then((config) => {
       useSiteConfig.setState({ config });
-      if (backend.mode === 'server') {
-        marketSource.remote = new Set(
-          Object.entries(config.market)
-            .filter(([, src]) => src !== 'synthetic')
-            .map(([id]) => id),
-        );
-        bumpDataVersion();
-      }
     })
     .catch(() => {
       configJob = null;
@@ -308,4 +300,37 @@ export function useReplayData(panes: { symbol: string; timeframe: Timeframe }[],
     return () => clearInterval(t);
   }, [ready, all.join(','), dayKey, needMinutes, needSeconds]);
   return { ready, loading: hasServer && (!ready || chunks.size > 0) };
+}
+
+// ---------- real prices for the landing and sign-in pages ----------
+export interface Showcase {
+  /** 5-minute bars as [time (s), open, high, low, close] */
+  sample: { symbol: string; bars: number[][] } | null;
+  /** change over the last 24 hours, in percent */
+  quotes: { symbol: string; change: number }[];
+}
+
+let showcaseJob: Promise<Showcase | null> | null = null;
+/** The server's showcase (null without a server or when it cannot be loaded). */
+export function loadShowcase(): Promise<Showcase | null> {
+  showcaseJob ??= hasServer
+    ? api<Showcase>('/api/market/showcase').catch(() => {
+        showcaseJob = null;
+        return null;
+      })
+    : Promise.resolve(null);
+  return showcaseJob;
+}
+
+/** undefined while loading */
+export function useShowcase(): Showcase | null | undefined {
+  const [value, setValue] = useState<Showcase | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    void loadShowcase().then((v) => live && setValue(v));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return value;
 }

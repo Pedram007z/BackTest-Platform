@@ -177,9 +177,10 @@ export const SYMBOLS: SymbolInfo[] = [
   cfd(['JPN225', 'نیکی ۲۲۵', 'Japan 225 Index', 32000, 0.012, 0, 1], 'index', 'JPY', 1, ['JPY']),
   cfd(['AUS200', 'استرالیا ۲۰۰', 'Australia 200 Index', 7200, 0.008, 1, 1], 'index', 'AUD', 1, ['AUD']),
   cfd(['HK50', 'هنگ‌سنگ ۵۰', 'Hong Kong 50 Index', 18000, 0.014, 0, 1], 'index', 'HKD', 1, ['CNY', 'HKD']),
-  // index futures (one contract = $20 / $50 per point)
-  cfd(['NQ', 'نزدک ۱۰۰ (آتی)', 'E-mini Nasdaq-100 Futures', 15000, 0.012, 2, 0.25], 'index', 'USD', 20, ['USD'], 'CME_MINI:NQ1!'),
-  cfd(['ES', 'اس‌اندپی ۵۰۰ (آتی)', 'E-mini S&P 500 Futures', 4400, 0.01, 2, 0.25], 'index', 'USD', 50, ['USD'], 'CME_MINI:ES1!'),
+  // the indices in E-mini contract sizes ($20 / $50 per point). Prices are the index CFDs': there is no
+  // free source of CME futures history, and futures trade at a premium to the index
+  cfd(['NQ', 'نزدک ۱۰۰ (اندازه‌ی E-mini)', 'Nasdaq 100 Index, E-mini size ($20 per point)', 15000, 0.012, 2, 0.25], 'index', 'USD', 20, ['USD']),
+  cfd(['ES', 'اس‌اندپی ۵۰۰ (اندازه‌ی E-mini)', 'S&P 500 Index, E-mini size ($50 per point)', 4400, 0.01, 2, 0.25], 'index', 'USD', 50, ['USD']),
   // ---- crypto
   coin(['BTCUSD', 'بیت‌کوین', 'Bitcoin / U.S. Dollar', 35000, 0.03, 1, 1]),
   coin(['ETHUSD', 'اتریوم', 'Ethereum / U.S. Dollar', 2000, 0.035, 2, 0.1]),
@@ -213,6 +214,28 @@ export function groupLabel(s: SymbolInfo): string {
 }
 
 export const DATA_START: DayKey = '2015-01-01';
+/**
+ * Symbols whose real history starts after DATA_START: Dukascopy's first minute data (platinum,
+ * Russell 2000) and the Binance listings of the coins.
+ */
+const DATA_SINCE: Record<string, DayKey> = {
+  XPTUSD: '2021-11-01',
+  US2000: '2018-08-08',
+  BTCUSD: '2017-08-17',
+  ETHUSD: '2017-08-17',
+  BNBUSD: '2017-11-06',
+  LTCUSD: '2017-12-13',
+  ADAUSD: '2018-04-17',
+  XRPUSD: '2018-05-04',
+  TRXUSD: '2018-06-11',
+  LINKUSD: '2019-01-16',
+  DOGEUSD: '2019-07-05',
+  SOLUSD: '2020-08-11',
+  DOTUSD: '2020-08-18',
+  AVAXUSD: '2020-09-22',
+};
+/** First day of real data for these symbols (the latest of their starts). */
+export const dataStartOf = (...symbolIds: string[]): DayKey => symbolIds.reduce<DayKey>((a, id) => (DATA_SINCE[id] && DATA_SINCE[id] > a ? DATA_SINCE[id] : a), DATA_START);
 /** Replay data runs up to yesterday. */
 export const dataEnd = (): DayKey => addDays(localDayKey(), -1);
 
@@ -245,6 +268,64 @@ const START_MS = keyToMs(DATA_START);
 /** The bars a timeframe is built from: 1-second, 1-minute or 5-minute. */
 export const baseMsOf = (tf: Timeframe) => (TF_MS[tf] < MIN_MS ? SEC_MS : TF_MS[tf] < BAR_MS ? MIN_MS : BAR_MS);
 const floorTo = (t: number, step: number) => Math.floor(t / step) * step;
+
+// ---------- trading days ----------
+/**
+ * Forex, metals, energy and index CFDs trade from Sunday 17:00 to Friday 17:00 New York time, and
+ * brokers (and TradingView) end their trading days and 4-hour bars at 17:00 New York. Crypto trades
+ * all week on UTC days.
+ */
+const dstCache = new Map<number, [number, number]>();
+/** New York's offset from UTC at `t`: −4 h from the second Sunday of March to the first Sunday of November, −5 h otherwise. */
+export function nyOffsetMs(t: number): number {
+  const y = new Date(t).getUTCFullYear();
+  let dst = dstCache.get(y);
+  if (!dst) {
+    const sunday = (month: number, n: number) => {
+      const first = Date.UTC(y, month, 1);
+      return first + (((7 - new Date(first).getUTCDay()) % 7) + (n - 1) * 7) * DAY_MS;
+    };
+    // the switch happens at 02:00 local time
+    dst = [sunday(2, 2) + 7 * HOUR_MS, sunday(10, 1) + 6 * HOUR_MS];
+    dstCache.set(y, dst);
+  }
+  return t >= dst[0] && t < dst[1] ? -4 * HOUR_MS : -5 * HOUR_MS;
+}
+
+/** Moves 17:00 New York to 00:00, so New York trading days line up with whole days. */
+const sessionShift = (t: number) => nyOffsetMs(t) + 7 * HOUR_MS;
+const closesAtNy = (sym: SymbolInfo, tf: Timeframe) => !sym.weekends && TF_MS[tf] >= 4 * HOUR_MS;
+
+/**
+ * Time (ms) of the `tf` candle that contains `t`: its start, except daily candles of markets that
+ * close at 17:00 New York, which carry their trading day at 00:00 UTC (the session that starts on
+ * Sunday evening is Monday's), as brokers and TradingView show them.
+ */
+export function candleTime(sym: SymbolInfo, tf: Timeframe, t: number): number {
+  const tfMs = TF_MS[tf];
+  if (!closesAtNy(sym, tf)) return floorTo(t, tfMs);
+  const shift = sessionShift(t);
+  return tf === '1D' ? floorTo(t + shift, DAY_MS) : floorTo(t + shift, tfMs) - shift;
+}
+
+/** When the `tf` candle containing `t` ends. */
+export function candleEnd(sym: SymbolInfo, tf: Timeframe, t: number): number {
+  const tfMs = TF_MS[tf];
+  if (!closesAtNy(sym, tf)) return floorTo(t, tfMs) + tfMs;
+  const shift = sessionShift(t);
+  return floorTo(t + shift, tfMs) + tfMs - shift;
+}
+
+/** For markets closed at weekends: when they reopen (Sunday 17:00 New York) if `t` falls between Friday 17:00 and then. */
+export function weekendReopen(t: number): number | null {
+  const local = t + nyOffsetMs(t);
+  const day = new Date(local).getUTCDay();
+  const hour = (local % DAY_MS) / HOUR_MS;
+  if (!(day === 6 || (day === 5 && hour >= 17) || (day === 0 && hour < 17))) return null;
+  const sunday = floorTo(local, DAY_MS) + ((7 - day) % 7) * DAY_MS + 17 * HOUR_MS;
+  const guess = sunday - nyOffsetMs(t);
+  return sunday - nyOffsetMs(guess);
+}
 const HORIZON_DAYS = 5200;
 
 // ---------- seeded randomness ----------
@@ -361,6 +442,12 @@ function synthDay(sym: SymbolInfo, idx: number): Float64Array {
     out[b + 2] = Math.exp(l);
     out[b + 3] = Math.exp(c);
     prevX = x;
+  }
+  // markets that close for the weekend stop at 17:00 New York on Friday
+  const start = dayStartMs(idx);
+  if (!sym.weekends && new Date(start).getUTCDay() === 5) {
+    const close = start + 17 * HOUR_MS - nyOffsetMs(start + 12 * HOUR_MS);
+    out.fill(NaN, Math.ceil((close - start) / BAR_MS) * 4);
   }
 
   if (intradayCache.size >= INTRADAY_CACHE_LIMIT) {
@@ -710,12 +797,11 @@ export function replayBars(symbolId: string, from: number, to: number): Bar[] {
 export function getCandles(symbolId: string, tf: Timeframe, cursor: number, count: number): Candle[] {
   const sym = SYMBOL_MAP[symbolId];
   if (!sym || count <= 0) return [];
-  const tfMs = TF_MS[tf];
   const level = baseMsOf(tf);
   const out: Candle[] = [];
   let current: Candle | null = null;
   const add = (b: Bar): boolean => {
-    const bucket = floorTo(b.time, tfMs) / 1000;
+    const bucket = candleTime(sym, tf, b.time) / 1000;
     if (!current || current.time !== bucket) {
       if (current) {
         out.push(current);
@@ -745,13 +831,12 @@ export function getCandles(symbolId: string, tf: Timeframe, cursor: number, coun
 export function candlesBetween(symbolId: string, tf: Timeframe, fromMs: number, toMs: number, cursor: number): Candle[] {
   const sym = SYMBOL_MAP[symbolId];
   if (!sym) return [];
-  const tfMs = TF_MS[tf];
   const level = baseMsOf(tf);
   const end = Math.min(toMs, cursor);
   const out: Candle[] = [];
   let current: Candle | null = null;
   const add = (b: Bar) => {
-    const bucketMs = floorTo(b.time, tfMs);
+    const bucketMs = candleTime(sym, tf, b.time);
     if (bucketMs < fromMs || bucketMs >= toMs) return;
     if (!current || current.time !== bucketMs / 1000) {
       if (current) out.push(current);
@@ -763,7 +848,8 @@ export function candlesBetween(symbolId: string, tf: Timeframe, fromMs: number, 
     }
   };
   const levelEnd = floorTo(end, level);
-  walkForward(sym, level, fromMs, levelEnd, add);
+  // a daily candle of a New York-close market starts the evening before its date
+  walkForward(sym, level, tf === '1D' && !sym.weekends ? fromMs - 3 * HOUR_MS : fromMs, levelEnd, add);
   if (end > levelEnd) replayBars(symbolId, levelEnd, end).forEach(add);
   if (current) out.push(current);
   return out;
@@ -819,15 +905,26 @@ export function bars5m(symbolId: string, from: number, to: number): Bar[] {
   return out;
 }
 
-/** Next replay cursor for one step of `tf`, skipping days none of the symbols trade. */
+/**
+ * Next replay cursor for one step of `tf`: the end of the candle that is forming (on the first
+ * symbol's candles), skipping weekends and days none of the symbols trade.
+ */
 export function stepCursor(cursor: number, tf: Timeframe, symbolIds: string[]): number {
-  const tfMs = TF_MS[tf];
-  let next = (Math.floor(cursor / tfMs) + 1) * tfMs;
   const syms = symbolIds.map((id) => SYMBOL_MAP[id]).filter(Boolean);
-  for (let guard = 0; guard < 7; guard++) {
+  const lead = syms[0];
+  if (!lead) return floorTo(cursor, TF_MS[tf]) + TF_MS[tf];
+  const weekendsOff = syms.every((s) => !s.weekends);
+  let next = candleEnd(lead, tf, cursor);
+  for (let guard = 0; guard < 10; guard++) {
+    // a step that would end while the market is closed ends with the first candle after it reopens
+    const reopen = weekendsOff ? weekendReopen(next - 1) : null;
+    if (reopen !== null) {
+      next = candleEnd(lead, tf, reopen);
+      continue;
+    }
     const idx = dayIndexOf(next - 1);
-    if (syms.length === 0 || syms.some((s) => isTradingDay(s, idx))) break;
-    next += DAY_MS;
+    if (syms.some((s) => isTradingDay(s, idx))) break;
+    next = candleEnd(lead, tf, dayStartMs(idx + 1));
   }
   return next;
 }

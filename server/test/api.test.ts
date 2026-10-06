@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
 import { startServer } from './harness';
+import { toApiCandles } from './fixtures/dukascopy-api';
 import { FF_PAGE } from './fixtures/ff-page';
 
 let s: Awaited<ReturnType<typeof startServer>>;
@@ -178,6 +179,8 @@ test('plans and settings are validated', async () => {
   const settings = (await s.call('GET', '/api/admin/settings', undefined, admin.token)).data;
   const bad = await s.call('PUT', '/api/admin/settings', { ...settings, otpLength: 3 }, admin.token);
   assert.equal(bad.data.field, 'otpLength');
+  const generated = await s.call('PUT', '/api/admin/settings', { ...settings, marketData: { ...settings.marketData, forex: 'synthetic' } }, admin.token);
+  assert.equal(generated.data.field, 'marketData.forex', 'generated prices are not a market data source');
   const good = await s.call('PUT', '/api/admin/settings', { ...settings, otpLength: 6, registrationOpen: false, enabledSymbols: ['EURUSD', 'XAUUSD', 'FAKE'] }, admin.token);
   assert.equal(good.status, 200);
   assert.deepEqual(good.data.enabledSymbols, ['EURUSD', 'XAUUSD']);
@@ -306,6 +309,58 @@ test('market data: Dukascopy and Binance days, cached on disk', async () => {
   assert.equal((await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-01&to=2024-03-30', undefined, admin.token)).data.code, 'range');
   const gz = await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-15&to=2024-01-15', undefined, admin.token, { headers: { 'Accept-Encoding': 'gzip' } });
   assert.equal(gz.status, 200);
+});
+
+test('market data: Dukascopy data API first, the datafeed when it fails', async () => {
+  const { parseDukascopyMinuteBars } = await import('../src/market/sources');
+  const bars = parseDukascopyMinuteBars(readFileSync(new URL('./fixtures/EURUSD_2024-01-15_min_1.bi5', import.meta.url)), 1e5)!;
+  const seen: string[] = [];
+  s.setUpstream((url) => {
+    seen.push(url);
+    // GBPJPY from the API; XAUUSD's API answer is broken, so its datafeed file is used
+    if (url === 'https://jetta.dukascopy.com/v1/candles/minute/GBP-JPY/BID/2024/1/16') return s.json(toApiCandles(bars, Date.UTC(2024, 0, 16), 0.00001));
+    if (url.startsWith('https://jetta.dukascopy.com/v1/candles/minute/XAU-USD/BID/2024/1/16')) return new Response('<html>busy</html>', { status: 503 });
+    if (url.includes('datafeed.dukascopy.com/datafeed/XAUUSD/2024/00/16/BID_candles_min_1'))
+      return new Response(readFileSync(new URL('./fixtures/EURUSD_2024-01-15_min_1.bi5', import.meta.url)));
+    throw new Error(url);
+  });
+  const gj = await s.call('GET', '/api/market/days?symbol=GBPJPY&from=2024-01-16&to=2024-01-16', undefined, admin.token);
+  assert.equal(gj.status, 200);
+  assert.equal(gj.data.days[0].bars.length, 1152);
+  assert.equal(gj.data.days[0].bars[0], 1.08, 'prices use the multiplier sent with the data, not the datafeed factor');
+  assert.ok(!seen.some((u) => u.includes('datafeed')), 'the datafeed is not needed');
+
+  const gold = await s.call('GET', '/api/market/days?symbol=XAUUSD&from=2024-01-16&to=2024-01-16', undefined, admin.token);
+  assert.equal(gold.data.days[0].bars.length, 1152);
+  assert.equal(gold.data.days[0].bars[0], 108, 'datafeed prices use the instrument factor');
+  assert.ok(
+    seen.some((u) => u.includes('datafeed.dukascopy.com/datafeed/XAUUSD/')),
+    'fell back to the datafeed',
+  );
+});
+
+test('market showcase: real prices for the landing and sign-in pages, without signing in', async () => {
+  const bi5 = readFileSync(new URL('./fixtures/EURUSD_2024-01-15_min_1.bi5', import.meta.url));
+  s.setUpstream((url) => {
+    if (url.includes('jetta.dukascopy.com')) return new Response('', { status: 404 });
+    if (url.includes('datafeed.dukascopy.com') && /\/(EURUSD|GBPUSD)\//.test(url)) return new Response(bi5);
+    if (url.includes('datafeed.dukascopy.com')) return new Response('', { status: 404 });
+    if (url.includes('/api/v3/klines')) {
+      const q = new URL(url).searchParams;
+      const start = Number(q.get('startTime'));
+      return s.json([[start, '42000', '42100', '41900', '42000', '1']]);
+    }
+    throw new Error(url);
+  });
+  const r = await s.call('GET', '/api/market/showcase');
+  assert.equal(r.status, 200);
+  assert.equal(r.data.sample.symbol, 'EURUSD');
+  assert.equal(r.data.sample.bars.length, 3 * 276, 'three days of 5-minute bars (the fixture day has 276 traded ones)');
+  assert.equal(r.data.sample.bars[0][0], Date.UTC(2024, 2, 4) / 1000);
+  const symbols = r.data.quotes.map((q: any) => q.symbol);
+  assert.ok(symbols.includes('EURUSD') && symbols.includes('BTCUSD'), symbols.join());
+  assert.ok(!symbols.includes('XAUUSD'), 'symbols without data are left out, never made up');
+  assert.equal(typeof r.data.quotes[0].change, 'number');
 });
 
 test('market data: 1-minute days and 1-second hours', async () => {
