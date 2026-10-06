@@ -228,7 +228,9 @@ sudo bash /opt/backtestlab/make-admin.sh 09121234567
      its last three digits are its own; when the bank tells you a deposit arrived (SMS or account history),
      type those three digits in the search box of the **واریزها** list and press **تأیید** (confirm). The
      plan starts at once. The menu shows how many reported transfers are waiting.
-   - **پلن‌ها** (plans) and **کدهای تخفیف** (discount codes): prices and offers.
+   - **پلن‌ها** (plans) and **کدهای تخفیف** (discount codes): prices and offers. A code marked
+     **فقط برای اولین خرید** (first purchase only) works only for customers who have never completed a
+     purchase; a refunded purchase counts as one. It is checked when the code is applied and again at checkout.
    - **نمادها و داده‌ی بازار** (symbols and market data): the stored market history and its download (step 9),
      data source per market, and which symbols users can pick.
    - **تقویم اقتصادی** (economic calendar): press sync and check that no error is shown.

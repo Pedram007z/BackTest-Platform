@@ -16,12 +16,19 @@ export function publicPayment(p: StoredPayment) {
   return clone(rest);
 }
 
-export function discountFor(code: string | undefined, plan: Plan): { percent: number; finalToman: number; dc?: DiscountCode } {
+/** Whether the user has completed a purchase before (a refunded one counts too). */
+export function hasPurchased(userId: string): boolean {
+  return db().payments.some((p) => p.userId === userId && (p.status === 'paid' || p.status === 'refunded'));
+}
+
+/** The price after a discount code. `user` is checked against first-purchase-only codes (at checkout it always is). */
+export function discountFor(code: string | undefined, plan: Plan, user?: AccountUser): { percent: number; finalToman: number; dc?: DiscountCode } {
   if (!code?.trim()) return { percent: 0, finalToman: plan.priceToman };
   const dc = db().discounts.find((x) => x.code.toUpperCase() === code.trim().toUpperCase());
   if (!dc || !dc.active) throw badRequest('bad_code', 'این کد تخفیف معتبر نیست.', 'discount');
   if (dc.expiresAt && dc.expiresAt < todayKey()) throw badRequest('expired', 'مهلت این کد تخفیف تمام شده است.', 'discount');
   if (dc.used >= dc.maxUses) throw badRequest('used_up', 'ظرفیت این کد تخفیف پر شده است.', 'discount');
+  if (dc.firstPurchaseOnly && user && hasPurchased(user.id)) throw badRequest('first_purchase', 'این کد تخفیف فقط برای اولین خرید است.', 'discount');
   return { percent: dc.percent, finalToman: Math.round((plan.priceToman * (100 - dc.percent)) / 100), dc };
 }
 
@@ -45,10 +52,10 @@ export function enabledGateways(): { id: PaymentMethod; name: string }[] {
   return list;
 }
 
-export function checkDiscount(body: any) {
+export function checkDiscount(body: any, user?: AccountUser) {
   const plan = db().plans.find((p) => p.id === body.planId && p.active);
   if (!plan) throw notFound('پلن پیدا نشد.');
-  const r = discountFor(str(body.code, 'discount', { max: 40, label: 'کد تخفیف' }), plan);
+  const r = discountFor(str(body.code, 'discount', { max: 40, label: 'کد تخفیف' }), plan, user);
   return { percent: r.percent, finalToman: r.finalToman };
 }
 
@@ -57,7 +64,7 @@ export async function checkout(user: AccountUser, body: any) {
   const plan = d.plans.find((p) => p.id === body.planId && p.active);
   if (!plan || plan.priceToman <= 0) throw notFound('این پلن قابل خرید نیست.');
   const method = oneOf(body.gateway, METHOD_IDS, 'gateway');
-  const disc = discountFor(typeof body.discountCode === 'string' ? body.discountCode : undefined, plan);
+  const disc = discountFor(typeof body.discountCode === 'string' ? body.discountCode : undefined, plan, user);
   if (disc.finalToman < 1000) throw badRequest('amount', 'مبلغ پرداخت کمتر از حداقل مجاز درگاه است.', 'discount');
   if (method === 'card') return startCardPayment(user, plan, disc.finalToman, disc.dc?.code);
   const gatewayId = method;

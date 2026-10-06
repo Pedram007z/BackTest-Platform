@@ -293,7 +293,7 @@ export function AdminDiscounts() {
     <>
       <PageHeader
         title="کدهای تخفیف"
-        text="درصد تخفیف، سقف استفاده و تاریخ انقضا."
+        text="درصد تخفیف، سقف استفاده، تاریخ انقضا و محدودیت اولین خرید."
         onReload={reload}
         loading={loading}
         actions={
@@ -321,8 +321,13 @@ export function AdminDiscounts() {
                 const expired = !!d.expiresAt && d.expiresAt < today;
                 return (
                   <tr key={d.id} className="border-t border-line/50">
-                    <td className="td font-bold" dir="ltr" style={{ textAlign: 'right' }}>
-                      {d.code}
+                    <td className="td">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold" dir="ltr">
+                          {d.code}
+                        </span>
+                        {d.firstPurchaseOnly && <Badge tone="accent">فقط اولین خرید</Badge>}
+                      </div>
                     </td>
                     <td className="td num">{faDigits(d.percent)}٪</td>
                     <td className="td num">
@@ -402,6 +407,12 @@ export function AdminDiscounts() {
             <label className="flex items-center gap-2 text-sm">
               <Toggle checked={editing.active} onChange={(active) => setEditing({ ...editing, active })} label="فعال" /> فعال
             </label>
+            <div className="sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Toggle checked={!!editing.firstPurchaseOnly} onChange={(firstPurchaseOnly) => setEditing({ ...editing, firstPurchaseOnly })} label="فقط برای اولین خرید" /> فقط برای اولین خرید
+              </label>
+              <p className="mt-1 text-[11px] leading-5 text-muted">فقط کاربری که تا حالا هیچ خرید موفقی نداشته (خرید بازگشت‌داده‌شده هم حساب می‌شود) می‌تواند از این کد استفاده کند.</p>
+            </div>
           </div>
         </Modal>
       )}
