@@ -4,7 +4,7 @@ import { BackendError, backend } from '../../services';
 import { toast } from '../../store/useStore';
 import { Field } from './kit';
 
-/** The signed-in admin's username and password for /#/admin-login (sign-in by phone keeps working). */
+/** The signed-in admin's username and password for /#/admin/login (sign-in by phone keeps working). */
 export function AdminCredentialsCard() {
   const [current, setCurrent] = useState<string | null | undefined>(undefined);
   const [username, setUsername] = useState('');
@@ -71,7 +71,7 @@ export function AdminCredentialsCard() {
         <div>
           <h2 className="font-bold">ورود مدیر با نام کاربری و رمز</h2>
           <p className="mt-1 text-xs leading-6 text-faint">
-            برای حساب خودتان؛ ورود در <span dir="ltr">/#/admin-login</span> یا «مدیر سایت هستید؟» در صفحه‌ی ورود. ورود با موبایل هم کار می‌کند.
+            برای حساب خودتان؛ صفحه‌ی ورود مدیر: <span dir="ltr">/#/admin/login</span>. ورود با موبایل هم کار می‌کند.
             {current === undefined ? (
               ''
             ) : current ? (

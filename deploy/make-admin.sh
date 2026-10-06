@@ -62,8 +62,8 @@ if [ "${1:-}" = "--username" ]; then
   cat <<EOF
 
 Done. To sign in as admin:
-  1. Open ${site}/#/admin-login
-     (or the sign-in page → «مدیر سایت هستید؟ ورود با نام کاربری و رمز»)
+  1. Open the admin sign-in page: ${site}/#/admin/login
+     (it is not linked from the site; bookmark it)
   2. Username: ${username}
      Password: the one you just typed
   3. You land in the admin panel («پنل مدیریت»).
