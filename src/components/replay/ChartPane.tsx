@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { ChevronDown } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createLwEngine, tradesForChart } from '../../chart/lwEngine';
 import { createTvEngine } from '../../chart/tvEngine';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from '../../chart/types';
@@ -8,6 +8,7 @@ import { SYMBOL_MAP, TIMEFRAMES, type Timeframe } from '../../lib/market';
 import type { NewsEvent } from '../../lib/news';
 import type { ChartPane as Pane, Trade } from '../../lib/types';
 import { Popover } from '../ui/Popover';
+import { DrawingToolbar, IndicatorSettings, IndicatorsDialog, SelectedDrawingBar } from './ChartTools';
 
 export type EngineKind = 'tradingview' | 'lightweight';
 
@@ -40,6 +41,10 @@ export function ChartPane(props: Props) {
   const engine = useRef<ChartEngine | null>(null);
   const cbRef = useRef(props.callbacks);
   cbRef.current = props.callbacks;
+  /** the built-in engine's drawing tools and indicators */
+  const [tools, setTools] = useState<Pick<ChartEngine, 'drawings' | 'indicators'>>({});
+  const [indicatorsOpen, setIndicatorsOpen] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const currencies = SYMBOL_MAP[pane.symbol]?.currencies ?? [];
   const state: EngineState = {
@@ -69,11 +74,15 @@ export function ChartPane(props: Props) {
       onTimeframeChange: (t) => cbRef.current.onTimeframeChange(t),
       onNewsClick: (e) => cbRef.current.onNewsClick?.(e),
       onActivate: () => cbRef.current.onActivate?.(),
+      onIndicatorSettings: (id) => setEditing(id),
     };
     const e = engineKind === 'tradingview' && tv ? createTvEngine(el, stateRef.current, cb, tv) : createLwEngine(el, stateRef.current, cb);
     engine.current = e;
+    setTools({ drawings: e.drawings, indicators: e.indicators });
     register(index, e);
     return () => {
+      setTools({});
+      setEditing(null);
       register(index, null);
       e.destroy();
       engine.current = null;
@@ -149,9 +158,31 @@ export function ChartPane(props: Props) {
               </button>
             ))}
           </div>
+          {tools.indicators && (
+            <>
+              <span className="mx-1 h-4 w-px shrink-0 bg-line" />
+              <button
+                type="button"
+                onClick={() => setIndicatorsOpen(true)}
+                className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-semibold text-muted hover:bg-raised hover:text-ink"
+                title="اندیکاتورها"
+              >
+                <span className="font-serif text-[15px] italic leading-none">ƒx</span>
+                <span className="hidden sm:inline">Indicators</span>
+              </button>
+            </>
+          )}
         </div>
       )}
-      <div ref={host} className="chart-ltr relative min-h-0 flex-1" />
+      <div className="flex min-h-0 flex-1" dir="ltr">
+        {tools.drawings && <DrawingToolbar api={tools.drawings} />}
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          <div ref={host} className="chart-ltr relative min-h-0 flex-1" />
+          {tools.drawings && <SelectedDrawingBar api={tools.drawings} />}
+        </div>
+      </div>
+      {tools.indicators && <IndicatorsDialog api={tools.indicators} open={indicatorsOpen} onClose={() => setIndicatorsOpen(false)} />}
+      {tools.indicators && editing && <IndicatorSettings key={editing} api={tools.indicators} id={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

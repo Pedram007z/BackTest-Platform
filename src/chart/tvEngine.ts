@@ -1,5 +1,5 @@
 import { PALETTES } from '../hooks/useChartTheme';
-import { SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, tfFromTv } from '../lib/market';
+import { SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, stepCursor, tfFromTv } from '../lib/market';
 import { orderTitleEn } from '../lib/trading';
 import type { Trade } from '../lib/types';
 import { createReplayDatafeed } from './tvDatafeed';
@@ -68,6 +68,9 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
   let draftId: Any = null;
   let draftSide: DraftOrder['side'] | null = null;
   let applyingDraft = false;
+  /** the chart's right margin (bars) before a position tool made room for itself */
+  let offsetBefore: number | null = null;
+  const DRAFT_BARS = 40;
   const lines = new Map<string, Lines>();
   const executions = new Map<string, Any[]>();
   let newsShapes = new Map<string, Any>();
@@ -116,6 +119,16 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
 
   const tick = () => 10 ** -(SYMBOL_MAP[state.symbol]?.digits ?? 2);
 
+  /** the bar `n` trading bars after the one starting at `fromSec` (weekends skipped: the library rejects points there) */
+  function barsAhead(fromSec: number, n: number): number {
+    const sym = SYMBOL_MAP[state.symbol];
+    const tf = state.timeframe;
+    if (!sym) return fromSec + (n * TF_MS[tf]) / 1000;
+    let end = fromSec * 1000 + TF_MS[tf];
+    for (let i = 0; i < n; i++) end = stepCursor(end, tf, [state.symbol]);
+    return candleTime(sym, tf, end - 1) / 1000;
+  }
+
   // ---------- draft position tool ----------
   function readDraft() {
     if (!draftId || !chart || applyingDraft) return;
@@ -138,6 +151,14 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       if (draftId) chart.removeEntity(draftId);
       draftId = null;
       draftSide = null;
+      if (offsetBefore !== null) {
+        try {
+          chart.getTimeScale().setRightOffset(offsetBefore);
+        } catch {
+          /* older library */
+        }
+        offsetBefore = null;
+      }
       return;
     }
     const t = tick();
@@ -152,22 +173,64 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     applyingDraft = true;
     try {
       if (!draftId) {
-        draftId = chart.createShape(
-          { time, price: d.entry },
+        // room on the right so the tool is wide enough to grab its entry, stop and target
+        try {
+          const scale = chart.getTimeScale();
+          if (offsetBefore === null) offsetBefore = scale.rightOffset();
+          if (scale.rightOffset() < DRAFT_BARS + 8) scale.setRightOffset(DRAFT_BARS + 8);
+        } catch {
+          /* older library */
+        }
+        const right = barsAhead(time, DRAFT_BARS);
+        draftId = chart.createMultipointShape(
+          [
+            { time, price: d.entry },
+            { time: right, price: d.entry },
+          ],
           {
             shape: d.side === 'buy' ? 'long_position' : 'short_position',
             disableUndo: true,
             disableSave: true,
             zOrder: 'top',
-            overrides: { stopLevel, profitLevel, profitBackground: 'rgba(38,194,129,0.2)', stopBackground: 'rgba(242,84,102,0.2)', accountSize: 0 },
+            overrides: {
+              stopLevel,
+              profitLevel,
+              profitBackground: 'rgba(38,194,129,0.22)',
+              stopBackground: 'rgba(242,84,102,0.22)',
+              linewidth: 2,
+              accountSize: 0,
+            },
           },
         );
         draftSide = d.side;
+        // the library starts the tool one bar wide and finishes creating it a little later:
+        // then widen it into the room made above (checked a few times, kept once it holds)
+        const id = draftId;
+        for (const delay of [150, 500, 1200]) {
+          setTimeout(() => {
+            if (destroyed || draftId !== id || !id) return;
+            try {
+              const shape = chart.getShapeById(id);
+              const [pt, end] = shape.getPoints();
+              if (end && end.time - pt.time >= (right - time) / 2) return;
+              applyingDraft = true;
+              shape.setPoints([pt, { time: right, price: pt.price }]);
+            } catch {
+              /* removed meanwhile */
+            } finally {
+              applyingDraft = false;
+            }
+          }, delay);
+        }
       } else {
         const shape = chart.getShapeById(draftId);
-        const pt = shape.getPoints()[0];
+        const [pt, end] = shape.getPoints();
         const props = shape.getProperties();
-        if (Math.abs(pt.price - d.entry) > t / 2) shape.setPoints([{ time: pt.time, price: d.entry }]);
+        if (Math.abs(pt.price - d.entry) > t / 2)
+          shape.setPoints([
+            { time: pt.time, price: d.entry },
+            { time: end?.time ?? pt.time, price: d.entry },
+          ]);
         if (props.stopLevel !== stopLevel || props.profitLevel !== profitLevel) shape.setProperties({ stopLevel, profitLevel });
       }
     } catch {

@@ -13,5 +13,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "test", "../src/services/types.ts", "../src/services/cards.ts"]
+  "include": ["src", "test", "../src/services/types.ts", "../src/services/cards.ts", "../src/chart/indicators.ts"]
 }
