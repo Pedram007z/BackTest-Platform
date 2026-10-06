@@ -11,6 +11,7 @@ setting() {
 DUKASCOPY_API=$(setting DUKASCOPY_API_URL); DUKASCOPY_API=${DUKASCOPY_API:-https://jetta.dukascopy.com/v1}
 DUKASCOPY=$(setting DUKASCOPY_URL); DUKASCOPY=${DUKASCOPY:-https://datafeed.dukascopy.com/datafeed}
 BINANCE=$(setting BINANCE_URL); BINANCE=${BINANCE:-https://data-api.binance.vision}
+BINANCE_VISION=$(setting BINANCE_VISION_URL); BINANCE_VISION=${BINANCE_VISION:-https://data.binance.vision}
 FF=$(setting FF_BASE_URL); FF=${FF:-https://www.forexfactory.com}
 FF_FEED=$(setting FF_FEED_URL); FF_FEED=${FF_FEED:-https://nfs.faireconomy.media/ff_calendar_thisweek.json}
 
@@ -18,8 +19,8 @@ failed=0
 # check NAME URL [optional]: an optional source that fails is reported but does not fail the run
 check() {
   local name=$1 url=$2 optional=$3 code
-  code=$(curl -s -o /dev/null -m 20 -A 'Mozilla/5.0' -w '%{http_code}' "$url")
-  if [ "$code" = "200" ]; then
+  code=$(curl -s -o /dev/null -m 20 -r 0-4095 -A 'Mozilla/5.0' -w '%{http_code}' "$url")
+  if [ "$code" = "200" ] || [ "$code" = "206" ]; then
     echo "OK    $name"
     return 0
   else
@@ -46,6 +47,7 @@ if [ "$api_ok" = 0 ] && [ "$feed_ok" = 0 ]; then
   echo "      Neither Dukascopy address works: forex, metals, energy and indices will have no data."
 fi
 check "Binance (crypto)" "$BINANCE/api/v3/klines?symbol=BTCUSDT&interval=5m&startTime=1704067200000&endTime=1704067499999&limit=1"
+check "Binance history archives (crypto download)" "$BINANCE_VISION/data/spot/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2024-01.zip"
 check "ForexFactory calendar" "$FF/calendar?week=jan7.2024"
 check "ForexFactory weekly feed" "$FF_FEED"
 

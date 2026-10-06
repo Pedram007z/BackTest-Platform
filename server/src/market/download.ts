@@ -5,7 +5,7 @@ import { DAY_MS, isDayKey, keyToMs, utcDayKey } from '../util';
 import { INSTRUMENTS, type Instrument } from './instruments';
 import { sourceFor } from './source';
 import { binanceArchiveDay, binanceArchiveMonth, binanceDayMinutes, binanceDaySeconds, dukascopyDayMinutes, dukascopyDaySeconds, type DayBars } from './sources';
-import { MISSING, STORED, dayStatus, daysInMonth, monthStartOf, storedBytes, storedSecondDays, writeDays, writeSecondsDay } from './store';
+import { MISSING, STORED, dayStatus, refreshCoverage, daysInMonth, monthStartOf, storedBytes, storedSecondDays, writeDays, writeSecondsDay } from './store';
 
 /**
  * Downloads market history from Dukascopy and Binance into the server's storage (store.ts), where
@@ -130,6 +130,7 @@ async function fetchSecondsDay(item: Item): Promise<Outcome[]> {
 }
 
 async function run(j: MarketDownloadJob): Promise<MarketDownloadJob> {
+  refreshCoverage();
   const from = keyToMs(j.from);
   const to = keyToMs(j.to);
   const items = j.kind === 'm1' ? planMinutes(j.symbols, from, to) : planSeconds(j.symbols, from, to);
@@ -171,7 +172,7 @@ async function run(j: MarketDownloadJob): Promise<MarketDownloadJob> {
   j.finishedAt = Date.now();
   if (j.total > 0 || j.by !== 'auto') {
     lastJob = j;
-    console.log(`[market] download ${j.state}: ${j.stored} days stored, ${j.closed} closed, ${j.failed} failed, ${j.later} not published yet (${j.by})`);
+    if (j.by !== 'cli') console.log(`[market] download ${j.state}: ${j.stored} days stored, ${j.closed} closed, ${j.failed} failed, ${j.later} not published yet (${j.by})`);
   }
   job = null;
   stopping = false;
@@ -233,6 +234,7 @@ export function autoDownload() {
 
 /** What is stored, per symbol (admin panel). */
 export function marketStorage(): MarketStorage {
+  if (!job) refreshCoverage();
   const end = yesterday();
   const symbols: MarketStorageSymbol[] = Object.values(INSTRUMENTS).map((inst) => {
     const start = keyToMs(historyStart(inst));

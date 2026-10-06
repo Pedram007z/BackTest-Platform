@@ -11,7 +11,8 @@ The steps below use `backtestlab.ir` as the domain; use yours.
 ## What you need
 
 - A Linux server (Ubuntu 22.04 or 24.04). 1 CPU and 1–2 GB RAM are enough to start.
-  Disk: the market-data cache grows by about 1.2 MB per symbol per year of history that users replay.
+  Disk: about 2 GB for the market history of all symbols from 2015 (about 1.2 MB per symbol per year), plus
+  0.2–1 MB per day of optional 1-second data.
 - A domain whose A record points to the server.
 - On your own computer: Node.js 20.12 or newer, and this repository.
 
@@ -27,8 +28,8 @@ refuse servers abroad. On an Iranian VPS, expect these; the steps below handle e
   and ForexFactory are often unreachable. `check-sources.sh` tells you whether you need one; step 8 sets it up.
 - **IPv6 is often off**, which stops nginx from starting; step 2 shows the fix.
 - **During international internet disruptions** the site keeps working: sign-in, SMS and payments are
-  domestic, and market data and calendar weeks loaded before are cached on the server. Only data that was
-  never loaded is missing until the connection returns.
+  domestic, and the market history is stored on the server (step 9); calendar weeks loaded before are cached.
+  Only the newest days wait until the connection returns.
 - **Payment gateways** approve your merchant for your domain and usually require an eNamad (اینماد) first.
 
 ## 1. Build the release (on your computer)
@@ -193,7 +194,8 @@ Open `https://YOUR-DOMAIN`. You should see the landing page.
      If a gateway asks for a callback address, it is `https://YOUR-DOMAIN/api/payments/callback/zarinpal`
      (or `zibal`, `idpay`, `nextpay`, `payir`).
    - **پلن‌ها** (plans) and **کدهای تخفیف** (discount codes): prices and offers.
-   - **نمادها و داده‌ی بازار** (symbols and market data): data source per market, and which symbols users can pick.
+   - **نمادها و داده‌ی بازار** (symbols and market data): the stored market history and its download (step 9),
+     data source per market, and which symbols users can pick.
    - **تقویم اقتصادی** (economic calendar): press sync and check that no error is shown.
 
 ## 8. Relay for market data and the calendar (servers in Iran)
@@ -229,6 +231,7 @@ that forwards only these sources, and only for your server.
    DUKASCOPY_API_URL=https://relay.YOUR-DOMAIN/dukascopy-api
    DUKASCOPY_URL=https://relay.YOUR-DOMAIN/dukascopy
    BINANCE_URL=https://relay.YOUR-DOMAIN/binance
+   BINANCE_VISION_URL=https://relay.YOUR-DOMAIN/binance-vision
    FF_BASE_URL=https://relay.YOUR-DOMAIN/forexfactory
    FF_FEED_URL=https://relay.YOUR-DOMAIN/ff_calendar_thisweek.json
    ```
@@ -243,6 +246,38 @@ ForexFactory protects its site with Cloudflare. If only the ForexFactory calenda
 relay, the server falls back to the weekly feed for the current week, and the app fills older weeks from
 its sample calendar.
 
+## 9. Market history
+
+Charts read candles only from the server's own storage (`/var/lib/backtestlab/market/store`): nothing is
+fetched from Dukascopy or Binance while someone uses the site. The history has to be downloaded once:
+
+- **By itself (default).** Half a minute after the API server starts, and then every hour, it downloads
+  whatever is missing: the whole history from 2015 the first time (a few hours; about 2 GB), afterwards
+  only each new day. Progress, coverage per symbol, stop and start are in the admin panel →
+  **نمادها و داده‌ی بازار**. Turn **دانلود خودکار** off there to download only when you press the button.
+  A stopped or interrupted download continues where it ended.
+- **From the command line** on the server (the same download, with progress in the terminal):
+  ```bash
+  sudo -u backtestlab node --env-file=/opt/backtestlab/server/.env /opt/backtestlab/server/server.mjs download
+  # some symbols or dates only:
+  sudo -u backtestlab node --env-file=/opt/backtestlab/server/.env /opt/backtestlab/server/server.mjs download --symbols=EURUSD,XAUUSD --from=2020-01-01
+  ```
+  `download --help` lists the options. Stop the API server's automatic download first (admin panel) so the
+  two do not fetch the same days.
+- **On another computer**, when the server cannot reach the sources even through the relay: copy
+  `server.mjs` from the release to any computer with Node.js 20.12+ and open internet, then
+  ```bash
+  node server.mjs download --data-dir=./backtestlab-data
+  scp -r ./backtestlab-data/market/store root@SERVER_IP:/var/lib/backtestlab/market/
+  # on the server
+  sudo chown -R backtestlab /var/lib/backtestlab/market && sudo systemctl restart backtestlab
+  ```
+  Run it again later (it adds only new days) and copy again to bring the server up to date.
+
+Second timeframes (1–30 s) are built from the 1-minute candles. For the real movement inside each minute,
+download 1-second data (Dukascopy ticks / Binance 1-second archives) for a symbol and date range in the
+admin panel, or with `download --seconds --symbols=EURUSD --from=… --to=…` (up to 92 days per run).
+
 ## Updating
 
 Build a new release (step 1), upload it (step 3), copy `web/` and `server.mjs` as in step 3, then:
@@ -251,12 +286,14 @@ Build a new release (step 1), upload it (step 3), copy `web/` and `server.mjs` a
 sudo systemctl restart backtestlab
 ```
 
-Accounts, payments, settings and cached data in `/var/lib/backtestlab` are kept.
+Accounts, payments, settings and the market history in `/var/lib/backtestlab` are kept. Versions before the
+market storage kept a download cache in `market/dukascopy` and `market/binance`; after updating, those two
+folders are no longer used and can be deleted.
 
 ## Backups
 
-`/var/lib/backtestlab/db.json` holds accounts, payments and settings; back it up daily. The market cache
-(`market/`) can always be downloaded again.
+`/var/lib/backtestlab/db.json` holds accounts, payments and settings; back it up daily. The market history
+(`market/store`) can be downloaded again, but that takes hours: keep a copy of it too, for example monthly.
 
 ```bash
 sudo mkdir -p /root/backups
@@ -277,9 +314,9 @@ sudo crontab -e
 | Settings are not saved after a restart | `DATA_DIR` must be `/var/lib/backtestlab` (the only folder the service may write to) |
 | Replay candles look made up, with a «داده‌ی نمونه» badge | The app was built without the API server (demo mode). Build with `npm run release -- https://YOUR-DOMAIN` (step 1) and install the API server; only then are prices real |
 | Prices differ slightly from your broker | Normal: prices are Dukascopy's (bid) and Binance's; brokers' feeds differ by a few points. Daily and 4-hour candles close at 17:00 New York like most brokers; crypto days are UTC |
-| Charts stay empty, with «دریافت نشد» messages | The server cannot reach Dukascopy or Binance: `bash /opt/backtestlab/check-sources.sh`, then set up the relay (step 8) |
+| Charts stay empty, with «هنوز روی سرور دانلود نشده» | Those days are not in the market history yet: admin panel → نمادها و داده‌ی بازار shows coverage and the download (step 9). If downloads fail, the server cannot reach the sources: `bash /opt/backtestlab/check-sources.sh`, then set up the relay (step 8) or download on another computer |
 | A click shows an **empty page** until you refresh | Errors from visitors' browsers are logged: `sudo journalctl -u backtestlab \| grep client-error`. Common causes: the browser's translator (turn off "Translate this page"), an extension, or a CDN/firewall "optimization" (ArvanCloud/Cloudflare minify, Rocket Loader, script rewriting): turn those off for the site. Serve the release's `web/` folder, not the source code or `npm run dev` |
 | Replay shows the simple chart, not TradingView's | The library was not installed when the release was built: `npm run setup:charts -- …zip`, build again, upload `web/` |
-| 1-second charts take long to open | Second bars are downloaded per hour on first use (Dukascopy tick files / Binance 1s klines) and cached in `DATA_DIR/market` |
+| 1-second candles look smooth inside each minute | They are built from the 1-minute candles. Download 1-second data for that symbol and period (step 9) |
 
 Run a single copy of the API server: its database is one file and is not shared between processes.

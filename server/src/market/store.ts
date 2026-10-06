@@ -95,6 +95,8 @@ function writeAtomic(file: string, data: Buffer) {
 
 // ---------- months of 1-minute bars ----------
 interface Month {
+  /** file time, to notice a file replaced by another process (the download command) */
+  mtime: number;
   decimals: number;
   status: Uint8Array;
   /** decoded body: the stored days' blocks in day order */
@@ -106,7 +108,7 @@ interface Month {
 const monthCache = new Map<string, Month>();
 const MONTH_CACHE = 24;
 
-function parseMonth(buf: Buffer): Month {
+function parseMonth(buf: Buffer, mtime: number): Month {
   if (buf.length < MONTH_HEADER || buf.toString('latin1', 0, 4) !== MONTH_MAGIC) throw new Error('not a market data file');
   const decimals = buf[5];
   const status = new Uint8Array(buf.subarray(8, 39));
@@ -115,22 +117,23 @@ function parseMonth(buf: Buffer): Month {
   for (let d = 0; d < 31; d++) if (status[d] === STORED) block[d] = n++;
   const ints = n ? toInts(inflateSync(buf.subarray(MONTH_HEADER))) : null;
   if (ints && ints.length !== n * MINUTES * 4) throw new Error('damaged market data file');
-  return { decimals, status, ints, block };
+  return { mtime, decimals, status, ints, block };
 }
 
 function readMonth(symbol: string, monthStart: number): Month | null {
   const key = `${symbol}:${monthKey(monthStart)}`;
+  const file = monthFile(symbol, monthStart);
+  if (!existsSync(file)) return null;
+  const mtime = statSync(file).mtimeMs;
   const hit = monthCache.get(key);
-  if (hit) {
-    monthCache.delete(key);
+  monthCache.delete(key);
+  if (hit && hit.mtime === mtime) {
     monthCache.set(key, hit);
     return hit;
   }
-  const file = monthFile(symbol, monthStart);
-  if (!existsSync(file)) return null;
   let month: Month;
   try {
-    month = parseMonth(readFileSync(file));
+    month = parseMonth(readFileSync(file), mtime);
   } catch (e) {
     console.warn(`[market] ${file}: ${(e as Error).message}`);
     return null;
@@ -261,6 +264,12 @@ export function storedBytes(symbol: string): number {
   walk(symbolDir(symbol));
   sizes.set(symbol, total);
   return total;
+}
+
+/** Read the stored days again from the files (another process or a copied folder may have added some). */
+export function refreshCoverage() {
+  coverage.clear();
+  sizes.clear();
 }
 
 /** Forget what was read, after files were changed outside this process (tests, a copied folder). */

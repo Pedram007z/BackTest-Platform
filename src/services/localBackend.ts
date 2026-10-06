@@ -1,5 +1,5 @@
 import { addDays, diffDays, fmtDayLong, localDayKey, msToKey } from '../lib/calendar';
-import { seededRng } from '../lib/market';
+import { SYMBOLS, dataStartOf, seededRng } from '../lib/market';
 import { sampleNews } from '../lib/news';
 import { local, readJson, writeJson } from '../lib/storage';
 import { getToken } from './api';
@@ -792,6 +792,25 @@ export const localBackend: Backend = {
       log('همگام‌سازی تقویم اقتصادی', 'نمونه');
       save();
       return delay(sampleNewsStatus(db().newsSyncedAt), 800);
+    },
+    async marketStorage() {
+      requireAdmin();
+      // the demo has no server and no stored history: its prices are generated
+      return {
+        symbols: SYMBOLS.map((s) => ({ id: s.id, source: 'synthetic' as const, start: dataStartOf(s.id), days: 0, expected: 0, bytes: 0, secondDays: 0 })),
+        bytes: 0,
+        job: null,
+        lastJob: null,
+        autoDownload: db().settings.marketAutoDownload,
+      };
+    },
+    async startMarketDownload() {
+      requireAdmin();
+      throw new BackendError('unsupported', 'نسخه‌ی نمایشی سرور ندارد؛ دانلود داده‌ی بازار روی سرور API انجام می‌شود.');
+    },
+    async stopMarketDownload() {
+      requireAdmin();
+      return null;
     },
   },
 };
