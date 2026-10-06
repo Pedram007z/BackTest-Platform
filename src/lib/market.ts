@@ -491,28 +491,31 @@ function remember(cache: Map<string, Float64Array>, key: string, value: Float64A
   return value;
 }
 
-function synthMinutes(sym: SymbolInfo, idx: number): Float64Array {
-  const key = `${sym.id}:${idx}`;
+/** A day of 5-minute bars split into 1440 one-minute bars. */
+function splitDay(key: string, m5: () => Float64Array): Float64Array {
   const hit = minuteCache.get(key);
   if (hit) return hit;
-  const m5 = synthDay(sym, idx);
+  const src = m5();
   const out = new Float64Array(MINUTES_PER_DAY * 4);
   const rng = seededRng(`m1:${key}`);
-  for (let j = 0; j < BARS_PER_DAY; j++) subdivide(m5, j * 4, 5, rng, out, j * 20);
+  for (let j = 0; j < BARS_PER_DAY; j++) subdivide(src, j * 4, 5, rng, out, j * 20);
   return remember(minuteCache, key, out, 48);
 }
 
-function synthSeconds(sym: SymbolInfo, hourIdx: number): Float64Array {
-  const key = `${sym.id}:${hourIdx}`;
+/** One hour of a day's 1-minute bars split into 3600 one-second bars. */
+function splitHour(key: string, hourIdx: number, m1: () => Float64Array): Float64Array {
   const hit = secondCache.get(key);
   if (hit) return hit;
-  const m1 = synthMinutes(sym, Math.floor(hourIdx / 24));
+  const src = m1();
   const first = (hourIdx % 24) * 60;
   const out = new Float64Array(SECONDS_PER_HOUR * 4);
   const rng = seededRng(`s1:${key}`);
-  for (let m = 0; m < 60; m++) subdivide(m1, (first + m) * 4, 60, rng, out, m * 240);
+  for (let m = 0; m < 60; m++) subdivide(src, (first + m) * 4, 60, rng, out, m * 240);
   return remember(secondCache, key, out, 72);
 }
+
+const synthMinutes = (sym: SymbolInfo, idx: number) => splitDay(`${sym.id}:${idx}`, () => synthDay(sym, idx));
+const synthSeconds = (sym: SymbolInfo, hourIdx: number) => splitHour(`${sym.id}:${hourIdx}`, hourIdx, () => synthMinutes(sym, Math.floor(hourIdx / 24)));
 
 /** symbol → day index → 1440×[o,h,l,c] / symbol → hour index → 3600×[o,h,l,c] (null: closed) */
 const remoteMinutes = new Map<string, Map<number, Float64Array | null>>();
@@ -532,7 +535,12 @@ export function minuteBars(sym: SymbolInfo, idx: number): Float64Array | null | 
   if (idx < 0) return null;
   if (isRemote(sym.id)) {
     const m = remoteMinutes.get(sym.id);
-    return m?.has(idx) ? m.get(idx)! : undefined;
+    if (!m?.has(idx)) return undefined;
+    const bars = m.get(idx)!;
+    if (bars) return bars;
+    // the source has no 1-minute bars for a day it has 5-minute bars for: split those
+    const m5 = remoteDays.get(sym.id)?.get(idx);
+    return m5 ? splitDay(`${sym.id}:${idx}:real`, () => m5) : null;
   }
   if ((!sym.weekends && !isWeekday(idx)) || idx >= HORIZON_DAYS) return null;
   return synthMinutes(sym, idx);
@@ -543,7 +551,13 @@ export function secondBars(sym: SymbolInfo, hourIdx: number): Float64Array | nul
   if (hourIdx < 0) return null;
   if (isRemote(sym.id)) {
     const m = remoteSeconds.get(sym.id);
-    return m?.has(hourIdx) ? m.get(hourIdx)! : undefined;
+    if (!m?.has(hourIdx)) return undefined;
+    const bars = m.get(hourIdx)!;
+    if (bars) return bars;
+    // no 1-second bars for this hour (Binance's 1s history starts years after its 5-minute one; a missing
+    // tick file): split the hour's 1-minute bars, once those are loaded
+    const m1 = minuteBars(sym, Math.floor(hourIdx / 24));
+    return m1 ? splitHour(`${sym.id}:${hourIdx}:real`, hourIdx, () => m1) : m1;
   }
   const day = Math.floor(hourIdx / 24);
   if ((!sym.weekends && !isWeekday(day)) || day >= HORIZON_DAYS) return null;
