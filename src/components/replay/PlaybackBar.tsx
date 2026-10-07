@@ -68,6 +68,7 @@ export function PlaybackBar({ playing, onTogglePlay, onStep, speedIndex, onSpeed
     <div
       ref={bar}
       dir="rtl"
+      data-chart-float
       className="absolute z-20 flex items-center gap-1.5 rounded-2xl border border-line bg-surface/95 p-1.5 shadow-pop backdrop-blur"
       style={pos ? { left: pos.x, top: pos.y } : { left: '50%', bottom: 14, transform: 'translateX(-50%)' }}
       role="toolbar"
