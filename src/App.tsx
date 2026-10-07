@@ -17,13 +17,17 @@ import Settings from './pages/Settings';
 import Strategies from './pages/Strategies';
 import Support from './pages/Support';
 import AdminLogin from './pages/AdminLogin';
+import { AdminActivity } from './pages/admin/Activity';
 import AdminLayout from './pages/admin/AdminLayout';
+import { AdminAnnouncements } from './pages/admin/Announcements';
+import { AdminBacktestUser, AdminBacktests } from './pages/admin/Backtests';
 import { AdminCards } from './pages/admin/Cards';
 import { AdminDiscounts, AdminGateways, AdminPayments, AdminPlans } from './pages/admin/Commerce';
 import AdminOverview from './pages/admin/Overview';
 import { AdminAudit, AdminMarket, AdminNews, AdminSettings, AdminSms, AdminTickets } from './pages/admin/System';
 import AdminUsers from './pages/admin/Users';
 import { PREVIEW, showPendingToast } from './lib/nav';
+import { startBacktestSync } from './services/backtestSync';
 import { loadSiteConfig } from './services/marketFeed';
 import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
@@ -52,6 +56,8 @@ function AccountSync() {
     void useAuth.getState().refresh();
     void loadSiteConfig();
     showPendingToast();
+    // the server's copy of the user's backtests, for the admin panel
+    startBacktestSync();
   }, []);
   return null;
 }
@@ -108,6 +114,10 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="backtests" element={<AdminBacktests />} />
+            <Route path="backtests/:userId" element={<AdminBacktestUser />} />
+            <Route path="activity" element={<AdminActivity />} />
+            <Route path="announcements" element={<AdminAnnouncements />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="payments" element={<AdminPayments />} />
             <Route path="discounts" element={<AdminDiscounts />} />

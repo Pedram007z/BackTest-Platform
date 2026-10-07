@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useGo } from '../lib/nav';
+import { AnnouncementPopup } from '../components/AnnouncementPopup';
 import { Link } from '../components/ui/AppLink';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
 import { MarketsSection } from '../components/landing/MarketsSection';
@@ -567,6 +568,7 @@ export default function Landing() {
           © ۱۴۰۵ بک‌تست‌لب. بک‌تست نتیجه‌ی آینده را تضمین نمی‌کند؛ معامله در بازارهای مالی ریسک از دست دادن سرمایه دارد.
         </div>
       </footer>
+      <AnnouncementPopup where="site" />
     </div>
   );
 }

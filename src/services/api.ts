@@ -12,6 +12,9 @@ const TOKEN_KEY = 'backtest-auth:token';
 export const getToken = () => local.getItem(TOKEN_KEY);
 export const setToken = (t: string | null) => (t ? local.setItem(TOKEN_KEY, t) : local.removeItem(TOKEN_KEY));
 
+/** Address of an uploaded picture or video: the API server's /api/media/… or a blob: address (demo). */
+export const mediaSrc = (url: string) => (url.startsWith('/api/') ? `${API_URL}${url}` : url);
+
 export class ApiError extends Error {
   constructor(
     public status: number,

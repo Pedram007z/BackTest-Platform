@@ -5,11 +5,13 @@ import {
   GATEWAY_NAMES,
   SMS_PROVIDER_NAMES,
   type AccountUser,
+  type Announcement,
   type AuditEntry,
   type CardToCardSettings,
   type DiscountCode,
   type GatewayConfig,
   type GatewayId,
+  type LoginEvent,
   type Payment,
   type PaymentCard,
   type Plan,
@@ -51,6 +53,16 @@ export interface StoredPayment extends Payment {
   gatewayMessage?: string;
 }
 
+/** An uploaded picture or video (the file is DATA_DIR/media/<id>). */
+export interface StoredMedia {
+  id: string;
+  kind: 'image' | 'video';
+  mime: string;
+  size: number;
+  name: string;
+  createdAt: number;
+}
+
 export interface Db {
   version: 1;
   /** Secret for code hashes; generated on first start. */
@@ -75,6 +87,11 @@ export interface Db {
   credentials: Record<string, AdminCredential>;
   /** admin sign-in address key made by the server when .env has no ADMIN_LOGIN_KEY */
   adminGateKey?: string;
+  /** sign-ins and sign-outs, newest first */
+  loginLog: LoginEvent[];
+  /** messages shown to visitors as a popup */
+  announcements: Announcement[];
+  media: StoredMedia[];
 }
 
 export interface AdminCredential {
@@ -188,6 +205,9 @@ function fresh(): Db {
     otps: {},
     sessions: {},
     credentials: {},
+    loginLog: [],
+    announcements: [],
+    media: [],
   };
 }
 
@@ -251,5 +271,6 @@ export function prune() {
   for (const [k, s] of Object.entries(d.sessions)) if (s.expiresAt < now) delete d.sessions[k];
   d.smsLogs = d.smsLogs.slice(0, 5000);
   d.audit = d.audit.slice(0, 2000);
+  d.loginLog = d.loginLog.slice(0, 10_000);
   save();
 }

@@ -27,6 +27,7 @@ import { fmtNum } from '../../lib/format';
 import { planDaysLeft } from '../../lib/stats';
 import { useAuth } from '../../store/useAuth';
 import { useStore, useToasts } from '../../store/useStore';
+import { AnnouncementPopup } from '../AnnouncementPopup';
 import { Avatar } from '../ui/Avatar';
 import { Meter } from '../ui/controls';
 
@@ -216,6 +217,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <main className="min-w-0 flex-1">{children}</main>
       </div>
       <Toaster />
+      <AnnouncementPopup where="app" />
     </div>
   );
 }

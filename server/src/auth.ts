@@ -6,6 +6,7 @@ import { normalizePhone, type AccountUser } from './shared';
 import { sendOtpSms } from './sms';
 import { randomBytes } from 'node:crypto';
 import { DAY_MS, addDays, clone, hmac, otpCode, randomToken, safeEqual, sha256, toLatinDigits, todayKey, uid } from './util';
+import { logLogin } from './activity';
 
 const RESEND_SEC = 60;
 const MAX_TRIES = 5;
@@ -95,12 +96,14 @@ export async function verifyOtp(ctx: Ctx) {
   }
   if (user.status === 'banned') throw banned();
   delete d.otps[phone];
-  return startSession(ctx, user, isNew);
+  return startSession(ctx, user, isNew, 'otp');
 }
 
-function startSession(ctx: Ctx, user: AccountUser, isNew: boolean) {
+function startSession(ctx: Ctx, user: AccountUser, isNew: boolean, method: 'otp' | 'password') {
   const d = db();
   user.lastLoginAt = Date.now();
+  user.lastIp = ctx.ip;
+  logLogin(ctx, user, 'login', method);
   const token = randomToken();
   d.sessions[sha256(token)] = {
     userId: user.id,
@@ -192,7 +195,7 @@ export async function adminLogin(ctx: Ctx) {
     throw badLogin();
   }
   if (user.status === 'banned') throw banned();
-  return startSession(ctx, user, false);
+  return startSession(ctx, user, false, 'password');
 }
 
 /** GET /api/admin/credentials: the signed-in admin's username (null when not set) and the admin sign-in address. */
@@ -299,8 +302,10 @@ export function requireUser(ctx: Ctx): AccountUser {
   }
   if (user.status === 'banned') throw banned();
   if (d.settings.maintenance && user.role !== 'admin') throw new HttpError(503, 'maintenance', 'سایت در حال به‌روزرسانی است؛ کمی بعد دوباره سر بزنید.');
-  if (Date.now() - s.lastSeenAt > 5 * 60_000) {
+  if (Date.now() - s.lastSeenAt > 5 * 60_000 || (ctx.ip && s.ip !== ctx.ip)) {
     s.lastSeenAt = Date.now();
+    // the address the device uses now (mobile networks change it)
+    if (ctx.ip) s.ip = user.lastIp = ctx.ip;
     save();
   }
   ctx.user = user;
@@ -316,10 +321,13 @@ export function requireAdmin(ctx: Ctx): AccountUser {
 
 export function logout(ctx: Ctx) {
   const token = bearer(ctx);
-  if (token) {
-    delete db().sessions[sha256(token)];
-    save();
-  }
+  if (!token) return;
+  const d = db();
+  const s = d.sessions[sha256(token)];
+  const user = s && d.users.find((u) => u.id === s.userId);
+  if (user) logLogin(ctx, user, 'logout');
+  delete d.sessions[sha256(token)];
+  save();
 }
 
 /** Sign a user out everywhere (after a ban or deletion). */

@@ -12,6 +12,8 @@ import {
   normalizePhone,
   type AccountUser,
   type AdminStats,
+  type BacktestQuery,
+  type LoginEventKind,
   type DataSource,
   type DiscountCode,
   type GatewayConfig,
@@ -24,6 +26,9 @@ import {
 } from '../shared';
 import { sendTextSms } from '../sms';
 import { DAY_MS, addDays, clone, faDay, faNum, isDayKey, tehranDayKey, toLatinDigits, todayKey, uid } from '../util';
+import { activityList, signOutDevices, userDevices } from '../activity';
+import { adminAnnouncements, deleteAnnouncement, saveAnnouncement, uploadMedia } from '../announcements';
+import { adminBacktestDetail, adminBacktests, adminDeleteSession, dropBacktests } from '../backtests';
 
 function audit(ctx: Ctx, action: string, target?: string) {
   const d = db();
@@ -222,6 +227,7 @@ export function adminRoutes(r: Router) {
       d.users = d.users.filter((x) => x.id !== u.id);
       delete d.credentials[u.id];
       dropSessions(u.id);
+      dropBacktests(u.id);
       audit(ctx, 'حذف کاربر', u.name);
       save();
     }),
@@ -606,5 +612,92 @@ export function adminRoutes(r: Router) {
       if (job) audit(ctx, 'توقف دانلود داده‌ی بازار');
       return job;
     }),
+  );
+
+  // ---------- users' backtests (the copy their apps sync) ----------
+  r.get(
+    '/api/admin/backtests',
+    admin((ctx) =>
+      adminBacktests({
+        q: ctx.query.get('q') ?? undefined,
+        userId: ctx.query.get('userId') ?? undefined,
+        sort: (ctx.query.get('sort') as BacktestQuery['sort']) ?? undefined,
+        page: Number(ctx.query.get('page')) || 1,
+      }),
+    ),
+  );
+  r.get(
+    '/api/admin/backtests/:userId',
+    admin((ctx) => adminBacktestDetail(ctx.params.userId)),
+  );
+  r.delete(
+    '/api/admin/backtests/:userId/sessions/:sessionId',
+    admin((ctx) => {
+      const u = findUser(ctx.params.userId);
+      const s = adminDeleteSession(u.id, ctx.params.sessionId);
+      audit(ctx, 'حذف جلسه‌ی بک‌تست کاربر', `${u.name} — ${s.name}`);
+    }),
+  );
+
+  // ---------- sign-ins and devices ----------
+  r.get(
+    '/api/admin/activity',
+    admin((ctx) =>
+      activityList({
+        q: ctx.query.get('q') ?? undefined,
+        userId: ctx.query.get('userId') ?? undefined,
+        kind: (ctx.query.get('kind') as LoginEventKind) || undefined,
+        page: Number(ctx.query.get('page')) || 1,
+      }),
+    ),
+  );
+  r.get(
+    '/api/admin/users/:id/devices',
+    admin((ctx) => userDevices(findUser(ctx.params.id).id)),
+  );
+  r.delete(
+    '/api/admin/users/:id/devices',
+    admin((ctx) => {
+      const u = findUser(ctx.params.id);
+      const count = signOutDevices(u);
+      audit(ctx, 'خروج کاربر از همه‌ی دستگاه‌ها', u.name);
+      return { count };
+    }),
+  );
+  r.delete(
+    '/api/admin/users/:id/devices/:deviceId',
+    admin((ctx) => {
+      const u = findUser(ctx.params.id);
+      const count = signOutDevices(u, ctx.params.deviceId);
+      audit(ctx, 'خروج کاربر از یک دستگاه', u.name);
+      return { count };
+    }),
+  );
+
+  // ---------- announcements ----------
+  r.get(
+    '/api/admin/announcements',
+    admin(() => adminAnnouncements()),
+  );
+  r.put(
+    '/api/admin/announcements/:id',
+    admin((ctx) => {
+      const existed = db().announcements.some((a) => a.id === ctx.params.id);
+      const a = saveAnnouncement(ctx.params.id, ctx.body);
+      audit(ctx, existed ? 'ویرایش اعلان' : 'ساخت اعلان', a.title);
+      return a;
+    }),
+  );
+  r.delete(
+    '/api/admin/announcements/:id',
+    admin((ctx) => {
+      const a = deleteAnnouncement(ctx.params.id);
+      if (a) audit(ctx, 'حذف اعلان', a.title);
+    }),
+  );
+  r.post(
+    '/api/admin/media',
+    admin((ctx) => uploadMedia(ctx)),
+    { raw: true },
   );
 }

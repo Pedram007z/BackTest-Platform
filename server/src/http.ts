@@ -1,3 +1,4 @@
+import { createReadStream } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { allowedOrigins, config } from './config';
@@ -34,6 +35,15 @@ export class Reply {
   }
 }
 
+/** A file sent from disk in pieces (pictures, videos): one byte range when the browser asks for one. */
+export class FileReply {
+  constructor(
+    public path: string,
+    public size: number,
+    public headers: Record<string, string> = {},
+  ) {}
+}
+
 export interface Ctx {
   req: IncomingMessage;
   method: string;
@@ -50,10 +60,17 @@ export interface Ctx {
 }
 
 type Handler = (ctx: Ctx) => unknown | Promise<unknown>;
+export interface RouteOptions {
+  /** Largest request body in bytes (default 1 MB). */
+  maxBody?: number;
+  /** Leave the body unread: the handler reads ctx.req itself (uploads). */
+  raw?: boolean;
+}
 interface Route {
   method: string;
   parts: string[];
   handler: Handler;
+  options: RouteOptions;
 }
 
 const MAX_BODY = 1_000_000;
@@ -61,13 +78,13 @@ const MAX_BODY = 1_000_000;
 export class Router {
   private routes: Route[] = [];
 
-  on(method: string, path: string, handler: Handler) {
-    this.routes.push({ method, parts: path.split('/').filter(Boolean), handler });
+  on(method: string, path: string, handler: Handler, options: RouteOptions = {}) {
+    this.routes.push({ method, parts: path.split('/').filter(Boolean), handler, options });
     return this;
   }
   get = (p: string, h: Handler) => this.on('GET', p, h);
-  post = (p: string, h: Handler) => this.on('POST', p, h);
-  put = (p: string, h: Handler) => this.on('PUT', p, h);
+  post = (p: string, h: Handler, o?: RouteOptions) => this.on('POST', p, h, o);
+  put = (p: string, h: Handler, o?: RouteOptions) => this.on('PUT', p, h, o);
   delete = (p: string, h: Handler) => this.on('DELETE', p, h);
 
   private match(method: string, path: string): { route: Route; params: Record<string, string> } | 'method' | null {
@@ -127,12 +144,14 @@ export class Router {
         path: url.pathname,
         query: url.searchParams,
         params: found.params,
-        body: await readBody(req),
+        body: found.route.options.raw ? {} : await readBody(req, found.route.options.maxBody),
         ip: clientIp(req),
         userAgent: String(req.headers['user-agent'] ?? '').slice(0, 200),
       };
       const out = await found.route.handler(ctx);
-      if (out instanceof Reply) {
+      if (out instanceof FileReply) {
+        status = sendFile(req, res, out, cors);
+      } else if (out instanceof Reply) {
         status = out.status;
         send(req, res, out.status, out.body, { ...cors, ...out.headers });
       } else if (out === undefined) {
@@ -188,13 +207,44 @@ function clientIp(req: IncomingMessage): string {
   return req.socket.remoteAddress ?? '';
 }
 
-async function readBody(req: IncomingMessage): Promise<any> {
+/** Streams a file; answers a `Range: bytes=a-b` request with that part (206), as video players need to seek. */
+function sendFile(req: IncomingMessage, res: ServerResponse, f: FileReply, cors: Record<string, string>): number {
+  const h: Record<string, string> = { 'X-Content-Type-Options': 'nosniff', 'Accept-Ranges': 'bytes', ...cors, ...f.headers };
+  let start = 0;
+  let end = f.size - 1;
+  let status = 200;
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? '').trim());
+  if (m && (m[1] || m[2])) {
+    if (m[1]) {
+      start = Number(m[1]);
+      if (m[2]) end = Math.min(Number(m[2]), f.size - 1);
+    } else start = Math.max(0, f.size - Number(m[2]));
+    if (start > end || start >= f.size) {
+      res.writeHead(416, { ...h, 'Content-Range': `bytes */${f.size}` }).end();
+      return 416;
+    }
+    status = 206;
+    h['Content-Range'] = `bytes ${start}-${end}/${f.size}`;
+  }
+  h['Content-Length'] = String(end - start + 1);
+  res.writeHead(status, h);
+  if (req.method === 'HEAD' || f.size === 0) {
+    res.end();
+    return status;
+  }
+  const stream = createReadStream(f.path, { start, end });
+  stream.on('error', () => res.destroy());
+  stream.pipe(res);
+  return status;
+}
+
+async function readBody(req: IncomingMessage, max = MAX_BODY): Promise<any> {
   if (req.method === 'GET' || req.method === 'HEAD') return {};
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += (chunk as Buffer).length;
-    if (size > MAX_BODY) throw new HttpError(413, 'too_large', 'حجم درخواست بیش از حد مجاز است.');
+    if (size > max) throw new HttpError(413, 'too_large', 'حجم درخواست بیش از حد مجاز است.');
     chunks.push(chunk as Buffer);
   }
   const text = Buffer.concat(chunks).toString('utf8');
