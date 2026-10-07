@@ -181,6 +181,11 @@ sudo certbot --nginx -d YOUR-DOMAIN -d www.YOUR-DOMAIN
 - certbot needs the domain to point at this server and port 80 to be open from abroad. If it cannot verify
   the domain during an international disruption, run the same command again later.
 
+`nginx-site.conf` lets the app upload up to 10 MB to the API (a user's backtest copy) and the admin panel
+upload pictures and videos for announcements up to 100 MB (`location /api/admin/media`). If you set up nginx
+with an older copy of the file, copy it again (and repeat the `sed` line), or uploads stop with "حجم فایل
+بیش از حد مجاز سرور است".
+
 Open `https://YOUR-DOMAIN`. You should see the landing page.
 
 Pages have plain addresses (`https://YOUR-DOMAIN/dashboard`) and every click loads the new page from the
@@ -240,6 +245,20 @@ sudo bash /opt/backtestlab/make-admin.sh 09121234567
    - **نمادها و داده‌ی بازار** (symbols and market data): the stored market history and its download (step 9),
      data source per market, and which symbols users can pick.
    - **تقویم اقتصادی** (economic calendar): press sync and check that no error is shown.
+   - **بک‌تست کاربران** (users' backtests): every user's sessions with their results, open positions,
+     pending orders and closed trades (entry and exit price and time), the equity curve, the IP address their
+     app last sent data from, their devices and recent sign-ins. **حذف این جلسه** deletes a session; it also
+     disappears from the user's browser the next time they open the site. Only sessions, orders, positions
+     and strategies are copied to the server; journals and notes stay in the user's browser.
+   - **ورود و خروج کاربران** (sign-ins and sign-outs): every sign-in and sign-out with the time, IP address,
+     browser and method; search by name, number or IP. On a user's backtests page, **خروج از همه** (or the
+     button next to one device) signs them out.
+   - **اعلان‌ها** (announcements): a message with an optional picture or video that opens as a popup when
+     someone opens the home page, the dashboard, or both; for every visitor or signed-in users only; with an
+     optional button (a page like `/billing` or a full `https://` address) and start and end dates. Each
+     visitor sees a message once; turn on «دوباره به کسانی که این پیام را بسته‌اند نشان داده شود» when you
+     edit it to show it again. MP4 (H.264) videos play in every browser; iPhone videos saved as HEVC may not
+     play on Windows or Android.
 
 ## 8. Relay for market data and the calendar (servers in Iran)
 
@@ -335,14 +354,16 @@ folders are no longer used and can be deleted.
 
 ## Backups
 
-`/var/lib/backtestlab/db.json` holds accounts, payments and settings; back it up daily. The market history
+`/var/lib/backtestlab/db.json` holds accounts, payments, settings, the sign-in log and announcements;
+`backtests/` the copies of users' backtests and `media/` the announcements' pictures and videos. Back them
+up daily. The market history
 (`market/store`) can be downloaded again, but that takes hours: keep a copy of it too, for example monthly.
 
 ```bash
 sudo mkdir -p /root/backups
 sudo crontab -e
 # add this line: every night at 03:30
-30 3 * * * tar -czf /root/backups/backtestlab-$(date +\%F).tar.gz -C /var/lib/backtestlab db.json news.json
+30 3 * * * tar -czf /root/backups/backtestlab-$(date +\%F).tar.gz -C /var/lib/backtestlab db.json news.json backtests media
 ```
 
 ## When something goes wrong

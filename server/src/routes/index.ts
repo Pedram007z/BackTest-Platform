@@ -8,6 +8,8 @@ import { cancelTransfer, expireTransfers, reportTransfer } from '../payments/car
 import type { Ticket } from '../shared';
 import { DAY_MS, clone, uid } from '../util';
 import { adminRoutes } from './admin';
+import { countView, serveMedia, visibleAnnouncements } from '../announcements';
+import { syncCheck, syncUpload } from '../backtests';
 
 export function buildRouter(): Router {
   const r = new Router();
@@ -101,6 +103,27 @@ export function buildRouter(): Router {
     save();
     return clone(t);
   });
+
+  // ---------- a copy of the user's backtests for the admin panel (the app syncs it) ----------
+  r.post('/api/me/backtests/check', (ctx) => {
+    const u = requireUser(ctx);
+    rateLimit(`bt-check:${u.id}`, 600, 10 * 60_000);
+    return syncCheck(u, ctx.body);
+  });
+  r.put(
+    '/api/me/backtests',
+    (ctx) => {
+      const u = requireUser(ctx);
+      rateLimit(`bt-sync:${u.id}`, 120, 10 * 60_000);
+      return syncUpload(ctx, u);
+    },
+    { maxBody: 8_000_000 },
+  );
+
+  // ---------- announcements (popup messages) and their pictures / videos ----------
+  r.get('/api/announcements', (ctx) => visibleAnnouncements(optionalUser(ctx), ctx.query.get('placement') ?? 'site'));
+  r.post('/api/announcements/:id/view', (ctx) => countView(ctx, ctx.params.id));
+  r.get('/api/media/:id', (ctx) => serveMedia(ctx.params.id));
 
   // ---------- payments ----------
   r.get('/api/payments/gateways', () => enabledGateways());

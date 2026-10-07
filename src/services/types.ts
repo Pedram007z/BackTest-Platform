@@ -19,6 +19,8 @@ export interface AccountUser {
   planEndsAt: string;
   createdAt: number;
   lastLoginAt?: number;
+  /** The address the account was last seen from (admin panel only). */
+  lastIp?: string;
   /** The sample account of the hosted demo. */
   demo?: boolean;
   note?: string;
@@ -355,3 +357,197 @@ export function normalizePhone(raw: string): string | null {
   else if (p.startsWith('9') && p.length === 10) p = '0' + p;
   return /^09\d{9}$/.test(p) ? p : null;
 }
+
+// ---------- users' backtest data (a copy kept on the server for the admin panel) ----------
+
+/** A backtest session as the app saves it on the server (the app's Session without layout and notes). */
+export interface SnapshotSession {
+  id: string;
+  name: string;
+  balance: number;
+  symbols: string[];
+  startDate: string;
+  endDate: string;
+  strategyId?: string;
+  /** Replay position in market time (UTC ms). */
+  cursor: number;
+  timeframe: string;
+  activeSymbol: string;
+  createdAt: number;
+  lastOpenedAt?: number;
+}
+
+/** An order or position (the app's Trade without its journal). */
+export interface SnapshotTrade {
+  id: string;
+  sessionId: string;
+  strategyId?: string;
+  symbol: string;
+  side: 'buy' | 'sell';
+  orderType: 'market' | 'limit' | 'stop';
+  status: 'pending' | 'open' | 'closed' | 'cancelled';
+  entry: number;
+  sl: number;
+  tp: number;
+  lots: number;
+  initialLots: number;
+  pointValue: number;
+  risk: number;
+  riskPct: number;
+  /** Market times (UTC ms): order placed, position opened, position closed. */
+  placedTime: number;
+  openTime: number;
+  closeTime?: number;
+  exit?: number;
+  partials: { time: number; price: number; lots: number; pnl?: number }[];
+  r?: number;
+  pnl?: number;
+  maxR?: number;
+  closeReason?: 'tp' | 'sl' | 'manual' | 'session_end';
+  /** Wall-clock times the trade was placed / closed. */
+  executedAt: number;
+  closedAt?: number;
+}
+
+export interface BacktestSnapshot {
+  sessions: SnapshotSession[];
+  trades: SnapshotTrade[];
+  strategies: { id: string; name: string }[];
+}
+
+/** One session in the admin list, worked out when the copy is saved. */
+export interface BacktestSessionSummary {
+  id: string;
+  name: string;
+  symbols: string[];
+  timeframe: string;
+  startDate: string;
+  endDate: string;
+  balance: number;
+  cursor: number;
+  /** 0–1: how far the replay has got through the session's dates. */
+  progress: number;
+  createdAt: number;
+  lastOpenedAt?: number;
+  strategy?: string;
+  /** Closed positions, open positions and waiting orders. */
+  closed: number;
+  open: number;
+  pending: number;
+  wins: number;
+  losses: number;
+  netPnl: number;
+}
+
+export interface AdminBacktestRow extends BacktestSessionSummary {
+  userId: string;
+  userName: string;
+  phone: string;
+  /** When the user's app last saved its copy, and from which address. */
+  syncedAt: number;
+  ip?: string;
+}
+
+export interface BacktestQuery {
+  q?: string;
+  userId?: string;
+  sort?: 'recent' | 'pnl' | 'trades';
+  page?: number;
+}
+
+/** Everything the admin sees for one user's backtests. */
+export interface AdminBacktestDetail {
+  user: Pick<AccountUser, 'id' | 'name' | 'phone' | 'planId' | 'status' | 'lastLoginAt' | 'lastIp'>;
+  syncedAt: number;
+  ip?: string;
+  userAgent?: string;
+  snapshot: BacktestSnapshot;
+  /** Sessions the admin deleted that the user's app has not removed yet. */
+  pendingRemovals: string[];
+}
+
+/** Answer to the app's sync check: send the data (the server's copy is out of date), and sessions an admin deleted. */
+export interface BacktestSyncState {
+  needData: boolean;
+  remove: string[];
+}
+
+// ---------- sign-in history ----------
+
+export type LoginEventKind = 'login' | 'logout' | 'signed_out_by_admin';
+
+export interface LoginEvent {
+  id: string;
+  userId: string;
+  userName: string;
+  phone: string;
+  kind: LoginEventKind;
+  /** How they signed in: SMS code, admin password or the demo account. */
+  method?: 'otp' | 'password' | 'demo';
+  at: number;
+  ip: string;
+  userAgent: string;
+}
+
+export interface ActivityQuery {
+  q?: string;
+  userId?: string;
+  kind?: LoginEventKind;
+  page?: number;
+}
+
+/** A device the user is signed in on. */
+export interface UserDevice {
+  id: string;
+  createdAt: number;
+  lastSeenAt: number;
+  expiresAt: number;
+  ip: string;
+  userAgent: string;
+}
+
+// ---------- announcements ----------
+
+export interface AnnouncementMedia {
+  id: string;
+  kind: 'image' | 'video';
+  mime: string;
+  size: number;
+  name: string;
+  /** Address of the file (relative to the API server, or a blob: address in the demo). */
+  url: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  media?: AnnouncementMedia;
+  /** Optional button: an in-app path (/billing) or a full https:// address. */
+  button?: { label: string; url: string };
+  /** Who sees it: every visitor, or signed-in users only. */
+  audience: 'everyone' | 'users';
+  /** Where it pops up: the website (home page), the dashboard pages, or both. */
+  placement: 'site' | 'app' | 'both';
+  /** Gregorian day keys, inclusive; empty for no limit. */
+  startsAt?: string;
+  endsAt?: string;
+  active: boolean;
+  /** Raised when the message is edited "to show again": people who closed it see it once more. */
+  version: number;
+  views: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const MEDIA_TYPES: Record<string, 'image' | 'video'> = {
+  'image/jpeg': 'image',
+  'image/png': 'image',
+  'image/webp': 'image',
+  'image/gif': 'image',
+  'video/mp4': 'video',
+  'video/webm': 'video',
+  'video/quicktime': 'video',
+};
+/** Largest upload: pictures and videos. */
+export const MEDIA_MAX_BYTES = { image: 10 * 1024 * 1024, video: 100 * 1024 * 1024 };

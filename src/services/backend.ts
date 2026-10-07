@@ -1,12 +1,21 @@
 import type {
   AccountUser,
+  ActivityQuery,
+  AdminBacktestDetail,
+  AdminBacktestRow,
   AdminStats,
+  Announcement,
+  AnnouncementMedia,
+  BacktestQuery,
+  BacktestSnapshot,
+  BacktestSyncState,
   AuditEntry,
   CardAdmin,
   CardToCardSettings,
   DiscountCode,
   GatewayConfig,
   GatewayId,
+  LoginEvent,
   MarketDownloadJob,
   MarketStorage,
   NewsSyncStatus,
@@ -21,6 +30,7 @@ import type {
   SmsLog,
   SmsSettings,
   Ticket,
+  UserDevice,
   UserQuery,
 } from './types';
 
@@ -54,6 +64,13 @@ export interface CheckoutResult {
   /** Bank gateway page, or an in-app page (starting with "/": card to card, the demo's sandbox bank). */
   redirectUrl: string;
 }
+
+/** What the admin edits: the message without its counters; the picture or video by its uploaded id. */
+export type AnnouncementInput = Omit<Announcement, 'media' | 'version' | 'views' | 'createdAt' | 'updatedAt'> & {
+  mediaId?: string;
+  /** Show it again to people who already closed it. */
+  showAgain?: boolean;
+};
 
 export interface AdminApi {
   stats(): Promise<AdminStats>;
@@ -99,6 +116,19 @@ export interface AdminApi {
   credentials(): Promise<{ username: string | null; loginPath: string; keyFromEnv: boolean }>;
   saveCredentials(input: { username: string; password: string; currentPassword?: string }): Promise<{ username: string }>;
   removeCredentials(): Promise<void>;
+  /** Users' backtests (the copy their apps sync): every session, one user's data, deleting a session. */
+  backtests(q: BacktestQuery): Promise<Page<AdminBacktestRow> & { users: number; open: number }>;
+  backtestDetail(userId: string): Promise<AdminBacktestDetail>;
+  deleteBacktestSession(userId: string, sessionId: string): Promise<void>;
+  /** Sign-ins and sign-outs with addresses; a user's signed-in devices; signing them out (all when no id). */
+  activity(q: ActivityQuery): Promise<Page<LoginEvent>>;
+  userDevices(userId: string): Promise<UserDevice[]>;
+  signOutDevices(userId: string, deviceId?: string): Promise<{ count: number }>;
+  /** Popup messages and their pictures / videos. */
+  announcements(): Promise<Announcement[]>;
+  saveAnnouncement(a: AnnouncementInput): Promise<Announcement>;
+  deleteAnnouncement(id: string): Promise<void>;
+  uploadMedia(file: File, onProgress?: (fraction: number) => void): Promise<AnnouncementMedia>;
 }
 
 export interface Backend {
@@ -128,6 +158,12 @@ export interface Backend {
   myTickets(): Promise<Ticket[]>;
   createTicket(subject: string, text: string): Promise<Ticket>;
   replyMyTicket(id: string, text: string): Promise<Ticket>;
+  /** The copy of this user's backtests kept for the admin panel (services/backtestSync). */
+  backtestCheck(hash: string): Promise<BacktestSyncState>;
+  backtestUpload(hash: string, snapshot: BacktestSnapshot): Promise<BacktestSyncState>;
+  /** Popup messages for this visitor on the website ('site') or the dashboard ('app'); counting a view. */
+  announcements(placement: 'site' | 'app'): Promise<Announcement[]>;
+  announcementSeen(id: string): Promise<void>;
   admin: AdminApi;
 }
 

@@ -1,4 +1,4 @@
-import { ApiError, api } from './api';
+import { API_URL, ApiError, api, getToken } from './api';
 import { BackendError, type Backend } from './backend';
 
 /** Backend over the API server in server/. Routes mirror the method names. */
@@ -15,6 +15,33 @@ const get = <T>(path: string) => wrap(api<T>(path));
 const post = <T>(path: string, json?: unknown) => wrap(api<T>(path, { method: 'POST', json: json ?? {} }));
 const put = <T>(path: string, json: unknown) => wrap(api<T>(path, { method: 'PUT', json }));
 const del = (path: string) => wrap(api<void>(path, { method: 'DELETE' }));
+const delJson = <T>(path: string) => wrap(api<T>(path, { method: 'DELETE' }));
+const enc = encodeURIComponent;
+
+/** Sends a picture or video as the request body (XMLHttpRequest, for the progress bar). */
+function upload<T>(path: string, file: File, onProgress?: (fraction: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_URL}${path}`);
+    const token = getToken();
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+    xhr.onload = () => {
+      let data: any = null;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        /* not JSON */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
+      else if (xhr.status === 413 && !data) reject(new BackendError('too_large', 'حجم فایل بیش از حد مجاز سرور است.', 'media'));
+      else reject(new BackendError(data?.code ?? 'error', data?.message ?? 'بارگذاری انجام نشد.', data?.field ?? 'media'));
+    };
+    xhr.onerror = () => reject(new BackendError('network', 'اتصال به سرور برقرار نشد. اینترنت را بررسی کنید.', 'media'));
+    xhr.send(file);
+  });
+}
 const qs = (o: object) =>
   '?' +
   Object.entries(o)
@@ -52,6 +79,10 @@ export const httpBackend: Backend = {
   myTickets: () => get('/api/me/tickets'),
   createTicket: (subject, text) => post('/api/me/tickets', { subject, text }),
   replyMyTicket: (id, text) => post(`/api/me/tickets/${encodeURIComponent(id)}/reply`, { text }),
+  backtestCheck: (hash) => post('/api/me/backtests/check', { hash }),
+  backtestUpload: (hash, snapshot) => put('/api/me/backtests', { hash, snapshot }),
+  announcements: (placement) => get(`/api/announcements?placement=${placement}`),
+  announcementSeen: (id) => post(`/api/announcements/${enc(id)}/view`),
   admin: {
     stats: () => get('/api/admin/stats'),
     users: (q) => get(`/api/admin/users${qs(q)}`),
@@ -93,5 +124,15 @@ export const httpBackend: Backend = {
     credentials: () => get('/api/admin/credentials'),
     saveCredentials: (input) => put('/api/admin/credentials', input),
     removeCredentials: () => del('/api/admin/credentials'),
+    backtests: (q) => get(`/api/admin/backtests${qs(q)}`),
+    backtestDetail: (userId) => get(`/api/admin/backtests/${enc(userId)}`),
+    deleteBacktestSession: (userId, sessionId) => del(`/api/admin/backtests/${enc(userId)}/sessions/${enc(sessionId)}`),
+    activity: (q) => get(`/api/admin/activity${qs(q)}`),
+    userDevices: (userId) => get(`/api/admin/users/${enc(userId)}/devices`),
+    signOutDevices: (userId, deviceId) => delJson(`/api/admin/users/${enc(userId)}/devices${deviceId ? `/${enc(deviceId)}` : ''}`),
+    announcements: () => get('/api/admin/announcements'),
+    saveAnnouncement: (a) => put(`/api/admin/announcements/${enc(a.id)}`, a),
+    deleteAnnouncement: (id) => del(`/api/admin/announcements/${enc(id)}`),
+    uploadMedia: (file, onProgress) => upload(`/api/admin/media?name=${enc(file.name)}`, file, onProgress),
   },
 };

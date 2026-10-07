@@ -1,22 +1,32 @@
 import { addDays, diffDays, fmtDayLong, localDayKey, msToKey } from '../lib/calendar';
 import { SYMBOLS, dataStartOf, seededRng } from '../lib/market';
 import { sampleNews } from '../lib/news';
+import { deleteMedia, mediaUrl, putMedia } from '../lib/mediaStore';
 import { local, readJson, writeJson } from '../lib/storage';
+import { announcementError, announcementVisible } from './announcements';
+import { cleanSnapshot, queryBacktestRows, summarizeSessions } from './backtests';
 import { getToken } from './api';
 import { BackendError, type Backend } from './backend';
 import { bankOfCard, canReportTransfer, cardAmountRial, cardDigits, fmtCardNumber, holdsCode, isCardNumber, pickCardCode, transferReportError } from './cards';
 import {
   GATEWAY_NAMES,
+  MEDIA_MAX_BYTES,
+  MEDIA_TYPES,
   PAYMENT_METHOD_NAMES,
   SMS_PROVIDER_NAMES,
   normalizePhone,
   type AccountUser,
+  type AdminBacktestRow,
   type AdminStats,
+  type Announcement,
+  type AnnouncementMedia,
   type AuditEntry,
+  type BacktestSnapshot,
   type CardToCardSettings,
   type DiscountCode,
   type GatewayConfig,
   type GatewayId,
+  type LoginEvent,
   type NewsSyncStatus,
   type Payment,
   type PaymentCard,
@@ -52,6 +62,25 @@ interface Db {
   audit: AuditEntry[];
   otps: Record<string, { code: string; expiresAt: number; tries: number; sentAt: number }>;
   newsSyncedAt?: number;
+  /** Backtest copies the app synced (the sample users' are generated, see sampleBacktests). */
+  backtests?: Record<string, StoredBacktest>;
+  /** Sessions the admin deleted from the sample users' generated data. */
+  backtestDeleted?: Record<string, string[]>;
+  loginLog?: LoginEvent[];
+  /** Devices (sign-in events) the admin signed out. */
+  revokedDevices?: string[];
+  announcements?: Announcement[];
+  /** Uploaded pictures and videos; the files themselves are in IndexedDB (lib/mediaStore). */
+  media?: (Omit<AnnouncementMedia, 'url'> & { createdAt: number })[];
+}
+
+interface StoredBacktest {
+  hash: string;
+  syncedAt: number;
+  ip: string;
+  userAgent: string;
+  snapshot: BacktestSnapshot;
+  pendingRemovals: string[];
 }
 
 export const DEMO_USER_ID = 'demo';
@@ -350,6 +379,13 @@ function db(): Db {
     // saved before card to card existed
     cache.cards ??= [];
     cache.cardToCard ??= { ...DEFAULT_CARD_TO_CARD };
+    // saved before backtest copies, sign-in history and announcements existed
+    cache.backtests ??= {};
+    cache.backtestDeleted ??= {};
+    cache.loginLog ??= seedLoginLog(cache.users);
+    cache.revokedDevices ??= [];
+    cache.announcements ??= [];
+    cache.media ??= [];
   }
   return cache;
 }
@@ -432,6 +468,122 @@ function markPaid(p: Payment, refId?: string, cardPan?: string) {
     const dc = d.discounts.find((x) => x.code === p.discountCode);
     if (dc) dc.used++;
   }
+}
+
+// ---------- sign-in history, backtest copies, announcements (demo) ----------
+const DEMO_UAS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0',
+];
+/** Sample addresses from the ranges reserved for documentation (never a real visitor). */
+const demoIp = (rng: () => number) => `${['192.0.2', '198.51.100', '203.0.113'][Math.floor(rng() * 3)]}.${1 + Math.floor(rng() * 254)}`;
+const THIS_BROWSER_IP = '127.0.0.1';
+
+function seedLoginLog(users: AccountUser[]): LoginEvent[] {
+  const rng = seededRng('login-seed-v1');
+  const now = Date.now();
+  const out: LoginEvent[] = [];
+  for (const u of users.slice(0, 36)) {
+    const ip = demoIp(rng);
+    const ua = DEMO_UAS[Math.floor(rng() * DEMO_UAS.length)];
+    const n = 1 + Math.floor(rng() * 4);
+    for (let k = 0; k < n; k++) {
+      const at = now - Math.floor(rng() * 30 * DAY);
+      const base = { userId: u.id, userName: u.name, phone: u.phone, ip: rng() < 0.2 ? demoIp(rng) : ip, userAgent: ua };
+      out.push({ id: `le_seed_${out.length}`, kind: 'login', method: 'otp', at, ...base });
+      if (rng() < 0.4) out.push({ id: `le_seed_${out.length}`, kind: 'logout', at: Math.min(now, at + Math.floor(rng() * 5 * 3_600_000)), ...base });
+    }
+  }
+  return out.sort((a, b) => b.at - a.at);
+}
+
+function logEvent(u: AccountUser, kind: LoginEvent['kind'], method?: LoginEvent['method'], ip = THIS_BROWSER_IP, userAgent = navigator.userAgent) {
+  const d = db();
+  d.loginLog!.unshift({ id: uid('le'), userId: u.id, userName: u.name, phone: u.phone, kind, method, at: Date.now(), ip, userAgent: userAgent.slice(0, 200) });
+  d.loginLog!.length = Math.min(d.loginLog!.length, 10_000);
+}
+
+/** Devices = sign-ins in the last 30 days the admin has not signed out (at most 3 per user). */
+function demoDevices(userId: string) {
+  const d = db();
+  const now = Date.now();
+  return d
+    .loginLog!.filter((e) => e.userId === userId && e.kind === 'login' && e.at > now - 30 * DAY && !d.revokedDevices!.includes(e.id))
+    .slice(0, 3)
+    .map((e) => ({ id: e.id, createdAt: e.at, lastSeenAt: Math.min(now, e.at + 2 * 3_600_000), expiresAt: e.at + 30 * DAY, ip: e.ip, userAgent: e.userAgent }));
+}
+
+type BacktestEntry = Omit<StoredBacktest, 'hash' | 'pendingRemovals'> & { pendingRemovals: string[] };
+let samples: Promise<Map<string, BacktestEntry>> | null = null;
+
+/** Backtests for a dozen sample users: varied copies of the sample data (built once, kept in memory). */
+function sampleBacktests(users: AccountUser[]): Promise<Map<string, BacktestEntry>> {
+  samples ??= import('../store/seed').then(({ buildSeed }) => {
+    const base = buildSeed();
+    const rng = seededRng('backtests-seed-v1');
+    const now = Date.now();
+    const out = new Map<string, BacktestEntry>();
+    users
+      .filter((u) => u.id.startsWith('u_seed_') && u.status === 'active')
+      .slice(0, 14)
+      .forEach((u, i) => {
+        let keep = base.sessions.filter(() => rng() < 0.5);
+        if (!keep.length) keep = [base.sessions[i % base.sessions.length]];
+        // some traders lose: their results are mirrored
+        const f = rng() < 0.3 ? -(0.3 + rng() * 0.7) : 0.4 + rng() * 1.4;
+        const seen = u.lastLoginAt ?? now;
+        const snapshot = cleanSnapshot({
+          sessions: keep.map((s) => ({ ...s, id: `${s.id}_${i}`, lastOpenedAt: seen - Math.floor(rng() * 3 * DAY) })),
+          trades: base.trades
+            .filter((t) => keep.some((s) => s.id === t.sessionId))
+            .map((t) => ({
+              ...t,
+              id: `${t.id}_${i}`,
+              sessionId: `${t.sessionId}_${i}`,
+              pnl: t.pnl === undefined ? undefined : t.pnl * f,
+              r: t.r === undefined ? undefined : t.r * f,
+              partials: t.partials.map((p) => ({ ...p, pnl: p.pnl * f })),
+            })),
+          strategies: base.strategies,
+        });
+        out.set(u.id, { snapshot, syncedAt: seen, ip: demoIp(rng), userAgent: DEMO_UAS[Math.floor(rng() * DEMO_UAS.length)], pendingRemovals: [] });
+      });
+    return out;
+  });
+  return samples;
+}
+
+/** Every user's copy: the sample users' (minus sessions the admin deleted) and the ones apps synced here. */
+async function allBacktests(): Promise<Map<string, BacktestEntry>> {
+  const d = db();
+  const out = new Map<string, BacktestEntry>();
+  for (const [id, e] of await sampleBacktests(d.users)) {
+    const gone = d.backtestDeleted![id] ?? [];
+    out.set(id, {
+      ...e,
+      snapshot: { ...e.snapshot, sessions: e.snapshot.sessions.filter((s) => !gone.includes(s.id)), trades: e.snapshot.trades.filter((t) => !gone.includes(t.sessionId)) },
+    });
+  }
+  for (const [id, e] of Object.entries(d.backtests!)) out.set(id, e);
+  return out;
+}
+
+/** Fills in blob: addresses for the demo's stored pictures and videos. */
+async function withMediaUrls(list: Announcement[]): Promise<Announcement[]> {
+  for (const a of list) if (a.media) a.media.url = await mediaUrl(a.media.id);
+  return list;
+}
+
+/** Files no message uses any more (uploads younger than a day are kept: the admin may still be writing). */
+function dropUnusedMedia() {
+  const d = db();
+  const used = new Set(d.announcements!.map((a) => a.media?.id).filter(Boolean));
+  const old = Date.now() - DAY;
+  for (const m of d.media!.filter((x) => !used.has(x.id) && x.createdAt < old)) void deleteMedia(m.id);
+  d.media = d.media!.filter((x) => used.has(x.id) || x.createdAt >= old);
 }
 
 /** Called by the sandbox gateway page in demo mode. */
@@ -584,6 +736,8 @@ export const localBackend: Backend = {
     if (user.status === 'banned') throw new BackendError('banned', 'این حساب مسدود شده است. با پشتیبانی تماس بگیرید.');
     delete d.otps[phone];
     user.lastLoginAt = Date.now();
+    user.lastIp = THIS_BROWSER_IP;
+    logEvent(user, 'login', 'otp');
     save();
     return delay({ token: `local.${user.id}`, user: clone(user), isNew }, 350);
   },
@@ -604,6 +758,8 @@ export const localBackend: Backend = {
       user = db().users.find((u) => u.id === DEMO_USER_ID)!;
     }
     user.lastLoginAt = Date.now();
+    user.lastIp = THIS_BROWSER_IP;
+    logEvent(user, 'login', 'demo');
     save();
     return delay({ token: `local.${DEMO_USER_ID}`, user: clone(user), isNew: false }, 350);
   },
@@ -617,7 +773,14 @@ export const localBackend: Backend = {
     save();
     return clone(u);
   },
-  async logout() {},
+  async logout() {
+    try {
+      logEvent(currentUser(), 'logout');
+      save();
+    } catch {
+      /* already signed out */
+    }
+  },
 
   async plans() {
     return delay(clone(db().plans.filter((p) => p.active).sort((a, b) => a.sort - b.sort)), 80);
@@ -728,6 +891,40 @@ export const localBackend: Backend = {
     t.updatedAt = Date.now();
     save();
     return clone(t);
+  },
+
+  async backtestCheck(hash) {
+    const e = db().backtests![currentUser().id];
+    return delay({ needData: !e || e.hash !== hash, remove: e?.pendingRemovals ?? [] }, 60);
+  },
+  async backtestUpload(hash, raw) {
+    const u = currentUser();
+    const d = db();
+    const snapshot = cleanSnapshot(raw);
+    const prev = d.backtests![u.id];
+    const pending = (prev?.pendingRemovals ?? []).filter((id) => snapshot.sessions.some((s) => s.id === id));
+    snapshot.sessions = snapshot.sessions.filter((s) => !pending.includes(s.id));
+    snapshot.trades = snapshot.trades.filter((t) => !pending.includes(t.sessionId));
+    d.backtests![u.id] = { hash, syncedAt: Date.now(), ip: THIS_BROWSER_IP, userAgent: navigator.userAgent.slice(0, 200), snapshot, pendingRemovals: pending };
+    save();
+    return delay({ needData: false, remove: pending }, 120);
+  },
+  async announcements(placement) {
+    let signedIn = false;
+    try {
+      signedIn = !!currentUser();
+    } catch {
+      /* a visitor */
+    }
+    const list = clone(db().announcements!.filter((a) => announcementVisible(a, placement, signedIn, localDayKey()))).map((a) => ({ ...a, views: 0 }));
+    return withMediaUrls(list);
+  },
+  async announcementSeen(id) {
+    const a = db().announcements!.find((x) => x.id === id);
+    if (a) {
+      a.views++;
+      save();
+    }
   },
 
   admin: {
@@ -1086,6 +1283,149 @@ export const localBackend: Backend = {
     },
     async removeCredentials() {
       requireAdmin();
+    },
+
+    async backtests(q) {
+      requireAdmin();
+      const users = new Map(db().users.map((u) => [u.id, u]));
+      const rows: AdminBacktestRow[] = [];
+      for (const [userId, e] of await allBacktests()) {
+        const u = users.get(userId);
+        if (u) for (const s of summarizeSessions(e.snapshot)) rows.push({ ...s, userId, userName: u.name, phone: u.phone, syncedAt: e.syncedAt, ip: e.ip });
+      }
+      return delay({ ...queryBacktestRows(rows, q), users: new Set(rows.map((r) => r.userId)).size, open: rows.reduce((n, r) => n + r.open, 0) });
+    },
+    async backtestDetail(userId) {
+      requireAdmin();
+      const u = db().users.find((x) => x.id === userId);
+      if (!u) throw new BackendError('not_found', 'کاربر پیدا نشد.');
+      const e = (await allBacktests()).get(userId);
+      return delay({
+        user: { id: u.id, name: u.name, phone: u.phone, planId: u.planId, status: u.status, lastLoginAt: u.lastLoginAt, lastIp: u.lastIp },
+        syncedAt: e?.syncedAt ?? 0,
+        ip: e?.ip,
+        userAgent: e?.userAgent,
+        snapshot: clone(e?.snapshot ?? { sessions: [], trades: [], strategies: [] }),
+        pendingRemovals: e?.pendingRemovals ?? [],
+      });
+    },
+    async deleteBacktestSession(userId, sessionId) {
+      requireAdmin();
+      const d = db();
+      const u = d.users.find((x) => x.id === userId);
+      const e = (await allBacktests()).get(userId);
+      const s = e?.snapshot.sessions.find((x) => x.id === sessionId);
+      if (!u || !e || !s) throw new BackendError('not_found', 'جلسه پیدا نشد.');
+      const stored = d.backtests![userId];
+      if (stored) {
+        stored.snapshot.sessions = stored.snapshot.sessions.filter((x) => x.id !== sessionId);
+        stored.snapshot.trades = stored.snapshot.trades.filter((t) => t.sessionId !== sessionId);
+        if (!stored.pendingRemovals.includes(sessionId)) stored.pendingRemovals.push(sessionId);
+      } else (d.backtestDeleted![userId] ??= []).push(sessionId);
+      log('حذف جلسه‌ی بک‌تست کاربر', `${u.name} — ${s.name}`);
+      save();
+      await delay(null);
+    },
+    async activity(q) {
+      requireAdmin();
+      const term = (q.q ?? '').trim().toLowerCase();
+      const rows = db().loginLog!.filter(
+        (e) =>
+          (!q.userId || e.userId === q.userId) && (!q.kind || e.kind === q.kind) && (!term || [e.userName, e.phone, e.ip, e.userAgent].some((v) => v.toLowerCase().includes(term))),
+      );
+      const page = Math.max(1, q.page ?? 1);
+      return delay({ items: clone(rows.slice((page - 1) * 50, page * 50)), total: rows.length });
+    },
+    async userDevices(userId) {
+      requireAdmin();
+      return delay(demoDevices(userId));
+    },
+    async signOutDevices(userId, deviceId) {
+      requireAdmin();
+      const d = db();
+      const u = d.users.find((x) => x.id === userId);
+      if (!u) throw new BackendError('not_found', 'کاربر پیدا نشد.');
+      const list = demoDevices(userId).filter((x) => !deviceId || x.id === deviceId);
+      if (deviceId && !list.length) throw new BackendError('not_found', 'این دستگاه دیگر وارد نیست.');
+      for (const dev of list) {
+        d.revokedDevices!.push(dev.id);
+        logEvent(u, 'signed_out_by_admin', undefined, dev.ip, dev.userAgent);
+      }
+      log(deviceId ? 'خروج کاربر از یک دستگاه' : 'خروج کاربر از همه‌ی دستگاه‌ها', u.name);
+      save();
+      return delay({ count: list.length });
+    },
+    async announcements() {
+      requireAdmin();
+      return withMediaUrls(clone(db().announcements!));
+    },
+    async saveAnnouncement(input) {
+      requireAdmin();
+      const d = db();
+      const title = input.title.trim();
+      const body = input.body.trim();
+      const button = input.button && (input.button.label || input.button.url) ? { label: input.button.label.trim(), url: input.button.url.trim() } : undefined;
+      const bad = announcementError({ id: input.id, title, body, button, startsAt: input.startsAt || undefined, endsAt: input.endsAt || undefined });
+      if (bad) throw new BackendError('invalid', bad.message, bad.field);
+      let media: AnnouncementMedia | undefined;
+      if (input.mediaId) {
+        const m = d.media!.find((x) => x.id === input.mediaId);
+        if (!m) throw new BackendError('invalid', 'فایل پیدا نشد؛ دوباره بارگذاری کنید.', 'media');
+        media = { id: m.id, kind: m.kind, mime: m.mime, size: m.size, name: m.name, url: '' };
+      }
+      const prev = d.announcements!.find((a) => a.id === input.id);
+      const now = Date.now();
+      const next: Announcement = {
+        id: input.id,
+        title,
+        body,
+        media,
+        button,
+        audience: input.audience,
+        placement: input.placement,
+        startsAt: input.startsAt || undefined,
+        endsAt: input.endsAt || undefined,
+        active: input.active,
+        version: (prev?.version ?? 0) + (prev && input.showAgain ? 1 : 0) || 1,
+        views: prev?.views ?? 0,
+        createdAt: prev?.createdAt ?? now,
+        updatedAt: now,
+      };
+      if (prev) d.announcements![d.announcements!.indexOf(prev)] = next;
+      else d.announcements!.unshift(next);
+      dropUnusedMedia();
+      log(prev ? 'ویرایش اعلان' : 'ساخت اعلان', title);
+      save();
+      return (await withMediaUrls([clone(next)]))[0];
+    },
+    async deleteAnnouncement(id) {
+      requireAdmin();
+      const d = db();
+      const a = d.announcements!.find((x) => x.id === id);
+      d.announcements = d.announcements!.filter((x) => x.id !== id);
+      dropUnusedMedia();
+      if (a) log('حذف اعلان', a.title);
+      save();
+    },
+    async uploadMedia(file, onProgress) {
+      requireAdmin();
+      const kind = MEDIA_TYPES[file.type];
+      if (!kind) throw new BackendError('type', 'فقط تصویر (JPG، PNG، WebP، GIF) یا ویدیو (MP4، WebM، MOV) پذیرفته می‌شود.', 'media');
+      if (file.size > MEDIA_MAX_BYTES[kind])
+        throw new BackendError('too_large', `حداکثر حجم ${kind === 'image' ? 'تصویر' : 'ویدیو'} ${Math.round(MEDIA_MAX_BYTES[kind] / 1024 / 1024)} مگابایت است.`, 'media');
+      onProgress?.(0.2);
+      const id = uid('m');
+      let url: string;
+      try {
+        url = await putMedia(id, file);
+      } catch {
+        throw new BackendError('storage', 'مرورگر اجازه‌ی ذخیره‌ی فایل را نداد (فضای کافی یا حالت خصوصی).', 'media');
+      }
+      const meta = { id, kind, mime: file.type, size: file.size, name: file.name.slice(0, 80), createdAt: Date.now() };
+      db().media!.push(meta);
+      save();
+      onProgress?.(1);
+      return { id, kind, mime: meta.mime, size: meta.size, name: meta.name, url };
     },
   },
 };
