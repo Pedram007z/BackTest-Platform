@@ -44,7 +44,7 @@ test('a customer who has never bought gets the discount, once', async () => {
   assert.deepEqual((await check('welcome20', first.token)).data, { percent: 20, finalToman: 552_000 });
   const paid = await buy(first.token, 'WELCOME20');
   assert.equal((await s.call('GET', `/api/payments/${paid}`, undefined, first.token)).data.status, 'paid');
-  assert.equal(s.db().discounts.find((d: any) => d.code === 'WELCOME20').used, 1);
+  assert.equal(s.db().discounts.find((d: any) => d.code === 'WELCOME20')!.used, 1);
 
   // now a returning customer: refused when the code is applied and at checkout
   const again = await check('WELCOME20', first.token);

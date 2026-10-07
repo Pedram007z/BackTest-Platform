@@ -58,7 +58,7 @@ test('each transfer has its own last three digits and an amount in rial', async 
   const before = Date.now();
   const co = await s.call('POST', '/api/payments/checkout', { planId: 'pro-1m', gateway: 'card' }, user.token);
   assert.equal(co.status, 200, JSON.stringify(co.data));
-  assert.equal(co.data.redirectUrl, `#/billing/card?payment=${co.data.paymentId}`);
+  assert.equal(co.data.redirectUrl, `/billing/card?payment=${co.data.paymentId}`);
   const p = (await s.call('GET', `/api/payments/${co.data.paymentId}`, undefined, user.token)).data;
   assert.equal(p.gateway, 'card');
   assert.equal(p.status, 'pending');

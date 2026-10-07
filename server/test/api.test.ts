@@ -90,7 +90,7 @@ test('discount code, checkout through the simulator, plan extension', async () =
   assert.match(page.data, /شبیه‌ساز/);
   const done = await s.call('POST', `/api/payments/simulate/${co.data.paymentId}`, 'action=pay', undefined, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
   assert.equal(done.status, 302);
-  assert.equal(done.headers.get('location'), `https://app.test/#/billing?payment=${co.data.paymentId}`);
+  assert.equal(done.headers.get('location'), `https://app.test/billing?payment=${co.data.paymentId}`);
 
   const pay = await s.call('GET', `/api/payments/${co.data.paymentId}`, undefined, user.token);
   assert.equal(pay.data.status, 'paid');
@@ -270,7 +270,7 @@ test("errors from visitors' browsers are logged", async () => {
   console.warn = (...a: unknown[]) => void logged.push(a.join(' '));
   try {
     // sent as text/plain (no CORS preflight), the way the app reports them
-    const r = await s.call('POST', '/api/client-errors', JSON.stringify({ message: 'boom\nline 2', stack: 'at x', url: 'https://app.test/#/sessions' }), undefined, {
+    const r = await s.call('POST', '/api/client-errors', JSON.stringify({ message: 'boom\nline 2', stack: 'at x', url: 'https://app.test/sessions' }), undefined, {
       headers: { 'Content-Type': 'text/plain' },
     });
     assert.ok(r.status < 300, `status ${r.status}`);
@@ -278,7 +278,7 @@ test("errors from visitors' browsers are logged", async () => {
     console.warn = warn;
   }
   assert.equal(logged.length, 1);
-  assert.match(logged[0], /^\[client-error\] .*#\/sessions :: boom line 2 :: at x/);
+  assert.match(logged[0], /^\[client-error\] .*app\.test\/sessions :: boom line 2 :: at x/);
 });
 
 test('CORS allows the app origin only', async () => {

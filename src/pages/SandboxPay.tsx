@@ -1,6 +1,7 @@
 import { CreditCard, LoaderCircle, Lock, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useGo } from '../lib/nav';
 import { faDigits, fmtNum } from '../lib/format';
 import { completeSandboxPayment, sandboxPaymentInfo } from '../services/localBackend';
 import { PAYMENT_METHOD_NAMES } from '../services/types';
@@ -11,7 +12,7 @@ import { PAYMENT_METHOD_NAMES } from '../services/types';
  */
 export default function SandboxPay() {
   const [params] = useSearchParams();
-  const navigate = useNavigate();
+  const go = useGo();
   const id = params.get('payment') ?? '';
   const payment = sandboxPaymentInfo(id);
   const [busy, setBusy] = useState<'ok' | 'cancel' | null>(null);
@@ -22,7 +23,7 @@ export default function SandboxPay() {
     setBusy(ok ? 'ok' : 'cancel');
     setTimeout(() => {
       completeSandboxPayment(id, ok);
-      navigate(`/billing?payment=${encodeURIComponent(id)}`, { replace: true });
+      go(`/billing?payment=${encodeURIComponent(id)}`, { replace: true });
     }, 900);
   };
 

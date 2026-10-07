@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { ArrowRight, CircleAlert, LoaderCircle, MessageSquareText, Moon, Pencil, Phone, ShieldCheck, Sun, TrendingUp, User } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { GoTo, safeNext, takeNotice, toastNext } from '../lib/nav';
 import { Link } from '../components/ui/AppLink';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
 import { Logo } from '../components/brand/Brand';
@@ -11,8 +12,9 @@ import { SYMBOL_MAP } from '../lib/market';
 import { useShowcase } from '../services/marketFeed';
 import { BackendError, backend, type OtpRequest } from '../services';
 import { useAuth } from '../store/useAuth';
-import { toast, useStore } from '../store/useStore';
+import { useStore } from '../store/useStore';
 
+/** Only in the in-memory preview build; the regular build uses ?next= and lib/nav's notice. */
 interface LocationState {
   from?: string;
   notice?: string;
@@ -176,7 +178,10 @@ export default function AuthPage() {
   const { theme, setTheme } = useStore();
   const signup = location.pathname.startsWith('/signup');
   const state = (location.state ?? {}) as LocationState;
-  const from = state.from && !/^\/(login|signup)/.test(state.from) ? state.from : '/dashboard';
+  // where to go after signing in: /login?next=/billing
+  const next = safeNext(new URLSearchParams(location.search).get('next') ?? state.from);
+  const keepNext = next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : '';
+  const [notice] = useState(() => state.notice ?? takeNotice());
 
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
@@ -210,7 +215,7 @@ export default function AuthPage() {
     return () => ac.abort();
   }, [step]);
 
-  if (session) return <Navigate to={from} replace />;
+  if (session) return <GoTo to={next} />;
 
   const sendCode = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -253,7 +258,7 @@ export default function AuthPage() {
     setError(null);
     try {
       const res = await verifyOtp(phone, value, otp.isNew ? name.trim() : undefined, remember);
-      toast(res.isNew ? `خوش آمدید ${res.user.name}! حساب شما ساخته شد.` : `خوش آمدید ${res.user.name}`);
+      toastNext(res.isNew ? `خوش آمدید ${res.user.name}! حساب شما ساخته شد.` : `خوش آمدید ${res.user.name}`);
     } catch (x) {
       setError({ text: x instanceof BackendError ? x.message : 'ورود انجام نشد. دوباره تلاش کنید.', field: x instanceof BackendError ? x.field : 'code' });
       if (x instanceof BackendError && x.field === 'code') setCode('');
@@ -268,7 +273,7 @@ export default function AuthPage() {
     setError(null);
     try {
       await loginDemo();
-      toast('وارد حساب نمایشی شدید');
+      toastNext('وارد حساب نمایشی شدید');
     } catch (x) {
       setError({ text: x instanceof BackendError ? x.message : 'ورود به حساب نمایشی انجام نشد.' });
       setLoading(null);
@@ -308,7 +313,7 @@ export default function AuthPage() {
           <p className="mt-2 text-[14px] leading-7 text-muted">{subtitle}</p>
 
           <div className="mt-7 flex flex-col gap-4">
-            {state.notice && !error && <Alert tone="info">{state.notice}</Alert>}
+            {notice && !error && <Alert tone="info">{notice}</Alert>}
             {error && <Alert tone="error">{error.text}</Alert>}
 
             {step === 'phone' ? (
@@ -462,7 +467,7 @@ export default function AuthPage() {
 
           <p className="mt-8 text-center text-[13px] text-muted">
             {signup ? 'قبلاً ثبت‌نام کرده‌اید؟ ' : 'حساب ندارید؟ '}
-            <Link to={signup ? '/login' : '/signup'} state={state.from ? { from: state.from } : undefined} className="font-semibold text-accent-ink hover:underline">
+            <Link to={(signup ? '/login' : '/signup') + keepNext} className="font-semibold text-accent-ink hover:underline">
               {signup ? 'وارد شوید' : 'رایگان ثبت‌نام کنید'}
             </Link>
           </p>

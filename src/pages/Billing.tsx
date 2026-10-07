@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { BadgePercent, Check, CircleCheck, CircleX, CreditCard, Crown, Hourglass, LoaderCircle, ShieldCheck, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useGo } from '../lib/nav';
 import { Link } from '../components/ui/AppLink';
 import { Meter } from '../components/ui/controls';
 import { diffDays, fmtDayLong, localDayKey } from '../lib/calendar';
@@ -25,7 +26,7 @@ const STATUS: Record<Payment['status'], { label: string; cls: string }> = {
 export default function Billing() {
   const user = useStore((s) => s.user);
   const refresh = useAuth((s) => s.refresh);
-  const navigate = useNavigate();
+  const go = useGo();
   const [params, setParams] = useSearchParams();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [gateways, setGateways] = useState<{ id: PaymentMethod; name: string }[]>([]);
@@ -97,7 +98,8 @@ export default function Billing() {
     setBusy('pay');
     try {
       const r = await backend.checkout({ planId: plan.id, gateway, discountCode: discount?.code });
-      if (r.redirectUrl.startsWith('#/')) navigate(r.redirectUrl.slice(1));
+      // an in-app page (card to card, the demo's sandbox bank) or the bank's own page
+      if (r.redirectUrl.startsWith('/') || r.redirectUrl.startsWith('#/')) go(r.redirectUrl.replace(/^#/, ''));
       else window.location.href = r.redirectUrl;
     } catch (e) {
       toast(e instanceof BackendError ? e.message : 'اتصال به درگاه انجام نشد. دوباره تلاش کنید.', 'error');

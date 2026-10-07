@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { useGo } from '../../lib/nav';
 
 interface Props {
   children: ReactNode;
@@ -50,9 +51,9 @@ class ErrorBoundary extends Component<Props, { error: Error | null }> {
 /** Error boundary that clears itself when the user moves to another page. */
 export function PageErrorBoundary({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
+  const go = useGo();
   return (
-    <ErrorBoundary key={pathname} onHome={() => navigate('/')}>
+    <ErrorBoundary key={pathname} onHome={() => go('/')}>
       {children}
     </ErrorBoundary>
   );

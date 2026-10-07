@@ -96,7 +96,7 @@ export function startCardPayment(user: AccountUser, plan: Plan, finalToman: numb
   return { paymentId: p.id, amountToman: p.amountToman, redirectUrl: transferPage(p.id) };
 }
 
-const transferPage = (id: string) => `#/billing/card?payment=${encodeURIComponent(id)}`;
+const transferPage = (id: string) => `/billing/card?payment=${encodeURIComponent(id)}`;
 
 function ownTransfer(user: AccountUser, id: string) {
   const p = db().payments.find((x) => x.id === id && x.userId === user.id);

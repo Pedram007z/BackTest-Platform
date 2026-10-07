@@ -21,7 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useGo } from '../lib/nav';
 import { Link } from '../components/ui/AppLink';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
 import { MarketsSection } from '../components/landing/MarketsSection';
@@ -171,7 +171,7 @@ function Price({ plan, monthly }: { plan: Plan; monthly?: number }) {
 
 export default function Landing() {
   const { theme, setTheme } = useStore();
-  const navigate = useNavigate();
+  const go = useGo();
   const session = useAuth((s) => s.session);
   const loginDemo = useAuth((s) => s.loginDemo);
   const [demoLoading, setDemoLoading] = useState(false);
@@ -181,14 +181,14 @@ export default function Landing() {
   const startLabel = session ? 'ورود به داشبورد' : 'شروع رایگان';
 
   const openDemo = async () => {
-    if (session) return navigate('/dashboard');
+    if (session) return go('/dashboard');
     setDemoLoading(true);
     try {
       await loginDemo();
-      navigate('/dashboard');
+      go('/dashboard');
     } catch {
       setDemoLoading(false);
-      navigate('/login');
+      go('/login');
     }
   };
   const [faq, setFaq] = useState<number | null>(0);

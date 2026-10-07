@@ -117,7 +117,7 @@ function startSession(ctx: Ctx, user: AccountUser, isNew: boolean) {
 // ---------- the admin sign-in address ----------
 const KEY = /^[A-Za-z0-9_-]{16,128}$/;
 
-/** The secret part of the admin sign-in address (/#/k/<key>): ADMIN_LOGIN_KEY, or a random one kept in db.json. */
+/** The secret part of the admin sign-in address (/k/<key>): ADMIN_LOGIN_KEY, or a random one kept in db.json. */
 export function adminGateKey(): string {
   if (KEY.test(config.adminLoginKey)) return config.adminLoginKey;
   const d = db();

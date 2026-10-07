@@ -183,6 +183,12 @@ sudo certbot --nginx -d YOUR-DOMAIN -d www.YOUR-DOMAIN
 
 Open `https://YOUR-DOMAIN`. You should see the landing page.
 
+Pages have plain addresses (`https://YOUR-DOMAIN/dashboard`) and every click loads the new page from the
+server. nginx answers every address that is not a file with `index.html` (`try_files $uri /index.html` in
+`nginx-site.conf`); keep that line if you edit the file, or addresses other than the home page show
+"404". Older links with `/#/` (for example an admin address from before) still work: they are moved to
+the plain address when the page opens.
+
 ## 7. First sign-in and the admin panel
 
 Users sign in with a mobile number and a code sent by SMS. Admins can do the same, or use a username and
@@ -197,7 +203,7 @@ sudo bash /opt/backtestlab/make-admin.sh --username admin
 It asks for a password twice (at least 8 characters; nothing is shown while you type), writes
 `ADMIN_USERNAME` and a hash of the password (`ADMIN_PASSWORD_HASH`, never the password itself) to the `.env`
 and restarts the API server. It also gives the admin sign-in page a secret address and prints it:
-`https://YOUR-DOMAIN/#/k/` followed by 32 random characters (`ADMIN_LOGIN_KEY` in `.env`). The site has no link to
+`https://YOUR-DOMAIN/k/` followed by 32 random characters (`ADMIN_LOGIN_KEY` in `.env`). The site has no link to
 it, and without the key the page leads to the home page and the admin sign-in API answers "not found", so it
 cannot be guessed or found in the site's code. Save it privately (a password manager), open it, enter the
 username and password, and you are in the admin panel. Signed-in admins also see it in **تنظیمات سایت**. To
@@ -210,7 +216,7 @@ password? Run the command again. Ten wrong passwords in 15 minutes block further
 sudo bash /opt/backtestlab/make-admin.sh 09121234567
 ```
 
-1. Open `https://YOUR-DOMAIN/#/login` (or click **ورود**) and enter that number. Real SMS sending is still
+1. Open `https://YOUR-DOMAIN/login` (or click **ورود**) and enter that number. Real SMS sending is still
    off, so the code is in the server log; run this right after pressing the button:
    ```bash
    sudo journalctl -u backtestlab -n 30 --no-pager | grep sms:dev

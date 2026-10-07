@@ -18,7 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useGo } from '../lib/nav';
 import { Link } from '../components/ui/AppLink';
 import { loadTradingView } from '../chart/tvLoader';
 import type { ChartEngine, DraftOrder, EngineCallbacks } from '../chart/types';
@@ -126,7 +127,7 @@ const RISK_KEY = 'backtest:risk-pct';
 
 export default function Replay() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const go = useGo();
   const session = useStore((s) => s.sessions.find((x) => x.id === id));
   const allTrades = useStore((s) => s.trades);
   const theme = useStore((s) => s.theme);
@@ -473,7 +474,7 @@ export default function Replay() {
       {/* toolbar */}
       {!expanded && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-line/70 bg-side px-2 py-2 sm:px-3">
-          <button type="button" className="icon-btn" onClick={() => navigate(`/sessions?id=${session.id}`)} aria-label="بازگشت به جلسه" title="بازگشت">
+          <button type="button" className="icon-btn" onClick={() => go(`/sessions?id=${session.id}`)} aria-label="بازگشت به جلسه" title="بازگشت">
             <ArrowRight size={18} />
           </button>
           <div className="min-w-0 max-w-[14rem]">

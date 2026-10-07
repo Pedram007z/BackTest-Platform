@@ -7,7 +7,7 @@
 #                                               (the old one stops working)
 #   sudo bash make-admin.sh 09121234567         a mobile number that becomes admin (sign-in by SMS code)
 #
-# The admin sign-in page has a secret address, SITE/#/k/KEY. KEY (ADMIN_LOGIN_KEY in .env) is random;
+# The admin sign-in page has a secret address, SITE/k/KEY. KEY (ADMIN_LOGIN_KEY in .env) is random;
 # without it the page and the admin sign-in API answer "not found". The site never links to it.
 #
 # ENV_FILE, SERVICE, SERVER_JS and NODE change the defaults below. ADMIN_PASSWORD=... skips the prompt.
@@ -69,7 +69,7 @@ if [ "${1:-}" = "--new-url" ]; then
   cat <<EOF
 
 Done. The admin sign-in page is now at:
-  ${site}/#/k/${key}
+  ${site}/k/${key}
 The previous address no longer works. Save this one (a password manager or a private note) and do
 not share it; the site has no link to it.
 EOF
@@ -97,7 +97,7 @@ if [ "${1:-}" = "--username" ]; then
 
 Done. To sign in as admin:
   1. Open the secret admin sign-in page:
-       ${site}/#/k/${key}
+       ${site}/k/${key}
      The site has no link to it and without the key it shows nothing: save it and do not share it.
      (sudo bash make-admin.sh --new-url makes a new one.)
   2. Username: ${username}
@@ -124,7 +124,7 @@ restart
 cat <<EOF
 
 Done. To sign in as admin:
-  1. Open ${site}/#/login and enter ${phone}.
+  1. Open ${site}/login and enter ${phone}.
   2. Get the sign-in code:
      - if SMS sending is on (admin panel → پیامک → ارسال واقعی), it arrives by SMS;
      - until then it is written in the server log. Run this right after pressing the button:

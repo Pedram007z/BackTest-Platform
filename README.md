@@ -31,11 +31,16 @@ VITE_API_URL=http://localhost:8787 npm run dev
 
 Sign in with a number from `ADMIN_PHONES` to become admin. While real SMS sending is off (the default), the code is
 printed in the server console and shown on the sign-in page in development. Admins can also sign in with a username
-and password on the admin sign-in page, whose address is secret: `/#/k/<ADMIN_LOGIN_KEY>`; the site never links to it and the server answers "not found" without the key (`ADMIN_USERNAME` + `ADMIN_PASSWORD_HASH` from `node server/dist/server.mjs
-hash-password`, or set in the admin panel's settings). Then open **پنل مدیریت** (`/#/admin`)
+and password on the admin sign-in page, whose address is secret: `/k/<ADMIN_LOGIN_KEY>`; the site never links to it and the server answers "not found" without the key (`ADMIN_USERNAME` + `ADMIN_PASSWORD_HASH` from `node server/dist/server.mjs
+hash-password`, or set in the admin panel's settings). Then open **پنل مدیریت** (`/admin`)
 to add your SMS provider's key and your payment gateways' merchant ids.
 
 ## Pages
+
+Plain addresses (`site.ir/dashboard`, no `#`); every link and page change loads the new page from the
+server (a full page load). The web server must answer every address with `index.html` (see
+`deploy/nginx-site.conf`); old `/#/…` links are moved to the plain address when the page opens. The
+single-file preview build (`npm run build:artifact`) keeps routing in memory.
 
 | Route | Page | What works |
 |---|---|---|

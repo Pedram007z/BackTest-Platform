@@ -18,14 +18,15 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { useGo } from '../../lib/nav';
 import { Link, NavLink } from '../ui/AppLink';
 import { Logo } from '../brand/Brand';
 import { diffDays } from '../../lib/calendar';
 import { fmtNum } from '../../lib/format';
 import { planDaysLeft } from '../../lib/stats';
 import { useAuth } from '../../store/useAuth';
-import { toast, useStore, useToasts } from '../../store/useStore';
+import { useStore, useToasts } from '../../store/useStore';
 import { Avatar } from '../ui/Avatar';
 import { Meter } from '../ui/controls';
 
@@ -48,7 +49,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   const user = useStore((s) => s.user);
   const logout = useAuth((s) => s.logout);
   const isAdmin = useAuth((s) => s.session?.role === 'admin');
-  const navigate = useNavigate();
+  const go = useGo();
   const left = planDaysLeft(user.plan.endsAt);
   const total = Math.max(1, diffDays(user.plan.startedAt, user.plan.endsAt));
   const remaining = left / total;
@@ -100,8 +101,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           type="button"
           onClick={() => {
             logout();
-            navigate('/login', { replace: true, state: { notice: 'از حساب خارج شدید.' } });
-            toast('از حساب خارج شدید', 'info');
+            go('/login', { replace: true, notice: 'از حساب خارج شدید.' });
           }}
           title={collapsed ? 'خروج از حساب' : undefined}
           className={clsx(

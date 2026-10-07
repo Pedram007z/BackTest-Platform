@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { BarChart3, ChevronLeft, ChevronRight, ListTree, NotebookPen, Pencil, Play, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useGo } from '../lib/nav';
 import { Link } from '../components/ui/AppLink';
 import { EquityArea, PnlBars } from '../components/charts/Charts';
 import { SessionList } from '../components/sessions/SessionList';
@@ -123,7 +124,7 @@ function NotesBox({ session }: { session: Session }) {
 }
 
 function SessionDetail({ session, all, onSwitch }: { session: Session; all: Session[]; onSwitch: (id: string) => void }) {
-  const navigate = useNavigate();
+  const go = useGo();
   const allTrades = useStore((s) => s.trades);
   const strategy = useStore((s) => s.strategies.find((x) => x.id === session.strategyId));
   const deleteSession = useStore((s) => s.deleteSession);
@@ -221,7 +222,7 @@ function SessionDetail({ session, all, onSwitch }: { session: Session; all: Sess
               <Meter value={sessionProgress(session)} tone="accent" />
               <p className="num mt-1.5 text-[11px] text-faint">زمان بازار: {fmtMarketTime(session.cursor)} UTC</p>
             </div>
-            <button type="button" className="btn-primary rounded-full px-5" onClick={() => navigate(`/replay/${session.id}`)}>
+            <button type="button" className="btn-primary rounded-full px-5" onClick={() => go(`/replay/${session.id}`)}>
               رفتن به چارت <Play size={14} fill="currentColor" className="-scale-x-100" />
             </button>
           </div>
