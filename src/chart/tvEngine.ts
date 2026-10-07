@@ -2,6 +2,7 @@ import { PALETTES } from '../hooks/useChartTheme';
 import { SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, stepCursor, tfFromTv } from '../lib/market';
 import { orderTitleEn } from '../lib/trading';
 import type { Trade } from '../lib/types';
+import { createNavButtons } from './navButtons';
 import { createReplayDatafeed } from './tvDatafeed';
 import { TV_LIBRARY_PATH } from './tvLoader';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
@@ -110,6 +111,8 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       'popup_hints',
       'display_market_status',
       'use_localstorage_for_settings',
+      // its navigation buttons sit under the replay bar; ours (below) keep clear of it
+      'control_bar',
     ],
     enabled_features: ['seconds_resolution'],
     favorites: { intervals: TIMEFRAMES.map((t) => t.tv) },
@@ -118,6 +121,42 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
   });
 
   const tick = () => 10 ** -(SYMBOL_MAP[state.symbol]?.digits ?? 2);
+
+  // ---------- navigation buttons (zoom, scroll, reset) ----------
+  /** the library's left toolbar, price axis and time axis, roughly */
+  const TOOLBAR_W = 52;
+  const PRICE_AXIS_W = 64;
+  const TIME_AXIS_H = 28;
+  const nav = createNavButtons({
+    container,
+    paneBox: () => ({ x: TOOLBAR_W, w: container.clientWidth - TOOLBAR_W - PRICE_AXIS_W, h: container.clientHeight - TIME_AXIS_H }),
+    colors: () => {
+      const p = PALETTES[state.theme];
+      return { surface: p.surface, text: p.text, border: p.grid };
+    },
+    actions: {
+      zoom(factor) {
+        if (!ready || destroyed) return;
+        const ts = chart.getTimeScale();
+        ts.setBarSpacing(Math.min(80, Math.max(0.5, ts.barSpacing() / factor)));
+      },
+      scroll(dir, share) {
+        if (!ready || destroyed) return;
+        const ts = chart.getTimeScale();
+        const visible = ts.width() / ts.barSpacing();
+        const step = Math.max(1, Math.round(visible * share));
+        const maxOffset = Math.max(ts.defaultRightOffset().value(), visible / 2);
+        ts.setRightOffset(Math.min(maxOffset, ts.rightOffset() + dir * step));
+      },
+      reset() {
+        if (!ready || destroyed) return;
+        feed.resetAll();
+        chart.resetData();
+        chart.executeActionById('chartReset');
+      },
+    },
+  });
+  nav.applyTheme();
 
   /** the bar `n` trading bars after the one starting at `fromSec` (weekends skipped: the library rejects points there) */
   function barsAhead(fromSec: number, n: number): number {
@@ -396,6 +435,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     if (!ready || destroyed) return;
     if (prev.theme !== next.theme) {
       void widget.changeTheme(next.theme).then(() => widget.applyOverrides(overrides(next.theme)));
+      nav.applyTheme();
     }
     if (prev.symbol !== next.symbol && chart.symbol() !== next.symbol) chart.setSymbol(next.symbol);
     if (prev.timeframe !== next.timeframe && tfFromTv(chart.resolution()) !== next.timeframe) chart.setResolution(tvRes(next.timeframe));
@@ -437,6 +477,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     if (tfFromTv(chart.resolution()) !== state.timeframe) chart.setResolution(tvRes(state.timeframe));
     marksSig = '';
     update(state);
+    nav.place();
   });
 
   return {
@@ -458,6 +499,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     },
     destroy() {
       destroyed = true;
+      nav.destroy();
       try {
         widget.remove();
       } catch {

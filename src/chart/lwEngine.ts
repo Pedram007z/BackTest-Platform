@@ -16,6 +16,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import { PALETTES } from '../hooks/useChartTheme';
+import { createNavButtons, lwNavActions } from './navButtons';
 import { SYMBOL_MAP, TF_MS, candleTime, dayIndexOf, getCandles, isTradingDay, roundToTick, type Candle } from '../lib/market';
 import { IMPACT_LABEL, newsTitleFa, type NewsEvent } from '../lib/news';
 import { fmtTehran } from '../lib/timezone';
@@ -138,6 +139,17 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     },
     layout.indicators,
   );
+  const nav = createNavButtons({
+    container,
+    paneBox: () => plotBox(),
+    colors: () => ({ surface: pal.surface, text: pal.text, border: pal.grid }),
+    actions: lwNavActions(
+      chart,
+      () => candles.length,
+      () => future.length,
+      () => resetView(),
+    ),
+  });
 
   // ---------- theme ----------
   function applyTheme() {
@@ -151,6 +163,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     });
     series.applyOptions({ upColor: pal.candleUp, downColor: pal.candleDown, wickUpColor: pal.candleUp, wickDownColor: pal.candleDown });
     legend.style.color = pal.text;
+    nav.applyTheme();
   }
 
   // ---------- data ----------
@@ -189,8 +202,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       series.setData(candles.map((c) => ({ ...c, time: c.time as UTCTimestamp })));
       setFuture(candles[candles.length - 1]?.time ?? state.cursor / 1000);
       indicators.setBars(candles);
-      const n = candles.length;
-      if (!sameSeries || !loadedKey || farJump || behind) ts.setVisibleLogicalRange({ from: Math.max(0, n - 120), to: n + 28 });
+      if (!sameSeries || !loadedKey || farJump || behind) defaultView();
       loadedKey = key;
       return;
     }
@@ -211,6 +223,29 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     if (added > 0) setFuture(candles[candles.length - 1].time);
     indicators.setBars(candles);
     if (range && added > 0 && following) ts.setVisibleLogicalRange({ from: range.from + added, to: range.to + added } as LogicalRange);
+  }
+
+  /** the starting view: the last 120 candles with room on the right */
+  function defaultView() {
+    const n = candles.length;
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 120), to: n + 28 });
+  }
+
+  /** the navigation bar's reset: candles loaded again, the starting view, every price scale fitted */
+  function resetView() {
+    if (destroyed) return;
+    loadedKey = '';
+    loadData();
+    setLegend(candles[candles.length - 1]);
+    chart.panes().forEach((_, i) => {
+      try {
+        chart.priceScale('right', i).applyOptions({ autoScale: true });
+      } catch {
+        /* a pane without a right scale */
+      }
+    });
+    drawTrades();
+    render();
   }
 
   // ---------- legend ----------
@@ -704,6 +739,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     if (keepCard) overlay.append(keepCard);
     drawings.render();
     indicators.place();
+    nav.place();
     lastSig = signature();
   }
 
@@ -803,6 +839,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       destroyed = true;
       cancelAnimationFrame(raf);
       container.removeEventListener('pointerdown', activate);
+      nav.destroy();
       drawings.destroy();
       indicators.destroy();
       chart.remove();
