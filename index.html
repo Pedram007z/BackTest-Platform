@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fa" dir="rtl" class="dark" translate="no">
+<html lang="fa" dir="rtl" class="dark notranslate" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -19,7 +19,8 @@
       try {
         var t = localStorage.getItem('btl:theme');
         if (t === 'light' || t === 'dark') {
-          document.documentElement.className = t;
+          document.documentElement.classList.remove('light', 'dark');
+          document.documentElement.classList.add(t);
           document.documentElement.setAttribute('data-theme', t);
         }
       } catch (e) {}
