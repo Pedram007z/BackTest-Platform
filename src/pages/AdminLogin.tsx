@@ -2,14 +2,15 @@ import clsx from 'clsx';
 import { Eye, EyeOff, KeyRound, LoaderCircle, Lock, Moon, Sun, User } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
+import { GoTo, toastNext } from '../lib/nav';
 import { Logo } from '../components/brand/Brand';
 import { BackendError, backend } from '../services';
 import { useAuth } from '../store/useAuth';
-import { toast, useStore } from '../store/useStore';
+import { useStore } from '../store/useStore';
 import { Alert } from './Auth';
 
 /**
- * The admin panel's sign-in page, at a secret address: /#/k/<key>, where the key is known only to
+ * The admin panel's sign-in page, at a secret address: /k/<key>, where the key is known only to
  * the server (ADMIN_LOGIN_KEY). The server checks the key before the page shows anything; a wrong
  * one leads to the home page, as any unknown address does. Nothing on the site links here, and the
  * key is not in the site's code. (The part after # is never sent in requests, so it is not in
@@ -40,7 +41,7 @@ export default function AdminLogin() {
     };
   }, [key]);
 
-  if (session?.role === 'admin') return <Navigate to="/admin" replace />;
+  if (session?.role === 'admin') return <GoTo to="/admin" />;
   if (gate === 'closed') return <Navigate to="/" replace />;
   if (gate === 'checking') return <div className="min-h-[100dvh] bg-bg" />;
 
@@ -54,7 +55,7 @@ export default function AdminLogin() {
     setError(null);
     try {
       const res = await adminLogin(username.trim(), password, remember, key);
-      toast(`خوش آمدید ${res.user.name}`);
+      toastNext(`خوش آمدید ${res.user.name}`);
     } catch (x) {
       setError({ text: x instanceof BackendError ? x.message : 'ورود انجام نشد. دوباره تلاش کنید.', field: x instanceof BackendError ? x.field : 'password' });
       setPassword('');

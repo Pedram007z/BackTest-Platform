@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { BackendError, backend } from '../../services';
 import { toast } from '../../store/useStore';
 import { Field } from './kit';
+import { appHref } from '../../lib/nav';
 
 /** The signed-in admin's username and password, and the secret address of the admin sign-in page (sign-in by phone keeps working). */
 export function AdminCredentialsCard() {
@@ -21,7 +22,7 @@ export function AdminCredentialsCard() {
       .then((c) => {
         setCurrent(c.username);
         setUsername(c.username ?? '');
-        if (c.loginPath) setAddress({ url: `${location.origin}${location.pathname}#${c.loginPath}`, fromEnv: c.keyFromEnv });
+        if (c.loginPath) setAddress({ url: `${location.origin}${appHref(c.loginPath)}`, fromEnv: c.keyFromEnv });
       })
       .catch(() => setCurrent(null));
   }, []);

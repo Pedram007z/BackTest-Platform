@@ -115,7 +115,7 @@ export async function checkout(user: AccountUser, body: any) {
 }
 
 const callbackUrl = (gateway: GatewayId, paymentId: string) => `${config.publicUrl}/api/payments/callback/${gateway}?pid=${encodeURIComponent(paymentId)}`;
-const backToApp = (paymentId: string) => Reply.redirect(`${config.appUrl}/#/billing?payment=${encodeURIComponent(paymentId)}`);
+const backToApp = (paymentId: string) => Reply.redirect(`${config.appUrl}/billing?payment=${encodeURIComponent(paymentId)}`);
 
 export function markPaid(p: StoredPayment, refId?: string, cardPan?: string) {
   const d = db();
@@ -149,7 +149,7 @@ export async function handleCallback(gatewayId: string, query: URLSearchParams, 
   for (const [k, v] of Object.entries(body ?? {})) if (typeof v === 'string' || typeof v === 'number') params[k] = String(v);
   const pid = params.pid ?? params.order_id ?? params.orderId ?? params.factorNumber ?? '';
   const p = db().payments.find((x) => x.id === pid);
-  if (!p || p.gateway !== gatewayId || p.gateway === 'card') return Reply.redirect(`${config.appUrl}/#/billing`);
+  if (!p || p.gateway !== gatewayId || p.gateway === 'card') return Reply.redirect(`${config.appUrl}/billing`);
 
   if (!inflight.has(p.id)) {
     inflight.set(

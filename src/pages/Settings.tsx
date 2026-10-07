@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { Crown, LogOut, Moon, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useGo } from '../lib/nav';
 import { Link } from '../components/ui/AppLink';
 import { Avatar } from '../components/ui/Avatar';
 import { ConfirmDialog } from '../components/ui/Modal';
@@ -45,7 +45,7 @@ export default function Settings() {
   const session = useAuth((s) => s.session);
   const rename = useAuth((s) => s.rename);
   const logout = useAuth((s) => s.logout);
-  const navigate = useNavigate();
+  const go = useGo();
 
   useEffect(() => setName(user.name), [user.name]);
 
@@ -126,7 +126,7 @@ export default function Settings() {
             className="btn-soft text-loss"
             onClick={() => {
               logout();
-              navigate('/login', { replace: true, state: { notice: 'از حساب خارج شدید.' } });
+              go('/login', { replace: true, notice: 'از حساب خارج شدید.' });
             }}
           >
             <LogOut size={15} /> خروج از حساب

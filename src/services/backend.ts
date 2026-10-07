@@ -51,7 +51,7 @@ export interface AuthResult {
 export interface CheckoutResult {
   paymentId: string;
   amountToman: number;
-  /** Bank gateway page, or an in-app route (starting with "#/") in the demo. */
+  /** Bank gateway page, or an in-app page (starting with "/": card to card, the demo's sandbox bank). */
   redirectUrl: string;
 }
 
@@ -111,7 +111,7 @@ export interface Backend {
   demoLogin(): Promise<AuthResult>;
   /** Admins: sign in with a username and password. */
   adminLogin(username: string, password: string, key: string): Promise<AuthResult>;
-  /** Whether `key` opens the admin sign-in page (its secret address /#/k/<key>). */
+  /** Whether `key` opens the admin sign-in page (its secret address /k/<key>). */
   adminGate(key: string): Promise<boolean>;
   me(): Promise<AccountUser>;
   updateMe(patch: { name?: string }): Promise<AccountUser>;

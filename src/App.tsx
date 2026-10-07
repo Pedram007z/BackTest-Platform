@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { HashRouter, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { PageErrorBoundary } from './components/ui/ErrorBoundary';
 import Analytics from './pages/Analytics';
@@ -23,12 +23,15 @@ import { AdminDiscounts, AdminGateways, AdminPayments, AdminPlans } from './page
 import AdminOverview from './pages/admin/Overview';
 import { AdminAudit, AdminMarket, AdminNews, AdminSettings, AdminSms, AdminTickets } from './pages/admin/System';
 import AdminUsers from './pages/admin/Users';
+import { PREVIEW, showPendingToast } from './lib/nav';
 import { loadSiteConfig } from './services/marketFeed';
 import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
+import { local } from './lib/storage';
 
-// The hosted single-file preview runs in a sandboxed frame, so it routes in memory (links: components/ui/AppLink).
-const Router = import.meta.env.MODE === 'artifact' ? MemoryRouter : HashRouter;
+// Clean addresses (/dashboard); every page change is a full page load (lib/nav, components/ui/AppLink).
+// The hosted single-file preview runs in a sandboxed frame, so it routes in memory.
+const Router = PREVIEW ? MemoryRouter : BrowserRouter;
 
 function ThemeSync() {
   const theme = useStore((s) => s.theme);
@@ -37,6 +40,8 @@ function ThemeSync() {
     root.classList.toggle('dark', theme === 'dark');
     root.classList.toggle('light', theme === 'light');
     root.setAttribute('data-theme', theme);
+    // index.html applies this before the first paint, so page loads do not flash the other theme
+    local.setItem('btl:theme', theme);
   }, [theme]);
   return null;
 }
@@ -46,6 +51,7 @@ function AccountSync() {
   useEffect(() => {
     void useAuth.getState().refresh();
     void loadSiteConfig();
+    showPendingToast();
   }, []);
   return null;
 }
@@ -60,7 +66,7 @@ function ScrollToTop() {
 function AppShell() {
   const session = useAuth((s) => s.session);
   const location = useLocation();
-  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  if (!session) return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   return (
     <Layout>
       <Outlet />

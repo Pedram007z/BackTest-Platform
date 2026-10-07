@@ -10,6 +10,20 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <title>بک‌تست‌لب</title>
+    <style>
+      html { background: #0d0b14; }
+      html.light { background: #f6f4fb; }
+    </style>
+    <script>
+      // the last theme used (saved by the app), so a page load does not flash the other one
+      try {
+        var t = localStorage.getItem('btl:theme');
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.className = t;
+          document.documentElement.setAttribute('data-theme', t);
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

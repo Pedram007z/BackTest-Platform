@@ -651,7 +651,7 @@ export const localBackend: Backend = {
       const disc = discountFor(discountCode, plan, user);
       const t = startCardPayment(user, plan, disc.finalToman, disc.dc?.code);
       save();
-      return delay({ paymentId: t.id, amountToman: t.amountToman, redirectUrl: `#/billing/card?payment=${t.id}` }, 400);
+      return delay({ paymentId: t.id, amountToman: t.amountToman, redirectUrl: `/billing/card?payment=${t.id}` }, 400);
     }
     const g = d.gateways.find((x) => x.id === gateway && x.enabled);
     if (!g) throw new BackendError('gateway', 'این درگاه فعال نیست.');
@@ -672,7 +672,7 @@ export const localBackend: Backend = {
     };
     d.payments.unshift(p);
     save();
-    return delay({ paymentId: p.id, amountToman: p.amountToman, redirectUrl: `#/pay/sandbox?payment=${p.id}` }, 500);
+    return delay({ paymentId: p.id, amountToman: p.amountToman, redirectUrl: `/pay/sandbox?payment=${p.id}` }, 500);
   },
   async payment(id) {
     expireTransfers();
