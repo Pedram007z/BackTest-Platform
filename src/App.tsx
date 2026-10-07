@@ -58,7 +58,10 @@ function AccountSync() {
 
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // braces: newer browsers return a Promise from scrollTo, and an effect's return value must be a cleanup
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return null;
 }
 

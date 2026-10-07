@@ -61,7 +61,10 @@ export function installPageGuard(root: HTMLElement) {
     title.textContent = 'صفحه نمایش داده نشد';
     const text = document.createElement('p');
     text.style.cssText = 'margin:0;line-height:1.9;opacity:.75';
-    text.textContent = 'اگر مترجم مرورگر یا افزونه‌ای روی این صفحه فعال است، آن را خاموش کنید و دوباره امتحان کنید.';
+    // the translator is only mentioned when the page really was translated
+    text.textContent = isTranslated()
+      ? 'مترجم مرورگر متن این صفحه را تغییر داده است. ترجمه را خاموش کنید و صفحه را دوباره بارگذاری کنید.'
+      : 'خطای غیرمنتظره‌ای رخ داد. صفحه را دوباره بارگذاری کنید؛ اگر باز هم تکرار شد، به پشتیبانی خبر دهید.';
     const detail = document.createElement('code');
     detail.dir = 'ltr';
     detail.style.cssText = 'font-size:11px;opacity:.6;word-break:break-all';
@@ -77,6 +80,12 @@ export function installPageGuard(root: HTMLElement) {
   };
   // React empties #root when it unmounts after an error it could not recover from
   new MutationObserver(() => setTimeout(check, 50)).observe(root, { childList: true });
+}
+
+/** Google Translate (and Chrome's built-in translation) marks the page it translated. */
+function isTranslated(): boolean {
+  const html = document.documentElement;
+  return /\btranslated-(ltr|rtl)\b/.test(html.className) || (!!html.lang && html.lang !== 'fa') || !!document.querySelector('font[style*="vertical-align"]');
 }
 
 /** React issue #11538: tolerate nodes that something outside React moved. */
