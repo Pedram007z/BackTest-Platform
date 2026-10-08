@@ -19,6 +19,7 @@ import type {
   MarketDownloadJob,
   MarketImportJob,
   MarketStorage,
+  NewsHistoryJob,
   NewsSyncStatus,
   QverisStatus,
   Page,
@@ -110,6 +111,9 @@ export interface AdminApi {
   audit(): Promise<AuditEntry[]>;
   newsStatus(): Promise<NewsSyncStatus>;
   syncNews(): Promise<NewsSyncStatus>;
+  /** Past calendar weeks from Financial Modeling Prep (FMP_API_KEY on the server). */
+  startNewsHistory(input: { from?: string }): Promise<NewsHistoryJob>;
+  stopNewsHistory(): Promise<NewsHistoryJob | null>;
   /** Market history stored on the server, and its downloads. */
   marketStorage(): Promise<MarketStorage>;
   startMarketDownload(input: { kind?: 'm1' | 's1'; symbols?: string[]; from?: string; to?: string }): Promise<MarketDownloadJob>;

@@ -270,6 +270,24 @@ export interface NewsSyncStatus {
   /** ForexFactory answers this server's page requests with a bot check: only the weekly feed is used */
   pagesBlocked?: boolean;
   lastError?: string;
+  /** past weeks from Financial Modeling Prep (FMP_API_KEY on the server) */
+  history?: { configured: boolean; job: NewsHistoryJob | null; lastJob: NewsHistoryJob | null };
+}
+
+/** Filling the calendar's past weeks from Financial Modeling Prep (admin panel). */
+export interface NewsHistoryJob {
+  from: string;
+  state: 'running' | 'done' | 'stopped' | 'failed';
+  /** requests (four weeks each) */
+  total: number;
+  done: number;
+  /** weeks stored and events received */
+  weeks: number;
+  events: number;
+  current?: string;
+  message?: string;
+  startedAt: number;
+  finishedAt?: number;
 }
 
 /** A download of market history into the server's storage (admin panel, command line, or automatic). */

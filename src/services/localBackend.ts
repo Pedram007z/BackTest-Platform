@@ -1250,6 +1250,14 @@ export const localBackend: Backend = {
       requireAdmin();
       return sampleNewsStatus(db().newsSyncedAt);
     },
+    async startNewsHistory() {
+      requireAdmin();
+      throw new BackendError('unsupported', 'نسخه‌ی نمایشی سرور ندارد؛ تاریخچه‌ی تقویم روی سرور API دریافت می‌شود.');
+    },
+    async stopNewsHistory() {
+      requireAdmin();
+      return null;
+    },
     async syncNews() {
       requireAdmin();
       db().newsSyncedAt = Date.now();

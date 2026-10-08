@@ -5,7 +5,7 @@ import { INSTRUMENTS } from '../market/instruments';
 import { marketStorage, startDownload, stopDownload } from '../market/download';
 import { startImport, stopImport } from '../market/importer';
 import { qverisStatus } from '../market/qveris';
-import { newsStatus, syncNews } from '../news';
+import { newsStatus, startCalendarHistory, stopCalendarHistory, syncNews } from '../news';
 import { GATEWAY_IDS, markPaid, publicPayment, testGateway } from '../payments';
 import { cardAdmin, deleteCard, expireTransfers, rejectTransfer, saveCard, saveCardSettings, transferToReview } from '../payments/card';
 import {
@@ -574,6 +574,18 @@ export function adminRoutes(r: Router) {
       audit(ctx, 'همگام‌سازی تقویم اقتصادی', 'ForexFactory');
       return status;
     }),
+  );
+  r.post(
+    '/api/admin/news/history',
+    admin((ctx) => {
+      const j = startCalendarHistory({ from: ctx.body.from });
+      audit(ctx, 'دریافت تاریخچه‌ی تقویم اقتصادی', `FMP از ${j.from}`);
+      return j;
+    }),
+  );
+  r.post(
+    '/api/admin/news/history/stop',
+    admin(() => stopCalendarHistory()),
   );
 
   // ---------- the signed-in admin's username and password ----------
