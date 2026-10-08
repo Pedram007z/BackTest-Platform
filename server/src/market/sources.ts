@@ -212,8 +212,8 @@ let apiErrorsInARow = 0;
 
 /**
  * Requests to Dukascopy start at most `config.dukascopyRate` a second. A challenge pauses every
- * Dukascopy request for five minutes (the firewall counts requests over five minutes), halves the rate
- * and asks again; the rate creeps back up after a thousand answers without one. Dukascopy also refuses
+ * Dukascopy request for five minutes (the firewall counts requests over five minutes) and asks again;
+ * the first challenge after answers also halves the rate; the rate creeps back up after a thousand answers without one. Dukascopy also refuses
  * a share of requests with 429 (too many requests) or 503: those are asked again after a pause that
  * doubles each time (or what Retry-After says), and many in a row pause every request for a while. A
  * timeout or dropped connection is tried again twice.
@@ -227,6 +227,8 @@ let refusedUntil = 0;
 let gapMs = 1000 / config.dukascopyRate;
 let nextStart = 0;
 let calm = 0;
+/** Dukascopy answered since the last challenge: a new challenge then halves the rate (once per block). */
+let answered = true;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Wait for a free slot under the current rate and any pause. */
@@ -245,7 +247,8 @@ async function slot() {
 function challenged() {
   calm = 0;
   if (refusedUntil > Date.now()) return;
-  gapMs = Math.min(2000, gapMs * 2);
+  if (answered) gapMs = Math.min(2000, gapMs * 2);
+  answered = false;
   refusedUntil = Date.now() + 600 * retryMs;
   console.warn(`[market] Dukascopy asks this server to slow down: pausing ${Math.round((600 * retryMs) / 1000)} s, then ${(1000 / gapMs).toFixed(1)} requests a second`);
 }
@@ -272,6 +275,7 @@ async function dukascopyFetch(url: string, init: RequestInit): Promise<Response>
     if (!refused || attempt >= RETRIES) {
       if (!refused) {
         refusedInARow = 0;
+        answered = true;
         if (++calm >= 1000 && gapMs > 1000 / config.dukascopyRate) {
           calm = 0;
           gapMs = Math.max(1000 / config.dukascopyRate, gapMs / 1.5);
