@@ -336,8 +336,11 @@ fetched from Dukascopy or Binance while someone uses the site. The history has t
   ```
   Run it again later (it adds only new days) and copy again to bring the server up to date.
 
-Dukascopy refuses a share of requests when they come quickly; the download waits and asks again, so it
-only slows down. Expect about an hour for the whole history of every symbol on a good connection.
+Dukascopy refuses a share of requests when they come quickly, and its firewall blocks a server that sends
+too many for a while (it answers with a "challenge" instead of data). The download therefore asks at most
+10 times a second (`DUKASCOPY_RATE` in `.env`); when it is blocked anyway it pauses five minutes, halves the
+rate and goes on, so it only slows down. The first download of the whole history from 2015 takes several
+hours; it runs in the background and continues after a restart.
 
 **QVeris (optional, paid).** QVeris (qveris.ai) sells EODHD's 1-minute history for forex, metals and crypto
 and live quotes, per request (2.81 credits each). The free sources above are enough; use QVeris only if

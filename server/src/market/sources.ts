@@ -197,8 +197,10 @@ export function parseDukascopyApiTicks(data: unknown, hourStart: number): DayBar
 }
 
 /**
- * Dukascopy's firewall answers a browser-like User-Agent from a program with a challenge page (HTTP
- * 202, header x-amzn-waf-action: challenge) instead of data, so the downloader names itself plainly.
+ * Dukascopy's firewall (AWS WAF) answers with a challenge page (HTTP 202, header x-amzn-waf-action:
+ * challenge) instead of data when a browser-like User-Agent comes from a program, so the downloader
+ * names itself plainly, and when one address sends too many requests: tens of thousands at about 50 a
+ * second set it off for every request from that address for a while.
  */
 const DUKASCOPY_UA = 'backtestlab-downloader';
 
@@ -209,24 +211,49 @@ let apiPausedUntil = 0;
 let apiErrorsInARow = 0;
 
 /**
- * Dukascopy refuses a share of requests with 429 (too many requests) or 503 even at a few dozen
- * requests a second, on the data API and the datafeed alike; under load the data API also answers
- * 202 (accepted, data not ready yet) without data. Such a request is asked again after
- * a pause that doubles each time (or what Retry-After says); many refusals in a row also pause every
- * Dukascopy request for a while, so a long download slows down instead of losing days. A timeout or
- * dropped connection is tried again twice.
+ * Requests to Dukascopy start at most `config.dukascopyRate` a second. A challenge pauses every
+ * Dukascopy request for five minutes (the firewall counts requests over five minutes), halves the rate
+ * and asks again; the rate creeps back up after a thousand answers without one. Dukascopy also refuses
+ * a share of requests with 429 (too many requests) or 503: those are asked again after a pause that
+ * doubles each time (or what Retry-After says), and many in a row pause every request for a while. A
+ * timeout or dropped connection is tried again twice.
  */
 const RETRIES = 8;
+const CHALLENGE_RETRIES = 3;
 const NETWORK_RETRIES = 2;
 let retryMs = 500;
 let refusedInARow = 0;
 let refusedUntil = 0;
+let gapMs = 1000 / config.dukascopyRate;
+let nextStart = 0;
+let calm = 0;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Wait for a free slot under the current rate and any pause. */
+async function slot() {
+  for (;;) {
+    const now = Date.now();
+    const at = Math.max(now, nextStart, refusedUntil);
+    if (at <= now) {
+      nextStart = now + gapMs;
+      return;
+    }
+    await sleep(at - now);
+  }
+}
+
+function challenged() {
+  calm = 0;
+  if (refusedUntil > Date.now()) return;
+  gapMs = Math.min(2000, gapMs * 2);
+  refusedUntil = Date.now() + 600 * retryMs;
+  console.warn(`[market] Dukascopy asks this server to slow down: pausing ${Math.round((600 * retryMs) / 1000)} s, then ${(1000 / gapMs).toFixed(1)} requests a second`);
+}
+
 async function dukascopyFetch(url: string, init: RequestInit): Promise<Response> {
+  let challenges = 0;
   for (let attempt = 0; ; attempt++) {
-    const wait = refusedUntil - Date.now();
-    if (wait > 0) await sleep(wait);
+    await slot();
     let res: Response;
     try {
       res = await fetchWithTimeout(url, init);
@@ -235,10 +262,21 @@ async function dukascopyFetch(url: string, init: RequestInit): Promise<Response>
       await sleep(retryMs * 2 ** attempt);
       continue;
     }
-    // a firewall challenge is not passed by asking again
-    const refused = res.status === 429 || res.status === 503 || (res.status === 202 && !res.headers.get('x-amzn-waf-action'));
+    if (res.status === 202 && res.headers.get('x-amzn-waf-action')) {
+      await res.arrayBuffer().catch(() => undefined);
+      challenged();
+      if (++challenges > CHALLENGE_RETRIES) return res;
+      continue;
+    }
+    const refused = res.status === 429 || res.status === 503;
     if (!refused || attempt >= RETRIES) {
-      if (!refused) refusedInARow = 0;
+      if (!refused) {
+        refusedInARow = 0;
+        if (++calm >= 1000 && gapMs > 1000 / config.dukascopyRate) {
+          calm = 0;
+          gapMs = Math.max(1000 / config.dukascopyRate, gapMs / 1.5);
+        }
+      }
       return res;
     }
     await res.arrayBuffer().catch(() => undefined);
@@ -249,11 +287,13 @@ async function dukascopyFetch(url: string, init: RequestInit): Promise<Response>
   }
 }
 
-/** Tests: shorter pauses between retries. */
-export function setDukascopyRetryMs(ms: number) {
+/** Tests: shorter pauses between retries, and no rate limit. */
+export function setDukascopyRetryMs(ms: number, rate = Infinity) {
   retryMs = ms;
   refusedInARow = 0;
   refusedUntil = 0;
+  gapMs = 1000 / rate;
+  nextStart = 0;
 }
 
 /** A completed period has a fixed address; the current one is asked for with ?from= (changing data). */

@@ -64,6 +64,8 @@ export const config = {
   /** Dukascopy's data API (JSON); `off` uses only the older datafeed files below. */
   dukascopyApiUrl: env('DUKASCOPY_API_URL', 'https://jetta.dukascopy.com/v1').replace(/\/$/, ''),
   dukascopyUrl: env('DUKASCOPY_URL', 'https://datafeed.dukascopy.com/datafeed').replace(/\/$/, ''),
+  /** Most requests a second to Dukascopy; its firewall blocks an address that sends too many for a while. */
+  dukascopyRate: Math.max(1, int('DUKASCOPY_RATE', 10)),
   binanceUrl: env('BINANCE_URL', 'https://data-api.binance.vision').replace(/\/$/, ''),
   /** Binance's history archives (monthly and daily ZIP files), used by the downloader. */
   binanceVisionUrl: env('BINANCE_VISION_URL', 'https://data.binance.vision').replace(/\/$/, ''),
