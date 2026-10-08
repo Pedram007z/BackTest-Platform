@@ -343,13 +343,16 @@ export interface MarketStorage {
 export interface MarketImportJob {
   repo: string;
   branch: string;
+  /** correct the server's months too: every day the branch has replaces the server's copy */
+  fix: boolean;
   state: 'running' | 'done' | 'stopped' | 'failed';
   /** month files on the branch, and how they went */
   total: number;
   done: number;
   added: number;
+  /** replaced by a fuller month; with `fix`, months whose days were corrected */
   replaced: number;
-  /** the server already had them (same file, or one covering as many days) */
+  /** the server already had them (same file, or one covering as many days; with `fix`, the same days) */
   kept: number;
   failed: number;
   /** downloaded so far, and the size of every file on the branch */

@@ -118,8 +118,8 @@ export interface AdminApi {
   marketStorage(): Promise<MarketStorage>;
   startMarketDownload(input: { kind?: 'm1' | 's1'; symbols?: string[]; from?: string; to?: string }): Promise<MarketDownloadJob>;
   stopMarketDownload(): Promise<MarketDownloadJob | null>;
-  /** Ready-made history from a GitHub branch (repository and branch default to the server's). */
-  startMarketImport(input: { repo?: string; branch?: string }): Promise<MarketImportJob>;
+  /** Ready-made history from a GitHub branch (repository and branch default to the server's); `fix` also replaces the days the server has with the branch's. */
+  startMarketImport(input: { repo?: string; branch?: string; fix?: boolean }): Promise<MarketImportJob>;
   stopMarketImport(): Promise<MarketImportJob | null>;
   /** QVeris on the server: key set, credits spent today, the account's balance. */
   qverisStatus(): Promise<QverisStatus>;

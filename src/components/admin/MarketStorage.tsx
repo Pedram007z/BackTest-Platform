@@ -73,6 +73,7 @@ function ImportSummary({ job }: { job: MarketImportJob }) {
     <div className="flex flex-col gap-2 rounded-xl border border-line/70 p-3 text-[13px]">
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={STATE[job.state].tone}>{STATE[job.state].label}</Badge>
+        {job.fix && <Badge tone="amber">اصلاح داده‌ها</Badge>}
         <span className="text-muted" dir="ltr">
           {job.repo} · {job.branch}
         </span>
@@ -87,8 +88,8 @@ function ImportSummary({ job }: { job: MarketImportJob }) {
         </>
       )}
       <p className="num text-[12px] text-muted">
-        ماه‌های اضافه‌شده: {fmtNum(job.added)} · جایگزین با نسخه‌ی کامل‌تر: {fmtNum(job.replaced)} · از قبل روی سرور: {fmtNum(job.kept)} · ناموفق:{' '}
-        <span className={clsx(job.failed > 0 && 'text-loss')}>{fmtNum(job.failed)}</span>
+        ماه‌های اضافه‌شده: {fmtNum(job.added)} · {job.fix ? 'ماه‌های اصلاح‌شده' : 'جایگزین با نسخه‌ی کامل‌تر'}: {fmtNum(job.replaced)} ·{' '}
+        {job.fix ? 'بدون تغییر' : 'از قبل روی سرور'}: {fmtNum(job.kept)} · ناموفق: <span className={clsx(job.failed > 0 && 'text-loss')}>{fmtNum(job.failed)}</span>
       </p>
       {job.message && <p className="text-[12px] text-loss">{job.message}</p>}
       {job.errors.length > 0 && (
@@ -122,11 +123,12 @@ function ImportBox({
   st: MarketImportStatus;
   busy: boolean;
   downloading: boolean;
-  onStart: (repo: string, branch: string) => void;
+  onStart: (repo: string, branch: string, fix: boolean) => void;
   onStop: () => void;
 }) {
   const [repo, setRepo] = useState(st.repo);
   const [branch, setBranch] = useState(st.branch);
+  const [fix, setFix] = useState(false);
   return (
     <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
       <h3 className="mb-1 flex items-center gap-2 text-sm font-bold">
@@ -159,10 +161,20 @@ function ImportBox({
               </label>
               <input id="imp-branch" className="field" dir="ltr" value={branch} onChange={(e) => setBranch(e.target.value.trim())} />
             </div>
-            <button type="button" className="btn-primary" disabled={busy || downloading || !repo || !branch} onClick={() => onStart(repo, branch)}>
-              <CloudDownload size={15} /> دریافت از GitHub
+            <button type="button" className="btn-primary" disabled={busy || downloading || !repo || !branch} onClick={() => onStart(repo, branch, fix)}>
+              <CloudDownload size={15} /> {fix ? 'دریافت و اصلاح از GitHub' : 'دریافت از GitHub'}
             </button>
           </div>
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span>
+              اصلاح داده‌های قبلی
+              <span className="block text-xs leading-6 text-faint">
+                برای گرفتن داده‌هایی که در GitHub اصلاح شده‌اند: هر روزی که در GitHub هست جایگزین نسخه‌ی روی سرور می‌شود و روزهایی که فقط روی سرور هست می‌ماند. هر ماهی که با GitHub
+                فرق دارد دریافت می‌شود (اگر سرور تاریخچه را خودش دانلود کرده، تقریباً همه‌ی ۱ گیگابایت).
+              </span>
+            </span>
+            <Toggle checked={fix} onChange={setFix} label="اصلاح داده‌های قبلی" />
+          </label>
           {st.lastJob && <ImportSummary job={st.lastJob} />}
         </div>
       )}
@@ -211,9 +223,9 @@ export function MarketStoragePanel({ autoDownload, onAutoDownload }: { autoDownl
     if (await act(backend.admin.stopMarketDownload(), 'دانلود پس از ماه‌های در حال دریافت متوقف می‌شود')) await load();
     setBusy(false);
   };
-  const startImport = async (repo: string, branch: string) => {
+  const startImport = async (repo: string, branch: string, fix: boolean) => {
     setBusy(true);
-    if (await act(backend.admin.startMarketImport({ repo, branch }), 'دریافت تاریخچه از GitHub شروع شد')) await load();
+    if (await act(backend.admin.startMarketImport({ repo, branch, fix }), fix ? 'دریافت و اصلاح داده‌ها از GitHub شروع شد' : 'دریافت تاریخچه از GitHub شروع شد')) await load();
     setBusy(false);
   };
   const stopImport = async () => {
@@ -256,7 +268,7 @@ export function MarketStoragePanel({ autoDownload, onAutoDownload }: { autoDownl
       </div>
       <Meter value={expected ? days / expected : 0} tone="gain" className="h-2" />
 
-      {st.import && <ImportBox st={st.import} busy={busy} downloading={!!st.job} onStart={(r, b) => void startImport(r, b)} onStop={() => void stopImport()} />}
+      {st.import && <ImportBox st={st.import} busy={busy} downloading={!!st.job} onStart={(r, b, f) => void startImport(r, b, f)} onStop={() => void stopImport()} />}
 
       {st.job ? (
         <div className="flex flex-col gap-2">
