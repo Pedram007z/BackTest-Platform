@@ -3,6 +3,8 @@ import { HttpError, badRequest } from '../http';
 import type { DataSource, MarketDownloadJob, MarketStorage, MarketStorageSymbol } from '../shared';
 import { DAY_MS, isDayKey, keyToMs, utcDayKey } from '../util';
 import { INSTRUMENTS, type Instrument } from './instruments';
+import { importStatus } from './importer';
+import { claimStore, releaseStore } from './lock';
 import { QverisBudgetError, qverisDayMinutes } from './qveris';
 import { sourceFor } from './source';
 import { binanceArchiveDay, binanceArchiveMonth, binanceDayMinutes, binanceDaySeconds, dukascopyDayMinutes, dukascopyDaySeconds, type DayBars } from './sources';
@@ -194,6 +196,7 @@ async function run(j: MarketDownloadJob): Promise<MarketDownloadJob> {
   }
   job = null;
   stopping = false;
+  releaseStore('download');
   return j;
 }
 
@@ -212,6 +215,7 @@ export function startDownload(input: { kind?: unknown; symbols?: unknown; from?:
   if (!isDayKey(from) || !isDayKey(to) || to < from) throw badRequest('range', 'بازه‌ی تاریخ معتبر نیست.', 'from');
   if (kind === 's1' && (keyToMs(to) - keyToMs(from)) / DAY_MS + 1 > MAX_SECOND_DAYS)
     throw badRequest('range', `داده‌ی ثانیه‌ای حداکثر ${MAX_SECOND_DAYS} روز در هر دانلود.`, 'from');
+  claimStore('download');
   const j: MarketDownloadJob = {
     kind,
     symbols,
@@ -247,7 +251,12 @@ export const downloadFinished = () => finished;
 export function autoDownload() {
   if (job || !db().settings.marketAutoDownload) return;
   const enabled = db().settings.enabledSymbols;
-  startDownload({ by: 'auto', symbols: enabled.length ? enabled : undefined });
+  try {
+    startDownload({ by: 'auto', symbols: enabled.length ? enabled : undefined });
+  } catch (e) {
+    // an import from GitHub holds the storage: the next hour tries again
+    if (!(e instanceof HttpError && e.status === 409)) throw e;
+  }
 }
 
 /** What is stored, per symbol (admin panel). */
@@ -286,5 +295,6 @@ export function marketStorage(): MarketStorage {
     job: clone(job),
     lastJob: clone(lastJob),
     autoDownload: db().settings.marketAutoDownload,
+    import: importStatus(),
   };
 }

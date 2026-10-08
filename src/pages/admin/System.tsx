@@ -1,11 +1,11 @@
 import clsx from 'clsx';
-import { CalendarSync, Check, LoaderCircle, Megaphone, Search, Send, TestTube2 } from 'lucide-react';
+import { CalendarSync, Check, CircleStop, LoaderCircle, Megaphone, Search, Send, TestTube2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AdminCredentialsCard } from '../../components/admin/AdminCredentials';
 import { MarketStoragePanel } from '../../components/admin/MarketStorage';
 import { Badge, Field, Loading, PageHeader, act, dateTime, useLoad } from '../../components/admin/kit';
 import { Modal } from '../../components/ui/Modal';
-import { Select, Toggle } from '../../components/ui/controls';
+import { Meter, Select, Toggle } from '../../components/ui/controls';
 import { fmtPhone } from '../../lib/auth';
 import { fmtDay } from '../../lib/calendar';
 import { fmtNum, toLatinDigits } from '../../lib/format';
@@ -13,7 +13,16 @@ import { GROUP_LABELS, SYMBOLS, groupLabel, type SymbolGroup } from '../../lib/m
 import { TICKET_STATUS, TicketThread } from '../Support';
 import { backend } from '../../services';
 import { toast } from '../../store/useStore';
-import { SMS_PROVIDER_NAMES, type DataSource, type SiteSettings, type SmsProviderId, type SmsSettings, type Ticket } from '../../services/types';
+import {
+  SMS_PROVIDER_NAMES,
+  type DataSource,
+  type NewsHistoryJob,
+  type NewsSyncStatus,
+  type SiteSettings,
+  type SmsProviderId,
+  type SmsSettings,
+  type Ticket,
+} from '../../services/types';
 
 // ---------- SMS ----------
 const SMS_HELP: Record<SmsProviderId, string> = {
@@ -340,6 +349,72 @@ export function AdminTickets() {
 }
 
 // ---------- news ----------
+/** Past weeks of the calendar from Financial Modeling Prep (licensed, paid). */
+function NewsHistory({ st, reload }: { st: NonNullable<NewsSyncStatus['history']>; reload: () => void }) {
+  const [from, setFrom] = useState('2015-01-01');
+  const [busy, setBusy] = useState(false);
+  const job = st.job ?? st.lastJob;
+  const running = !!st.job;
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(reload, 2000);
+    return () => clearInterval(t);
+  }, [running, reload]);
+  const STATE: Record<NewsHistoryJob['state'], [string, 'accent' | 'gain' | 'amber' | 'loss']> = {
+    running: ['در حال دریافت', 'accent'],
+    done: ['تمام شد', 'gain'],
+    stopped: ['متوقف شد', 'amber'],
+    failed: ['ناموفق', 'loss'],
+  };
+  return (
+    <section className="card p-5 text-[13px] lg:col-span-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <h2 className="font-bold">تاریخچه‌ی تقویم (Financial Modeling Prep)</h2>
+        {st.configured ? <Badge tone="gain">کلید تنظیم شده</Badge> : <Badge tone="amber">کلید تنظیم نشده</Badge>}
+      </div>
+      <p className="mb-3 text-xs leading-6 text-faint">
+        هفته‌هایی که ForexFactory به سرور نمی‌دهد (بک‌تست سال‌های گذشته) از تقویم اقتصادی FMP پر می‌شوند: زمان، ارز، اهمیت، و عدد واقعی، پیش‌بینی و قبلی هر خبر. هفته‌هایی که از صفحه‌ی
+        ForexFactory گرفته شده‌اند دست نمی‌خورند. بعد از آن، همگام‌سازی ساعتی عدد واقعی هفته‌ی گذشته را هم از FMP می‌گیرد. FMP پولی است و نمایش داده به کاربران سایت به پلن تجاری و
+        مجوز نمایش (Data Display) آن نیاز دارد.
+      </p>
+      {!st.configured ? (
+        <p className="rounded-xl bg-raised px-3 py-2 text-xs leading-6 text-muted">
+          کلید API را در فایل <code dir="ltr">server/.env</code> بگذارید (<code dir="ltr">FMP_API_KEY=…</code>) و سرویس را دوباره راه‌اندازی کنید.
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="از تاریخ (میلادی)" htmlFor="fmp-from">
+            <input id="fmp-from" className="field num w-40" dir="ltr" value={from} onChange={(e) => setFrom(toLatinDigits(e.target.value).trim())} placeholder="2015-01-01" />
+          </Field>
+          {running ? (
+            <button type="button" className="btn-soft" disabled={busy} onClick={async () => (setBusy(true), await act(backend.admin.stopNewsHistory(), 'دریافت متوقف می‌شود'), reload(), setBusy(false))}>
+              <CircleStop size={15} /> توقف
+            </button>
+          ) : (
+            <button type="button" className="btn-primary" disabled={busy} onClick={async () => (setBusy(true), await act(backend.admin.startNewsHistory({ from }), 'دریافت تاریخچه شروع شد'), reload(), setBusy(false))}>
+              <CalendarSync size={15} /> دریافت تاریخچه
+            </button>
+          )}
+        </div>
+      )}
+      {job && (
+        <div className="mt-4 flex flex-col gap-2 rounded-xl border border-line/70 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={STATE[job.state][1]}>{STATE[job.state][0]}</Badge>
+            <span className="num text-muted">از {job.from}</span>
+            <span className="num ms-auto text-[12px] text-faint">{dateTime(job.finishedAt ?? job.startedAt)}</span>
+          </div>
+          {job.state === 'running' && <Meter value={job.total ? job.done / job.total : 0} tone="accent" className="h-2" />}
+          <p className="num text-[12px] text-muted">
+            {fmtNum(job.done)} از {fmtNum(job.total)} درخواست · {fmtNum(job.weeks)} هفته ذخیره شد · {fmtNum(job.events)} رویداد{job.current ? ` · هفته‌ی ${job.current}` : ''}
+          </p>
+          {job.message && <p className="text-[12px] text-loss">{job.message}</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function AdminNews() {
   const { data, loading, reload, setData } = useLoad(() => backend.admin.newsStatus());
   const [syncing, setSyncing] = useState(false);
@@ -401,6 +476,7 @@ export function AdminNews() {
               <li>زمان‌ها به UTC ذخیره و برای کاربر به وقت تهران نمایش داده می‌شوند.</li>
             </ul>
           </section>
+          {data.history && <NewsHistory st={data.history} reload={() => void reload()} />}
         </div>
       )}
     </>

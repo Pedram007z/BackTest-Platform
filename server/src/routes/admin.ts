@@ -3,8 +3,9 @@ import { db, save, type StoredPayment } from '../db';
 import { HttpError, badRequest, bool, notFound, num, oneOf, str, type Ctx, type Router } from '../http';
 import { INSTRUMENTS } from '../market/instruments';
 import { marketStorage, startDownload, stopDownload } from '../market/download';
+import { startImport, stopImport } from '../market/importer';
 import { qverisStatus } from '../market/qveris';
-import { newsStatus, syncNews } from '../news';
+import { newsStatus, startCalendarHistory, stopCalendarHistory, syncNews } from '../news';
 import { GATEWAY_IDS, markPaid, publicPayment, testGateway } from '../payments';
 import { cardAdmin, deleteCard, expireTransfers, rejectTransfer, saveCard, saveCardSettings, transferToReview } from '../payments/card';
 import {
@@ -574,6 +575,18 @@ export function adminRoutes(r: Router) {
       return status;
     }),
   );
+  r.post(
+    '/api/admin/news/history',
+    admin((ctx) => {
+      const j = startCalendarHistory({ from: ctx.body.from });
+      audit(ctx, 'دریافت تاریخچه‌ی تقویم اقتصادی', `FMP از ${j.from}`);
+      return j;
+    }),
+  );
+  r.post(
+    '/api/admin/news/history/stop',
+    admin(() => stopCalendarHistory()),
+  );
 
   // ---------- the signed-in admin's username and password ----------
   r.get(
@@ -612,6 +625,22 @@ export function adminRoutes(r: Router) {
         `${job.symbols.length > 3 ? `${job.symbols.length} نماد` : job.symbols.join('، ')} · ${job.from} تا ${job.to}`,
       );
       return job;
+    }),
+  );
+  r.post(
+    '/api/admin/market/import',
+    admin((ctx) => {
+      const j = startImport({ repo: ctx.body.repo, branch: ctx.body.branch });
+      audit(ctx, 'دریافت تاریخچه‌ی آماده‌ی بازار', `${j.repo} · ${j.branch}`);
+      return j;
+    }),
+  );
+  r.post(
+    '/api/admin/market/import/stop',
+    admin((ctx) => {
+      const j = stopImport();
+      if (j) audit(ctx, 'توقف دریافت تاریخچه‌ی آماده');
+      return j;
     }),
   );
   r.get(

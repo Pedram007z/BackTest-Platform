@@ -315,9 +315,14 @@ Charts read candles only from the server's own storage (`/var/lib/backtestlab/ma
 fetched from Dukascopy or Binance while someone uses the site. The history has to be downloaded once:
 
 - **Ready-made, from GitHub (quickest).** The history from 2015 (about 1 GB; coverage per symbol in its
-  README) is kept on this repository's `market-data` branch. If the repository is private, make a
-  read-only token for it (github.com → Settings → Developer settings → Fine-grained tokens → only this
-  repository, Contents: Read-only), then:
+  README) is kept on this repository's `market-data` branch. In the admin panel → **نمادها و داده‌ی بازار**
+  → **تاریخچه‌ی آماده از GitHub**, press **دریافت از GitHub**: the server downloads only the months it does
+  not have (or has fewer days of), with progress and a stop button; pressing it again later takes only
+  what changed. The repository and branch can be changed there (`MARKET_DATA_REPO` and
+  `MARKET_DATA_BRANCH` in `.env` set the defaults). If the repository is private, put a read-only token in
+  `.env` as `MARKET_DATA_TOKEN` (github.com → Settings → Developer settings → Fine-grained tokens → only
+  this repository, Contents: Read-only). Through a relay, set `GITHUB_API_URL` and `GITHUB_RAW_URL`.
+  The same from the command line, with git:
   ```bash
   sudo apt install -y git
   sudo GITHUB_TOKEN=YOUR_TOKEN bash /opt/backtestlab/import-market-data.sh
