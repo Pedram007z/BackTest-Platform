@@ -314,9 +314,10 @@ its sample calendar.
 Charts read candles only from the server's own storage (`/var/lib/backtestlab/market/store`): nothing is
 fetched from Dukascopy or Binance while someone uses the site. The history has to be downloaded once:
 
-- **Ready-made, from GitHub (quickest).** The whole history from 2015 (every symbol, about 1 GB) is kept in
-  the private repository `Pedram007z/BackTest-Market-Data`. Make a read-only token for it (github.com →
-  Settings → Developer settings → Fine-grained tokens → only that repository, Contents: Read-only), then:
+- **Ready-made, from GitHub (quickest).** The history from 2015 (about 1 GB; coverage per symbol in its
+  README) is kept on this repository's `market-data` branch. If the repository is private, make a
+  read-only token for it (github.com → Settings → Developer settings → Fine-grained tokens → only this
+  repository, Contents: Read-only), then:
   ```bash
   sudo apt install -y git
   sudo GITHUB_TOKEN=YOUR_TOKEN bash /opt/backtestlab/import-market-data.sh

@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 # Loads ready-made market history (1-minute candles from 2015) into the API server's storage, so the
-# server does not have to download it from Dukascopy and Binance itself. The history is kept in a
-# GitHub repository in the server's own file format (store/<SYMBOL>/<YYYY>-<MM>.m1).
+# server does not have to download it from Dukascopy and Binance itself. The history is kept on the
+# platform repository's market-data branch, in the server's own file format
+# (store/<SYMBOL>/<YYYY>-<MM>.m1).
 #
-#   sudo bash import-market-data.sh                     the default repository below
-#   sudo bash import-market-data.sh https://github.com/OWNER/REPO.git
+#   sudo bash import-market-data.sh                     the default repository and branch below
+#   sudo bash import-market-data.sh https://github.com/OWNER/REPO.git [BRANCH]
 #
-# The repository is private: git asks for a username and a password. Give your GitHub username and,
-# as the password, a token (github.com → Settings → Developer settings → Fine-grained tokens, access to
-# that repository only, Contents: Read-only). Or set GITHUB_TOKEN=... to skip the questions.
+# A private repository needs a token: git asks for a username and a password. Give your GitHub
+# username and, as the password, a token (github.com → Settings → Developer settings → Fine-grained
+# tokens, access to that repository only, Contents: Read-only). Or set GITHUB_TOKEN=... to skip them.
 #
 # A month the server already has is replaced only by a larger file (more days). Run it again later to
 # add months published after the first import. ENV_FILE and SERVICE change the defaults below.
 set -euo pipefail
-REPO="${1:-https://github.com/Pedram007z/BackTest-Market-Data.git}"
+REPO="${1:-https://github.com/Pedram007z/BackTest-Platform.git}"
+BRANCH="${2:-market-data}"
 ENV_FILE="${ENV_FILE:-/opt/backtestlab/server/.env}"
 SERVICE="${SERVICE:-backtestlab}"
 
@@ -32,8 +34,8 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 URL="$REPO"
 if [ -n "${GITHUB_TOKEN:-}" ]; then URL="${REPO/https:\/\//https://x-access-token:$GITHUB_TOKEN@}"; fi
-echo "Downloading the market history from $REPO (about 1 GB; a few minutes)…"
-git clone --depth 1 --quiet "$URL" "$TMP/data"
+echo "Downloading the market history from $REPO ($BRANCH; about 1 GB, a few minutes)…"
+git clone --depth 1 --single-branch --branch "$BRANCH" --quiet "$URL" "$TMP/data"
 [ -d "$TMP/data/store" ] || { echo "No store/ folder in $REPO: is it the market data repository?"; exit 1; }
 
 mkdir -p "$STORE"
