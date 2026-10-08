@@ -265,6 +265,10 @@ export interface NewsSyncStatus {
   lastSyncAt?: number;
   events: number;
   weeks: number;
+  /** earliest stored week (its Sunday, YYYY-MM-DD) */
+  firstWeek?: string;
+  /** ForexFactory answers this server's page requests with a bot check: only the weekly feed is used */
+  pagesBlocked?: boolean;
   lastError?: string;
 }
 

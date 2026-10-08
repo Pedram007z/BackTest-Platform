@@ -7,6 +7,7 @@ import { Badge, Field, Loading, PageHeader, act, dateTime, useLoad } from '../..
 import { Modal } from '../../components/ui/Modal';
 import { Select, Toggle } from '../../components/ui/controls';
 import { fmtPhone } from '../../lib/auth';
+import { fmtDay } from '../../lib/calendar';
 import { fmtNum, toLatinDigits } from '../../lib/format';
 import { GROUP_LABELS, SYMBOLS, groupLabel, type SymbolGroup } from '../../lib/market';
 import { TICKET_STATUS, TicketThread } from '../Support';
@@ -359,7 +360,20 @@ export function AdminNews() {
               <dd className="num">{fmtNum(data.events)}</dd>
               <dt className="text-muted">هفته‌های پوشش‌داده‌شده</dt>
               <dd className="num">{fmtNum(data.weeks)}</dd>
+              {data.firstWeek && (
+                <>
+                  <dt className="text-muted">از هفته‌ی</dt>
+                  <dd className="num">{fmtDay(data.firstWeek)}</dd>
+                </>
+              )}
             </dl>
+            {data.pagesBlocked && (
+              <p className="mt-4 rounded-xl bg-raised px-3 py-2 text-xs leading-6 text-muted">
+                ForexFactory صفحه‌های تقویم را برای سرورها با بررسی ضدربات (Cloudflare) می‌بندد؛ این محدودیت از طرف ForexFactory است و دور زده نمی‌شود. سرور هر ساعت فید رسمی هفته‌ی
+                جاری را ذخیره می‌کند و هر هفته بعد از تمام شدن نگه داشته می‌شود؛ پس تاریخچه از همین هفته به بعد هفته‌به‌هفته کامل می‌شود (فید عدد واقعی خبرها را ندارد). برای
+                هفته‌های قبل از آن، چارت تقویم نمونه را با برچسب «نمونه» نشان می‌دهد.
+              </p>
+            )}
             {data.lastError && <p className="mt-4 rounded-xl bg-amber/10 px-3 py-2 text-xs leading-6 text-amber">{data.lastError}</p>}
             <button
               type="button"
@@ -379,7 +393,10 @@ export function AdminNews() {
             <h2 className="mb-2 font-bold text-ink">چطور کار می‌کند</h2>
             <ul className="list-disc ps-5">
               <li>سرور هر ساعت فید هفته‌ی جاری ForexFactory را می‌خواند و رویدادها را ذخیره می‌کند.</li>
-              <li>برای هفته‌های گذشته (بک‌تست) صفحه‌ی تقویم همان هفته از ForexFactory خوانده و در پایگاه داده نگه داشته می‌شود؛ هر هفته فقط یک بار.</li>
+              <li>
+                برای هفته‌های گذشته (بک‌تست) صفحه‌ی تقویم همان هفته از ForexFactory خوانده و در پایگاه داده نگه داشته می‌شود؛ هر هفته فقط یک بار. اگر ForexFactory صفحه‌ها را برای
+                سرور ببندد، هر هفته از فید هفتگی نگه داشته می‌شود.
+              </li>
               <li>عدد واقعی (Actual) هر خبر تا وقتی بازپخش به زمان انتشار نرسیده به کاربر نشان داده نمی‌شود.</li>
               <li>زمان‌ها به UTC ذخیره و برای کاربر به وقت تهران نمایش داده می‌شوند.</li>
             </ul>
