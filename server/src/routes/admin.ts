@@ -630,8 +630,8 @@ export function adminRoutes(r: Router) {
   r.post(
     '/api/admin/market/import',
     admin((ctx) => {
-      const j = startImport({ repo: ctx.body.repo, branch: ctx.body.branch });
-      audit(ctx, 'دریافت تاریخچه‌ی آماده‌ی بازار', `${j.repo} · ${j.branch}`);
+      const j = startImport({ repo: ctx.body.repo, branch: ctx.body.branch, fix: ctx.body.fix });
+      audit(ctx, j.fix ? 'اصلاح تاریخچه‌ی بازار با نسخه‌ی GitHub' : 'دریافت تاریخچه‌ی آماده‌ی بازار', `${j.repo} · ${j.branch}`);
       return j;
     }),
   );

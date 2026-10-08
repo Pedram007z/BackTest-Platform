@@ -118,6 +118,33 @@ test('import: a different month replaces the server copy only when it covers mor
   assert.equal(store.coveredDays(readFileSync(store.monthFilePath('EURUSD', '2024-02'))), 5, 'February: the server copy covers more days');
 });
 
+test('import with fix: the branch’s days replace the server’s, days only the server has stay', async () => {
+  // the branch: March corrected (days 4–6), and April; the server: March with wrong prices on days 4–6 and a day 7 of its own
+  const march = monthFile('AUDUSD', 2024, 3, [4, 5, 6], 0.66);
+  const april = monthFile('AUDUSD', 2024, 4, [1, 2], 0.65);
+  store.writeDays('AUDUSD', Date.UTC(2024, 2, 1), new Map([4, 5, 6, 7].map((d) => [d, dayBars(0.7 + d / 1000)])));
+  const open = (day: number) => store.readDay('AUDUSD', Date.UTC(2024, 2, day))![480 * 4];
+  s.setUpstream(github([march, april], []));
+
+  // a plain import keeps the server's March: it covers more days
+  const plain = await runImport();
+  assert.deepEqual([plain.fix, plain.added, plain.replaced, plain.kept], [false, 1, 0, 1]);
+  assert.equal(open(5), 0.705);
+
+  const fix = await runImport({ fix: true });
+  assert.equal(fix.state, 'done', fix.message);
+  assert.deepEqual([fix.fix, fix.added, fix.replaced, fix.kept, fix.failed], [true, 0, 1, 1, 0], 'March corrected; April is the same file');
+  for (const d of [4, 5, 6]) assert.equal(open(d), 0.66 + d / 1000, `day ${d} from the branch`);
+  assert.equal(open(7), 0.707, 'day 7 only the server has stays');
+  assert.equal(store.dayStatus('AUDUSD', Date.UTC(2024, 2, 7)), store.STORED);
+
+  // again: nothing left to correct
+  const again = await runImport({ fix: true });
+  assert.deepEqual([again.replaced, again.kept], [0, 2]);
+  const status = await s.call('GET', '/api/admin/market/storage', undefined, admin.token);
+  assert.equal(status.data.import.lastJob.fix, true);
+});
+
 test('import: a damaged file is not stored; bad input and a missing branch are reported', async () => {
   const good = monthFile('GBPUSD', 2024, 3, [4, 5], 1.27);
   const bad = monthFile('GBPUSD', 2024, 4, [1, 2], 1.26);

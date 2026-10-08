@@ -235,6 +235,35 @@ export function writeMonthFile(symbol: string, key: string, data: Uint8Array) {
   sizes.delete(symbol);
 }
 
+const sameBars = (a: Float64Array, b: Float64Array) => {
+  for (let i = 0; i < a.length; i++) {
+    if (Number.isNaN(a[i]) !== Number.isNaN(b[i])) return false;
+    if (!Number.isNaN(a[i]) && Math.abs(a[i] - b[i]) > 1e-9 * Math.max(1, Math.abs(a[i]))) return false;
+  }
+  return true;
+};
+
+/**
+ * Store the days a month file has (stored or closed) over the server's copy of that month, to take
+ * corrected data; days only the server has stay. False when the server's days were already the same.
+ */
+export function mergeMonthFile(symbol: string, key: string, data: Uint8Array): boolean {
+  const incoming = parseMonth(Buffer.from(data), 0);
+  const monthStart = Date.parse(`${key}-01T00:00:00Z`);
+  const old = readMonth(symbol, monthStart);
+  const days = new Map<number, DayBars>();
+  let changed = !old;
+  for (let d = 0; d < 31; d++) {
+    if (incoming.status[d] === MISSING) continue;
+    const bars = incoming.status[d] === STORED && incoming.ints ? decode(incoming.ints, incoming.block[d] * MINUTES * 4, MINUTES, 10 ** incoming.decimals) : null;
+    days.set(d + 1, bars);
+    if (changed || old!.status[d] !== incoming.status[d]) changed = true;
+    else if (bars && old!.ints && !sameBars(bars, decode(old!.ints, old!.block[d] * MINUTES * 4, MINUTES, 10 ** old!.decimals))) changed = true;
+  }
+  if (changed) writeDays(symbol, monthStart, days);
+  return changed;
+}
+
 // ---------- what is stored ----------
 /** symbol → month (YYYY-MM) → status of each day, read from the file headers once. */
 const coverage = new Map<string, Map<string, Uint8Array>>();

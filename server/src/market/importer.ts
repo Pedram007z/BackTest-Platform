@@ -6,13 +6,15 @@ import type { MarketImportJob, MarketImportStatus } from '../shared';
 import { UpstreamError, fetchWithTimeout, limiter } from '../util';
 import { INSTRUMENTS } from './instruments';
 import { claimStore, releaseStore } from './lock';
-import { coveredDays, monthFilePath, refreshCoverage, writeMonthFile } from './store';
+import { coveredDays, mergeMonthFile, monthFilePath, refreshCoverage, writeMonthFile } from './store';
 
 /**
  * Ready-made market history from a GitHub repository branch that holds store/<SYMBOL>/<YYYY>-<MM>.m1,
  * the storage's own month files (this platform's market-data branch by default). Started from the
  * admin panel. A month is downloaded only when the server lacks it or its copy differs; it replaces
  * the server's copy only when it covers more days. Running it again fetches only what changed.
+ * With `fix`, every day the branch has replaces the server's copy of that day (to take data corrected
+ * on the branch); days only the server has stay.
  */
 
 const PARALLEL = 4;
@@ -101,7 +103,10 @@ async function run(j: MarketImportJob): Promise<MarketImportJob> {
             j.bytes += data.length;
             const days = coveredDays(data);
             if (days < 0) throw new Error('فایل ماه معتبر نیست');
-            if (local && coveredDays(local) >= days) j.kept++;
+            if (local && j.fix) {
+              if (mergeMonthFile(e.symbol, e.month, data)) j.replaced++;
+              else j.kept++;
+            } else if (local && coveredDays(local) >= days) j.kept++;
             else {
               writeMonthFile(e.symbol, e.month, data);
               if (local) j.replaced++;
@@ -125,7 +130,9 @@ async function run(j: MarketImportJob): Promise<MarketImportJob> {
   refreshCoverage();
   j.current = undefined;
   j.finishedAt = Date.now();
-  console.log(`[market] import ${j.state}: ${j.added} months added, ${j.replaced} replaced, ${j.kept} kept, ${j.failed} failed (${j.repo}@${j.branch})`);
+  console.log(
+    `[market] import${j.fix ? ' (fix)' : ''} ${j.state}: ${j.added} months added, ${j.replaced} ${j.fix ? 'corrected' : 'replaced'}, ${j.kept} kept, ${j.failed} failed (${j.repo}@${j.branch})`,
+  );
   lastJob = j;
   job = null;
   stopping = false;
@@ -136,8 +143,8 @@ async function run(j: MarketImportJob): Promise<MarketImportJob> {
 const REPO = /^[\w.-]+\/[\w.-]+$/;
 const BRANCH = /^[\w./-]{1,100}$/;
 
-/** Start an import (one storage job at a time). */
-export function startImport(input: { repo?: unknown; branch?: unknown }): MarketImportJob {
+/** Start an import (one storage job at a time); `fix` also corrects the months the server has. */
+export function startImport(input: { repo?: unknown; branch?: unknown; fix?: unknown }): MarketImportJob {
   const repo = input.repo === undefined || input.repo === '' ? config.marketDataRepo : String(input.repo).trim();
   const branch = input.branch === undefined || input.branch === '' ? config.marketDataBranch : String(input.branch).trim();
   if (!REPO.test(repo)) throw badRequest('repo', 'نام مخزن به شکل owner/repo است.', 'repo');
@@ -146,6 +153,7 @@ export function startImport(input: { repo?: unknown; branch?: unknown }): Market
   const j: MarketImportJob = {
     repo,
     branch,
+    fix: input.fix === true,
     state: 'running',
     total: 0,
     done: 0,

@@ -318,7 +318,10 @@ fetched from Dukascopy or Binance while someone uses the site. The history has t
   README) is kept on this repository's `market-data` branch. In the admin panel → **نمادها و داده‌ی بازار**
   → **تاریخچه‌ی آماده از GitHub**, press **دریافت از GitHub**: the server downloads only the months it does
   not have (or has fewer days of), with progress and a stop button; pressing it again later takes only
-  what changed. The repository and branch can be changed there (`MARKET_DATA_REPO` and
+  what changed. A month the server already has is replaced only by a fuller one; to take data that was
+  corrected on the branch later (as on 8 October 2026), turn on **اصلاح داده‌های قبلی** before pressing
+  the button: every day the branch has then replaces the server's copy, and days only the server has
+  stay. The repository and branch can be changed there (`MARKET_DATA_REPO` and
   `MARKET_DATA_BRANCH` in `.env` set the defaults). If the repository is private, put a read-only token in
   `.env` as `MARKET_DATA_TOKEN` (github.com → Settings → Developer settings → Fine-grained tokens → only
   this repository, Contents: Read-only). Through a relay, set `GITHUB_API_URL` and `GITHUB_RAW_URL`.

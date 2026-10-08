@@ -12,7 +12,8 @@
 # tokens, access to that repository only, Contents: Read-only). Or set GITHUB_TOKEN=... to skip them.
 #
 # A month the server already has is replaced only by a larger file (more days). Run it again later to
-# add months published after the first import. ENV_FILE and SERVICE change the defaults below.
+# add months published after the first import. To take months corrected on the branch, use the admin
+# panel's import with «اصلاح داده‌های قبلی» on. ENV_FILE and SERVICE change the defaults below.
 set -euo pipefail
 REPO="${1:-https://github.com/Pedram007z/BackTest-Platform.git}"
 BRANCH="${2:-market-data}"
