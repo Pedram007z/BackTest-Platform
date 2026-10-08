@@ -3,16 +3,23 @@ import { join } from 'node:path';
 import { config } from '../config';
 import type { NewsSyncStatus } from '../shared';
 import { DAY_MS, limiter } from '../util';
-import { fetchThisWeekFeed, fetchWeekPage, weekKey, weekStart, type NewsEvent } from './forexfactory';
+import { CalendarBlockedError, fetchThisWeekFeed, fetchWeekPage, weekKey, weekStart, type NewsEvent } from './forexfactory';
 
 /**
  * Calendar events by ForexFactory week. A past week is fetched once and kept (its numbers no
  * longer change); the current and next week are refreshed every NEWS_SYNC_MINUTES. Weeks are
  * fetched when a replay first needs them, one page at a time to stay polite to ForexFactory.
+ *
+ * ForexFactory's Cloudflare answers most servers' page requests with a bot check. Then the hourly sync
+ * asks only for the week in progress, which comes from its official weekly feed (no actual values):
+ * kept hourly, each week stays when it ends, so the history grows week by week.
  */
 
 const WEEK = 7 * DAY_MS;
 const RETRY_AFTER_FAIL = 30 * 60_000;
+/** After a bot check, the sync asks for no other week's page during this long. */
+const PAGES_BLOCKED_MS = 12 * 3_600_000;
+let pagesBlockedUntil = 0;
 
 interface WeekRecord {
   fetchedAt: number;
@@ -78,9 +85,11 @@ function fetchWeek(start: number): Promise<void> {
     const thisWeek = weekStart(Date.now()) === start;
     try {
       const events = await fetchWeekPage(start);
+      pagesBlockedUntil = 0;
       store.weeks[key] = { fetchedAt: Date.now(), source: 'page', events };
       failures.delete(key);
     } catch (pageError) {
+      if (pageError instanceof CalendarBlockedError) pagesBlockedUntil = Date.now() + PAGES_BLOCKED_MS;
       if (thisWeek) {
         try {
           const events = await fetchThisWeekFeed();
@@ -136,29 +145,36 @@ export async function eventsBetween(from: number, to: number, waitMs = 12_000): 
 
 export function newsStatus(): NewsSyncStatus {
   const weeks = Object.values(store.weeks);
+  const keys = Object.keys(store.weeks).sort();
   return {
     source: 'forexfactory',
     lastSyncAt: store.lastSyncAt,
     events: weeks.reduce((n, w) => n + w.events.length, 0),
     weeks: weeks.length,
+    firstWeek: keys[0],
+    pagesBlocked: Date.now() < pagesBlockedUntil || undefined,
     lastError: store.lastError,
   };
 }
 
-/** Refresh this week and next, and fill the last four weeks if they are missing. */
+/**
+ * Refresh this week and next, and fill the last four weeks if they are missing. Weeks a bot check
+ * keeps out are not errors: the status says pages are blocked.
+ */
 export async function syncNews(): Promise<NewsSyncStatus> {
   const now = weekStart(Date.now());
   const errors: string[] = [];
-  for (const s of [now, now + WEEK]) {
-    try {
-      await fetchWeek(s);
-    } catch (e) {
-      errors.push(`${weekKey(s)}: ${(e as Error).message}`);
+  const note = (s: number) => (e: unknown) => {
+    if (!(e instanceof CalendarBlockedError)) errors.push(`${weekKey(s)}: ${(e as Error).message}`);
+  };
+  await fetchWeek(now).catch(note(now));
+  // pages blocked: next week and the weeks before would be blocked too
+  if (Date.now() >= pagesBlockedUntil) {
+    await fetchWeek(now + WEEK).catch(note(now + WEEK));
+    for (let i = 1; i <= 4; i++) {
+      const s = now - i * WEEK;
+      if (!store.weeks[weekKey(s)]) await fetchWeek(s).catch(note(s));
     }
-  }
-  for (let i = 1; i <= 4; i++) {
-    const s = now - i * WEEK;
-    if (!store.weeks[weekKey(s)]) await fetchWeek(s).catch((e) => errors.push(`${weekKey(s)}: ${(e as Error).message}`));
   }
   store.lastSyncAt = Date.now();
   store.lastError = errors.length ? errors.join(' — ') : undefined;

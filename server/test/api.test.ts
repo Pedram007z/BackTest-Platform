@@ -259,9 +259,32 @@ test('economic calendar: ForexFactory weeks are fetched once and cached', async 
   const status = (await s.call('GET', '/api/admin/news', undefined, admin.token)).data;
   assert.equal(status.weeks, 1);
   assert.equal(status.events, 4);
+
+  // ForexFactory keeps answering pages with a bot check: the sync stops asking for pages and keeps
+  // the week in progress from the weekly feed, without reporting the blocked weeks as errors
+  let pageAsks = 0;
+  s.setUpstream((url) => {
+    if (url.includes('/calendar?week=')) {
+      pageAsks++;
+      return new Response('<html><title>Just a moment...</title>cf-chl</html>', { status: 403 });
+    }
+    if (url.includes('ff_calendar_thisweek.json'))
+      return s.json([{ title: 'CPI m/m', country: 'USD', date: new Date().toISOString(), impact: 'High', forecast: '0.3%', previous: '0.2%' }]);
+    throw new Error(`unexpected upstream call: ${url}`);
+  });
   const sync = await s.call('POST', '/api/admin/news/sync', {}, admin.token);
   assert.equal(sync.status, 200);
-  assert.match(sync.data.lastError, /Cloudflare/);
+  assert.equal(sync.data.pagesBlocked, true);
+  assert.equal(sync.data.lastError, undefined, 'a bot check is not an error');
+  assert.equal(pageAsks, 1, 'only the week in progress: next week and earlier ones would be blocked too');
+  assert.equal(sync.data.weeks, 2, 'the week in progress came from the feed');
+  assert.equal(sync.data.firstWeek, '2024-01-07');
+
+  // a source that fails is an error
+  s.setUpstream(() => new Response('', { status: 500 }));
+  const failed = await s.call('POST', '/api/admin/news/sync', {}, admin.token);
+  assert.match(failed.data.lastError, /HTTP 500/);
+  assert.equal(failed.data.weeks, 2, 'the weeks kept stay');
 });
 
 test("errors from visitors' browsers are logged", async () => {

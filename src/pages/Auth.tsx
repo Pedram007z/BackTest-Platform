@@ -95,8 +95,8 @@ function MarketPanel() {
   // real 24-hour changes from the server; without one (or before they load) just the symbols
   const showcase = useShowcase();
   const quotes = useMemo(() => {
-    const change = new Map(showcase?.quotes.map((q) => [q.symbol, q.change]));
-    return TICKERS.map((s) => ({ s, chg: change.get(s) }));
+    const bySymbol = new Map(showcase?.quotes.map((q) => [q.symbol, q]));
+    return TICKERS.map((s) => ({ s, chg: bySymbol.get(s)?.change, price: bySymbol.get(s)?.price }));
   }, [showcase]);
   return (
     <aside className="relative hidden min-h-[100dvh] flex-col overflow-hidden border-r border-line/60 bg-side lg:flex">
@@ -121,6 +121,7 @@ function MarketPanel() {
           {[...quotes, ...quotes].map((q, i) => (
             <span key={i} className="flex items-center gap-2">
               <b className="text-ink">{q.s}</b>
+              {q.price !== undefined && <span className="num text-muted">{q.price.toLocaleString('en-US', { maximumFractionDigits: SYMBOL_MAP[q.s]?.digits ?? 5 })}</span>}
               {q.chg === undefined ? (
                 <span className="text-faint">{SYMBOL_MAP[q.s]?.name}</span>
               ) : (

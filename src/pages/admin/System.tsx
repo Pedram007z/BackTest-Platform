@@ -7,6 +7,7 @@ import { Badge, Field, Loading, PageHeader, act, dateTime, useLoad } from '../..
 import { Modal } from '../../components/ui/Modal';
 import { Select, Toggle } from '../../components/ui/controls';
 import { fmtPhone } from '../../lib/auth';
+import { fmtDay } from '../../lib/calendar';
 import { fmtNum, toLatinDigits } from '../../lib/format';
 import { GROUP_LABELS, SYMBOLS, groupLabel, type SymbolGroup } from '../../lib/market';
 import { TICKET_STATUS, TicketThread } from '../Support';
@@ -359,7 +360,20 @@ export function AdminNews() {
               <dd className="num">{fmtNum(data.events)}</dd>
               <dt className="text-muted">هفته‌های پوشش‌داده‌شده</dt>
               <dd className="num">{fmtNum(data.weeks)}</dd>
+              {data.firstWeek && (
+                <>
+                  <dt className="text-muted">از هفته‌ی</dt>
+                  <dd className="num">{fmtDay(data.firstWeek)}</dd>
+                </>
+              )}
             </dl>
+            {data.pagesBlocked && (
+              <p className="mt-4 rounded-xl bg-raised px-3 py-2 text-xs leading-6 text-muted">
+                ForexFactory صفحه‌های تقویم را برای سرورها با بررسی ضدربات (Cloudflare) می‌بندد؛ این محدودیت از طرف ForexFactory است و دور زده نمی‌شود. سرور هر ساعت فید رسمی هفته‌ی
+                جاری را ذخیره می‌کند و هر هفته بعد از تمام شدن نگه داشته می‌شود؛ پس تاریخچه از همین هفته به بعد هفته‌به‌هفته کامل می‌شود (فید عدد واقعی خبرها را ندارد). برای
+                هفته‌های قبل از آن، چارت تقویم نمونه را با برچسب «نمونه» نشان می‌دهد.
+              </p>
+            )}
             {data.lastError && <p className="mt-4 rounded-xl bg-amber/10 px-3 py-2 text-xs leading-6 text-amber">{data.lastError}</p>}
             <button
               type="button"
@@ -379,7 +393,10 @@ export function AdminNews() {
             <h2 className="mb-2 font-bold text-ink">چطور کار می‌کند</h2>
             <ul className="list-disc ps-5">
               <li>سرور هر ساعت فید هفته‌ی جاری ForexFactory را می‌خواند و رویدادها را ذخیره می‌کند.</li>
-              <li>برای هفته‌های گذشته (بک‌تست) صفحه‌ی تقویم همان هفته از ForexFactory خوانده و در پایگاه داده نگه داشته می‌شود؛ هر هفته فقط یک بار.</li>
+              <li>
+                برای هفته‌های گذشته (بک‌تست) صفحه‌ی تقویم همان هفته از ForexFactory خوانده و در پایگاه داده نگه داشته می‌شود؛ هر هفته فقط یک بار. اگر ForexFactory صفحه‌ها را برای
+                سرور ببندد، هر هفته از فید هفتگی نگه داشته می‌شود.
+              </li>
               <li>عدد واقعی (Actual) هر خبر تا وقتی بازپخش به زمان انتشار نرسیده به کاربر نشان داده نمی‌شود.</li>
               <li>زمان‌ها به UTC ذخیره و برای کاربر به وقت تهران نمایش داده می‌شوند.</li>
             </ul>
@@ -391,10 +408,75 @@ export function AdminNews() {
 }
 
 // ---------- market data / symbols ----------
-const SOURCES: { value: DataSource; label: string }[] = [
+const SOURCES: { value: DataSource; label: string; groups?: SymbolGroup[] }[] = [
   { value: 'dukascopy', label: 'Dukascopy (تاریخی)' },
-  { value: 'binance', label: 'Binance (کریپتو)' },
+  { value: 'binance', label: 'Binance (کریپتو)', groups: ['crypto'] },
+  { value: 'qveris', label: 'QVeris / EODHD (پولی)', groups: ['forex', 'metal', 'crypto'] },
 ];
+/** Sign-in ticker symbols QVeris prices (the server's showcase list without crypto, which Binance prices for free). */
+const LIVE_PAID_TICKERS = 5;
+
+function QverisPanel({ d, setD }: { d: SiteSettings; setD: (s: SiteSettings) => void }) {
+  const { data: st, loading, reload } = useLoad(() => backend.admin.qverisStatus());
+  const q = d.qveris;
+  const n = (v: string) => Number(toLatinDigits(v).replace(/\D/g, '')) || 0;
+  const call = st?.callCredits ?? 2.81;
+  const used = Object.values(d.marketData).includes('qveris');
+  const liveMax = q.live ? Math.round(LIVE_PAID_TICKERS * call * (1440 / Math.max(5, q.liveMinutes))) : 0;
+  return (
+    <section className="card mb-4 p-5">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h2 className="font-bold">QVeris (داده‌ی پولی EODHD)</h2>
+        {st && (st.configured ? <Badge tone="gain">کلید تنظیم شده</Badge> : <Badge tone="amber">کلید تنظیم نشده</Badge>)}
+        <button type="button" className="btn-ghost ms-auto px-2 py-1 text-[12px]" onClick={() => void reload()} disabled={loading}>
+          {loading ? <LoaderCircle size={14} className="animate-spin" /> : 'به‌روزرسانی'}
+        </button>
+      </div>
+      {st && !st.configured && (
+        <p className="mb-3 rounded-lg bg-amber/10 p-3 text-[13px] leading-7 text-muted">
+          برای استفاده، کلید API را در فایل <code dir="ltr">server/.env</code> بگذارید (<code dir="ltr">QVERIS_API_KEY=…</code>) و سرویس را دوباره راه‌اندازی کنید. تا آن زمان
+          بازارهایی که QVeris دارند از منبع رایگان خودشان دانلود می‌شوند.
+        </p>
+      )}
+      {st && (
+        <div className="mb-4 grid gap-3 text-[13px] sm:grid-cols-3">
+          <div className="rounded-xl border border-line/70 p-3">
+            <p className="text-[12px] text-faint">اعتبار حساب</p>
+            <p className="num mt-1 font-bold">{st.remaining === undefined ? '—' : fmtNum(st.remaining, 2)}</p>
+          </div>
+          <div className="rounded-xl border border-line/70 p-3">
+            <p className="text-[12px] text-faint">مصرف امروز (UTC)</p>
+            <p className="num mt-1 font-bold">
+              {fmtNum(st.today.credits, 2)} از {fmtNum(st.dailyCredits)} <span className="text-[12px] font-normal text-faint">({fmtNum(st.today.calls)} درخواست)</span>
+            </p>
+          </div>
+          <div className="rounded-xl border border-line/70 p-3">
+            <p className="text-[12px] text-faint">هزینه‌ی هر درخواست</p>
+            <p className="num mt-1 font-bold">{fmtNum(call, 2)} اعتبار</p>
+          </div>
+          {st.error && <p className="text-[12px] text-loss sm:col-span-3">{st.error}</p>}
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="سقف اعتبار روزانه" htmlFor="qv-daily" hint="دانلودها و قیمت لحظه‌ای روی هم؛ ۰ یعنی هیچ درخواستی">
+          <input id="qv-daily" className="field num" dir="ltr" value={q.dailyCredits} onChange={(e) => setD({ ...d, qveris: { ...q, dailyCredits: n(e.target.value) } })} />
+        </Field>
+        <label className="flex items-end gap-2 pb-2 text-sm">
+          <Toggle checked={q.live} onChange={(live) => setD({ ...d, qveris: { ...q, live } })} label="قیمت لحظه‌ای در نوار قیمت صفحه‌ی ورود" />
+          قیمت لحظه‌ای در نوار قیمت صفحه‌ی ورود
+        </label>
+        <Field label="به‌روزرسانی قیمت لحظه‌ای (دقیقه)" htmlFor="qv-live">
+          <input id="qv-live" className="field num" dir="ltr" value={q.liveMinutes} onChange={(e) => setD({ ...d, qveris: { ...q, liveMinutes: n(e.target.value) } })} />
+        </Field>
+      </div>
+      <p className="mt-3 text-xs leading-6 text-faint">
+        هر روز داده‌ی دقیقه‌ای یک نماد یک درخواست است؛ با این سقف حدود {fmtNum(Math.floor(q.dailyCredits / call))} روز-نماد در روز دانلود می‌شود و دانلود از جدیدترین روزها به عقب
+        پیش می‌رود. {used ? '' : 'QVeris فقط وقتی استفاده می‌شود که آن را منبع یک بازار (بالا) انتخاب کنید. '}
+        {q.live ? `قیمت لحظه‌ای: کریپتو از Binance (رایگان)، فارکس و طلا از QVeris؛ حداکثر حدود ${fmtNum(liveMax)} اعتبار در روز، فقط وقتی کسی صفحه‌ی ورود را باز کند.` : ''}
+      </p>
+    </section>
+  );
+}
 
 export function AdminMarket() {
   const { data, loading, reload } = useLoad(() => backend.admin.settings());
@@ -446,16 +528,17 @@ export function AdminMarket() {
                 id={`src-${g}`}
                 value={d.marketData[g]}
                 onChange={(v) => setD({ ...d, marketData: { ...d.marketData, [g]: v } })}
-                options={SOURCES.filter((s) => g === 'crypto' || s.value !== 'binance')}
+                options={SOURCES.filter((s) => !s.groups || s.groups.includes(g))}
               />
             </Field>
           ))}
         </div>
         <p className="mt-3 text-xs leading-6 text-faint">
-          همه‌ی قیمت‌ها داده‌ی واقعی تاریخی هستند: Dukascopy (قیمت Bid) و Binance. منبع فقط برای دانلودهای بعدی است؛ روزهای ذخیره‌شده تغییر نمی‌کنند. کندل‌های روزانه و ۴ ساعته مثل
-          بروکرها با بسته‌شدن ساعت ۱۷ نیویورک تشکیل می‌شوند؛ کریپتو با روز UTC.
+          همه‌ی قیمت‌ها داده‌ی واقعی تاریخی هستند: Dukascopy (قیمت Bid)، Binance و QVeris (داده‌ی EODHD، پولی). منبع فقط برای دانلودهای بعدی است؛ روزهای ذخیره‌شده تغییر نمی‌کنند.
+          کندل‌های روزانه و ۴ ساعته مثل بروکرها با بسته‌شدن ساعت ۱۷ نیویورک تشکیل می‌شوند؛ کریپتو با روز UTC.
         </p>
       </section>
+      <QverisPanel d={d} setD={setD} />
       <section className="card p-5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <h2 className="font-bold">نمادهای فعال</h2>

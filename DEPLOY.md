@@ -53,6 +53,7 @@ nginx-site.conf       nginx site
 relay-nginx.conf      relay abroad for servers in Iran (step 8)
 check-sources.sh      checks whether the server reaches the data sources (step 8)
 make-admin.sh         admin sign-in: username and password, or a mobile number (step 7)
+import-market-data.sh loads ready-made market history from GitHub (step 9)
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
@@ -120,7 +121,7 @@ cd /tmp && tar -xzf backtestlab-*.tar.gz
 sudo cp -r backtestlab/web/. /var/www/backtestlab/
 sudo cp backtestlab/server/server.mjs /opt/backtestlab/server/
 sudo cp backtestlab/backtestlab.service /etc/systemd/system/
-sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh /opt/backtestlab/
+sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh backtestlab/import-market-data.sh /opt/backtestlab/
 ```
 
 If you uploaded the folder instead of the archive, skip the `tar` line.
@@ -243,7 +244,7 @@ sudo bash /opt/backtestlab/make-admin.sh 09121234567
      **فقط برای اولین خرید** (first purchase only) works only for customers who have never completed a
      purchase; a refunded purchase counts as one. It is checked when the code is applied and again at checkout.
    - **نمادها و داده‌ی بازار** (symbols and market data): the stored market history and its download (step 9),
-     data source per market, and which symbols users can pick.
+     data source per market, which symbols users can pick, and QVeris (optional, paid; step 9).
    - **تقویم اقتصادی** (economic calendar): press sync and check that no error is shown.
    - **بک‌تست کاربران** (users' backtests): every user's sessions with their results, open positions,
      pending orders and closed trades (entry and exit price and time), the equity curve, the IP address their
@@ -313,6 +314,18 @@ its sample calendar.
 Charts read candles only from the server's own storage (`/var/lib/backtestlab/market/store`): nothing is
 fetched from Dukascopy or Binance while someone uses the site. The history has to be downloaded once:
 
+- **Ready-made, from GitHub (quickest).** The history from 2015 (about 1 GB; coverage per symbol in its
+  README) is kept on this repository's `market-data` branch. If the repository is private, make a
+  read-only token for it (github.com → Settings → Developer settings → Fine-grained tokens → only this
+  repository, Contents: Read-only), then:
+  ```bash
+  sudo apt install -y git
+  sudo GITHUB_TOKEN=YOUR_TOKEN bash /opt/backtestlab/import-market-data.sh
+  ```
+  It copies the months the server does not have (a month it has is replaced only by a fuller one) and
+  restarts the API server. With automatic download on, the server then adds each new day by itself; run
+  the import again to take months added to the repository later.
+
 - **By itself (default).** Half a minute after the API server starts, and then every hour, it downloads
   whatever is missing: the whole history from 2015 the first time (a few hours; about 2 GB), afterwards
   only each new day. Progress, coverage per symbol, stop and start are in the admin panel →
@@ -335,6 +348,21 @@ fetched from Dukascopy or Binance while someone uses the site. The history has t
   sudo chown -R backtestlab /var/lib/backtestlab/market && sudo systemctl restart backtestlab
   ```
   Run it again later (it adds only new days) and copy again to bring the server up to date.
+
+Dukascopy refuses a share of requests when they come quickly, and its firewall blocks a server that sends
+too many for a while (it answers with a "challenge" instead of data). The download therefore asks at most
+10 times a second (`DUKASCOPY_RATE` in `.env`); when it is blocked anyway it pauses five minutes, halves the
+rate and goes on, so it only slows down. The first download of the whole history from 2015 takes several
+hours; it runs in the background and continues after a restart.
+
+**QVeris (optional, paid).** QVeris (qveris.ai) sells EODHD's 1-minute history for forex, metals and crypto
+and live quotes, per request (2.81 credits each). The free sources above are enough; use QVeris only if
+your server cannot reach them, or for live prices in the sign-in page's ticker. Put the key in
+`/opt/backtestlab/server/.env` (`QVERIS_API_KEY=…`, see `.env.example`), restart, then in the admin panel →
+**نمادها و داده‌ی بازار** pick QVeris as a market's source and set the daily credit limit. One request
+fetches one symbol's day, newest days first; at the limit the rest waits for the next day. A full history
+for one forex pair is about 3,700 requests (about 10,000 credits). Through the relay (step 8) also set
+`QVERIS_URL` and `QVERIS_FILES_URL`.
 
 Second timeframes (1–30 s) are built from the 1-minute candles. For the real movement inside each minute,
 download 1-second data (Dukascopy ticks / Binance 1-second archives) for a symbol and date range in the

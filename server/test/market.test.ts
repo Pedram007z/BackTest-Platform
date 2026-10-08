@@ -79,6 +79,7 @@ before(async () => {
   s = await startServer({ OTP_DEV_ECHO: 'true' });
   download = await import('../src/market/download');
   parse = await import('../src/market/sources');
+  parse.setDukascopyRetryMs(1);
   admin = await s.signIn('09120000001', 'مدیر');
   user = await s.signIn('09351234567', 'کاربر');
 });
@@ -134,6 +135,58 @@ test('Dukascopy: the data API first, the datafeed files when it has no answer', 
   assert.ok(
     seen.some((u) => u.includes('datafeed.dukascopy.com/datafeed/XAUUSD/2024/00/16/')),
     'XAUUSD fell back to the datafeed',
+  );
+});
+
+test('Dukascopy: refused requests (429, 503) are asked again instead of failing the day', async () => {
+  const seen: string[] = [];
+  const base = upstream(seen);
+  const refusals = new Map<string, number>();
+  s.setUpstream((url) => {
+    // the data API refuses each day twice before answering; the datafeed is never needed
+    if (url.includes('jetta.dukascopy.com') && url.includes('GBP-JPY')) {
+      const n = refusals.get(url) ?? 0;
+      refusals.set(url, n + 1);
+      if (n < 2) {
+        seen.push(url);
+        return new Response('', { status: n === 0 ? 429 : 503, headers: n === 0 ? { 'Retry-After': '0' } : {} });
+      }
+    }
+    return base(url);
+  });
+  const job = await runDownload({ symbols: ['GBPJPY'], from: '2024-02-05', to: '2024-02-07' });
+  assert.deepEqual([job.state, job.stored, job.failed], ['done', 3, 0]);
+  assert.deepEqual([...refusals.values()], [3, 3, 3], 'each day: two refusals, then the answer');
+  assert.ok(!seen.some((u) => u.includes('datafeed.dukascopy.com')), 'no fallback to the datafeed');
+});
+
+test('Dukascopy: the downloader names itself plainly; a firewall challenge pauses, then asks again', async () => {
+  const seen: string[] = [];
+  const base = upstream(seen);
+  const agents = new Set<string | null>();
+  const challenge = () => new Response('', { status: 202, headers: { 'x-amzn-waf-action': 'challenge' } });
+  let calls = 0;
+  s.setUpstream((url, init) => {
+    agents.add(new Headers(init?.headers).get('User-Agent'));
+    // the first answer is a challenge; after the pause the API answers
+    if (url.includes('jetta.dukascopy.com') && url.includes('GBP-JPY') && calls++ === 0) return challenge();
+    return base(url);
+  });
+  const t = Date.now();
+  const job = await runDownload({ symbols: ['GBPJPY'], from: '2024-02-12', to: '2024-02-12' });
+  assert.deepEqual([job.stored, job.failed], [1, 0]);
+  assert.equal(calls, 2, 'asked again after the pause');
+  assert.ok(Date.now() - t >= 500, 'paused first (five minutes in production)');
+  assert.ok(!seen.some((u) => u.includes('datafeed.dukascopy.com')), 'no fallback while the API answers after a pause');
+  assert.ok(![...agents].some((a) => a?.startsWith('Mozilla')), `no browser-like User-Agent: ${[...agents].join(', ')}`);
+
+  // challenged every time: after a few pauses the datafeed is asked instead
+  s.setUpstream((url) => (url.includes('jetta.dukascopy.com') ? challenge() : base(url)));
+  const blocked = await runDownload({ symbols: ['GBPJPY'], from: '2024-02-13', to: '2024-02-13' });
+  assert.deepEqual([blocked.stored, blocked.failed], [1, 0]);
+  assert.ok(
+    seen.some((u) => u.includes('datafeed.dukascopy.com/datafeed/GBPJPY/2024/01/13/')),
+    'the datafeed answered',
   );
 });
 
@@ -233,7 +286,9 @@ test('admin: storage report, one download at a time, limits, and stop', async ()
 
 test('a source that does not answer ends the download instead of trying every day', async () => {
   s.setUpstream(() => new Response('', { status: 503 }));
-  const job = await runDownload({ symbols: ['AUDUSD'], from: '2022-01-01', to: '2022-12-31' });
+  // every refusal pauses all Dukascopy requests: shorter pauses keep this test quick
+  parse.setDukascopyRetryMs(0.05);
+  const job = await runDownload({ symbols: ['AUDUSD'], from: '2022-01-01', to: '2022-12-31' }).finally(() => parse.setDukascopyRetryMs(1));
   assert.equal(job.state, 'failed');
   assert.match(job.message ?? '', /پاسخ نمی‌دهد/);
   assert.ok(job.done < job.total);

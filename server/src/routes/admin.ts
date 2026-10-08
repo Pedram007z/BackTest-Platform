@@ -3,6 +3,7 @@ import { db, save, type StoredPayment } from '../db';
 import { HttpError, badRequest, bool, notFound, num, oneOf, str, type Ctx, type Router } from '../http';
 import { INSTRUMENTS } from '../market/instruments';
 import { marketStorage, startDownload, stopDownload } from '../market/download';
+import { qverisStatus } from '../market/qveris';
 import { newsStatus, syncNews } from '../news';
 import { GATEWAY_IDS, markPaid, publicPayment, testGateway } from '../payments';
 import { cardAdmin, deleteCard, expireTransfers, rejectTransfer, saveCard, saveCardSettings, transferToReview } from '../payments/card';
@@ -45,6 +46,8 @@ function page<T>(items: T[], q: URLSearchParams) {
 
 /** Real sources only: the replay never shows generated prices when it has a server. */
 const SOURCES: DataSource[] = ['dukascopy', 'binance'];
+/** QVeris has forex, metals and crypto (EODHD), not the index and energy CFDs. */
+const WITH_QVERIS: DataSource[] = [...SOURCES, 'qveris'];
 const SMS_IDS = Object.keys(SMS_PROVIDER_NAMES) as SmsProviderId[];
 
 function stats(): AdminStats {
@@ -120,6 +123,7 @@ function validPlan(b: any, id: string): Plan {
 function validSettings(b: any): SiteSettings {
   const d = db();
   const md = b.marketData ?? {};
+  const qv = b.qveris ?? d.settings.qveris;
   const enabled = Array.isArray(b.enabledSymbols) ? b.enabledSymbols.filter((s: unknown) => typeof s === 'string' && INSTRUMENTS[s]) : [];
   const trialPlanId = String(b.trialPlanId ?? '');
   if (!d.plans.some((p) => p.id === trialPlanId)) throw badRequest('invalid', 'پلن دوره‌ی آزمایشی پیدا نشد.', 'trialPlanId');
@@ -133,15 +137,20 @@ function validSettings(b: any): SiteSettings {
     otpLength: num(b.otpLength, 'otpLength', { min: 4, max: 8, int: true, label: 'طول کد' }),
     otpTtlSec: num(b.otpTtlSec, 'otpTtlSec', { min: 30, max: 900, int: true, label: 'اعتبار کد' }),
     marketData: {
-      forex: oneOf(md.forex, SOURCES, 'marketData.forex'),
+      forex: oneOf(md.forex, WITH_QVERIS, 'marketData.forex'),
       index: oneOf(md.index, SOURCES, 'marketData.index'),
-      metal: oneOf(md.metal, SOURCES, 'marketData.metal'),
+      metal: oneOf(md.metal, WITH_QVERIS, 'marketData.metal'),
       energy: oneOf(md.energy, SOURCES, 'marketData.energy'),
-      crypto: oneOf(md.crypto, SOURCES, 'marketData.crypto'),
+      crypto: oneOf(md.crypto, WITH_QVERIS, 'marketData.crypto'),
     },
     enabledSymbols: enabled.length === Object.keys(INSTRUMENTS).length ? [] : enabled,
     newsAutoSync: bool(b.newsAutoSync),
     marketAutoDownload: bool(b.marketAutoDownload),
+    qveris: {
+      dailyCredits: num(qv.dailyCredits, 'qveris.dailyCredits', { min: 0, max: 1_000_000, int: true, label: 'سقف اعتبار روزانه‌ی QVeris' }),
+      live: bool(qv.live),
+      liveMinutes: num(qv.liveMinutes, 'qveris.liveMinutes', { min: 5, max: 1440, int: true, label: 'فاصله‌ی به‌روزرسانی قیمت لحظه‌ای' }),
+    },
   };
 }
 
@@ -604,6 +613,10 @@ export function adminRoutes(r: Router) {
       );
       return job;
     }),
+  );
+  r.get(
+    '/api/admin/market/qveris',
+    admin(() => qverisStatus()),
   );
   r.post(
     '/api/admin/market/download/stop',
