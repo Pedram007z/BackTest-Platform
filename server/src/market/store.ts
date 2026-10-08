@@ -215,6 +215,26 @@ export function writeDays(symbol: string, monthStart: number, days: Map<number, 
   sizes.delete(symbol);
 }
 
+// ---------- ready-made month files (importer.ts) ----------
+/** Where a month file (key "YYYY-MM") of a symbol is kept. */
+export const monthFilePath = (symbol: string, key: string) => join(symbolDir(symbol), `${key}.m1`);
+
+/** Days a month file covers (stored or closed), from its header; -1 when it is not a month file. */
+export function coveredDays(data: Uint8Array): number {
+  if (data.length < MONTH_HEADER || Buffer.from(data.subarray(0, 4)).toString('latin1') !== MONTH_MAGIC) return -1;
+  let n = 0;
+  for (let d = 0; d < 31; d++) if (data[8 + d] !== MISSING) n++;
+  return n;
+}
+
+/** Store a month file as it is (already in this format). */
+export function writeMonthFile(symbol: string, key: string, data: Uint8Array) {
+  writeAtomic(monthFilePath(symbol, key), Buffer.from(data));
+  monthCache.delete(`${symbol}:${key}`);
+  coverage.delete(symbol);
+  sizes.delete(symbol);
+}
+
 // ---------- what is stored ----------
 /** symbol → month (YYYY-MM) → status of each day, read from the file headers once. */
 const coverage = new Map<string, Map<string, Uint8Array>>();

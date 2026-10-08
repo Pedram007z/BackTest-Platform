@@ -17,6 +17,7 @@ import type {
   GatewayId,
   LoginEvent,
   MarketDownloadJob,
+  MarketImportJob,
   MarketStorage,
   NewsSyncStatus,
   QverisStatus,
@@ -113,6 +114,9 @@ export interface AdminApi {
   marketStorage(): Promise<MarketStorage>;
   startMarketDownload(input: { kind?: 'm1' | 's1'; symbols?: string[]; from?: string; to?: string }): Promise<MarketDownloadJob>;
   stopMarketDownload(): Promise<MarketDownloadJob | null>;
+  /** Ready-made history from a GitHub branch (repository and branch default to the server's). */
+  startMarketImport(input: { repo?: string; branch?: string }): Promise<MarketImportJob>;
+  stopMarketImport(): Promise<MarketImportJob | null>;
   /** QVeris on the server: key set, credits spent today, the account's balance. */
   qverisStatus(): Promise<QverisStatus>;
   /** The signed-in admin's username for signing in with a password (null when not set). */

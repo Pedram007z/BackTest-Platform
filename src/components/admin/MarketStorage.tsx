@@ -1,11 +1,11 @@
 import clsx from 'clsx';
-import { CircleStop, Download, HardDrive, Timer } from 'lucide-react';
+import { CircleStop, CloudDownload, Download, HardDrive, Timer } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { addDays, fmtDay, localDayKey, type DayKey } from '../../lib/calendar';
 import { faDigits, fmtNum } from '../../lib/format';
 import { SYMBOLS, SYMBOL_MAP } from '../../lib/market';
 import { BackendError, backend } from '../../services';
-import type { MarketDownloadJob, MarketStorage } from '../../services/types';
+import type { MarketDownloadJob, MarketImportJob, MarketImportStatus, MarketStorage } from '../../services/types';
 import { DatePicker } from '../ui/DatePicker';
 import { Meter, Select, Toggle } from '../ui/controls';
 import { Badge, act, dateTime } from './kit';
@@ -66,6 +66,110 @@ function JobSummary({ job }: { job: MarketDownloadJob }) {
   );
 }
 
+function ImportSummary({ job }: { job: MarketImportJob }) {
+  const [open, setOpen] = useState(false);
+  const pct = job.total ? job.done / job.total : 0;
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-line/70 p-3 text-[13px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={STATE[job.state].tone}>{STATE[job.state].label}</Badge>
+        <span className="text-muted" dir="ltr">
+          {job.repo} · {job.branch}
+        </span>
+        <span className="num ms-auto text-[12px] text-faint">{dateTime(job.finishedAt ?? job.startedAt)}</span>
+      </div>
+      {job.state === 'running' && (
+        <>
+          <Meter value={pct} tone="accent" className="h-2" />
+          <p className="num text-muted">
+            {fmtNum(job.done)} از {fmtNum(job.total)} فایل ({faDigits(Math.floor(pct * 100))}٪) · {fmtBytes(job.bytes)} دریافت شد{job.current ? ` · ${job.current}` : ''}
+          </p>
+        </>
+      )}
+      <p className="num text-[12px] text-muted">
+        ماه‌های اضافه‌شده: {fmtNum(job.added)} · جایگزین با نسخه‌ی کامل‌تر: {fmtNum(job.replaced)} · از قبل روی سرور: {fmtNum(job.kept)} · ناموفق:{' '}
+        <span className={clsx(job.failed > 0 && 'text-loss')}>{fmtNum(job.failed)}</span>
+      </p>
+      {job.message && <p className="text-[12px] text-loss">{job.message}</p>}
+      {job.errors.length > 0 && (
+        <div>
+          <button type="button" className="text-[12px] font-semibold text-accent-ink" onClick={() => setOpen((v) => !v)}>
+            {open ? 'بستن خطاها' : `نمایش خطاها (${fmtNum(job.errors.length)})`}
+          </button>
+          {open && (
+            <ul className="mt-2 max-h-40 overflow-auto rounded-lg bg-raised/60 p-2 text-left text-[11px] text-muted" dir="ltr">
+              {job.errors.map((e, i) => (
+                <li key={i}>
+                  {e.file}: {e.error}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Ready-made history (1-minute candles from 2015) from a GitHub repository branch. */
+function ImportBox({
+  st,
+  busy,
+  onStart,
+  onStop,
+  downloading,
+}: {
+  st: MarketImportStatus;
+  busy: boolean;
+  downloading: boolean;
+  onStart: (repo: string, branch: string) => void;
+  onStop: () => void;
+}) {
+  const [repo, setRepo] = useState(st.repo);
+  const [branch, setBranch] = useState(st.branch);
+  return (
+    <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
+      <h3 className="mb-1 flex items-center gap-2 text-sm font-bold">
+        <CloudDownload size={16} /> تاریخچه‌ی آماده از GitHub
+      </h3>
+      <p className="mb-3 text-xs leading-6 text-faint">
+        سریع‌ترین راه پر کردن تاریخچه: کندل‌های یک‌دقیقه‌ای از ۲۰۱۵ (حدود ۱ گیگابایت، با همین قالب ذخیره‌سازی) از یک شاخه‌ی مخزن GitHub دریافت می‌شود. فقط ماه‌هایی که سرور ندارد یا
+        روزهای کمتری از آن دارد دریافت و ذخیره می‌شوند؛ اجرای دوباره فقط تغییرها را می‌گیرد. بعد از آن دانلود خودکار کمبودها و روزهای جدید را اضافه می‌کند.
+        {!st.tokenSet && ' برای مخزن خصوصی، توکن فقط‌خواندنی را در MARKET_DATA_TOKEN فایل ‎.env‎ سرور بگذارید.'}
+      </p>
+      {st.job ? (
+        <div className="flex flex-col gap-2">
+          <ImportSummary job={st.job} />
+          <button type="button" className="btn-soft self-start" disabled={busy} onClick={onStop}>
+            <CircleStop size={15} /> توقف دریافت
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="grid items-end gap-3 sm:grid-cols-[2fr_1fr_auto]">
+            <div>
+              <label className="label" htmlFor="imp-repo">
+                مخزن
+              </label>
+              <input id="imp-repo" className="field" dir="ltr" value={repo} onChange={(e) => setRepo(e.target.value.trim())} placeholder="owner/repo" />
+            </div>
+            <div>
+              <label className="label" htmlFor="imp-branch">
+                شاخه
+              </label>
+              <input id="imp-branch" className="field" dir="ltr" value={branch} onChange={(e) => setBranch(e.target.value.trim())} />
+            </div>
+            <button type="button" className="btn-primary" disabled={busy || downloading || !repo || !branch} onClick={() => onStart(repo, branch)}>
+              <CloudDownload size={15} /> دریافت از GitHub
+            </button>
+          </div>
+          {st.lastJob && <ImportSummary job={st.lastJob} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Market history on the server's disk: what is stored, the download in progress, and the controls.
  * Charts read only this storage.
@@ -88,8 +192,9 @@ export function MarketStoragePanel({ autoDownload, onAutoDownload }: { autoDownl
     }
   }, []);
   useEffect(() => void load(), [load]);
-  // follow a running download
-  const running = !!st?.job;
+  // follow a running download or import
+  const importing = !!st?.import?.job;
+  const running = !!st?.job || importing;
   useEffect(() => {
     if (!running) return;
     const t = setInterval(() => void load(), 2000);
@@ -104,6 +209,16 @@ export function MarketStoragePanel({ autoDownload, onAutoDownload }: { autoDownl
   const stop = async () => {
     setBusy(true);
     if (await act(backend.admin.stopMarketDownload(), 'دانلود پس از ماه‌های در حال دریافت متوقف می‌شود')) await load();
+    setBusy(false);
+  };
+  const startImport = async (repo: string, branch: string) => {
+    setBusy(true);
+    if (await act(backend.admin.startMarketImport({ repo, branch }), 'دریافت تاریخچه از GitHub شروع شد')) await load();
+    setBusy(false);
+  };
+  const stopImport = async () => {
+    setBusy(true);
+    if (await act(backend.admin.stopMarketImport(), 'دریافت پس از فایل‌های در حال دریافت متوقف می‌شود')) await load();
     setBusy(false);
   };
 
@@ -141,6 +256,8 @@ export function MarketStoragePanel({ autoDownload, onAutoDownload }: { autoDownl
       </div>
       <Meter value={expected ? days / expected : 0} tone="gain" className="h-2" />
 
+      {st.import && <ImportBox st={st.import} busy={busy} downloading={!!st.job} onStart={(r, b) => void startImport(r, b)} onStop={() => void stopImport()} />}
+
       {st.job ? (
         <div className="flex flex-col gap-2">
           <JobSummary job={st.job} />
@@ -151,7 +268,7 @@ export function MarketStoragePanel({ autoDownload, onAutoDownload }: { autoDownl
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="btn-primary" disabled={busy || days >= expected} onClick={() => void start({})}>
+            <button type="button" className="btn-primary" disabled={busy || importing || days >= expected} onClick={() => void start({})}>
               <Download size={15} /> {days ? 'دانلود روزهای باقی‌مانده' : 'دانلود تاریخچه‌ی همه‌ی نمادها'}
             </button>
             <span className="text-xs text-faint">فقط روزهایی که ذخیره نشده‌اند دانلود می‌شوند؛ دانلود کامل چند ساعت طول می‌کشد (حدود ۱٫۵ گیگابایت).</span>

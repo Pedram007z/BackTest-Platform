@@ -3,6 +3,7 @@ import { db, save, type StoredPayment } from '../db';
 import { HttpError, badRequest, bool, notFound, num, oneOf, str, type Ctx, type Router } from '../http';
 import { INSTRUMENTS } from '../market/instruments';
 import { marketStorage, startDownload, stopDownload } from '../market/download';
+import { startImport, stopImport } from '../market/importer';
 import { qverisStatus } from '../market/qveris';
 import { newsStatus, syncNews } from '../news';
 import { GATEWAY_IDS, markPaid, publicPayment, testGateway } from '../payments';
@@ -612,6 +613,22 @@ export function adminRoutes(r: Router) {
         `${job.symbols.length > 3 ? `${job.symbols.length} نماد` : job.symbols.join('، ')} · ${job.from} تا ${job.to}`,
       );
       return job;
+    }),
+  );
+  r.post(
+    '/api/admin/market/import',
+    admin((ctx) => {
+      const j = startImport({ repo: ctx.body.repo, branch: ctx.body.branch });
+      audit(ctx, 'دریافت تاریخچه‌ی آماده‌ی بازار', `${j.repo} · ${j.branch}`);
+      return j;
+    }),
+  );
+  r.post(
+    '/api/admin/market/import/stop',
+    admin((ctx) => {
+      const j = stopImport();
+      if (j) audit(ctx, 'توقف دریافت تاریخچه‌ی آماده');
+      return j;
     }),
   );
   r.get(

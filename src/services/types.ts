@@ -317,6 +317,41 @@ export interface MarketStorage {
   job: MarketDownloadJob | null;
   lastJob: MarketDownloadJob | null;
   autoDownload: boolean;
+  /** ready-made history from GitHub; absent in the demo */
+  import?: MarketImportStatus;
+}
+
+/** Loading ready-made month files from a GitHub repository branch (admin panel). */
+export interface MarketImportJob {
+  repo: string;
+  branch: string;
+  state: 'running' | 'done' | 'stopped' | 'failed';
+  /** month files on the branch, and how they went */
+  total: number;
+  done: number;
+  added: number;
+  replaced: number;
+  /** the server already had them (same file, or one covering as many days) */
+  kept: number;
+  failed: number;
+  /** downloaded so far, and the size of every file on the branch */
+  bytes: number;
+  totalBytes: number;
+  current?: string;
+  errors: { file: string; error: string }[];
+  message?: string;
+  startedAt: number;
+  finishedAt?: number;
+}
+
+export interface MarketImportStatus {
+  /** the server's default repository and branch */
+  repo: string;
+  branch: string;
+  /** MARKET_DATA_TOKEN is set (private repositories) */
+  tokenSet: boolean;
+  job: MarketImportJob | null;
+  lastJob: MarketImportJob | null;
 }
 
 /** QVeris on this server (admin panel). */

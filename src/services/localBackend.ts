@@ -1268,6 +1268,14 @@ export const localBackend: Backend = {
         autoDownload: db().settings.marketAutoDownload,
       };
     },
+    async startMarketImport() {
+      requireAdmin();
+      throw new BackendError('unsupported', 'نسخه‌ی نمایشی سرور ندارد؛ تاریخچه‌ی آماده روی سرور API دریافت می‌شود.');
+    },
+    async stopMarketImport() {
+      requireAdmin();
+      return null;
+    },
     async qverisStatus() {
       requireAdmin();
       // the demo has no server, so no QVeris key

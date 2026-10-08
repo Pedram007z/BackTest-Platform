@@ -77,6 +77,15 @@ export const config = {
   qverisUrl: env('QVERIS_URL', 'https://qveris.ai/api/v1').replace(/\/$/, ''),
   /** Large QVeris results are files on https://oss.qveris.ai; set this to fetch them through a relay. */
   qverisFilesUrl: env('QVERIS_FILES_URL').replace(/\/$/, ''),
+  /**
+   * Ready-made market history (admin panel → import): a GitHub repository branch holding
+   * store/<SYMBOL>/<YYYY>-<MM>.m1. A token is needed only when the repository is private.
+   */
+  marketDataRepo: env('MARKET_DATA_REPO', 'Pedram007z/BackTest-Platform'),
+  marketDataBranch: env('MARKET_DATA_BRANCH', 'market-data'),
+  marketDataToken: env('MARKET_DATA_TOKEN'),
+  githubApiUrl: env('GITHUB_API_URL', 'https://api.github.com').replace(/\/$/, ''),
+  githubRawUrl: env('GITHUB_RAW_URL', 'https://raw.githubusercontent.com').replace(/\/$/, ''),
   /** Hourly refresh of the current calendar week. */
   newsSyncMinutes: int('NEWS_SYNC_MINUTES', 60),
   upstreamTimeoutMs: int('UPSTREAM_TIMEOUT_MS', 15_000),
