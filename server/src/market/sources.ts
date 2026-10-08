@@ -196,9 +196,65 @@ export function parseDukascopyApiTicks(data: unknown, hourStart: number): DayBar
   return hasBars(out) ? out : null;
 }
 
-/** After the data API could not be reached, the datafeed is used alone for a while. */
+/**
+ * Dukascopy's firewall answers a browser-like User-Agent from a program with a challenge page (HTTP
+ * 202, header x-amzn-waf-action: challenge) instead of data, so the downloader names itself plainly.
+ */
+const DUKASCOPY_UA = 'backtestlab-downloader';
+
+/** After the data API could not be reached several times in a row, the datafeed is used alone for a while. */
 const API_PAUSE_MS = 10 * 60_000;
+const API_ERRORS_BEFORE_PAUSE = 5;
 let apiPausedUntil = 0;
+let apiErrorsInARow = 0;
+
+/**
+ * Dukascopy refuses a share of requests with 429 (too many requests) or 503 even at a few dozen
+ * requests a second, on the data API and the datafeed alike; under load the data API also answers
+ * 202 (accepted, data not ready yet) without data. Such a request is asked again after
+ * a pause that doubles each time (or what Retry-After says); many refusals in a row also pause every
+ * Dukascopy request for a while, so a long download slows down instead of losing days. A timeout or
+ * dropped connection is tried again twice.
+ */
+const RETRIES = 8;
+const NETWORK_RETRIES = 2;
+let retryMs = 500;
+let refusedInARow = 0;
+let refusedUntil = 0;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function dukascopyFetch(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const wait = refusedUntil - Date.now();
+    if (wait > 0) await sleep(wait);
+    let res: Response;
+    try {
+      res = await fetchWithTimeout(url, init);
+    } catch (e) {
+      if (attempt >= NETWORK_RETRIES) throw e;
+      await sleep(retryMs * 2 ** attempt);
+      continue;
+    }
+    // a firewall challenge is not passed by asking again
+    const refused = res.status === 429 || res.status === 503 || (res.status === 202 && !res.headers.get('x-amzn-waf-action'));
+    if (!refused || attempt >= RETRIES) {
+      if (!refused) refusedInARow = 0;
+      return res;
+    }
+    await res.arrayBuffer().catch(() => undefined);
+    refusedInARow++;
+    if (refusedInARow >= 10) refusedUntil = Math.max(refusedUntil, Date.now() + Math.min(120 * retryMs, 4 * retryMs * (refusedInARow - 9)));
+    const after = Number(res.headers.get('retry-after')) * 1000;
+    await sleep(after > 0 ? Math.min(after, 60_000) : Math.min(60 * retryMs, retryMs * 2 ** attempt) * (0.5 + Math.random()));
+  }
+}
+
+/** Tests: shorter pauses between retries. */
+export function setDukascopyRetryMs(ms: number) {
+  retryMs = ms;
+  refusedInARow = 0;
+  refusedUntil = 0;
+}
 
 /** A completed period has a fixed address; the current one is asked for with ?from= (changing data). */
 function apiUrl(kind: 'minute' | 'ticks', code: string, start: number, periodMs: number): string {
@@ -214,12 +270,13 @@ async function fromApi<T>(url: string, parse: (data: unknown) => T): Promise<T |
   if (config.dukascopyApiUrl === 'off' || Date.now() < apiPausedUntil) return undefined;
   let res: Response;
   try {
-    res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0 backtest-dashboard', Accept: 'application/json' } });
+    res = await dukascopyFetch(url, { headers: { 'User-Agent': DUKASCOPY_UA, Accept: 'application/json' } });
   } catch {
-    apiPausedUntil = Date.now() + API_PAUSE_MS;
+    if (++apiErrorsInARow >= API_ERRORS_BEFORE_PAUSE) apiPausedUntil = Date.now() + API_PAUSE_MS;
     return undefined;
   }
-  if (!res.ok) return undefined;
+  apiErrorsInARow = 0;
+  if (res.status !== 200) return undefined;
   try {
     return parse(JSON.parse(await res.text()));
   } catch {
@@ -235,7 +292,7 @@ const dukascopyDir = (name: string, ms: number) => {
 };
 
 async function dukascopyFile(url: string, periodEnd: number, label: string): Promise<Uint8Array | null> {
-  const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0 backtest-dashboard' } });
+  const res = await dukascopyFetch(url, { headers: { 'User-Agent': DUKASCOPY_UA } });
   if (res.status === 404) {
     // Periods well in the past without a file had no trading; recent ones may simply not be published yet.
     if (periodEnd + 2 * DAY_MS < Date.now()) return null;

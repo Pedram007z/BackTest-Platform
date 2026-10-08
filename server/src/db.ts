@@ -92,6 +92,8 @@ export interface Db {
   /** messages shown to visitors as a popup */
   announcements: Announcement[];
   media: StoredMedia[];
+  /** QVeris credits this server spent on the last day it used them (UTC), and the balance it last saw */
+  qverisUsage?: { day: string; credits: number; calls: number; remaining?: number; remainingAt?: number };
 }
 
 export interface AdminCredential {
@@ -160,6 +162,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   enabledSymbols: [],
   newsAutoSync: true,
   marketAutoDownload: true,
+  qveris: { dailyCredits: 300, live: false, liveMinutes: 60 },
 };
 
 export const DEFAULT_CARD_TO_CARD: CardToCardSettings = { enabled: false, payMinutes: 30, note: '' };
@@ -215,7 +218,12 @@ function fresh(): Db {
 function upgrade(d: Partial<Db>): Db {
   const base = fresh();
   const out = { ...base, ...d } as Db;
-  out.settings = { ...base.settings, ...(d.settings ?? {}), marketData: { ...base.settings.marketData, ...(d.settings?.marketData ?? {}) } };
+  out.settings = {
+    ...base.settings,
+    ...(d.settings ?? {}),
+    marketData: { ...base.settings.marketData, ...(d.settings?.marketData ?? {}) },
+    qveris: { ...base.settings.qveris, ...(d.settings?.qveris ?? {}) },
+  };
   // generated prices are no longer offered: markets that used them get their real source
   for (const g of Object.keys(out.settings.marketData) as (keyof typeof out.settings.marketData)[]) {
     if (out.settings.marketData[g] === 'synthetic') out.settings.marketData[g] = base.settings.marketData[g];

@@ -67,6 +67,14 @@ export const config = {
   binanceUrl: env('BINANCE_URL', 'https://data-api.binance.vision').replace(/\/$/, ''),
   /** Binance's history archives (monthly and daily ZIP files), used by the downloader. */
   binanceVisionUrl: env('BINANCE_VISION_URL', 'https://data.binance.vision').replace(/\/$/, ''),
+  /**
+   * QVeris (qveris.ai), a paid gateway to EODHD's 1-minute history and live quotes; optional. Without a
+   * key it is never called. The key stays on the server; the admin sets a daily credit limit.
+   */
+  qverisApiKey: env('QVERIS_API_KEY'),
+  qverisUrl: env('QVERIS_URL', 'https://qveris.ai/api/v1').replace(/\/$/, ''),
+  /** Large QVeris results are files on https://oss.qveris.ai; set this to fetch them through a relay. */
+  qverisFilesUrl: env('QVERIS_FILES_URL').replace(/\/$/, ''),
   /** Hourly refresh of the current calendar week. */
   newsSyncMinutes: int('NEWS_SYNC_MINUTES', 60),
   upstreamTimeoutMs: int('UPSTREAM_TIMEOUT_MS', 15_000),

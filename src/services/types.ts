@@ -196,7 +196,17 @@ export interface Ticket {
   updatedAt: number;
 }
 
-export type DataSource = 'synthetic' | 'dukascopy' | 'binance';
+export type DataSource = 'synthetic' | 'dukascopy' | 'binance' | 'qveris';
+
+/** QVeris (paid, per call): EODHD's 1-minute history for forex, metals and crypto, and live quotes. */
+export interface QverisSettings {
+  /** Most credits QVeris may spend in one UTC day (downloads and live quotes together). */
+  dailyCredits: number;
+  /** Live prices in the sign-in page's ticker strip (crypto from Binance, free; others via QVeris). */
+  live: boolean;
+  /** Minutes a live price is reused before it is asked again. */
+  liveMinutes: number;
+}
 
 export interface SiteSettings {
   siteName: string;
@@ -213,6 +223,7 @@ export interface SiteSettings {
   newsAutoSync: boolean;
   /** The server downloads missing market history by itself (and each new day) into its storage. */
   marketAutoDownload: boolean;
+  qveris: QverisSettings;
 }
 
 /** Public settings the app reads at start (GET /api/config). */
@@ -302,6 +313,23 @@ export interface MarketStorage {
   job: MarketDownloadJob | null;
   lastJob: MarketDownloadJob | null;
   autoDownload: boolean;
+}
+
+/** QVeris on this server (admin panel). */
+export interface QverisStatus {
+  /** QVERIS_API_KEY is set in the server's .env */
+  configured: boolean;
+  /** credits spent today (UTC) by this server, and its daily limit */
+  today: { day: string; credits: number; calls: number };
+  dailyCredits: number;
+  /** credits a call costs */
+  callCredits: number;
+  /** the account's balance as QVeris last reported it */
+  remaining?: number;
+  remainingAt?: number;
+  /** symbols QVeris can supply (forex, metals and crypto) */
+  symbols: string[];
+  error?: string;
 }
 
 export interface Page<T> {

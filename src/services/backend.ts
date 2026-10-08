@@ -19,6 +19,7 @@ import type {
   MarketDownloadJob,
   MarketStorage,
   NewsSyncStatus,
+  QverisStatus,
   Page,
   Payment,
   PaymentCard,
@@ -112,6 +113,8 @@ export interface AdminApi {
   marketStorage(): Promise<MarketStorage>;
   startMarketDownload(input: { kind?: 'm1' | 's1'; symbols?: string[]; from?: string; to?: string }): Promise<MarketDownloadJob>;
   stopMarketDownload(): Promise<MarketDownloadJob | null>;
+  /** QVeris on the server: key set, credits spent today, the account's balance. */
+  qverisStatus(): Promise<QverisStatus>;
   /** The signed-in admin's username for signing in with a password (null when not set). */
   credentials(): Promise<{ username: string | null; loginPath: string; keyFromEnv: boolean }>;
   saveCredentials(input: { username: string; password: string; currentPassword?: string }): Promise<{ username: string }>;

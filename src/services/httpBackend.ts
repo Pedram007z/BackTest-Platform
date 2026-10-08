@@ -121,6 +121,7 @@ export const httpBackend: Backend = {
     marketStorage: () => get('/api/admin/market/storage'),
     startMarketDownload: (input) => post('/api/admin/market/download', input),
     stopMarketDownload: () => post('/api/admin/market/download/stop'),
+    qverisStatus: () => get('/api/admin/market/qveris'),
     credentials: () => get('/api/admin/credentials'),
     saveCredentials: (input) => put('/api/admin/credentials', input),
     removeCredentials: () => del('/api/admin/credentials'),

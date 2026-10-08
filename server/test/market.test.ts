@@ -79,6 +79,7 @@ before(async () => {
   s = await startServer({ OTP_DEV_ECHO: 'true' });
   download = await import('../src/market/download');
   parse = await import('../src/market/sources');
+  parse.setDukascopyRetryMs(1);
   admin = await s.signIn('09120000001', 'مدیر');
   user = await s.signIn('09351234567', 'کاربر');
 });
@@ -135,6 +136,51 @@ test('Dukascopy: the data API first, the datafeed files when it has no answer', 
     seen.some((u) => u.includes('datafeed.dukascopy.com/datafeed/XAUUSD/2024/00/16/')),
     'XAUUSD fell back to the datafeed',
   );
+});
+
+test('Dukascopy: refused or not-ready requests (429, 503, 202) are asked again instead of failing the day', async () => {
+  const seen: string[] = [];
+  const base = upstream(seen);
+  const refusals = new Map<string, number>();
+  s.setUpstream((url) => {
+    // the data API refuses each day twice before answering; the datafeed is never needed
+    if (url.includes('jetta.dukascopy.com') && url.includes('GBP-JPY')) {
+      const n = refusals.get(url) ?? 0;
+      refusals.set(url, n + 1);
+      if (n < 2) {
+        seen.push(url);
+        return new Response('', { status: n === 0 ? 429 : 202, headers: n === 0 ? { 'Retry-After': '0' } : {} });
+      }
+    }
+    return base(url);
+  });
+  const job = await runDownload({ symbols: ['GBPJPY'], from: '2024-02-05', to: '2024-02-07' });
+  assert.deepEqual([job.state, job.stored, job.failed], ['done', 3, 0]);
+  assert.deepEqual([...refusals.values()], [3, 3, 3], 'each day: two refusals, then the answer');
+  assert.ok(!seen.some((u) => u.includes('datafeed.dukascopy.com')), 'no fallback to the datafeed');
+});
+
+test('Dukascopy: the downloader names itself plainly; a firewall challenge falls back to the datafeed at once', async () => {
+  const seen: string[] = [];
+  const base = upstream(seen);
+  const agents = new Set<string | null>();
+  let challenged = 0;
+  s.setUpstream((url, init) => {
+    agents.add(new Headers(init?.headers).get('User-Agent'));
+    if (url.includes('jetta.dukascopy.com') && url.includes('GBP-JPY')) {
+      challenged++;
+      return new Response('', { status: 202, headers: { 'x-amzn-waf-action': 'challenge' } });
+    }
+    return base(url);
+  });
+  const job = await runDownload({ symbols: ['GBPJPY'], from: '2024-02-12', to: '2024-02-12' });
+  assert.deepEqual([job.stored, job.failed], [1, 0]);
+  assert.equal(challenged, 1, 'a challenge is not asked again');
+  assert.ok(
+    seen.some((u) => u.includes('datafeed.dukascopy.com/datafeed/GBPJPY/2024/01/12/')),
+    'the datafeed answered',
+  );
+  assert.ok(![...agents].some((a) => a?.startsWith('Mozilla')), `no browser-like User-Agent: ${[...agents].join(', ')}`);
 });
 
 test('Binance: finished months come from the monthly archive, in one request', async () => {

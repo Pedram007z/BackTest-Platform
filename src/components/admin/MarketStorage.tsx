@@ -45,7 +45,7 @@ function JobSummary({ job }: { job: MarketDownloadJob }) {
         ذخیره: {fmtNum(job.stored)} · بازار بسته: {fmtNum(job.closed)} · ناموفق: <span className={clsx(job.failed > 0 && 'text-loss')}>{fmtNum(job.failed)}</span>
         {job.later > 0 && ` · هنوز منتشر نشده (بعداً): ${fmtNum(job.later)}`}
       </p>
-      {job.message && <p className="text-[12px] text-loss">{job.message}</p>}
+      {job.message && <p className={clsx('text-[12px]', job.state === 'failed' ? 'text-loss' : 'text-amber')}>{job.message}</p>}
       {job.errors.length > 0 && (
         <div>
           <button type="button" className="text-[12px] font-semibold text-accent-ink" onClick={() => setOpen((v) => !v)}>
@@ -192,7 +192,7 @@ export function MarketStoragePanel({ autoDownload, onAutoDownload }: { autoDownl
                       <td className="td font-bold" dir="ltr">
                         {x.id}
                       </td>
-                      <td className="td text-muted">{x.source === 'binance' ? 'Binance' : 'Dukascopy'}</td>
+                      <td className="td text-muted">{x.source === 'binance' ? 'Binance' : x.source === 'qveris' ? 'QVeris' : 'Dukascopy'}</td>
                       <td className="td">
                         <div className="flex items-center gap-2">
                           <Meter value={pct} tone={pct >= 0.999 ? 'gain' : 'amber'} className="w-20" />

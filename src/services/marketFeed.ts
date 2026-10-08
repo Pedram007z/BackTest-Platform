@@ -306,8 +306,8 @@ export function useReplayData(panes: { symbol: string; timeframe: Timeframe }[],
 export interface Showcase {
   /** 5-minute bars as [time (s), open, high, low, close] */
   sample: { symbol: string; bars: number[][] } | null;
-  /** change over the last 24 hours, in percent */
-  quotes: { symbol: string; change: number }[];
+  /** change over the last 24 hours, in percent; live prices (when the server has them on) also give the price */
+  quotes: { symbol: string; change: number; price?: number; live?: true }[];
 }
 
 let showcaseJob: Promise<Showcase | null> | null = null;

@@ -151,6 +151,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   enabledSymbols: [],
   newsAutoSync: true,
   marketAutoDownload: true,
+  qveris: { dailyCredits: 300, live: false, liveMinutes: 60 },
 };
 
 function seed(): Db {
@@ -386,6 +387,8 @@ function db(): Db {
     cache.revokedDevices ??= [];
     cache.announcements ??= [];
     cache.media ??= [];
+    // saved before QVeris existed
+    cache.settings.qveris ??= { ...DEFAULT_SETTINGS.qveris };
   }
   return cache;
 }
@@ -1263,6 +1266,17 @@ export const localBackend: Backend = {
         job: null,
         lastJob: null,
         autoDownload: db().settings.marketAutoDownload,
+      };
+    },
+    async qverisStatus() {
+      requireAdmin();
+      // the demo has no server, so no QVeris key
+      return {
+        configured: false,
+        today: { day: new Date().toISOString().slice(0, 10), credits: 0, calls: 0 },
+        dailyCredits: db().settings.qveris.dailyCredits,
+        callCredits: 2.81,
+        symbols: SYMBOLS.filter((s) => s.group === 'forex' || s.group === 'metal' || s.group === 'crypto').map((s) => s.id),
       };
     },
     async startMarketDownload() {

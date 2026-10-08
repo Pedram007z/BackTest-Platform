@@ -1,15 +1,16 @@
 import { db } from '../db';
 import { HttpError, badRequest } from '../http';
-import type { MarketDownloadJob, MarketStorage, MarketStorageSymbol } from '../shared';
+import type { DataSource, MarketDownloadJob, MarketStorage, MarketStorageSymbol } from '../shared';
 import { DAY_MS, isDayKey, keyToMs, utcDayKey } from '../util';
 import { INSTRUMENTS, type Instrument } from './instruments';
+import { QverisBudgetError, qverisDayMinutes } from './qveris';
 import { sourceFor } from './source';
 import { binanceArchiveDay, binanceArchiveMonth, binanceDayMinutes, binanceDaySeconds, dukascopyDayMinutes, dukascopyDaySeconds, type DayBars } from './sources';
 import { MISSING, STORED, dayStatus, refreshCoverage, daysInMonth, monthStartOf, storedBytes, storedSecondDays, writeDays, writeSecondsDay } from './store';
 
 /**
- * Downloads market history from Dukascopy and Binance into the server's storage (store.ts), where
- * the replay reads it. Runs from the admin panel, by itself every hour (missing history and each new
+ * Downloads market history from Dukascopy and Binance (or QVeris, when the admin picks it for a market)
+ * into the server's storage (store.ts), where the replay reads it. Runs from the admin panel, by itself every hour (missing history and each new
  * day, when "marketAutoDownload" is on), or on any computer with `node server.mjs download`.
  * Only days not stored yet are fetched, so a stopped download resumes where it ended.
  */
@@ -45,18 +46,24 @@ interface Item {
   days: number[];
 }
 
-/** Months with days not stored yet, per symbol, oldest first. */
+/**
+ * Months with days not stored yet, per symbol, oldest first. QVeris symbols go newest first: QVeris
+ * charges per day, so a daily credit limit fills the recent past first and older years day by day.
+ */
 function planMinutes(symbols: string[], from: number, to: number): Item[] {
   const items: Item[] = [];
   for (const id of symbols) {
     const inst = INSTRUMENTS[id];
     const first = Math.max(from, keyToMs(historyStart(inst)));
+    const own: Item[] = [];
     for (let m = monthStartOf(first); m <= to; m = monthStartOf(m + 32 * DAY_MS)) {
       const days: number[] = [];
       const end = Math.min(to, m + (daysInMonth(m) - 1) * DAY_MS);
       for (let d = Math.max(first, m); d <= end; d += DAY_MS) if (dayStatus(id, d) === MISSING) days.push(d);
-      if (days.length) items.push({ inst, start: m, days });
+      if (days.length) own.push({ inst, start: m, days });
     }
+    if (sourceFor(inst) === 'qveris') for (const item of own.reverse()) item.days.reverse();
+    items.push(...own);
   }
   return items;
 }
@@ -71,13 +78,18 @@ function planSeconds(symbols: string[], from: number, to: number): Item[] {
   return items;
 }
 
-type Outcome = { day: number; bars: DayBars } | { day: number; later: true } | { day: number; error: string };
+/** later: not published yet, or (budget) QVeris' daily credit limit was reached */
+type Outcome = { day: number; bars: DayBars } | { day: number; later: true; budget?: true } | { day: number; error: string };
 
 const recent = (day: number) => day + DAY_MS + RECENT_MS > Date.now();
 /** A day's answer: an empty one for a recent day is not trusted yet. */
 const outcome = (day: number, bars: DayBars): Outcome => (!bars && recent(day) ? { day, later: true } : { day, bars });
 /** A failed recent day is usually not published yet: it is tried again by the next run. */
-const failure = (day: number, e: unknown): Outcome => (recent(day) ? { day, later: true } : { day, error: (e as Error).message });
+const failure = (day: number, e: unknown): Outcome =>
+  e instanceof QverisBudgetError ? { day, later: true, budget: true } : recent(day) ? { day, later: true } : { day, error: (e as Error).message };
+
+const dayMinutes = (source: DataSource, inst: Instrument, d: number) =>
+  source === 'binance' ? binanceDayMinutes(inst, d) : source === 'qveris' ? qverisDayMinutes(inst, d) : dukascopyDayMinutes(inst, d);
 
 async function fetchMonth(item: Item): Promise<Outcome[]> {
   const { inst, start } = item;
@@ -99,7 +111,7 @@ async function fetchMonth(item: Item): Promise<Outcome[]> {
   await Promise.all(
     want.map(async (d) => {
       try {
-        out.push(outcome(d, source === 'binance' ? await binanceDayMinutes(inst, d) : await dukascopyDayMinutes(inst, d)));
+        out.push(outcome(d, await dayMinutes(source, inst, d)));
       } catch (e) {
         out.push(failure(d, e));
       }
@@ -117,7 +129,9 @@ async function fetchSecondsDay(item: Item): Promise<Outcome[]> {
   if (saturday(inst, d)) result = { day: d, bars: null };
   else {
     try {
-      const source = sourceFor(inst);
+      // QVeris has no 1-second bars: they come from the symbol's free source
+      const chosen = sourceFor(inst);
+      const source = chosen === 'qveris' ? (inst.dukascopy ? 'dukascopy' : 'binance') : chosen;
       const bars =
         source === 'binance' ? ((await binanceArchiveDay(inst, d, '1s').catch(() => undefined)) ?? (await binanceDaySeconds(inst, d))) : await dukascopyDaySeconds(inst, d);
       result = outcome(d, bars);
@@ -137,6 +151,7 @@ async function run(j: MarketDownloadJob): Promise<MarketDownloadJob> {
   j.total = items.reduce((n, i) => n + i.days.length, 0);
   let streak = 0;
   let next = 0;
+  let budget = '';
   const worker = async () => {
     while (next < items.length && !stopping && j.state === 'running') {
       const item = items[next++];
@@ -149,8 +164,10 @@ async function run(j: MarketDownloadJob): Promise<MarketDownloadJob> {
           streak++;
           j.errors.push({ symbol: item.inst.id, day: utcDayKey(r.day), error: r.error });
           if (j.errors.length > 30) j.errors.shift();
-        } else if ('later' in r) j.later++;
-        else if (r.bars) {
+        } else if ('later' in r) {
+          j.later++;
+          if (r.budget) budget = 'سقف روزانه‌ی اعتبار QVeris پر شد؛ روزهای باقی‌مانده در اجراهای بعدی (روزهای بعد) دانلود می‌شوند.';
+        } else if (r.bars) {
           j.stored++;
           streak = 0;
         } else j.closed++;
@@ -164,6 +181,7 @@ async function run(j: MarketDownloadJob): Promise<MarketDownloadJob> {
   try {
     await Promise.all(Array.from({ length: PARALLEL }, worker));
     if (j.state === 'running') j.state = stopping ? 'stopped' : 'done';
+    if (budget && !j.message) j.message = budget;
   } catch (e) {
     j.state = 'failed';
     j.message = (e as Error).message;

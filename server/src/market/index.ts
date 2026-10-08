@@ -2,6 +2,7 @@ import { badRequest } from '../http';
 import type { DataSource } from '../shared';
 import { DAY_MS, isDayKey, keyToMs, utcDayKey } from '../util';
 import { INSTRUMENTS, type Instrument } from './instruments';
+import { liveQuotes } from './live';
 import { sourceFor } from './source';
 import { BARS_PER_DAY, HOUR_MS, SECONDS_PER_HOUR, aggregate, type DayBars } from './sources';
 import { readDay, readSecondsDay } from './store';
@@ -111,8 +112,11 @@ let showcase: { at: number; value: Showcase } | null = null;
 export interface Showcase {
   /** 5-minute bars as [time (s), open, high, low, close] */
   sample: { symbol: string; bars: number[][] } | null;
-  /** change over the last 24 hours of the stored days, in percent */
-  quotes: { symbol: string; change: number }[];
+  /**
+   * change over the last 24 hours of the stored days, in percent; with live prices on, the live price
+   * and its change from the previous close instead
+   */
+  quotes: { symbol: string; change: number; price?: number; live?: true }[];
 }
 
 /** Stored 5-minute bars of these days, oldest first. */
@@ -151,10 +155,25 @@ function buildShowcase(): Showcase {
   };
 }
 
-/** GET /api/market/showcase (public): stored prices for the landing page's sample replay and the sign-in page's ticker. */
-export function marketShowcase(): Showcase {
+/**
+ * GET /api/market/showcase (public): stored prices for the landing page's sample replay and the
+ * sign-in page's ticker, or live prices in the ticker when they are on (live.ts).
+ */
+export async function marketShowcase(): Promise<Showcase> {
   if (!showcase || Date.now() - showcase.at > 5 * 60_000) showcase = { at: Date.now(), value: buildShowcase() };
-  return showcase.value;
+  const value = showcase.value;
+  const live = await liveQuotes(SHOWCASE_TICKERS);
+  if (!live.size) return value;
+  const stored = new Map(value.quotes.map((q) => [q.symbol, q]));
+  return {
+    ...value,
+    quotes: SHOWCASE_TICKERS.flatMap((symbol) => {
+      const q = live.get(symbol);
+      if (q) return [{ symbol, change: q.change, price: q.price, live: true as const }];
+      const s = stored.get(symbol);
+      return s ? [s] : [];
+    }),
+  };
 }
 
 /** Which real source each market uses, for the app's settings. */

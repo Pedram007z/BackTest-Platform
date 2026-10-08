@@ -243,7 +243,7 @@ sudo bash /opt/backtestlab/make-admin.sh 09121234567
      **فقط برای اولین خرید** (first purchase only) works only for customers who have never completed a
      purchase; a refunded purchase counts as one. It is checked when the code is applied and again at checkout.
    - **نمادها و داده‌ی بازار** (symbols and market data): the stored market history and its download (step 9),
-     data source per market, and which symbols users can pick.
+     data source per market, which symbols users can pick, and QVeris (optional, paid; step 9).
    - **تقویم اقتصادی** (economic calendar): press sync and check that no error is shown.
    - **بک‌تست کاربران** (users' backtests): every user's sessions with their results, open positions,
      pending orders and closed trades (entry and exit price and time), the equity curve, the IP address their
@@ -335,6 +335,18 @@ fetched from Dukascopy or Binance while someone uses the site. The history has t
   sudo chown -R backtestlab /var/lib/backtestlab/market && sudo systemctl restart backtestlab
   ```
   Run it again later (it adds only new days) and copy again to bring the server up to date.
+
+Dukascopy refuses a share of requests when they come quickly; the download waits and asks again, so it
+only slows down. Expect about an hour for the whole history of every symbol on a good connection.
+
+**QVeris (optional, paid).** QVeris (qveris.ai) sells EODHD's 1-minute history for forex, metals and crypto
+and live quotes, per request (2.81 credits each). The free sources above are enough; use QVeris only if
+your server cannot reach them, or for live prices in the sign-in page's ticker. Put the key in
+`/opt/backtestlab/server/.env` (`QVERIS_API_KEY=…`, see `.env.example`), restart, then in the admin panel →
+**نمادها و داده‌ی بازار** pick QVeris as a market's source and set the daily credit limit. One request
+fetches one symbol's day, newest days first; at the limit the rest waits for the next day. A full history
+for one forex pair is about 3,700 requests (about 10,000 credits). Through the relay (step 8) also set
+`QVERIS_URL` and `QVERIS_FILES_URL`.
 
 Second timeframes (1–30 s) are built from the 1-minute candles. For the real movement inside each minute,
 download 1-second data (Dukascopy ticks / Binance 1-second archives) for a symbol and date range in the
