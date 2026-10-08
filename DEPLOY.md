@@ -53,6 +53,7 @@ nginx-site.conf       nginx site
 relay-nginx.conf      relay abroad for servers in Iran (step 8)
 check-sources.sh      checks whether the server reaches the data sources (step 8)
 make-admin.sh         admin sign-in: username and password, or a mobile number (step 7)
+import-market-data.sh loads ready-made market history from GitHub (step 9)
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
@@ -120,7 +121,7 @@ cd /tmp && tar -xzf backtestlab-*.tar.gz
 sudo cp -r backtestlab/web/. /var/www/backtestlab/
 sudo cp backtestlab/server/server.mjs /opt/backtestlab/server/
 sudo cp backtestlab/backtestlab.service /etc/systemd/system/
-sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh /opt/backtestlab/
+sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh backtestlab/import-market-data.sh /opt/backtestlab/
 ```
 
 If you uploaded the folder instead of the archive, skip the `tar` line.
@@ -312,6 +313,17 @@ its sample calendar.
 
 Charts read candles only from the server's own storage (`/var/lib/backtestlab/market/store`): nothing is
 fetched from Dukascopy or Binance while someone uses the site. The history has to be downloaded once:
+
+- **Ready-made, from GitHub (quickest).** The whole history from 2015 (every symbol, about 1 GB) is kept in
+  the private repository `Pedram007z/BackTest-Market-Data`. Make a read-only token for it (github.com →
+  Settings → Developer settings → Fine-grained tokens → only that repository, Contents: Read-only), then:
+  ```bash
+  sudo apt install -y git
+  sudo GITHUB_TOKEN=YOUR_TOKEN bash /opt/backtestlab/import-market-data.sh
+  ```
+  It copies the months the server does not have (a month it has is replaced only by a fuller one) and
+  restarts the API server. With automatic download on, the server then adds each new day by itself; run
+  the import again to take months added to the repository later.
 
 - **By itself (default).** Half a minute after the API server starts, and then every hour, it downloads
   whatever is missing: the whole history from 2015 the first time (a few hours; about 2 GB), afterwards
