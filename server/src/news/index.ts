@@ -6,6 +6,7 @@ import type { NewsHistoryJob, NewsSyncStatus } from '../shared';
 import { DAY_MS, isDayKey, keyToMs, limiter, utcDayKey } from '../util';
 import { fetchFmpCalendar, fmpConfigured } from './fmp';
 import { CalendarBlockedError, fetchThisWeekFeed, fetchWeekPage, weekKey, weekStart, type NewsEvent } from './forexfactory';
+import { scheduleCovers, scheduledBetween, scheduleStatus } from './schedule';
 
 /**
  * Calendar events by ForexFactory week. A past week is fetched once and kept (its numbers no
@@ -15,6 +16,10 @@ import { CalendarBlockedError, fetchThisWeekFeed, fetchWeekPage, weekKey, weekSt
  * ForexFactory's Cloudflare answers most servers' page requests with a bot check. Then the hourly sync
  * asks only for the week in progress, which comes from its official weekly feed (no actual values):
  * kept hourly, each week stays when it ends, so the history grows week by week.
+ *
+ * Weeks with neither (most of the past, when ForexFactory blocks the server and FMP's plan has no
+ * calendar) are filled from the official release schedule (schedule.ts): USD, EUR and GBP events of
+ * high and medium impact, with their times but no values.
  */
 
 const WEEK = 7 * DAY_MS;
@@ -115,10 +120,11 @@ function fetchWeek(start: number): Promise<void> {
 }
 
 /**
- * Events in [from, to). Weeks that cannot be fetched are listed in `missing` (week start, UTC ms)
- * so the app can fall back to its sample calendar for them.
+ * Events in [from, to). Weeks with no calendar data are filled from the official release schedule
+ * (listed in `scheduled`, week start UTC ms); weeks the schedule does not cover either are listed in
+ * `missing` so the app can fall back to its sample calendar for them.
  */
-export async function eventsBetween(from: number, to: number, waitMs = 12_000): Promise<{ events: NewsEvent[]; missing: number[] }> {
+export async function eventsBetween(from: number, to: number, waitMs = 12_000): Promise<{ events: NewsEvent[]; missing: number[]; scheduled: number[] }> {
   const now = Date.now();
   const starts: number[] = [];
   for (let s = weekStart(from - DAY_MS); s < to; s += WEEK) if (s <= weekStart(now) + WEEK) starts.push(s);
@@ -134,16 +140,20 @@ export async function eventsBetween(from: number, to: number, waitMs = 12_000): 
 
   const events: NewsEvent[] = [];
   const missing: number[] = [];
+  const scheduled: number[] = [];
   for (const s of starts) {
     const rec = store.weeks[weekKey(s)];
-    if (!rec) {
+    if (rec) {
+      for (const e of rec.events) if (e.time >= from && e.time < to) events.push(e);
+    } else if (scheduleCovers(s)) {
+      scheduled.push(s);
+      events.push(...scheduledBetween(Math.max(from, s), Math.min(to, s + WEEK)));
+    } else {
       missing.push(s);
-      continue;
     }
-    for (const e of rec.events) if (e.time >= from && e.time < to) events.push(e);
   }
   events.sort((a, b) => a.time - b.time);
-  return { events, missing };
+  return { events, missing, scheduled };
 }
 
 export function newsStatus(): NewsSyncStatus {
@@ -157,6 +167,7 @@ export function newsStatus(): NewsSyncStatus {
     firstWeek: keys[0],
     pagesBlocked: Date.now() < pagesBlockedUntil || undefined,
     lastError: store.lastError,
+    schedule: scheduleStatus(),
     history: { configured: fmpConfigured(), job: history ? { ...history } : null, lastJob: lastHistory ? { ...lastHistory } : null },
   };
 }

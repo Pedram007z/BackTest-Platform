@@ -250,8 +250,9 @@ test('economic calendar: ForexFactory weeks are fetched once and cached', async 
     r.data.events.map((e: any) => e.id),
     ['ff-131406', 'ff-131407', 'ff-131500', 'ff-131502'],
   );
-  // the week before (Dec 31) was blocked: reported as missing so the app can fill it
-  assert.deepEqual(r.data.missing, [Date.UTC(2023, 11, 31)]);
+  // the week before (Dec 31) was blocked: filled from the official release schedule
+  assert.deepEqual(r.data.missing, []);
+  assert.deepEqual(r.data.scheduled, [Date.UTC(2023, 11, 31)]);
   await s.call('GET', `/api/news?from=${from}&to=${to}`, undefined, admin.token);
   assert.equal(pages, 1, 'a past week is fetched once');
   assert.equal((await s.call('GET', `/api/news?from=${from}&to=${to}`)).status, 401);

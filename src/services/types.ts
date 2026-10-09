@@ -272,6 +272,8 @@ export interface NewsSyncStatus {
   lastError?: string;
   /** past weeks from Financial Modeling Prep (FMP_API_KEY on the server) */
   history?: { configured: boolean; job: NewsHistoryJob | null; lastJob: NewsHistoryJob | null };
+  /** the official release schedule built into the server, for weeks with no calendar data (times only) */
+  schedule?: { events: number; from: string; to: string; currencies: string[] };
 }
 
 /** Filling the calendar's past weeks from Financial Modeling Prep (admin panel). */
