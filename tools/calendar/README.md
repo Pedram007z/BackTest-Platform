@@ -1,8 +1,9 @@
 # Economic calendar schedule
 
 When economic events happened since 2015, from the official sources, with no values (no actual,
-forecast or previous). The API server will fill past calendar weeks with them where it has no other
-calendar data.
+forecast or previous). The API server fills calendar weeks that have no ForexFactory or FMP data with
+the US dollar, euro and pound events of high and medium impact (`server/src/news/schedule.ts`); the
+replay's news panel then says the times come from the official calendar.
 
 ```bash
 python3 tools/calendar/fetch.py /tmp/calendar-pages            # download the official pages (1 a second)
@@ -12,8 +13,10 @@ python3 tools/calendar/fetch.py /tmp/calendar-pages --refresh  # later: take new
 # US releases: dates from FRED (free API key: fred.stlouisfed.org → My Account → API Keys)
 FRED_API_KEY=… python3 tools/calendar/us_releases.py /tmp/calendar-pages server/src/news/schedule/us-releases.json
 
-# other countries (each saves what it downloads in the work folder and fetches only what is new)
-python3 tools/calendar/uk_releases.py /tmp/calendar-pages server/src/news/schedule/uk-releases.json   # likewise eu, ca, au, nz, jp, ch
+# UK, euro area and Germany (each saves what it downloads in the work folder and fetches only what is new)
+python3 tools/calendar/uk_releases.py /tmp/calendar-pages server/src/news/schedule/uk-releases.json
+python3 tools/calendar/eu_releases.py /tmp/calendar-pages server/src/news/schedule/eu-releases.json
+python3 tools/calendar/de_releases.py /tmp/calendar-pages server/src/news/schedule/de-releases.json
 ```
 
 `central_banks.py --csv FILE` also writes a table to read (UTC time, currency, impact, title, local time).
@@ -32,18 +35,20 @@ By rule (`basis` says which): ISM Manufacturing and Services PMIs, Conference Bo
 EIA crude oil inventories, the University of Michigan's preliminary reading, and the Philadelphia survey
 before June 2015.
 
-## Other countries' releases (`server/src/news/schedule/<country>-releases.json`)
+## UK, euro-area and German releases
 
-| File | Source | Events | From |
-|---|---|---|---|
-| `uk-releases.json` | ONS release calendar (exact times) | CPI, PPI, labour market (claimant count, earnings, unemployment), monthly GDP, GDP estimates, retail sales | Feb 2016 |
-| `eu-releases.json` | Eurostat euro indicators (exact times) | CPI flash and final, GDP preliminary flash, flash and revised, unemployment, retail sales, industrial production, PPI, trade balance | 2015 |
-| `au-releases.json` | ABS release pages | labour force, CPI (quarterly; monthly from Nov 2025), monthly CPI indicator, wage price index, retail sales (to Jul 2025) then household spending, GDP, trade balance | 2015 |
-| `nz-releases.json` | Stats NZ release pages | CPI, GDP, labour market, retail sales, trade balance | mid-2017 |
-| `jp-releases.json` | Bank of Japan, Cabinet Office | Tankan, GDP first and second preliminary estimates | 2015 |
-| `ch-releases.json` | Federal Statistical Office | CPI, retail sales (to Nov 2024, when its press releases stopped) | 2015 |
+| File | Source | Events |
+|---|---|---|
+| `uk-releases.json` | ONS release calendar (exact times) from February 2016; GOV.UK's list of ONS publications for 2015 | CPI, labour market (claimant count, earnings, unemployment), monthly GDP (from 2018), preliminary and second GDP estimates, retail sales; low impact: PPI, final GDP |
+| `eu-releases.json` | Eurostat euro indicators (exact times) | CPI flash and final, GDP preliminary flash (from 2016), flash and revised, unemployment, retail sales, industrial production, PPI, trade balance |
+| `de-releases.json` | ZEW's press releases and its yearly release-date announcements | ZEW Economic Sentiment (11:00 Frankfurt time, 11:05 from 2024) |
 
-`ca_releases.py` (Statistics Canada's daily list of updated tables) is still being finished.
+Not covered: S&P Global's flash PMIs (its site refuses automated requests), Ifo and German preliminary
+CPI.
+
+`au_releases.py`, `nz_releases.py`, `jp_releases.py` and `ch_releases.py` collect the same for Australia
+(ABS), New Zealand (Stats NZ, from mid-2017), Japan (Tankan, GDP) and Switzerland (CPI, retail sales);
+the platform does not use them now, so their files are not in the server.
 
 ## Central-bank decisions (`server/src/news/schedule/central-banks.json`)
 

@@ -441,12 +441,26 @@ export function AdminNews() {
                   <dd className="num">{fmtDay(data.firstWeek)}</dd>
                 </>
               )}
+              {data.schedule && (
+                <>
+                  <dt className="text-muted">تقویم رسمی (بدون اعداد)</dt>
+                  <dd className="num">
+                    {fmtNum(data.schedule.events)} خبر {data.schedule.currencies.join('، ')}
+                  </dd>
+                </>
+              )}
             </dl>
+            {data.schedule && (
+              <p className="mt-4 rounded-xl bg-raised px-3 py-2 text-xs leading-6 text-muted">
+                هفته‌هایی که داده‌ی ForexFactory یا FMP ندارند از تقویم رسمی داخل سرور پر می‌شوند: زمان انتشار خبرهای پراهمیت و متوسط {data.schedule.currencies.join('، ')} از{' '}
+                {fmtDay(data.schedule.from)} تا {fmtDay(data.schedule.to)} (بانک‌های مرکزی، آمار آمریکا، Eurostat، ZEW و ONS)، بدون عدد واقعی و پیش‌بینی.
+              </p>
+            )}
             {data.pagesBlocked && (
               <p className="mt-4 rounded-xl bg-raised px-3 py-2 text-xs leading-6 text-muted">
                 ForexFactory صفحه‌های تقویم را برای سرورها با بررسی ضدربات (Cloudflare) می‌بندد؛ این محدودیت از طرف ForexFactory است و دور زده نمی‌شود. سرور هر ساعت فید رسمی هفته‌ی
-                جاری را ذخیره می‌کند و هر هفته بعد از تمام شدن نگه داشته می‌شود؛ پس تاریخچه از همین هفته به بعد هفته‌به‌هفته کامل می‌شود (فید عدد واقعی خبرها را ندارد). برای
-                هفته‌های قبل از آن، چارت تقویم نمونه را با برچسب «نمونه» نشان می‌دهد.
+                جاری را ذخیره می‌کند و هر هفته بعد از تمام شدن نگه داشته می‌شود؛ پس تاریخچه از همین هفته به بعد هفته‌به‌هفته کامل می‌شود (فید عدد واقعی خبرها را ندارد). هفته‌های
+                قبل از آن از تقویم رسمی سرور پر می‌شوند.
               </p>
             )}
             {data.lastError && <p className="mt-4 rounded-xl bg-amber/10 px-3 py-2 text-xs leading-6 text-amber">{data.lastError}</p>}

@@ -15,6 +15,10 @@ export interface NewsEvent {
   forecast?: string;
   previous?: string;
   allDay?: boolean;
+  /** from the official release schedule (schedule.ts): the time only, no values */
+  scheduled?: boolean;
+  /** the exact time was not published (shown at noon local time) */
+  tentative?: boolean;
 }
 
 /** ForexFactory answered with Cloudflare's bot check instead of the calendar page. */

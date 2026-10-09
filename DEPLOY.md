@@ -306,8 +306,8 @@ that forwards only these sources, and only for your server.
    Then press sync on the calendar page of the admin panel.
 
 ForexFactory protects its site with Cloudflare. If only the ForexFactory calendar line fails through the
-relay, the server falls back to the weekly feed for the current week, and the app fills older weeks from
-its sample calendar.
+relay, the server falls back to the weekly feed for the current week, and fills older weeks from the
+official release schedule built into it (times of US dollar, euro and pound news since 2015, no values).
 
 ## 9. Market history
 
