@@ -41,6 +41,8 @@ export interface EngineState {
   news: NewsEvent[];
   /** Bumps when remote market data arrives, so the engine reloads bars. */
   dataVersion: number;
+  /** How far back the chart must reach when scrolled (UTC ms): a year before the session start, or the symbol's first data. */
+  historyFrom: number;
   /** Where the chart's own layout (drawings, indicators) is kept: one per session and pane. */
   layoutKey?: string;
 }

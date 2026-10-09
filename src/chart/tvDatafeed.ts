@@ -1,4 +1,4 @@
-import { DATA_START, HOUR_MS, SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, candlesBetween, getCandles, tfFromTv, type SymbolInfo, type Timeframe } from '../lib/market';
+import { HOUR_MS, SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, candlesBetween, dataStartOf, getCandles, tfFromTv, type SymbolInfo, type Timeframe } from '../lib/market';
 import { DAY_MS, keyToMs } from '../lib/calendar';
 import { newsTitleFa, type NewsEvent } from '../lib/news';
 import { hasServer } from '../services/api';
@@ -19,7 +19,6 @@ export interface ReplayFeedSource {
 }
 
 const RESOLUTIONS = TIMEFRAMES.map((t) => t.tv);
-const START_MS = keyToMs(DATA_START);
 
 const tvType = (s: SymbolInfo) => (s.group === 'forex' ? 'forex' : s.group === 'crypto' ? 'crypto' : s.group === 'index' ? 'index' : 'commodity');
 
@@ -118,6 +117,8 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
     ) {
       const tf = tfFromTv(resolution);
       const cursor = src.cursor();
+      // history goes back to the symbol's first data (scrolling reaches years before the session start)
+      const START_MS = keyToMs(dataStartOf(symbolInfo.name));
       // The chart's own clock (from getServerTime) lags the replay; the first request always runs to the
       // replay position, so the forming bar is current. Older pages end where the chart asks.
       const endMs = period.firstDataRequest ? Infinity : period.to * 1000;
@@ -138,10 +139,13 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
         return;
       }
       // real data: load the requested range (with room for weekends) before answering; minute and
-      // second charts also need the 1-minute days / 1-second hours of it (a few days / hours at most)
+      // second charts also need the 1-minute days / 1-second hours of it. A page of minutes always
+      // loads at least 4 days (at most 30), so a page over a weekend still finds Friday's candles
+      // and older pages keep coming; seconds load a few hours at most.
       const fromMs = Math.min(period.from * 1000, toMs - period.countBack * TF_MS[tf] * 1.45);
       const kind = fineKindOf(tf);
-      const fine = kind ? ensureFine(kind, [symbolInfo.name], Math.max(fromMs, toMs - (kind === 's1' ? 6 * HOUR_MS : 4 * DAY_MS)), toMs) : Promise.resolve(true);
+      const fineFrom = kind === 's1' ? Math.max(fromMs, toMs - 6 * HOUR_MS) : Math.max(toMs - 30 * DAY_MS, Math.min(fromMs, toMs - 4 * DAY_MS));
+      const fine = kind ? ensureFine(kind, [symbolInfo.name], Math.max(START_MS, fineFrom), toMs) : Promise.resolve(true);
       void Promise.all([ensureRange([symbolInfo.name], Math.max(START_MS, fromMs - DAY_MS), toMs), fine]).finally(answer);
     },
 

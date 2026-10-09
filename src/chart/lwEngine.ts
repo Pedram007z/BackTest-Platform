@@ -17,11 +17,13 @@ import {
 } from 'lightweight-charts';
 import { PALETTES } from '../hooks/useChartTheme';
 import { createNavButtons, lwNavActions } from './navButtons';
+import { DAY_MS } from '../lib/calendar';
 import { SYMBOL_MAP, TF_MS, candleTime, dayIndexOf, getCandles, isTradingDay, roundToTick, type Candle } from '../lib/market';
 import { IMPACT_LABEL, newsTitleFa, type NewsEvent } from '../lib/news';
 import { fmtTehran } from '../lib/timezone';
 import { dirOf, openPnl, orderTitleEn } from '../lib/trading';
 import type { Trade } from '../lib/types';
+import { ensureFine, ensureRange, fineKindOf } from '../services/marketFeed';
 import { readLwLayout, writeLwLayout } from './drawings';
 import { createDrawingLayer } from './lwDrawings';
 import { createIndicatorLayer } from './lwIndicators';
@@ -33,7 +35,10 @@ import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './ty
  * tools (lwDrawings) and indicators (lwIndicators) are kept per session pane in this browser.
  */
 
+/** Candles loaded when a chart opens; scrolling to the left edge loads more, back to `historyFrom`. */
 const HISTORY = 500;
+/** The most candles the chart keeps (a year of 1-minute candles fits; second charts stop earlier). */
+const MAX_HISTORY = 400_000;
 const FUTURE = 90;
 
 type DragTarget =
@@ -70,7 +75,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     autoSize: true,
     layout: { background: { type: ColorType.Solid, color: 'transparent' }, fontFamily: 'Vazirmatn Variable, Vazirmatn, Tahoma, sans-serif', fontSize: 11, attributionLogo: false },
     crosshair: { mode: CrosshairMode.Normal },
-    timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 0, shiftVisibleRangeOnNewBar: false },
+    timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 0, shiftVisibleRangeOnNewBar: false, fixLeftEdge: true },
     rightPriceScale: { scaleMargins: { top: 0.12, bottom: 0.12 } },
     localization: { locale: 'en-US' },
   });
@@ -80,6 +85,11 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   const markers: ISeriesMarkersPluginApi<Time> = createSeriesMarkers(series, []);
 
   let candles: Candle[] = [];
+  /** candles to show: grows as the user scrolls back */
+  let wanted = HISTORY;
+  /** older history is being loaded; or there is none to load (both reset with the symbol or timeframe) */
+  let extending = false;
+  let exhausted = false;
   /** empty bar times after the last candle (room for drawings, news and the position tool) */
   let future: number[] = [];
   let loadedKey = '';
@@ -186,7 +196,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     spacer.setData(f);
   }
 
-  function loadData() {
+  function loadData(force = false) {
     const key = `${state.symbol}:${state.timeframe}:${state.dataVersion}`;
     const lastSec = candles[candles.length - 1]?.time ?? 0;
     const behind = state.cursor < loadedCursor;
@@ -194,15 +204,26 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     const ts = chart.timeScale();
     loadedCursor = state.cursor;
 
-    if (key !== loadedKey || behind || farJump || candles.length === 0) {
+    if (force || key !== loadedKey || behind || farJump || candles.length === 0) {
       const sameSeries = key.split(':').slice(0, 2).join(':') === loadedKey.split(':').slice(0, 2).join(':');
-      candles = getCandles(state.symbol, state.timeframe, state.cursor, HISTORY);
+      if (!sameSeries) {
+        wanted = HISTORY;
+        exhausted = false;
+      }
+      const view = ts.getVisibleLogicalRange();
+      const oldFirst = candles[0]?.time;
+      candles = getCandles(state.symbol, state.timeframe, state.cursor, wanted);
       series.applyOptions({ priceFormat: { type: 'price', precision: digits(), minMove: 1 / 10 ** digits() } });
       chart.applyOptions({ timeScale: { secondsVisible: tfSec() < 60 } });
       series.setData(candles.map((c) => ({ ...c, time: c.time as UTCTimestamp })));
       setFuture(candles[candles.length - 1]?.time ?? state.cursor / 1000);
       indicators.setBars(candles);
       if (!sameSeries || !loadedKey || farJump || behind) defaultView();
+      else if (view && oldFirst !== undefined) {
+        // older candles came in front: keep the same candles in view
+        const shift = firstIndexAtOrAfter(oldFirst);
+        if (shift > 0) ts.setVisibleLogicalRange({ from: view.from + shift, to: view.to + shift } as LogicalRange);
+      }
       loadedKey = key;
       return;
     }
@@ -224,6 +245,48 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     indicators.setBars(candles);
     if (range && added > 0 && following) ts.setVisibleLogicalRange({ from: range.from + added, to: range.to + added } as LogicalRange);
   }
+
+  /** index of the first candle at or after `sec` */
+  function firstIndexAtOrAfter(sec: number) {
+    let lo = 0;
+    let hi = candles.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (candles[mid].time < sec) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /**
+   * Scrolled to the left edge: load the history before the first candle (twice as many candles each
+   * time) until the chart reaches `historyFrom`, a year before the session start.
+   */
+  function extendHistory() {
+    if (extending || exhausted || destroyed || !candles.length || wanted >= MAX_HISTORY) return;
+    const firstMs = candles[0].time * 1000;
+    if (firstMs <= state.historyFrom) return;
+    const series0 = `${state.symbol}:${state.timeframe}`;
+    const next = Math.min(MAX_HISTORY, wanted * 2);
+    const tfMs = TF_MS[state.timeframe];
+    // weekends and holidays: ask for half as much time again
+    const fromMs = Math.max(state.historyFrom, firstMs - (next - candles.length) * tfMs * 1.5 - DAY_MS);
+    const kind = fineKindOf(state.timeframe);
+    extending = true;
+    void Promise.all([ensureRange([state.symbol], fromMs - DAY_MS, firstMs), kind ? ensureFine(kind, [state.symbol], fromMs, firstMs) : true]).finally(() => {
+      extending = false;
+      if (destroyed || `${state.symbol}:${state.timeframe}` !== series0) return;
+      wanted = next;
+      loadData(true);
+      // nothing older came: no more history (before the symbol's data, or not downloaded)
+      if (candles[0] && candles[0].time * 1000 >= firstMs) exhausted = true;
+      drawTrades();
+      render();
+    });
+  }
+  chart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
+    if (r && r.from < 30) extendHistory();
+  });
 
   /** the starting view: the last 120 candles with room on the right */
   function defaultView() {

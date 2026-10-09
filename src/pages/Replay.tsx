@@ -608,6 +608,7 @@ export default function Replay() {
                   theme={theme}
                   sessionSymbols={session.symbols}
                   sessionId={session.id}
+                  sessionStart={session.startDate}
                   showHistory={showHistory}
                   dataVersion={dataVersion}
                   draft={draftForChart}
