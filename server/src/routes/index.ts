@@ -1,6 +1,6 @@
 import { adminGate, adminLogin, logout, optionalUser, requestOtp, requireUser, verifyOtp } from '../auth';
 import { db, save } from '../db';
-import { HttpError, Router, badRequest, notFound, rateLimit, str } from '../http';
+import { HttpError, Reply, Router, badRequest, notFound, rateLimit, str, type Ctx } from '../http';
 import { marketConfig, marketDays, marketSeconds, marketShowcase } from '../market';
 import { eventsBetween } from '../news';
 import { checkDiscount, checkout, enabledGateways, handleCallback, publicPayment, simulatorComplete, simulatorPage } from '../payments';
@@ -10,6 +10,8 @@ import { DAY_MS, clone, uid } from '../util';
 import { adminRoutes } from './admin';
 import { countView, serveMedia, visibleAnnouncements } from '../announcements';
 import { syncCheck, syncUpload } from '../backtests';
+import { countPostView, findPost, latestPosts, publicPosts } from '../blog';
+import { PAGE_SIZE, allTags, postPath, renderBlogIndex, renderBlogNotFound, renderBlogPost, robotsTxt, rssXml, sitemapXml } from '../blogPages';
 
 export function buildRouter(): Router {
   const r = new Router();
@@ -163,6 +165,35 @@ export function buildRouter(): Router {
     requireUser(ctx);
     return marketSeconds(ctx.query);
   });
+
+  // ---------- blog: public pages (rendered here for search engines) ----------
+  const page = (body: string, status = 200, type = 'text/html') =>
+    new Reply(status, body, { 'Content-Type': `${type}; charset=utf-8`, 'Cache-Control': status === 200 ? 'public, max-age=300' : 'no-store' });
+  const blogIndex = (ctx: Ctx, tag?: string) => {
+    const all = publicPosts();
+    const posts = tag ? all.filter((p) => p.tags.includes(tag)) : all;
+    const n = Number(ctx.query.get('page') ?? 1);
+    const pages = Math.max(1, Math.ceil(posts.length / PAGE_SIZE));
+    if (!Number.isInteger(n) || n < 1 || n > pages || (tag && !posts.length)) return page(renderBlogNotFound(), 404);
+    return page(renderBlogIndex(posts, n, tag, allTags(all)));
+  };
+  r.get('/api/blog/latest', (ctx) => latestPosts(ctx.query.get('limit')));
+  r.get('/blog', (ctx) => blogIndex(ctx));
+  r.get('/blog/rss.xml', () => page(rssXml(publicPosts()), 200, 'application/rss+xml'));
+  r.get('/blog/tag/:tag', (ctx) => blogIndex(ctx, ctx.params.tag));
+  r.get('/blog/:slug', (ctx) => {
+    const found = findPost(ctx.params.slug);
+    if (!found) return page(renderBlogNotFound(), 404);
+    if ('movedTo' in found) return new Reply(301, '', { Location: postPath(found.movedTo) });
+    const post = found.post;
+    countPostView(ctx, post);
+    const others = publicPosts().filter((p) => p.id !== post.id);
+    const shared = (p: { tags: string[] }) => p.tags.filter((t) => post.tags.includes(t)).length;
+    const related = [...others].sort((a, b) => shared(b) - shared(a)).slice(0, 3);
+    return page(renderBlogPost(post, related));
+  });
+  r.get('/sitemap.xml', () => page(sitemapXml(publicPosts()), 200, 'application/xml'));
+  r.get('/robots.txt', () => page(robotsTxt(), 200, 'text/plain'));
 
   adminRoutes(r);
 

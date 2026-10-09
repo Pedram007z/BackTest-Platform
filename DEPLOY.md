@@ -146,6 +146,8 @@ TRUST_PROXY=true
 - An admin can also sign in with a username and password instead (`ADMIN_USERNAME` and
   `ADMIN_PASSWORD_HASH`): `make-admin.sh --username` sets both (step 7). Never write the password itself here.
 - `HOST=127.0.0.1` keeps the API reachable only through nginx.
+- `APP_URL` is the site's own address: the blog's links for Google (canonical address, sitemap, sharing
+  cards) are built from it, so it must be the address visitors use (with `https://`).
 - Every other setting (SMS keys, gateways, prices, data sources) is set later in the admin panel.
   `backtestlab/server/env.example` lists the rest.
 
@@ -186,6 +188,10 @@ sudo certbot --nginx -d YOUR-DOMAIN -d www.YOUR-DOMAIN
 upload pictures and videos for announcements up to 100 MB (`location /api/admin/media`). If you set up nginx
 with an older copy of the file, copy it again (and repeat the `sed` line), or uploads stop with "حجم فایل
 بیش از حد مجاز سرور است".
+
+The blog (`/blog`), `sitemap.xml` and `robots.txt` are pages the API server renders for search engines;
+`nginx-site.conf` sends them to it (`location ~ ^/(blog…|sitemap\.xml|robots\.txt)$`). With an older copy of
+the file, copy it again (or add that block), or `/blog` shows the app's home page instead.
 
 Open `https://YOUR-DOMAIN`. You should see the landing page.
 
@@ -383,6 +389,11 @@ Build a new release (step 1), upload it (step 3), copy `web/` and `server.mjs` a
 ```bash
 sudo systemctl restart backtestlab
 ```
+
+Releases with the blog also need the newer `nginx-site.conf` (step 6: copy it again and repeat the `sed`
+line, or add its `blog` block to your site), then `sudo nginx -t && sudo systemctl reload nginx`. Check with
+`curl -I https://YOUR-DOMAIN/blog` (it should answer `200` from the API server). Then add
+`https://YOUR-DOMAIN/sitemap.xml` in Google Search Console (Sitemaps), so new posts are found quickly.
 
 Accounts, payments, settings and the market history in `/var/lib/backtestlab` are kept. Versions before the
 market storage kept a download cache in `market/dukascopy` and `market/binance`; after updating, those two

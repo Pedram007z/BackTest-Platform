@@ -630,6 +630,33 @@ export interface Announcement {
   updatedAt: number;
 }
 
+/** A blog post (the public pages are rendered by the API server at /blog). */
+export interface BlogPost {
+  id: string;
+  /** The post's address: /blog/<slug> (Persian letters allowed). */
+  slug: string;
+  title: string;
+  /** Title for search results and the browser tab, when different from the title. */
+  seoTitle?: string;
+  /** Summary shown in lists and as the meta description. */
+  excerpt: string;
+  /** Markdown (src/lib/markdown.ts). */
+  content: string;
+  cover?: AnnouncementMedia;
+  coverAlt?: string;
+  tags: string[];
+  author: string;
+  status: 'draft' | 'published';
+  /** Publication time (UTC ms); a later time keeps a published post hidden until then. */
+  publishedAt?: number;
+  views: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** A post without its text, for lists. */
+export type BlogPostSummary = Omit<BlogPost, 'content'> & { readingMinutes: number };
+
 export const MEDIA_TYPES: Record<string, 'image' | 'video'> = {
   'image/jpeg': 'image',
   'image/png': 'image',

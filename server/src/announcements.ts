@@ -18,7 +18,11 @@ const MEDIA_DIR = () => join(config.dataDir, 'media');
 const mediaPath = (m: Pick<StoredMedia, 'id'>) => join(MEDIA_DIR(), m.id);
 const mediaUrl = (id: string) => `/api/media/${id}`;
 
-const toMedia = (m: StoredMedia): AnnouncementMedia => ({ id: m.id, kind: m.kind, mime: m.mime, size: m.size, name: m.name, url: mediaUrl(m.id) });
+export const toMedia = (m: StoredMedia): AnnouncementMedia => ({ id: m.id, kind: m.kind, mime: m.mime, size: m.size, name: m.name, url: mediaUrl(m.id) });
+
+/** Other features that keep uploaded files (the blog): each lists the file ids it still uses. */
+const mediaUsers: (() => Iterable<string>)[] = [];
+export const registerMediaUser = (fn: () => Iterable<string>) => void mediaUsers.push(fn);
 
 // ---------- admin ----------
 
@@ -76,10 +80,11 @@ export function deleteAnnouncement(id: string): Announcement | undefined {
   return a;
 }
 
-/** Files no message uses any more (uploads younger than a day are kept: the admin may still be writing). */
-function dropUnusedMedia() {
+/** Files no message or post uses any more (uploads younger than a day are kept: the admin may still be writing). */
+export function dropUnusedMedia() {
   const d = db();
-  const used = new Set(d.announcements.map((a) => a.media?.id).filter(Boolean));
+  const used = new Set<string>(d.announcements.map((a) => a.media?.id).filter((id): id is string => !!id));
+  for (const fn of mediaUsers) for (const id of fn()) used.add(id);
   const old = Date.now() - 86_400_000;
   for (const m of d.media.filter((x) => !used.has(x.id) && x.createdAt < old)) rmSync(mediaPath(m), { force: true });
   d.media = d.media.filter((x) => used.has(x.id) || x.createdAt >= old);

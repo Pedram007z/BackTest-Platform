@@ -21,18 +21,18 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useGo } from '../lib/nav';
 import { AnnouncementPopup } from '../components/AnnouncementPopup';
 import { Link } from '../components/ui/AppLink';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
 import { MarketsSection } from '../components/landing/MarketsSection';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
+import { BlogTeaser } from '../components/landing/BlogTeaser';
 import { Logo } from '../components/brand/Brand';
 import { fmtDayLong } from '../lib/calendar';
 import { faDigits, fmtNum, fmtPct } from '../lib/format';
-import { fmtPhone } from '../lib/auth';
 import { DATA_START, GROUP_LABELS, SYMBOLS, TIMEFRAMES } from '../lib/market';
 import { backend } from '../services';
+import { hasServer } from '../services/api';
 import { DEFAULT_PLANS } from '../services/localBackend';
 import type { Plan } from '../services/types';
 import { useAuth } from '../store/useAuth';
@@ -172,26 +172,12 @@ function Price({ plan, monthly }: { plan: Plan; monthly?: number }) {
 
 export default function Landing() {
   const { theme, setTheme } = useStore();
-  const go = useGo();
   const session = useAuth((s) => s.session);
-  const loginDemo = useAuth((s) => s.loginDemo);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [menu, setMenu] = useState(false);
   // signed-in visitors go straight to their dashboard
   const startTo = session ? '/dashboard' : '/signup';
   const startLabel = session ? 'ورود به داشبورد' : 'شروع رایگان';
 
-  const openDemo = async () => {
-    if (session) return go('/dashboard');
-    setDemoLoading(true);
-    try {
-      await loginDemo();
-      go('/dashboard');
-    } catch {
-      setDemoLoading(false);
-      go('/login');
-    }
-  };
   const [faq, setFaq] = useState<number | null>(0);
   // Prices come from the admin panel; the defaults show until they load.
   const [plans, setPlans] = useState<Plan[]>(() => DEFAULT_PLANS.filter((p) => p.active));
@@ -216,6 +202,11 @@ export default function Landing() {
                 {n.label}
               </button>
             ))}
+            {hasServer && (
+              <a href="/blog" className="rounded-lg px-3 py-2 text-sm text-muted transition hover:text-ink">
+                بلاگ
+              </a>
+            )}
           </nav>
           <div className="ms-auto flex items-center gap-1.5">
             <button type="button" className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}>
@@ -249,6 +240,11 @@ export default function Landing() {
                 {n.label}
               </button>
             ))}
+            {hasServer && (
+              <a href="/blog" className="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-muted hover:bg-raised hover:text-ink">
+                بلاگ
+              </a>
+            )}
             <div className={clsx('mt-2 grid gap-2', session ? 'grid-cols-1' : 'grid-cols-2')}>
               {!session && (
                 <Link to="/login" className="btn-soft">
@@ -290,13 +286,7 @@ export default function Landing() {
               <Link to={startTo} className="btn-primary rounded-full px-6 py-3 text-[15px]">
                 {startLabel} <ArrowLeft size={17} />
               </Link>
-              {!session && (
-                <button type="button" onClick={openDemo} disabled={demoLoading} className="btn-soft rounded-full px-6 py-3 text-[15px]">
-                  {demoLoading ? 'در حال ورود…' : 'دیدن داشبورد نمونه'}
-                </button>
-              )}
             </div>
-            <p className="mt-4 text-xs text-faint">{session ? `وارد شده با ${fmtPhone(session.phone)}` : 'ثبت‌نام فقط با شماره موبایل • بدون کارت بانکی • پلن رایگان همیشگی'}</p>
           </div>
           <ReplayDemo />
         </div>
@@ -381,9 +371,9 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
-            <button type="button" onClick={openDemo} disabled={demoLoading} className="btn-soft mt-8 rounded-full px-5 py-2.5">
-              {session ? 'باز کردن داشبورد' : 'باز کردن داشبورد نمونه'} <ArrowLeft size={15} />
-            </button>
+            <Link to={startTo} className="btn-soft mt-8 rounded-full px-5 py-2.5">
+              {session ? 'باز کردن داشبورد' : 'شروع رایگان'} <ArrowLeft size={15} />
+            </Link>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -512,6 +502,9 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Latest blog posts (with the server) */}
+      <BlogTeaser />
+
       {/* Final CTA */}
       <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
         <div
@@ -544,6 +537,13 @@ export default function Landing() {
                   </button>
                 </li>
               ))}
+              {hasServer && (
+                <li>
+                  <a href="/blog" className="hover:text-ink">
+                    بلاگ
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
           <div>

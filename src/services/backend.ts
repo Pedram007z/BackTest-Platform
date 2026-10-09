@@ -1,3 +1,4 @@
+import type { BlogPostInput } from './blog';
 import type {
   AccountUser,
   ActivityQuery,
@@ -7,6 +8,8 @@ import type {
   Announcement,
   AnnouncementMedia,
   BacktestQuery,
+  BlogPost,
+  BlogPostSummary,
   BacktestSnapshot,
   BacktestSyncState,
   AuditEntry,
@@ -140,6 +143,11 @@ export interface AdminApi {
   saveAnnouncement(a: AnnouncementInput): Promise<Announcement>;
   deleteAnnouncement(id: string): Promise<void>;
   uploadMedia(file: File, onProgress?: (fraction: number) => void): Promise<AnnouncementMedia>;
+  /** Blog posts (public pages at /blog, rendered by the server). */
+  blogPosts(): Promise<BlogPostSummary[]>;
+  blogPost(id: string): Promise<BlogPost>;
+  saveBlogPost(p: BlogPostInput): Promise<BlogPost>;
+  deleteBlogPost(id: string): Promise<void>;
 }
 
 export interface Backend {
@@ -175,6 +183,8 @@ export interface Backend {
   /** Popup messages for this visitor on the website ('site') or the dashboard ('app'); counting a view. */
   announcements(placement: 'site' | 'app'): Promise<Announcement[]>;
   announcementSeen(id: string): Promise<void>;
+  /** The newest published blog posts (home page). */
+  latestBlogPosts(limit: number): Promise<BlogPostSummary[]>;
   admin: AdminApi;
 }
 

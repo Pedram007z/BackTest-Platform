@@ -238,6 +238,10 @@ const DATA_SINCE: Record<string, DayKey> = {
 export const dataStartOf = (...symbolIds: string[]): DayKey => symbolIds.reduce<DayKey>((a, id) => (DATA_SINCE[id] && DATA_SINCE[id] > a ? DATA_SINCE[id] : a), DATA_START);
 /** Replay data runs up to yesterday. */
 export const dataEnd = (): DayKey => addDays(localDayKey(), -1);
+/** History a replay chart reaches before the session's start date (when the symbol has data that early). */
+export const HISTORY_DAYS = 365;
+/** The earliest time a session's chart reaches back to: a year before its start, not before the symbol's first data. */
+export const historyStartMs = (symbolId: string, startDate: DayKey): number => Math.max(keyToMs(dataStartOf(symbolId)), keyToMs(startDate) - HISTORY_DAYS * DAY_MS);
 
 export type Timeframe = '1s' | '5s' | '15s' | '30s' | '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1D';
 export const TIMEFRAMES: { id: Timeframe; label: string; short: string; ms: number; tv: string }[] = [

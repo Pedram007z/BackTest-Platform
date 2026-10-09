@@ -30,6 +30,7 @@ import { sendTextSms } from '../sms';
 import { DAY_MS, addDays, clone, faDay, faNum, isDayKey, tehranDayKey, toLatinDigits, todayKey, uid } from '../util';
 import { activityList, signOutDevices, userDevices } from '../activity';
 import { adminAnnouncements, deleteAnnouncement, saveAnnouncement, uploadMedia } from '../announcements';
+import { adminPost, adminPosts, deletePost, savePost } from '../blog';
 import { adminBacktestDetail, adminBacktests, adminDeleteSession, dropBacktests } from '../backtests';
 
 function audit(ctx: Ctx, action: string, target?: string) {
@@ -741,5 +742,31 @@ export function adminRoutes(r: Router) {
     '/api/admin/media',
     admin((ctx) => uploadMedia(ctx)),
     { raw: true },
+  );
+
+  // ---------- blog ----------
+  r.get(
+    '/api/admin/blog',
+    admin(() => adminPosts()),
+  );
+  r.get(
+    '/api/admin/blog/:id',
+    admin((ctx) => adminPost(ctx.params.id)),
+  );
+  r.put(
+    '/api/admin/blog/:id',
+    admin((ctx) => {
+      const existed = adminPosts().some((p) => p.id === ctx.params.id);
+      const p = savePost(ctx.params.id, ctx.body);
+      audit(ctx, existed ? 'ویرایش مقاله' : 'ساخت مقاله', p.title);
+      return p;
+    }),
+  );
+  r.delete(
+    '/api/admin/blog/:id',
+    admin((ctx) => {
+      const p = deletePost(ctx.params.id);
+      if (p) audit(ctx, 'حذف مقاله', p.title);
+    }),
   );
 }

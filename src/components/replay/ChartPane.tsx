@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createLwEngine, tradesForChart } from '../../chart/lwEngine';
 import { createTvEngine } from '../../chart/tvEngine';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from '../../chart/types';
-import { SYMBOL_MAP, TIMEFRAMES, type Timeframe } from '../../lib/market';
+import { SYMBOL_MAP, TIMEFRAMES, historyStartMs, type Timeframe } from '../../lib/market';
 import type { NewsEvent } from '../../lib/news';
 import type { ChartPane as Pane, Trade } from '../../lib/types';
 import { Popover } from '../ui/Popover';
@@ -22,6 +22,8 @@ interface Props {
   sessionSymbols: string[];
   /** Session id: TradingView keeps each pane's drawings and indicators under it. */
   sessionId: string;
+  /** The session's start date (YYYY-MM-DD): the chart reaches a year before it. */
+  sessionStart: string;
   showHistory: boolean;
   dataVersion: number;
   draft: (DraftOrder & { symbol: string }) | null;
@@ -58,6 +60,7 @@ export function ChartPane(props: Props) {
     showHistory: props.showHistory,
     news: props.news.filter((e) => currencies.includes(e.currency) || (e.currency === 'CNY' && currencies.includes('HKD'))),
     dataVersion: props.dataVersion,
+    historyFrom: historyStartMs(pane.symbol, props.sessionStart),
     layoutKey: `${props.sessionId}:${index}`,
   };
   const stateRef = useRef(state);
