@@ -8,9 +8,26 @@ calendar data.
 python3 tools/calendar/fetch.py /tmp/calendar-pages            # download the official pages (1 a second)
 python3 tools/calendar/central_banks.py /tmp/calendar-pages server/src/news/schedule/central-banks.json
 python3 tools/calendar/fetch.py /tmp/calendar-pages --refresh  # later: take new decisions and dates ahead
+
+# US releases: dates from FRED (free API key: fred.stlouisfed.org → My Account → API Keys)
+FRED_API_KEY=… python3 tools/calendar/us_releases.py /tmp/calendar-pages server/src/news/schedule/us-releases.json
 ```
 
 `central_banks.py --csv FILE` also writes a table to read (UTC time, currency, impact, title, local time).
+
+## US releases (`server/src/news/schedule/us-releases.json`)
+
+Release dates from FRED (the St. Louis Fed): payrolls, unemployment rate and earnings, CPI, PPI, retail
+sales, Core PCE with personal income and spending, GDP (advance, second and third estimates), JOLTS,
+jobless claims, ADP, Empire State and Philadelphia surveys, housing starts and permits, new home sales,
+durable goods and factory orders, trade balance, industrial production, and the University of Michigan's
+final sentiment. GDP and housing starts use the days their headline series changed (FRED's release
+lists also hold revision days), and the other monthly releases drop FRED's revision days
+(`headline()` in `us_releases.py`). Times are the agencies' fixed release times (Eastern Time).
+
+By rule (`basis` says which): ISM Manufacturing and Services PMIs, Conference Board consumer confidence,
+EIA crude oil inventories, the University of Michigan's preliminary reading, and the Philadelphia survey
+before June 2015.
 
 ## Central-bank decisions (`server/src/news/schedule/central-banks.json`)
 

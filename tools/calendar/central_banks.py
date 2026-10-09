@@ -27,19 +27,17 @@ Loan Prime Rate (the data service did not answer).
 """
 import datetime as dt
 import glob
-import hashlib
 import html
-import json
 import os
 import re
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
-from zoneinfo import ZoneInfo
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from schedule import START, TODAY, write  # noqa: E402
 
 W = sys.argv[1]
-START = '2015-01-01'
-TODAY = dt.date.today().isoformat()
 MONTHS = {m: i + 1 for i, m in enumerate(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'])}
 events = []
 
@@ -304,37 +302,4 @@ def rba():
 for collect in (fed, ecb, boe, boc, boj, snb, rba):
     collect()
 
-out = {}
-for e in events:
-    y, m, d = map(int, e['date'].split('-'))
-    hh, mm = map(int, (e['time'] or '12:00').split(':'))
-    utc = dt.datetime(y, m, d, hh, mm, tzinfo=ZoneInfo(e['tz'])).astimezone(dt.timezone.utc)
-    rec = {
-        'id': 'sch-' + hashlib.sha1(f"{e['ccy']}|{e['title']}|{e['date']}".encode()).hexdigest()[:12],
-        'time': int(utc.timestamp() * 1000),
-        'currency': e['ccy'],
-        'title': e['title'],
-        'impact': e['impact'],
-    }
-    if not e['time']:
-        rec['tentative'] = True
-    rec['source'] = e['source']
-    if e.get('basis'):
-        rec['basis'] = e['basis']
-    rec['_utc'], rec['_local'] = utc.strftime('%Y-%m-%d %H:%M'), f"{e['date']} {e['time'] or '--:--'} {e['tz']}"
-    out[rec['id']] = rec
-rows = sorted(out.values(), key=lambda r: (r['time'], r['currency'], r['title']))
-
-target = next((a for a in sys.argv[2:] if not a.startswith('--') and a.endswith('.json')), None)
-if target:
-    with open(target, 'w') as f:
-        f.write('[\n' + ',\n'.join(json.dumps({k: v for k, v in r.items() if not k.startswith('_')}, ensure_ascii=False) for r in rows) + '\n]\n')
-if '--csv' in sys.argv:
-    with open(sys.argv[sys.argv.index('--csv') + 1], 'w') as f:
-        f.write('utc,currency,impact,title,local_time,time_fixed,source\n')
-        for r in rows:
-            f.write(f"{r['_utc']},{r['currency']},{r['impact']},\"{r['title']}\",{r['_local']},{'no' if r.get('tentative') else 'yes'},{r['source']}\n")
-counts = {}
-for r in rows:
-    counts[r['currency']] = counts.get(r['currency'], 0) + 1
-print(f"{len(rows)} events ({sum(1 for r in rows if r.get('tentative'))} without a fixed time), {rows[0]['_utc']} to {rows[-1]['_utc']}: {counts}")
+write(events, *sys.argv[2:])
