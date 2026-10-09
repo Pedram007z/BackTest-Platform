@@ -5,7 +5,7 @@
 One request a second; a file already downloaded is kept unless --refresh (pages that change: the
 current year's lists and the calendars of meetings ahead are always fetched again with --refresh).
 """
-import os, re, sys, time, html, urllib.request
+import os, re, sys, time, html, urllib.error, urllib.request
 
 W = sys.argv[1]
 REFRESH = '--refresh' in sys.argv
@@ -21,9 +21,15 @@ def get(url, path, always=False):
     if os.path.exists(full) and not (REFRESH and always):
         return open(full, encoding='utf-8', errors='replace').read() if not full.endswith('.xlsx') else ''
     os.makedirs(os.path.dirname(full), exist_ok=True)
-    time.sleep(max(0, 1.0 - (time.time() - _last)))
-    _last = time.time()
-    data = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=90).read()
+    for attempt in range(3):
+        time.sleep(max(0, 1.0 - (time.time() - _last)) + (0, 5, 15)[attempt])
+        _last = time.time()
+        try:
+            data = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=90).read()
+            break
+        except OSError as e:  # dropped connections, timeouts; HTTP errors other than 5xx are final
+            if attempt == 2 or (isinstance(e, urllib.error.HTTPError) and e.code < 500):
+                raise SystemExit(f'{url}: {e}')
     open(full, 'wb').write(data)
     print(f'{len(data):>9}  {path}')
     return data.decode('utf-8', errors='replace')
