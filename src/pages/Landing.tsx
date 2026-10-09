@@ -26,11 +26,13 @@ import { Link } from '../components/ui/AppLink';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
 import { MarketsSection } from '../components/landing/MarketsSection';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
+import { BlogTeaser } from '../components/landing/BlogTeaser';
 import { Logo } from '../components/brand/Brand';
 import { fmtDayLong } from '../lib/calendar';
 import { faDigits, fmtNum, fmtPct } from '../lib/format';
 import { DATA_START, GROUP_LABELS, SYMBOLS, TIMEFRAMES } from '../lib/market';
 import { backend } from '../services';
+import { hasServer } from '../services/api';
 import { DEFAULT_PLANS } from '../services/localBackend';
 import type { Plan } from '../services/types';
 import { useAuth } from '../store/useAuth';
@@ -200,6 +202,11 @@ export default function Landing() {
                 {n.label}
               </button>
             ))}
+            {hasServer && (
+              <a href="/blog" className="rounded-lg px-3 py-2 text-sm text-muted transition hover:text-ink">
+                بلاگ
+              </a>
+            )}
           </nav>
           <div className="ms-auto flex items-center gap-1.5">
             <button type="button" className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}>
@@ -233,6 +240,11 @@ export default function Landing() {
                 {n.label}
               </button>
             ))}
+            {hasServer && (
+              <a href="/blog" className="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-muted hover:bg-raised hover:text-ink">
+                بلاگ
+              </a>
+            )}
             <div className={clsx('mt-2 grid gap-2', session ? 'grid-cols-1' : 'grid-cols-2')}>
               {!session && (
                 <Link to="/login" className="btn-soft">
@@ -490,6 +502,9 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Latest blog posts (with the server) */}
+      <BlogTeaser />
+
       {/* Final CTA */}
       <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
         <div
@@ -522,6 +537,13 @@ export default function Landing() {
                   </button>
                 </li>
               ))}
+              {hasServer && (
+                <li>
+                  <a href="/blog" className="hover:text-ink">
+                    بلاگ
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
           <div>

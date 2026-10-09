@@ -21,6 +21,7 @@ import { AdminActivity } from './pages/admin/Activity';
 import AdminLayout from './pages/admin/AdminLayout';
 import { AdminAnnouncements } from './pages/admin/Announcements';
 import { AdminBacktestUser, AdminBacktests } from './pages/admin/Backtests';
+import { AdminBlog, AdminBlogEditor } from './pages/admin/Blog';
 import { AdminCards } from './pages/admin/Cards';
 import { AdminDiscounts, AdminGateways, AdminPayments, AdminPlans } from './pages/admin/Commerce';
 import AdminOverview from './pages/admin/Overview';
@@ -118,6 +119,8 @@ export default function App() {
             <Route path="backtests/:userId" element={<AdminBacktestUser />} />
             <Route path="activity" element={<AdminActivity />} />
             <Route path="announcements" element={<AdminAnnouncements />} />
+            <Route path="blog" element={<AdminBlog />} />
+            <Route path="blog/:id" element={<AdminBlogEditor />} />
             <Route path="plans" element={<AdminPlans />} />
             <Route path="payments" element={<AdminPayments />} />
             <Route path="discounts" element={<AdminDiscounts />} />

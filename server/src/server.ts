@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { config } from './config';
 import { applyAdminGate, applyAdminLoginFromEnv } from './auth';
 import { flushBacktests } from './backtests';
+import { flushBlog } from './blog';
 import { db, flush, loadDb, prune } from './db';
 import { autoDownload } from './market/download';
 import { flushNews, loadNews, syncNews } from './news';
@@ -61,6 +62,7 @@ function shutdown(signal: string) {
     flush();
     flushNews();
     flushBacktests();
+    flushBlog();
   } finally {
     process.exit(0);
   }

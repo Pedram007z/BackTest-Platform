@@ -83,6 +83,7 @@ export const httpBackend: Backend = {
   backtestUpload: (hash, snapshot) => put('/api/me/backtests', { hash, snapshot }),
   announcements: (placement) => get(`/api/announcements?placement=${placement}`),
   announcementSeen: (id) => post(`/api/announcements/${enc(id)}/view`),
+  latestBlogPosts: (limit) => get(`/api/blog/latest?limit=${limit}`),
   admin: {
     stats: () => get('/api/admin/stats'),
     users: (q) => get(`/api/admin/users${qs(q)}`),
@@ -139,5 +140,9 @@ export const httpBackend: Backend = {
     saveAnnouncement: (a) => put(`/api/admin/announcements/${enc(a.id)}`, a),
     deleteAnnouncement: (id) => del(`/api/admin/announcements/${enc(id)}`),
     uploadMedia: (file, onProgress) => upload(`/api/admin/media?name=${enc(file.name)}`, file, onProgress),
+    blogPosts: () => get('/api/admin/blog'),
+    blogPost: (id) => get(`/api/admin/blog/${enc(id)}`),
+    saveBlogPost: (p) => put(`/api/admin/blog/${enc(p.id)}`, p),
+    deleteBlogPost: (id) => del(`/api/admin/blog/${enc(id)}`),
   },
 };

@@ -4,6 +4,7 @@ import { sampleNews } from '../lib/news';
 import { deleteMedia, mediaUrl, putMedia } from '../lib/mediaStore';
 import { local, readJson, writeJson } from '../lib/storage';
 import { announcementError, announcementVisible } from './announcements';
+import { blogPostError, cleanTags, postIsPublic, slugify, toSummary } from './blog';
 import { cleanSnapshot, queryBacktestRows, summarizeSessions } from './backtests';
 import { getToken } from './api';
 import { BackendError, type Backend } from './backend';
@@ -19,6 +20,7 @@ import {
   type AdminBacktestRow,
   type AdminStats,
   type Announcement,
+  type BlogPost,
   type AnnouncementMedia,
   type AuditEntry,
   type BacktestSnapshot,
@@ -70,6 +72,7 @@ interface Db {
   /** Devices (sign-in events) the admin signed out. */
   revokedDevices?: string[];
   announcements?: Announcement[];
+  blog?: BlogPost[];
   /** Uploaded pictures and videos; the files themselves are in IndexedDB (lib/mediaStore). */
   media?: (Omit<AnnouncementMedia, 'url'> & { createdAt: number })[];
 }
@@ -386,6 +389,7 @@ function db(): Db {
     cache.loginLog ??= seedLoginLog(cache.users);
     cache.revokedDevices ??= [];
     cache.announcements ??= [];
+    cache.blog ??= [];
     cache.media ??= [];
     // saved before QVeris existed
     cache.settings.qveris ??= { ...DEFAULT_SETTINGS.qveris };
@@ -580,10 +584,14 @@ async function withMediaUrls(list: Announcement[]): Promise<Announcement[]> {
   return list;
 }
 
-/** Files no message uses any more (uploads younger than a day are kept: the admin may still be writing). */
+/** Files no message or post uses any more (uploads younger than a day are kept: the admin may still be writing). */
 function dropUnusedMedia() {
   const d = db();
   const used = new Set(d.announcements!.map((a) => a.media?.id).filter(Boolean));
+  for (const p of d.blog!) {
+    if (p.cover) used.add(p.cover.id);
+    for (const m of p.content.matchAll(/\/api\/media\/([\w-]+)/g)) used.add(m[1]);
+  }
   const old = Date.now() - DAY;
   for (const m of d.media!.filter((x) => !used.has(x.id) && x.createdAt < old)) void deleteMedia(m.id);
   d.media = d.media!.filter((x) => used.has(x.id) || x.createdAt >= old);
@@ -911,6 +919,14 @@ export const localBackend: Backend = {
     d.backtests![u.id] = { hash, syncedAt: Date.now(), ip: THIS_BROWSER_IP, userAgent: navigator.userAgent.slice(0, 200), snapshot, pendingRemovals: pending };
     save();
     return delay({ needData: false, remove: pending }, 120);
+  },
+  async latestBlogPosts(limit) {
+    const list = clone(db().blog!.filter((p) => postIsPublic(p)))
+      .sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0))
+      .slice(0, limit)
+      .map((p) => ({ ...toSummary(p), views: 0 }));
+    for (const p of list) if (p.cover) p.cover.url = await mediaUrl(p.cover.id);
+    return list;
   },
   async announcements(placement) {
     let signedIn = false;
@@ -1435,6 +1451,68 @@ export const localBackend: Backend = {
       d.announcements = d.announcements!.filter((x) => x.id !== id);
       dropUnusedMedia();
       if (a) log('حذف اعلان', a.title);
+      save();
+    },
+    async blogPosts() {
+      requireAdmin();
+      const list = clone(db().blog!).map(toSummary);
+      for (const p of list) if (p.cover) p.cover.url = await mediaUrl(p.cover.id);
+      return delay(list.sort((a, b) => b.updatedAt - a.updatedAt));
+    },
+    async blogPost(id) {
+      requireAdmin();
+      const p = db().blog!.find((x) => x.id === id);
+      if (!p) throw new BackendError('not_found', 'مقاله پیدا نشد.');
+      const out = clone(p);
+      if (out.cover) out.cover.url = await mediaUrl(out.cover.id);
+      return out;
+    },
+    async saveBlogPost(input) {
+      requireAdmin();
+      const d = db();
+      const title = input.title.trim();
+      const slug = input.slug.trim() || slugify(title);
+      const fields = { title, slug, excerpt: input.excerpt.trim(), content: input.content, status: input.status };
+      const bad = blogPostError(fields);
+      if (bad) throw new BackendError('invalid', bad.message, bad.field);
+      if (d.blog!.some((p) => p.slug === slug && p.id !== input.id)) throw new BackendError('invalid', 'این نشانی برای مقاله‌ی دیگری است.', 'slug');
+      let cover: BlogPost['cover'];
+      if (input.coverId) {
+        const m = d.media!.find((x) => x.id === input.coverId);
+        if (!m || m.kind !== 'image') throw new BackendError('invalid', 'تصویر شاخص پیدا نشد؛ دوباره بارگذاری کنید.', 'cover');
+        cover = { id: m.id, kind: m.kind, mime: m.mime, size: m.size, name: m.name, url: '' };
+      }
+      const prev = d.blog!.find((p) => p.id === input.id);
+      const now = Date.now();
+      const next: BlogPost = {
+        id: input.id,
+        ...fields,
+        seoTitle: input.seoTitle?.trim() || undefined,
+        cover,
+        coverAlt: input.coverAlt?.trim() || undefined,
+        tags: cleanTags(input.tags),
+        author: input.author.trim() || d.settings.siteName,
+        publishedAt: input.publishedAt || (input.status === 'published' ? (prev?.publishedAt ?? now) : prev?.publishedAt),
+        views: prev?.views ?? 0,
+        createdAt: prev?.createdAt ?? now,
+        updatedAt: now,
+      };
+      if (prev) d.blog![d.blog!.indexOf(prev)] = next;
+      else d.blog!.unshift(next);
+      dropUnusedMedia();
+      log(prev ? 'ویرایش مقاله' : 'ساخت مقاله', title);
+      save();
+      const out = clone(next);
+      if (out.cover) out.cover.url = await mediaUrl(out.cover.id);
+      return delay(out);
+    },
+    async deleteBlogPost(id) {
+      requireAdmin();
+      const d = db();
+      const p = d.blog!.find((x) => x.id === id);
+      d.blog = d.blog!.filter((x) => x.id !== id);
+      dropUnusedMedia();
+      if (p) log('حذف مقاله', p.title);
       save();
     },
     async uploadMedia(file, onProgress) {
