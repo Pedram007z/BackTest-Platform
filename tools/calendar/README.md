@@ -11,6 +11,9 @@ python3 tools/calendar/fetch.py /tmp/calendar-pages --refresh  # later: take new
 
 # US releases: dates from FRED (free API key: fred.stlouisfed.org → My Account → API Keys)
 FRED_API_KEY=… python3 tools/calendar/us_releases.py /tmp/calendar-pages server/src/news/schedule/us-releases.json
+
+# other countries (each saves what it downloads in the work folder and fetches only what is new)
+python3 tools/calendar/uk_releases.py /tmp/calendar-pages server/src/news/schedule/uk-releases.json   # likewise eu, ca, au, nz, jp, ch
 ```
 
 `central_banks.py --csv FILE` also writes a table to read (UTC time, currency, impact, title, local time).
@@ -28,6 +31,19 @@ lists also hold revision days), and the other monthly releases drop FRED's revis
 By rule (`basis` says which): ISM Manufacturing and Services PMIs, Conference Board consumer confidence,
 EIA crude oil inventories, the University of Michigan's preliminary reading, and the Philadelphia survey
 before June 2015.
+
+## Other countries' releases (`server/src/news/schedule/<country>-releases.json`)
+
+| File | Source | Events | From |
+|---|---|---|---|
+| `uk-releases.json` | ONS release calendar (exact times) | CPI, PPI, labour market (claimant count, earnings, unemployment), monthly GDP, GDP estimates, retail sales | Feb 2016 |
+| `eu-releases.json` | Eurostat euro indicators (exact times) | CPI flash and final, GDP preliminary flash, flash and revised, unemployment, retail sales, industrial production, PPI, trade balance | 2015 |
+| `au-releases.json` | ABS release pages | labour force, CPI (quarterly; monthly from Nov 2025), monthly CPI indicator, wage price index, retail sales (to Jul 2025) then household spending, GDP, trade balance | 2015 |
+| `nz-releases.json` | Stats NZ release pages | CPI, GDP, labour market, retail sales, trade balance | mid-2017 |
+| `jp-releases.json` | Bank of Japan, Cabinet Office | Tankan, GDP first and second preliminary estimates | 2015 |
+| `ch-releases.json` | Federal Statistical Office | CPI, retail sales (to Nov 2024, when its press releases stopped) | 2015 |
+
+`ca_releases.py` (Statistics Canada's daily list of updated tables) is still being finished.
 
 ## Central-bank decisions (`server/src/news/schedule/central-banks.json`)
 
