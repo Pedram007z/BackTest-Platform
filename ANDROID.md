@@ -14,7 +14,7 @@ Activities) it opens the site in a built-in WebView instead.
 |---|---|
 | Package name | `ir.backtestlab.app` |
 | Version | `versionCode` / `versionName` in `android/app/build.gradle` (raise both for every store upload) |
-| Target / minimum Android | API 36 / API 21 (Android 5) |
+| Target / minimum Android | API 36 / API 24 (Android 7) |
 | Generated with | Bubblewrap 1.27 (`android/twa-manifest.json`) |
 
 ## Building
