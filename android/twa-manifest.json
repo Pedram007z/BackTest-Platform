@@ -1,0 +1,48 @@
+{
+  "packageId": "ir.backtestlab.app",
+  "host": "backtestlab.ir",
+  "name": "بک‌تست‌لب",
+  "launcherName": "بک‌تست‌لب",
+  "display": "standalone",
+  "themeColor": "#0D0B14",
+  "themeColorDark": "#0D0B14",
+  "navigationColor": "#0D0B14",
+  "navigationColorDark": "#0D0B14",
+  "navigationDividerColor": "#0D0B14",
+  "navigationDividerColorDark": "#0D0B14",
+  "backgroundColor": "#0D0B14",
+  "enableNotifications": false,
+  "startUrl": "/dashboard?source=android",
+  "iconUrl": "https://backtestlab.ir/icon-512.png",
+  "maskableIconUrl": "https://backtestlab.ir/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./backtestlab-release.jks",
+    "alias": "backtestlab"
+  },
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "fallbackType": "webview",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://backtestlab.ir/",
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [
+    {
+      "name": "upload key",
+      "value": "44:B6:08:20:D4:C3:40:46:56:A3:C4:EB:0E:B1:54:D0:2A:FD:F1:6E:00:D8:62:0B:81:BF:67:33:5A:2D:3C:FC"
+    }
+  ],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": [],
+  "webManifestUrl": "https://backtestlab.ir/site.webmanifest",
+  "appVersion": "1.0.0"
+}
