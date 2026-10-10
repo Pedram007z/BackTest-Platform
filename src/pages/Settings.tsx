@@ -15,6 +15,7 @@ import { toast, useStore } from '../store/useStore';
 import { backend } from '../services';
 import { useSyncStatus } from '../services/workspaceSync';
 import { syncText } from '../components/layout/SyncBadge';
+import { InstallCard } from '../components/layout/InstallApp';
 
 /** Downscale an uploaded picture so it stays small in local storage. */
 function readAvatar(file: File): Promise<string> {
@@ -180,6 +181,8 @@ export default function Settings() {
           ))}
         </div>
       </section>
+
+      <InstallCard />
 
       <section className="card p-5">
         <h2 className="mb-1 text-sm font-bold">داده‌ها</h2>

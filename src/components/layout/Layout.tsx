@@ -29,6 +29,7 @@ import { useAuth } from '../../store/useAuth';
 import { useStore, useToasts } from '../../store/useStore';
 import { AnnouncementPopup } from '../AnnouncementPopup';
 import { SyncBadge } from './SyncBadge';
+import { InstallButton } from './InstallApp';
 import { Avatar } from '../ui/Avatar';
 import { Meter } from '../ui/controls';
 
@@ -182,6 +183,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </Link>
         <span className="ms-auto" />
         <SyncBadge />
+        <InstallButton />
         <button
           type="button"
           className="icon-btn"
