@@ -184,7 +184,7 @@ sudo certbot --nginx -d YOUR-DOMAIN -d www.YOUR-DOMAIN
 - certbot needs the domain to point at this server and port 80 to be open from abroad. If it cannot verify
   the domain during an international disruption, run the same command again later.
 
-`nginx-site.conf` lets the app upload up to 10 MB to the API (a user's backtest copy) and the admin panel
+`nginx-site.conf` lets the app upload up to 25 MB to the API (a user's data: sessions, trades, journals) and the admin panel
 upload pictures and videos for announcements up to 100 MB (`location /api/admin/media`). If you set up nginx
 with an older copy of the file, copy it again (and repeat the `sed` line), or uploads stop with "حجم فایل
 بیش از حد مجاز سرور است".
@@ -395,6 +395,12 @@ line, or add its `blog` block to your site), then `sudo nginx -t && sudo systemc
 `curl -I https://YOUR-DOMAIN/blog` (it should answer `200` from the API server). Then add
 `https://YOUR-DOMAIN/sitemap.xml` in Google Search Console (Sitemaps), so new posts are found quickly.
 
+Releases with users' data on the server (sessions, trades, journals, chart drawings: `workspaces/`, `layouts/`,
+`shots/`) and the installable app also need the newer `nginx-site.conf`: it accepts the larger first upload of a
+user's data (25 MB) and serves `sw.js`, `site.webmanifest` and `/.well-known/assetlinks.json` (for the Android
+app, ANDROID.md). Each user's data that so far existed only in their browser is uploaded the first time they
+open the new version.
+
 Accounts, payments, settings and the market history in `/var/lib/backtestlab` are kept. Versions before the
 market storage kept a download cache in `market/dukascopy` and `market/binance`; after updating, those two
 folders are no longer used and can be deleted.
@@ -402,15 +408,17 @@ folders are no longer used and can be deleted.
 ## Backups
 
 `/var/lib/backtestlab/db.json` holds accounts, payments, settings, the sign-in log and announcements;
-`backtests/` the copies of users' backtests and `media/` the announcements' pictures and videos. Back them
-up daily. The market history
+`workspaces/` each user's own data (sessions, trades, journals, strategies, checklists, practice time),
+`layouts/` their chart drawings, `shots/` their journal screenshots, `backtests/` the admin panel's copies of
+users' backtests and `media/` the announcements' pictures and videos. Users' data now lives only here (their
+browsers keep a working copy), so back them up daily. The market history
 (`market/store`) can be downloaded again, but that takes hours: keep a copy of it too, for example monthly.
 
 ```bash
 sudo mkdir -p /root/backups
 sudo crontab -e
 # add this line: every night at 03:30
-30 3 * * * tar -czf /root/backups/backtestlab-$(date +\%F).tar.gz -C /var/lib/backtestlab db.json news.json backtests media
+30 3 * * * tar -czf /root/backups/backtestlab-$(date +\%F).tar.gz -C /var/lib/backtestlab db.json news.json workspaces layouts shots backtests media
 ```
 
 ## When something goes wrong
