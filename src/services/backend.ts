@@ -1,4 +1,5 @@
 import type { BlogPostInput } from './blog';
+import type { WorkspacePatch, WorkspaceReply } from './workspace';
 import type {
   AccountUser,
   ActivityQuery,
@@ -177,9 +178,22 @@ export interface Backend {
   myTickets(): Promise<Ticket[]>;
   createTicket(subject: string, text: string): Promise<Ticket>;
   replyMyTicket(id: string, text: string): Promise<Ticket>;
-  /** The copy of this user's backtests kept for the admin panel (services/backtestSync). */
+  /** The copy of this user's backtests kept for the admin panel (services/backtestSync, demo mode). */
   backtestCheck(hash: string): Promise<BacktestSyncState>;
   backtestUpload(hash: string, snapshot: BacktestSnapshot): Promise<BacktestSyncState>;
+  /**
+   * This user's own data kept on the server (services/workspaceSync; API server only): the copy, or
+   * `unchanged` when it is still at revision `rev`; sending the changes made since revision `baseRev`.
+   */
+  workspace(rev?: number): Promise<WorkspaceReply>;
+  saveWorkspace(input: { baseRev: number; pid: string; patch: WorkspacePatch }, opts?: { keepalive?: boolean }): Promise<WorkspaceReply>;
+  /** A session's chart drawings and indicators (services/layoutSync), by `tv:<pane key>` / `lw:<pane key>`. */
+  layouts(sessionId: string): Promise<{ items: Record<string, { at: number; data: unknown }> }>;
+  saveLayout(sessionId: string, input: { key: string; at: number; data: unknown }, opts?: { keepalive?: boolean }): Promise<{ key: string; at: number; stored: boolean; data?: unknown }>;
+  /** Journal screenshots (lib/shots). */
+  shot(id: string): Promise<Blob>;
+  saveShot(id: string, image: Blob): Promise<void>;
+  deleteShot(id: string): Promise<void>;
   /** Popup messages for this visitor on the website ('site') or the dashboard ('app'); counting a view. */
   announcements(placement: 'site' | 'app'): Promise<Announcement[]>;
   announcementSeen(id: string): Promise<void>;

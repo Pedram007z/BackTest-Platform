@@ -8,6 +8,7 @@ import { autoDownload } from './market/download';
 import { flushNews, loadNews, syncNews } from './news';
 import { expireStalePayments } from './payments';
 import { buildRouter } from './routes';
+import { flushWorkspaces } from './workspace';
 
 loadDb();
 applyAdminLoginFromEnv();
@@ -61,6 +62,7 @@ function shutdown(signal: string) {
   try {
     flush();
     flushNews();
+    flushWorkspaces();
     flushBacktests();
     flushBlog();
   } finally {

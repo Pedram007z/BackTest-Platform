@@ -47,12 +47,14 @@ export async function startServer(env: Record<string, string> = {}) {
   async function call<T = any>(method: string, path: string, body?: unknown, token?: string, extra: RequestInit = {}) {
     const headers: Record<string, string> = { ...(extra.headers as Record<string, string>) };
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (body !== undefined && typeof body !== 'string') headers['Content-Type'] = 'application/json';
+    // a string or bytes go as they are (set Content-Type in `extra`); anything else as JSON
+    const asIs = typeof body === 'string' || body instanceof Uint8Array;
+    if (body !== undefined && !asIs) headers['Content-Type'] = 'application/json';
     const res = await realFetch(base + path, {
       ...extra,
       method,
       headers,
-      body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
+      body: body === undefined ? undefined : asIs ? (body as string | Uint8Array) : JSON.stringify(body),
       redirect: 'manual',
     });
     const text = await res.text();

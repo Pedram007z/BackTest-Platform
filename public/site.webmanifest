@@ -1,14 +1,27 @@
 {
+  "id": "/",
   "name": "بک‌تست‌لب",
   "short_name": "بک‌تست‌لب",
+  "description": "بک‌تست استراتژی‌های معاملاتی روی داده‌ی واقعی بازار: ری‌پلی چارت، ژورنال و آنالیز معاملات.",
   "lang": "fa",
   "dir": "rtl",
-  "start_url": "./",
+  "start_url": "/dashboard?source=app",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0d0b14",
   "theme_color": "#0d0b14",
+  "categories": ["finance", "education", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "داشبورد", "url": "/dashboard?source=shortcut", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "جلسات بک‌تست", "url": "/sessions?source=shortcut", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "ژورنال", "url": "/journal?source=shortcut", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

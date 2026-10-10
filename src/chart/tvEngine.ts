@@ -5,6 +5,7 @@ import type { Trade } from '../lib/types';
 import { createNavButtons } from './navButtons';
 import { createReplayDatafeed } from './tvDatafeed';
 import { TV_LIBRARY_PATH } from './tvLoader';
+import { layoutSaved } from '../services/layoutSync';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
 
 /**
@@ -12,7 +13,8 @@ import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './ty
  * datafeed; the position tool is TradingView's own long/short position drawing; open positions
  * are position lines (with the close X) and stop / target are draggable order lines. The drawing
  * toolbar and the indicators work as in TradingView; each pane's drawings and indicators are saved
- * in this browser per session and come back when the session is opened again.
+ * per session (in this browser and, with the API server, on the server: services/layoutSync) and come
+ * back when the session is opened again.
  */
 
 type Any = any; // the library's own typings are not part of this repository
@@ -32,6 +34,7 @@ function readLayout(key: string | undefined): object | undefined {
 function writeLayout(key: string, layout: object) {
   try {
     localStorage.setItem(LAYOUT_PREFIX + key, JSON.stringify(layout));
+    layoutSaved('tv', key);
   } catch {
     /* storage full or blocked: drawings stay for this visit */
   }

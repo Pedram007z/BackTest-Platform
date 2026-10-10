@@ -12,6 +12,10 @@ import { fmtNum } from '../lib/format';
 import { planDaysLeft } from '../lib/stats';
 import { useAuth } from '../store/useAuth';
 import { toast, useStore } from '../store/useStore';
+import { backend } from '../services';
+import { useSyncStatus } from '../services/workspaceSync';
+import { syncText } from '../components/layout/SyncBadge';
+import { InstallCard } from '../components/layout/InstallApp';
 
 /** Downscale an uploaded picture so it stays small in local storage. */
 function readAvatar(file: File): Promise<string> {
@@ -43,6 +47,9 @@ export default function Settings() {
   const [confirm, setConfirm] = useState<'clear' | 'restore' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const session = useAuth((s) => s.session);
+  const sync = useSyncStatus();
+  // with the API server the data is the account's, on every device (services/workspaceSync)
+  const onServer = backend.mode === 'server' && !session?.demo;
   const rename = useAuth((s) => s.rename);
   const logout = useAuth((s) => s.logout);
   const go = useGo();
@@ -175,12 +182,16 @@ export default function Settings() {
         </div>
       </section>
 
+      <InstallCard />
+
       <section className="card p-5">
         <h2 className="mb-1 text-sm font-bold">داده‌ها</h2>
         <p className="mb-4 text-xs leading-6 text-muted">
-          {hasDemoData
-            ? 'جلسات، استراتژی‌ها و معاملات فعلی داده‌ی نمونه هستند تا صفحات خالی نباشند. داده‌ها فقط در همین مرورگر ذخیره می‌شوند.'
+          {hasDemoData && 'جلسات، استراتژی‌ها و معاملات فعلی داده‌ی نمونه هستند تا صفحات خالی نباشند. '}
+          {onServer
+            ? 'جلسات، معاملات و ژورنال‌ها، استراتژی‌ها، چک‌لیست‌ها، ترسیم‌های چارت و آمار زمان در حساب شما روی سرور ذخیره می‌شوند؛ در هر مرورگر و دستگاهی که وارد شوید همین داده‌ها را می‌بینید.'
             : 'داده‌ها فقط در همین مرورگر ذخیره می‌شوند.'}
+          {onServer && sync.state !== 'off' && <span className={clsx('mt-1 block', sync.state === 'offline' && 'text-amber', sync.state === 'error' && 'text-loss')}>{syncText(sync.state, sync.savedAt, sync.message)}</span>}
         </p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-soft text-loss" onClick={() => setConfirm('clear')}>
@@ -196,7 +207,7 @@ export default function Settings() {
         open={confirm === 'clear'}
         onClose={() => setConfirm(null)}
         title="پاک کردن همه‌ی داده‌ها"
-        message="همه‌ی جلسات، معاملات، استراتژی‌ها، چک‌لیست‌ها و آمار زمان حذف می‌شوند. پروفایل و اشتراک باقی می‌مانند."
+        message={`همه‌ی جلسات، معاملات، استراتژی‌ها، چک‌لیست‌ها و آمار زمان حذف می‌شوند${onServer ? '، در همه‌ی دستگاه‌های شما' : ''}. پروفایل و اشتراک باقی می‌مانند.`}
         confirmLabel="پاک کردن"
         onConfirm={() => {
           clearAll();

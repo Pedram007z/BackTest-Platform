@@ -28,7 +28,9 @@ import AdminOverview from './pages/admin/Overview';
 import { AdminAudit, AdminMarket, AdminNews, AdminSettings, AdminSms, AdminTickets } from './pages/admin/System';
 import AdminUsers from './pages/admin/Users';
 import { PREVIEW, showPendingToast } from './lib/nav';
+import { backend } from './services';
 import { startBacktestSync } from './services/backtestSync';
+import { startWorkspaceSync, useSyncStatus } from './services/workspaceSync';
 import { loadSiteConfig } from './services/marketFeed';
 import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
@@ -57,8 +59,10 @@ function AccountSync() {
     void useAuth.getState().refresh();
     void loadSiteConfig();
     showPendingToast();
-    // the server's copy of the user's backtests, for the admin panel
-    startBacktestSync();
+    // with the API server, the user's data lives there (the same in every browser and device);
+    // the demo keeps it in this browser, with a copy for its admin panel
+    if (backend.mode === 'server') startWorkspaceSync();
+    else startBacktestSync();
   }, []);
   return null;
 }
@@ -75,8 +79,17 @@ function ScrollToTop() {
 /** Dashboard pages need a signed-in account; others are sent to the login page and brought back after. */
 function AppShell() {
   const session = useAuth((s) => s.session);
+  const firstLoad = useSyncStatus((s) => s.firstLoad);
   const location = useLocation();
   if (!session) return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  // the first visit in this browser: the account's data comes from the server before the pages show
+  if (firstLoad)
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-bg text-muted" role="status">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" />
+        <p className="text-sm">در حال دریافت داده‌های حساب…</p>
+      </div>
+    );
   return (
     <Layout>
       <Outlet />

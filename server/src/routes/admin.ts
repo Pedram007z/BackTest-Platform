@@ -32,6 +32,7 @@ import { activityList, signOutDevices, userDevices } from '../activity';
 import { adminAnnouncements, deleteAnnouncement, saveAnnouncement, uploadMedia } from '../announcements';
 import { adminPost, adminPosts, deletePost, savePost } from '../blog';
 import { adminBacktestDetail, adminBacktests, adminDeleteSession, dropBacktests } from '../backtests';
+import { dropWorkspace, removeWorkspaceSessions } from '../workspace';
 
 function audit(ctx: Ctx, action: string, target?: string) {
   const d = db();
@@ -239,6 +240,7 @@ export function adminRoutes(r: Router) {
       delete d.credentials[u.id];
       dropSessions(u.id);
       dropBacktests(u.id);
+      dropWorkspace(u.id);
       audit(ctx, 'حذف کاربر', u.name);
       save();
     }),
@@ -677,8 +679,15 @@ export function adminRoutes(r: Router) {
     '/api/admin/backtests/:userId/sessions/:sessionId',
     admin((ctx) => {
       const u = findUser(ctx.params.userId);
-      const s = adminDeleteSession(u.id, ctx.params.sessionId);
-      audit(ctx, 'حذف جلسه‌ی بک‌تست کاربر', `${u.name} — ${s.name}`);
+      // from the user's data (every device of theirs drops it at its next sync) and from the admin copy
+      const name = removeWorkspaceSessions(u.id, [ctx.params.sessionId])[0];
+      let s: { name: string } | undefined;
+      try {
+        s = adminDeleteSession(u.id, ctx.params.sessionId);
+      } catch (e) {
+        if (name === undefined) throw e;
+      }
+      audit(ctx, 'حذف جلسه‌ی بک‌تست کاربر', `${u.name} — ${s?.name ?? name}`);
     }),
   );
 

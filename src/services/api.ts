@@ -46,3 +46,21 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   if (!res.ok) throw new ApiError(res.status, data?.code ?? 'error', data?.message ?? 'خطای سرور', data?.field);
   return data as T;
 }
+
+/** A file from the API (a journal screenshot), with the sign-in token. */
+export async function apiBlob(path: string): Promise<Blob> {
+  const headers = new Headers();
+  const token = getToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { headers });
+  } catch {
+    throw new ApiError(0, 'network', 'اتصال به سرور برقرار نشد. اینترنت را بررسی کنید.');
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(res.status, data?.code ?? 'error', data?.message ?? 'خطای سرور', data?.field);
+  }
+  return res.blob();
+}

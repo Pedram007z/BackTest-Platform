@@ -39,6 +39,7 @@ import { faDigits, fmtNum, fmtUsd, toLatinDigits } from '../lib/format';
 import { BAR_MS, HOUR_MS, MIN_MS, SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
 import { currenciesFor, filterNews } from '../lib/news';
 import { saveShot } from '../lib/shots';
+import { layoutsFromServer, pullLayouts } from '../services/layoutSync';
 import { sessionBalance, sessionEndMs, sessionFloating, sessionProgress, sessionRemainingDays } from '../lib/stats';
 import { local } from '../lib/storage';
 import { fmtTehran } from '../lib/timezone';
@@ -154,6 +155,17 @@ export default function Replay() {
     };
   }, []);
   const engineKind: EngineKind = enginePref === 'auto' && tv ? 'tradingview' : 'lightweight';
+  // drawings and indicators saved on the user's other devices are brought here before the charts open
+  const [layoutsReady, setLayoutsReady] = useState(() => !layoutsFromServer());
+  useEffect(() => {
+    if (!id || !layoutsFromServer()) return;
+    let alive = true;
+    setLayoutsReady(false);
+    void pullLayouts(id).finally(() => alive && setLayoutsReady(true));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
   const engines = useRef(new Map<number, ChartEngine>());
   const register = useCallback((i: number, e: ChartEngine | null) => {
     if (e) engines.current.set(i, e);
@@ -597,7 +609,12 @@ export default function Replay() {
               layoutDef.count > 1 && 'auto-rows-[minmax(240px,1fr)] overflow-y-auto md:overflow-hidden',
             )}
           >
-            {panes.slice(0, layoutDef.count).map((p, i) => (
+            {!layoutsReady && (
+              <div className="flex items-center justify-center bg-bg text-muted" role="status">
+                <LoaderCircle size={22} className="animate-spin" aria-label="در حال بارگذاری ترسیم‌های چارت" />
+              </div>
+            )}
+            {layoutsReady && panes.slice(0, layoutDef.count).map((p, i) => (
               <div key={i} className={clsx('min-h-0', layoutDef.cells[i])}>
                 <ChartPane
                   index={i}

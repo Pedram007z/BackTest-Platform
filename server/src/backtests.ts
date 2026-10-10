@@ -4,13 +4,14 @@ import { config } from './config';
 import { db } from './db';
 import { badRequest, notFound, type Ctx } from './http';
 import type { AccountUser, AdminBacktestDetail, AdminBacktestRow, BacktestQuery, BacktestSessionSummary, BacktestSnapshot, BacktestSyncState, Page } from './shared';
-import { cleanSnapshot, queryBacktestRows, summarizeSessions } from '../../src/services/backtests';
+import { cleanSnapshot, queryBacktestRows, snapshotHash, summarizeSessions } from '../../src/services/backtests';
 
 /**
- * A copy of each user's backtest data (sessions, orders, positions), saved by their app, for the admin
- * panel. One file per user in DATA_DIR/backtests/; an index of the session summaries in index.json.
- * The browser keeps the working data; an admin who deletes a session here removes it from the user's
- * app at its next sync.
+ * A copy of each user's backtest data (sessions, orders, positions) for the admin panel. One file per
+ * user in DATA_DIR/backtests/; an index of the session summaries in index.json. Written from the
+ * user's saved data (workspace.ts) whenever it changes; apps from before the data moved to the server
+ * still upload it themselves (syncCheck, syncUpload). An admin who deletes a session here removes it
+ * from the user's data too (routes/admin.ts).
  */
 
 interface IndexEntry {
@@ -92,6 +93,16 @@ export function syncUpload(ctx: Ctx, user: AccountUser): BacktestSyncState {
   idx()[user.id] = { hash, syncedAt: Date.now(), ip: ctx.ip, userAgent: ctx.userAgent, sessions: summarizeSessions(snap), pendingRemovals: pending };
   saveIndex();
   return { needData: false, remove: pending };
+}
+
+/**
+ * The copy written from the user's saved data (workspace.ts), which the app now keeps on the server.
+ * Sessions an admin deleted are already gone from it, so nothing is left pending.
+ */
+export function storeBacktestCopy(userId: string, snap: BacktestSnapshot, meta: { syncedAt: number; ip?: string; userAgent?: string }) {
+  writeAtomic(userFile(userId), JSON.stringify(snap));
+  idx()[userId] = { hash: snapshotHash(JSON.stringify(snap)), ...meta, sessions: summarizeSessions(snap), pendingRemovals: [] };
+  saveIndex();
 }
 
 export function adminBacktests(q: BacktestQuery): Page<AdminBacktestRow> & { users: number; open: number } {

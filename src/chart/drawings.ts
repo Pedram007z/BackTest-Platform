@@ -1,4 +1,5 @@
 import type { IndicatorConfig } from './indicators';
+import { layoutSaved } from '../services/layoutSync';
 
 /**
  * Drawings on the built-in chart. Points are (bar time in UTC seconds, price), so a drawing stays
@@ -134,6 +135,8 @@ export function writeLwLayout(key: string | undefined, layout: LwLayout) {
   if (!key) return;
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify(layout));
+    // also kept on the server, for the user's other devices
+    layoutSaved('lw', key);
   } catch {
     /* storage full or blocked: kept for this visit only */
   }

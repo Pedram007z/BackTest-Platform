@@ -7,6 +7,7 @@ import { closeLots, followIdeal, lotsForRisk, processBar, type FillEvent } from 
 import type { ChartPane, Checklist, GoToPreset, JournalEntry, LayoutId, NewsFilters, OrderType, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
 import { local } from '../lib/storage';
 import { buildSeed, type SeedData } from './seed';
+import type { WorkspaceBase } from '../services/workspace';
 
 export const uid = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -42,6 +43,17 @@ export interface PlaceOrderInput {
 
 export const DEFAULT_NEWS_FILTERS: NewsFilters = { currencies: [], showPast: true, showFuture: true, impacts: ['high'] };
 
+/**
+ * Where this browser stands with the account's data on the server (services/workspaceSync). Saved with
+ * the data itself, so the two always match after a reload.
+ */
+export interface SyncMeta {
+  /** The server's copy as last agreed (null: this browser has not synced with the account yet). */
+  base: WorkspaceBase | null;
+  /** Changes sent whose answer has not come back: `base` is what the server has once they arrive. */
+  inflight?: { pid: string; base: WorkspaceBase };
+}
+
 interface State {
   user: UserProfile;
   strategies: Strategy[];
@@ -55,6 +67,7 @@ interface State {
   theme: Theme;
   sidebarCollapsed: boolean;
   hasDemoData: boolean;
+  sync?: SyncMeta;
 
   setTheme: (t: Theme) => void;
   toggleSidebar: () => void;
@@ -360,6 +373,8 @@ export const useStore = create<State>()(
       name: storeKey(bootSession?.userId),
       storage: createJSONStorage(() => local),
       version: STORE_VERSION,
+      // an account's sync state comes only from its own saved data (never left over from another account)
+      merge: (persisted, current) => ({ ...current, ...(persisted as Partial<State>), sync: (persisted as Partial<State> | undefined)?.sync }),
       migrate: (persisted: any, version) => {
         if (!persisted) return persisted;
         if (version < 3) {
@@ -444,5 +459,5 @@ export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'de
     }
   }
   if (raw) void useStore.persist.rehydrate();
-  else useStore.setState({ ...freshData(account), goToPresets: [], newsFilters: DEFAULT_NEWS_FILTERS, theme, sidebarCollapsed });
+  else useStore.setState({ ...freshData(account), goToPresets: [], newsFilters: DEFAULT_NEWS_FILTERS, theme, sidebarCollapsed, sync: undefined });
 }

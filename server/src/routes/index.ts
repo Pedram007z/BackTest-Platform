@@ -10,6 +10,7 @@ import { DAY_MS, clone, uid } from '../util';
 import { adminRoutes } from './admin';
 import { countView, serveMedia, visibleAnnouncements } from '../announcements';
 import { syncCheck, syncUpload } from '../backtests';
+import { deleteShot, getLayouts, getShot, getWorkspace, patchWorkspace, putLayout, putShot } from '../workspace';
 import { countPostView, findPost, latestPosts, publicPosts } from '../blog';
 import { PAGE_SIZE, allTags, postPath, renderBlogIndex, renderBlogNotFound, renderBlogPost, robotsTxt, rssXml, sitemapXml } from '../blogPages';
 
@@ -106,7 +107,7 @@ export function buildRouter(): Router {
     return clone(t);
   });
 
-  // ---------- a copy of the user's backtests for the admin panel (the app syncs it) ----------
+  // ---------- a copy of the user's backtests for the admin panel, uploaded by apps from before the workspace ----------
   r.post('/api/me/backtests/check', (ctx) => {
     const u = requireUser(ctx);
     rateLimit(`bt-check:${u.id}`, 600, 10 * 60_000);
@@ -121,6 +122,44 @@ export function buildRouter(): Router {
     },
     { maxBody: 8_000_000 },
   );
+
+  // ---------- the user's own data, the same in every browser and device (workspace.ts) ----------
+  r.get('/api/me/workspace', (ctx) => {
+    const u = requireUser(ctx);
+    rateLimit(`ws-get:${u.id}`, 600, 10 * 60_000);
+    return getWorkspace(u, ctx.query.get('rev'));
+  });
+  r.post(
+    '/api/me/workspace',
+    (ctx) => {
+      const u = requireUser(ctx);
+      rateLimit(`ws-put:${u.id}`, 600, 10 * 60_000);
+      return patchWorkspace(ctx, u);
+    },
+    { maxBody: 25_000_000 },
+  );
+  r.get('/api/me/layouts/:sessionId', (ctx) => getLayouts(requireUser(ctx), ctx.params.sessionId));
+  r.put(
+    '/api/me/layouts/:sessionId',
+    (ctx) => {
+      const u = requireUser(ctx);
+      rateLimit(`ws-layout:${u.id}`, 600, 10 * 60_000);
+      return putLayout(ctx, u);
+    },
+    { maxBody: 3_200_000 },
+  );
+  r.get('/api/me/shots/:id', (ctx) => getShot(requireUser(ctx), ctx.params.id));
+  r.on(
+    'PUT',
+    '/api/me/shots/:id',
+    (ctx) => {
+      const u = requireUser(ctx);
+      rateLimit(`ws-shot:${u.id}`, 300, 10 * 60_000);
+      return putShot(ctx, u);
+    },
+    { raw: true },
+  );
+  r.delete('/api/me/shots/:id', (ctx) => deleteShot(requireUser(ctx), ctx.params.id));
 
   // ---------- announcements (popup messages) and their pictures / videos ----------
   r.get('/api/announcements', (ctx) => visibleAnnouncements(optionalUser(ctx), ctx.query.get('placement') ?? 'site'));

@@ -3,7 +3,8 @@ import type { AdminBacktestRow, BacktestQuery, BacktestSessionSummary, BacktestS
 /**
  * Users' backtest data as kept on the server for the admin panel. Shared by the app (which builds the
  * copy), the API server (which cleans what it receives and summarises it) and the demo backend.
- * Journals (notes, screenshots) and chart layouts stay in the browser.
+ * Journals (notes, screenshots) and chart layouts are not part of this copy (they are in the user's own
+ * data on the server: services/workspace.ts).
  */
 
 const DAY_MS = 86_400_000;
