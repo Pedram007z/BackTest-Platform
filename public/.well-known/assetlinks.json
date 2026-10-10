@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ir.backtestlab.app",
+      "sha256_cert_fingerprints": ["44:B6:08:20:D4:C3:40:46:56:A3:C4:EB:0E:B1:54:D0:2A:FD:F1:6E:00:D8:62:0B:81:BF:67:33:5A:2D:3C:FC"]
+    }
+  }
+]
