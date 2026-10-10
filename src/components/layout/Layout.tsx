@@ -28,6 +28,7 @@ import { planDaysLeft } from '../../lib/stats';
 import { useAuth } from '../../store/useAuth';
 import { useStore, useToasts } from '../../store/useStore';
 import { AnnouncementPopup } from '../AnnouncementPopup';
+import { SyncBadge } from './SyncBadge';
 import { Avatar } from '../ui/Avatar';
 import { Meter } from '../ui/controls';
 
@@ -179,9 +180,11 @@ export function Layout({ children }: { children: ReactNode }) {
         <Link to="/" aria-label="صفحه اصلی">
           <Logo />
         </Link>
+        <span className="ms-auto" />
+        <SyncBadge />
         <button
           type="button"
-          className="icon-btn ms-auto"
+          className="icon-btn"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}
           title={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}

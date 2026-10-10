@@ -680,6 +680,8 @@ export function sandboxPaymentInfo(paymentId: string): Payment | null {
   return p ? clone(p) : null;
 }
 
+const serverOnly = (): Promise<never> => Promise.reject(new BackendError('unsupported', 'این کار فقط با سرور انجام می‌شود.'));
+
 export const localBackend: Backend = {
   mode: 'demo',
 
@@ -920,6 +922,14 @@ export const localBackend: Backend = {
     save();
     return delay({ needData: false, remove: pending }, 120);
   },
+  // the demo keeps everything in this browser: there is no account data to share between devices
+  workspace: () => serverOnly(),
+  saveWorkspace: () => serverOnly(),
+  layouts: () => serverOnly(),
+  saveLayout: () => serverOnly(),
+  shot: () => serverOnly(),
+  saveShot: () => serverOnly(),
+  deleteShot: () => serverOnly(),
   async latestBlogPosts(limit) {
     const list = clone(db().blog!.filter((p) => postIsPublic(p)))
       .sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0))

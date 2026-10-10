@@ -1,4 +1,4 @@
-import { API_URL, ApiError, api, getToken } from './api';
+import { API_URL, ApiError, api, apiBlob, getToken } from './api';
 import { BackendError, type Backend } from './backend';
 
 /** Backend over the API server in server/. Routes mirror the method names. */
@@ -81,6 +81,13 @@ export const httpBackend: Backend = {
   replyMyTicket: (id, text) => post(`/api/me/tickets/${encodeURIComponent(id)}/reply`, { text }),
   backtestCheck: (hash) => post('/api/me/backtests/check', { hash }),
   backtestUpload: (hash, snapshot) => put('/api/me/backtests', { hash, snapshot }),
+  workspace: (rev) => get(`/api/me/workspace${rev === undefined ? '' : `?rev=${rev}`}`),
+  saveWorkspace: (input, opts) => wrap(api('/api/me/workspace', { method: 'POST', json: input, keepalive: opts?.keepalive })),
+  layouts: (sessionId) => get(`/api/me/layouts/${enc(sessionId)}`),
+  saveLayout: (sessionId, input, opts) => wrap(api(`/api/me/layouts/${enc(sessionId)}`, { method: 'PUT', json: input, keepalive: opts?.keepalive })),
+  shot: (id) => wrap(apiBlob(`/api/me/shots/${enc(id)}`)),
+  saveShot: (id, image) => wrap(api<void>(`/api/me/shots/${enc(id)}`, { method: 'PUT', body: image, headers: { 'Content-Type': image.type || 'image/jpeg' } })),
+  deleteShot: (id) => del(`/api/me/shots/${enc(id)}`),
   announcements: (placement) => get(`/api/announcements?placement=${placement}`),
   announcementSeen: (id) => post(`/api/announcements/${enc(id)}/view`),
   latestBlogPosts: (limit) => get(`/api/blog/latest?limit=${limit}`),
