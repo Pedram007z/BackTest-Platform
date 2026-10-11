@@ -99,3 +99,7 @@
 - A full groove under the calculator, with a rising pop per row and a low "fail" at the 30% row.
 - The end card: an impact, a bell on the follow line, pops on the options, and an outro bass.
 - Raw output is −14.9 LUFS, levelled to −16 by `tools/encode.sh`.
+
+## Voice-over (script ready, not generated)
+
+The timed script for the Kourosh voice is in [`voiceover.json`](voiceover.json). ElevenLabs refused every take ("Free Tier access has been disabled"), so it needs a paid ElevenLabs plan. Then follow reel 3's "Voice-over version" steps.

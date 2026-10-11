@@ -96,3 +96,13 @@
 - A full groove under the checklist, with a pop per rule.
 - The end card: an impact, a bell on the follow line, pops on the options, and an outro bass.
 - Raw output is −14.6 LUFS, levelled to −16 by `tools/encode.sh`.
+
+## Voice-over version
+
+`backtestlab-reel3-voice.mp4` (78.9 s) has a Persian voice-over in ElevenLabs' **Kourosh - Confident Mashhadi Ad** voice (`VKDkQOjcRZb7aNtJGaWt`, model `eleven_v3`). The script, cue times and time-warp are in [`voiceover.json`](voiceover.json).
+
+How it was made:
+1. All 14 lines were generated in one take, joined with `[long pause]`.
+2. The take was transcribed with word timestamps and cut into lines. Pauses over 0.3 s were tightened and each line sped up 1.2×.
+3. The voice runs longer than the 52 s silent cut, so each scene was stretched to fit its line: `node tools/render-warp.cjs reel3-new-strategy reel3-new-strategy/voiceover.json out.mp4`.
+4. `sound.json` was re-timed through the same warp and synthesised, then mixed 10 dB under the voice with sidechain ducking, at −15 LUFS.

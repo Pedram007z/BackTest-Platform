@@ -1,0 +1,75 @@
+{
+ "voice": {
+  "name": "Kourosh - Confident Mashhadi Ad",
+  "elevenlabs_voice_id": "VKDkQOjcRZb7aNtJGaWt",
+  "model": "eleven_v3"
+ },
+ "how": "Generate all lines in one take joined with \" [long pause] \", cut each line by word timestamps, tighten pauses over 0.3 s, speed up 1.2x, then stretch each scene to fit its line (tools/render-warp.cjs) and re-time sound.json the same way.",
+ "lines": [
+  {
+   "cue": 0.15,
+   "text": "یه استراتژی سودده… [dramatically] و حسابت نصف شد!"
+  },
+  {
+   "cue": 3.75,
+   "text": "همه فکر می‌کنن اگه استراتژیت سودده باشه، حتماً پول درمیاری."
+  },
+  {
+   "cue": 7.65,
+   "text": "[curious] ولی یه عدد هست که از خود استراتژی مهم‌تره…"
+  },
+  {
+   "cue": 9.55,
+   "text": "ریسک هر معامله."
+  },
+  {
+   "cue": 11.05,
+   "text": "همون صد معامله‌ی سودده، دو تا حساب ده هزار دلاری. یکی یک درصد ریسک می‌کنه، یکی سی درصد."
+  },
+  {
+   "cue": 15.25,
+   "text": "یکی چهل‌وشش درصد سود… یکی پنجاه‌ویک درصد ضرر."
+  },
+  {
+   "cue": 17.25,
+   "text": "[dramatically] ولی ترسناک‌ترش اینه:"
+  },
+  {
+   "cue": 19.05,
+   "text": "حساب سی درصد، وسط راه، به یک میلیون و دویست و هفتاد هزار دلار رسید…"
+  },
+  {
+   "cue": 22.5,
+   "text": "و بعد، نود و نه و هشت دهم درصد ریزش کرد."
+  },
+  {
+   "cue": 25.45,
+   "text": "پس ریسک درست چقدره؟"
+  },
+  {
+   "cue": 27.15,
+   "text": "جوابش توی بدترین روزهای استراتژیته. و اون روزها رو قبل از ضرر، فقط یه جا می‌بینی:"
+  },
+  {
+   "cue": 31.55,
+   "text": "بک‌تست. پنج سال، پونصد معامله. طولانی‌ترین زنجیره‌ی ضرر: هشت تا."
+  },
+  {
+   "cue": 35.15,
+   "text": "ماشین‌حساب ریسک! اگه هشت ضرر پشت سر هم بیاد: با ریسک یک درصد، هشت درصد حسابت می‌ره. با ده درصد، بیشتر از نصفش. با سی درصد… تقریباً همه‌ش."
+  },
+  {
+   "cue": 40.3,
+   "text": "ریسکی رو انتخاب کن که بدترین روزش رو تحمل کنی."
+  },
+  {
+   "cue": 44.6,
+   "text": "بک‌تست‌لب، به‌زودی. فالو کن تا روز لانچ رو از دست ندی."
+  },
+  {
+   "cue": 47.8,
+   "text": "ریسک تو توی هر معامله چند درصده؟ عددش رو کامنت کن."
+  }
+ ],
+ "status": "not generated: ElevenLabs refused every take (\"Free Tier access has been disabled\"); needs a paid plan"
+}
