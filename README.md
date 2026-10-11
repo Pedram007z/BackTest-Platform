@@ -127,6 +127,12 @@ builds the app and the self-contained `server.mjs` on your computer; on the serv
 proxies `/api/` to the API server, which systemd keeps running. Ready-made files are in `deploy/`
 (nginx site, systemd unit, and a relay for servers inside Iran that cannot reach Dukascopy, Binance or ForexFactory).
 
+### Marketing reels
+
+`marketing/reels/` holds the pre-launch Instagram reels: the growth method behind them, a full brief for each reel
+(script, numbers, cover, caption, soundtrack) and the code that renders them. Start at
+**[marketing/reels/README.md](marketing/reels/README.md)**.
+
 ## Layout
 
 ```
@@ -145,4 +151,6 @@ src/
     sessions/   session list/row/summary and the session modal
   components/landing/  animated replay demo for the landing hero
   pages/        Landing, Dashboard, Sessions, Strategies, Checklists, Journal, Analytics, Settings, Replay
+marketing/
+  reels/        Instagram reels: method, per-reel briefs, reelkit (render + soundtrack code), covers, tools
 ```

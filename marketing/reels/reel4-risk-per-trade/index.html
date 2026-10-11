@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>BacktestLab reel 4</title>
+<link rel="stylesheet" href="../reelkit/base.css">
+<style>
+  #acct { position: absolute; left: 150px; right: 150px; top: 520px; height: 520px; padding: 40px 48px; text-align: right; opacity: 0; }
+  #acct .k { font-size: 40px; color: var(--muted); font-weight: 700; }
+  #acct .v { font-size: 112px; font-weight: 900; direction: ltr; text-align: right; margin-top: 6px; }
+  #acct canvas { position: absolute; left: 40px; bottom: 30px; }
+  .acc-card { position: absolute; top: 560px; width: 440px; padding: 28px 32px 30px; text-align: right; opacity: 0; }
+  #a1 { right: 80px; } #a30 { left: 80px; }
+  .acc-card .k { font-size: 38px; font-weight: 900; }
+  .acc-card .k span { font-size: 30px; color: var(--muted); font-weight: 700; }
+  .acc-card .v { font-size: 66px; font-weight: 900; direction: ltr; text-align: right; margin-top: 10px; }
+  .acc-card .p { font-size: 44px; font-weight: 900; direction: ltr; text-align: right; }
+  #calc { position: absolute; left: 70px; right: 70px; top: 520px; padding: 36px 40px 30px; opacity: 0; }
+  #calc .h { font-size: 44px; font-weight: 900; margin-bottom: 18px; text-align: right; }
+  #calc .r { display: flex; align-items: center; gap: 22px; padding: 18px 0; border-top: 2px solid var(--line); opacity: 0; }
+  #calc .r .risk { flex: none; width: 190px; font-size: 40px; font-weight: 800; color: var(--muted); text-align: right; }
+  #calc .r .bar { flex: 1; height: 54px; border-radius: 14px; background: rgba(255,255,255,.05); position: relative; overflow: hidden; direction: ltr; }
+  #calc .r .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 14px; }
+  #calc .r .dd { flex: none; width: 190px; font-size: 48px; font-weight: 900; direction: ltr; text-align: left; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1080" height="1920"></canvas>
+<canvas id="cv" width="1080" height="1920"></canvas>
+<div id="brand"><img src="../../../brand/svg/logo-fa-dark.svg" alt=""></div>
+
+<!-- 1 · hook -->
+<div id="s1a" class="layer h2" style="top:330px" data-k="یه استراتژی *سودده*…"></div>
+<div id="acct" class="card"><div class="k">موجودی حساب</div><div class="v num" id="acctv">$10,000</div><canvas id="acctc" width="700" height="220"></canvas></div>
+<div id="s1b" class="layer" style="top:1150px"><div class="titlebox"><div class="h1" data-k="!و حسابت نصف شد‼!"></div></div></div>
+
+<!-- 2 · the belief -->
+<div id="s2a" class="layer" style="top:470px"><span class="chip">همه فکر می‌کنن:</span></div>
+<div id="bubble"><div class="body" data-k="«اگه استراتژیت سودده باشه، حتماً پول درمیاری.»"></div></div>
+<div id="tick">✓</div>
+<div id="s2b" class="layer h2 pad" style="top:1200px" data-k="ولی یه عدد هست که از *خودِ استراتژی* مهم‌تره…"></div>
+
+<!-- 3 · risk per trade: the same trades, two accounts -->
+<div id="s3t" class="layer" style="top:760px"><div class="titlebox"><div class="h1" data-k="*ریسکِ* هر معامله."></div></div></div>
+<div id="s3a" class="layer h3 pad" style="top:330px" data-k="همون ۱۰۰ معامله‌ی *سودده*،
+دو تا حساب ۱۰ هزار دلاری:"></div>
+<div id="a1" class="acc-card card"><div class="k">ریسک ۱٪ <span>در هر معامله</span></div><div class="v num good" id="v1">$10,000</div><div class="p num good" id="p1">۰٪</div></div>
+<div id="a30" class="acc-card card"><div class="k">ریسک ۳۰٪ <span>در هر معامله</span></div><div class="v num bad" id="v30">$10,000</div><div class="p num bad" id="p30">۰٪</div></div>
+<div id="s3b" class="layer body pad" style="top:1500px" data-k="همون معامله‌ها؛ یکی +۴۶٪+، یکی !۵۱٪- ضرر.!"></div>
+<div id="s3c" class="layer h2 pad" style="top:800px" data-k="ولی *ترسناک‌ترش* اینه:"></div>
+
+<!-- 4 · the 30% account on the way -->
+<div id="s4a" class="layer h3 pad" style="top:330px" data-k="حسابِ *ریسک ۳۰٪*، وسط راه:"></div>
+<div id="s4b" class="layer body pad" style="top:1340px" data-k="یه میلیون دلار سود…
+و بعد !ریزش ۹۹٫۸٪.!"></div>
+<div id="s4c" class="layer h2 pad" style="top:800px" data-k="پس ریسک درست *چقدره؟*"></div>
+
+<!-- 5 · the answer: the worst days, seen in a backtest -->
+<div id="s5a" class="layer h2 pad" style="top:620px" data-k="جوابش توی *بدترین روزهای* استراتژیته."></div>
+<div id="s5b" class="layer h3 pad" style="top:960px" data-k="و اون روزها رو قبل از ضرر،
+فقط یه جا می‌بینی:"></div>
+<div id="s5c" class="layer h3 pad" style="top:330px" data-k="*بک‌تست:* ۵ سال، ۵۰۰ معامله"></div>
+<div id="s5d" class="layer" style="top:1340px"><span class="chip red" style="font-size:48px">طولانی‌ترین زنجیره‌ی ضرر: ۸</span></div>
+
+<!-- 6 · risk calculator -->
+<div id="s6a" class="layer" style="top:330px"><div class="titlebox"><div class="h2" data-k="ماشین‌حساب ریسک!!"></div></div></div>
+<div id="calc" class="card"><div class="h">اگه ۸ ضرر پشت سر هم بیاد، حسابت:</div><div id="rows"></div></div>
+<div id="s6b" class="layer body pad" style="top:1420px" data-k="ریسکی رو انتخاب کن که *بدترین روزش* رو تحمل کنی."></div>
+
+<div id="end"></div>
+
+<script src="../reelkit/base.js"></script>
+<script>
+document.getElementById('end').outerHTML = END_CARD_HTML('اول بدترین روزها رو ببین،\n*بعد* ریسک کن.', 'ریسک تو توی هر معامله<br>چند درصده؟', ['۰٫۵٪', '۱٪', '۲٪', '۵٪+'], 'عددش رو کامنت کن');
+// the calculator rows: what 8 losses in a row take, by risk per trade
+const RISKS = [0.01, 0.02, 0.05, 0.10, 0.30];
+document.getElementById('rows').innerHTML = RISKS.map((r) => `<div class="r"><div class="risk">ریسک ${fa(r * 100)}٪</div><div class="bar"><i></i></div><div class="dd num"></div></div>`).join('');
+setupReel();
+
+// the same 100 trades as reel 2's strategy B: 35 wins (+3R), 65 losses (−1R), longest losing run 8
+function sequence(seed, wins, n, maxStreak) {
+  for (let s = seed; ; s++) {
+    const r = rng(s), seq = Array.from({ length: n }, (_, i) => i < wins);
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [seq[i], seq[j]] = [seq[j], seq[i]]; }
+    let best = 0, cur = 0; seq.forEach((w) => { cur = w ? 0 : cur + 1; best = Math.max(best, cur); });
+    if (best === maxStreak) return seq;
+  }
+}
+const SEQ = sequence(21, 35, 100, 8);
+const path = (r) => { const p = [10000]; SEQ.forEach((w) => p.push(p[p.length - 1] * (w ? 1 + 3 * r : 1 - r))); return p; };
+const P1 = path(0.01), P30 = path(0.30);
+const peak30 = P30.reduce((m, v, i) => (v > P30[m] ? i : m), 0);
+const trough30 = P30.reduce((m, v, i) => (i > peak30 && v < P30[m] ? i : m), peak30);
+const DD30 = 1 - P30[trough30] / P30[peak30];
+const pct = (p) => sgn(Math.round((p[p.length - 1] / 10000 - 1) * 100)) + '٪';
+const L = (v) => Math.log10(v);
+
+// a balance line on a log scale (so $10k → $1.2M → $2k all fit)
+function logLine(ctx, pts, n, box, lo, hi, color, width = 7) {
+  const X = (i) => box.x + (i / (pts.length - 1)) * box.w, Y = (v) => box.y + box.h - ((L(v) - lo) / (hi - lo)) * box.h;
+  line(ctx, pts, n, X, Y, color, width);
+  return { X, Y };
+}
+
+function drawRace(t, a, b) {
+  const appear = E.out(P(t, a, 0.4)) * (1 - E.in(P(t, b - 0.35, 0.35)));
+  if (appear <= 0) return 0;
+  const x0 = 80, y0 = 980, w = 920, h = 460;
+  cv.save(); cv.globalAlpha = appear; panel(x0, y0, w, h);
+  const k = E.inOut(P(t, a + 0.4, 3.4)), n = Math.max(2, Math.floor(k * 101));
+  const lo = L(1500), hi = L(2e6), box = { x: x0 + 40, y: y0 + 60, w: w - 120, h: h - 100 };
+  const base = box.y + box.h - ((L(10000) - lo) / (hi - lo)) * box.h;
+  cv.strokeStyle = 'rgba(255,255,255,0.25)'; cv.setLineDash([10, 10]); cv.lineWidth = 2; cv.beginPath(); cv.moveTo(x0 + 30, base); cv.lineTo(x0 + w - 30, base); cv.stroke(); cv.setLineDash([]);
+  cv.fillStyle = C.muted; cv.font = '700 28px Vaz'; cv.textAlign = 'left'; cv.direction = 'ltr'; cv.fillText('$10,000', x0 + 40, base - 12);
+  const g1 = logLine(cv, P1, n, box, lo, hi, C.gain, 7);
+  const g30 = logLine(cv, P30, n, box, lo, hi, C.loss, 7);
+  label('۱٪', g1.X(n - 1) + 36, g1.Y(P1[n - 1]), C.gain, 30, 'rgba(13,11,20,0.9)');
+  label('۳۰٪', g30.X(n - 1) + 40, g30.Y(P30[n - 1]), C.loss, 30, 'rgba(13,11,20,0.9)');
+  cv.restore();
+  return n - 1;
+}
+
+function drawCollapse(t, a, b) {
+  const appear = E.out(P(t, a, 0.4)) * (1 - E.in(P(t, b - 0.35, 0.35)));
+  if (appear <= 0) return;
+  const x0 = 70, y0 = 540, w = 940, h = 740;
+  cv.save(); cv.globalAlpha = appear; panel(x0, y0, w, h);
+  const lo = L(1500), hi = L(2e6), box = { x: x0 + 50, y: y0 + 120, w: w - 100, h: h - 190 };
+  const n = Math.max(2, Math.floor(E.inOut(P(t, a + 0.3, 1.6)) * 101));
+  const g = logLine(cv, P30, n, box, lo, hi, 'rgba(242,84,102,0.55)', 6);
+  // the fall from the top, in full red
+  const fall = P(t, a + 2.6, 1.0);
+  if (fall > 0) {
+    const m = peak30 + Math.floor(E.out(fall) * (trough30 - peak30));
+    cv.strokeStyle = C.loss; cv.lineWidth = 10; cv.lineJoin = 'round'; cv.beginPath();
+    for (let i = peak30; i <= m; i++) (i === peak30 ? cv.moveTo : cv.lineTo).call(cv, g.X(i), g.Y(P30[i])); cv.stroke();
+  }
+  const pk = E.back(P(t, a + 1.7, 0.45));
+  if (pk > 0) {
+    cv.save(); cv.translate(g.X(peak30), g.Y(P30[peak30]) - 60); cv.scale(pk, pk);
+    label(`اوج: ${usd(P30[peak30])}`, 0, 0, '#0d0b14', 38, C.gain); cv.restore();
+    cv.fillStyle = C.gain; cv.beginPath(); cv.arc(g.X(peak30), g.Y(P30[peak30]), 14 * clamp(pk), 0, Math.PI * 2); cv.fill();
+  }
+  const tr = E.back(P(t, a + 3.7, 0.45));
+  if (tr > 0) {
+    cv.save(); cv.translate(Math.min(g.X(trough30) + 30, x0 + w - 170), g.Y(P30[trough30]) + 70); cv.scale(tr, tr);
+    label(`${sgn(-Math.round(DD30 * 1000) / 10, 1)}٪`, 0, 0, '#fff', 52, C.loss, 'ltr'); cv.restore();
+  }
+  const fin = E.out(P(t, a + 4.4, 0.4));
+  if (fin > 0) { cv.globalAlpha = appear * fin; label(`آخرش: ${usd(P30[100])}`, x0 + 210, y0 + h - 42, C.ink, 38, 'rgba(84,48,230,0.9)'); }
+  cv.restore();
+}
+
+const DURATION = 53;
+function render(t) {
+  cv.clearRect(0, 0, W, H);
+  let flash = 0, extra = 0;
+  $('#brand').style.opacity = 0.55 * E.out(P(t, 3.6, 0.6)) * (1 - E.out(P(t, 44.1, 0.5)));
+
+  // 1 · 0–3.6 «یه استراتژی سودده… و حسابت نصف شد‼»
+  show('#s1a', t, 0.05, 3.5, { per: 0.08, inD: 0.3 });
+  const acct = fadeEl('#acct', t, 0.05, 3.55, { inD: 0.35 });
+  if (acct) {
+    const k = E.inOut(P(t, 0.2, 2.4)), n = Math.max(2, Math.floor(k * 101));
+    $('#acctv').textContent = usd(P30[n - 1]);
+    const rising = n - 1 <= peak30 && P30[n - 1] >= 10000;  // green while in profit on the way to the peak, red otherwise
+    $('#acctv').style.color = rising ? C.gain : C.loss;
+    const c = $('#acctc').getContext('2d'); c.clearRect(0, 0, 700, 220);
+    logLine(c, P30, n, { x: 10, y: 10, w: 680, h: 200 }, L(1500), L(2e6), rising ? C.gain : C.loss, 7);
+  }
+  show('#s1b', t, 1.15, 3.55, { pop: true, inD: 0.4, per: 0.05 });
+  if (t > 1.05 && t < 1.65) { flash = 1 - P(t, 1.05, 0.6); extra = (1 - P(t, 1.05, 0.5)) * 22; }
+
+  // 2 · 3.6–9.4 what everyone thinks
+  show('#s2a', t, 3.7, 7.4, { pop: true });
+  belief(t, 3.9, 7.5);
+  show('#s2b', t, 7.6, 9.4, { per: 0.08, inD: 0.35 });
+
+  // 3 · 9.4–18.8 risk per trade: +46% and −51% from the same trades
+  show('#s3t', t, 9.5, 10.9, { pop: true, per: 0.08, inD: 0.35 });
+  show('#s3a', t, 11.0, 17.0, { per: 0.06 });
+  fadeEl('#a1', t, 11.2, 17.0); fadeEl('#a30', t, 11.4, 17.0);
+  const done = t > 11.2 && t < 17.1 ? drawRace(t, 11.5, 17.1) : 0;
+  $('#v1').textContent = usd(P1[done]); $('#v30').textContent = usd(P30[done]);
+  $('#p1').textContent = sgn(Math.round((P1[done] / 10000 - 1) * 100)) + '٪';
+  $('#p30').textContent = sgn(Math.round((P30[done] / 10000 - 1) * 100)) + '٪';
+  show('#s3b', t, 15.2, 17.0, { per: 0.07 });
+  show('#s3c', t, 17.2, 18.8, { per: 0.09, pop: true, inD: 0.35 });
+
+  // 4 · 18.8–27 the 30% account: a million, then −99.8%
+  show('#s4a', t, 18.9, 25.3, { per: 0.07 });
+  if (t > 18.9 && t < 25.4) drawCollapse(t, 19.0, 25.4);
+  show('#s4b', t, 22.4, 25.3, { per: 0.08 });
+  show('#s4c', t, 25.4, 27.0, { per: 0.1, pop: true, inD: 0.35 });
+
+  // 5 · 27–35 the answer is in the worst days: the backtest shows them
+  show('#s5a', t, 27.1, 29.4, { per: 0.08, pop: true });
+  show('#s5b', t, 29.4, 31.4, { per: 0.07 });
+  show('#s5c', t, 31.5, 34.9, { per: 0.08 });
+  if (t > 31.6 && t < 35.0) drawReplay(t, 31.6, 35.0);
+  fadeEl('#s5d', t, 33.0, 34.9, { pop: true });
+
+  // 6 · 35–44.5 the risk calculator
+  show('#s6a', t, 35.1, 44.3, { pop: true, per: 0.07 });
+  const calc = $('#calc');
+  if (t > 35.4 && t < 44.4) {
+    calc.style.opacity = E.out(P(t, 35.4, 0.4)) * (1 - E.in(P(t, 44.0, 0.4)));
+    calc.style.transform = `translateY(${(1 - E.out(P(t, 35.4, 0.5))) * 60}px)`;
+    calc.querySelectorAll('.r').forEach((row, i) => {
+      const r = RISKS[i], dd = 1 - Math.pow(1 - r, 8), k = E.out(P(t, 36.0 + i * 0.7, 0.4)), g = E.out(P(t, 36.2 + i * 0.7, 0.8));
+      row.style.opacity = k;
+      const col = dd < 0.2 ? C.gain : dd < 0.4 ? C.amber : C.loss;
+      const bar = row.querySelector('i'); bar.style.width = `${dd * g * 100}%`; bar.style.background = col;
+      const v = row.querySelector('.dd'); v.style.color = col; v.textContent = sgn(-Math.round(dd * 1000 * g) / 10, 1) + '٪';
+    });
+  } else calc.style.opacity = 0;
+  show('#s6b', t, 39.8, 44.3, { per: 0.07 });
+
+  // 7 · 44.5–53 coming soon + what do you risk?
+  endCard(t, 44.5);
+
+  cutShake(t, [3.6, 9.4, 18.8, 27.0, 35.0, 44.5], extra);
+  drawBg(t, flash, t < 3.6 ? E.out(P(t, 1.05, 0.4)) * (1 - P(t, 3.2, 0.4)) : 0);
+}
+window.render = render;
+window.DURATION = DURATION;
+window.facts = { final1: Math.round(P1[100]), final30: Math.round(P30[100]), peak30: Math.round(P30[peak30]), dd30: +(DD30 * 100).toFixed(1), wins: SEQ.filter(Boolean).length };
+document.fonts.ready.then(() => { render(0); window.ready = true; });
+</script>
+</body>
+</html>

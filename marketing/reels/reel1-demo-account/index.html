@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>BacktestLab reel</title>
+<style>
+  @font-face { font-family: Vaz; src: url(../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+  @font-face { font-family: Vaz; src: url(../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+  :root {
+    --bg: #0d0b14; --surface: #181424; --raised: #221d32; --line: #302a44;
+    --ink: #eeebf6; --muted: #a39cba; --faint: #706988;
+    --accent: #7c5cff; --lilac: #b5a2ff; --gain: #26c281; --loss: #f25466; --amber: #f5b014;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { font-family: Vaz, sans-serif; color: var(--ink); position: relative; }
+  #bg, #cv { position: absolute; inset: 0; }
+  .layer { position: absolute; left: 0; right: 0; text-align: center; will-change: transform, opacity; opacity: 0; }
+  .w { display: inline-block; white-space: pre; }
+  .acc { color: var(--lilac); }
+  .bad { color: var(--loss); }
+  .good { color: var(--gain); }
+  .amb { color: var(--amber); }
+  .h1 { font-size: 118px; font-weight: 900; line-height: 1.25; letter-spacing: -1px; }
+  .h2 { font-size: 86px; font-weight: 850; line-height: 1.3; }
+  .h3 { font-size: 64px; font-weight: 750; line-height: 1.45; }
+  .body { font-size: 54px; font-weight: 600; line-height: 1.6; color: var(--ink); }
+  .small { font-size: 40px; font-weight: 600; color: var(--muted); }
+  .pad { padding: 0 90px; }
+  .glow { text-shadow: 0 0 40px rgba(124, 92, 255, .55); }
+  /* the outlier reels' title look: white bold text on a dark box */
+  .titlebox { display: inline-block; background: #0b0911; border: 3px solid rgba(255,255,255,.12); border-radius: 26px; padding: 18px 44px 26px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .chip { display: inline-block; font-size: 42px; font-weight: 800; padding: 12px 34px 16px; border-radius: 999px; background: rgba(124,92,255,.16); color: var(--lilac); border: 2px solid rgba(124,92,255,.45); }
+  .chip.red { background: rgba(242,84,102,.14); color: var(--loss); border-color: rgba(242,84,102,.5); }
+  .card { background: linear-gradient(180deg, #1c1729, #141020); border: 2px solid var(--line); border-radius: 36px; box-shadow: 0 40px 100px rgba(0,0,0,.55); }
+  .num { font-feature-settings: 'tnum'; }
+
+  /* scene 1: demo account card */
+  #demo { position: absolute; left: 190px; top: 560px; width: 700px; height: 420px; padding: 40px 48px; text-align: right; opacity: 0; }
+  #demo .k { font-size: 36px; color: var(--muted); font-weight: 700; }
+  #demo .v { font-size: 92px; font-weight: 900; margin-top: 6px; direction: ltr; text-align: right; }
+  #demo .tag { position: absolute; left: 44px; top: 40px; font-size: 34px; font-weight: 900; color: var(--amber); border: 3px solid var(--amber); border-radius: 14px; padding: 2px 18px 6px; letter-spacing: 2px; }
+  #demo .bars { position: absolute; left: 48px; right: 48px; bottom: 44px; height: 90px; display: flex; align-items: flex-end; gap: 12px; }
+  #demo .bars i { flex: 1; background: rgba(124,92,255,.35); border-radius: 8px 8px 2px 2px; }
+  #stamp { position: absolute; left: 290px; top: 530px; width: 500px; height: 500px; opacity: 0; }
+
+  /* scene 2: speech bubble */
+  #bubble { position: absolute; left: 110px; right: 110px; top: 690px; padding: 56px 60px 66px; border-radius: 44px; background: #f4f1fb; color: #17131f; opacity: 0; }
+  #bubble:after { content: ''; position: absolute; right: 120px; bottom: -38px; border: 22px solid transparent; border-top: 30px solid #f4f1fb; border-right: 30px solid #f4f1fb; }
+  #bubble .body { color: #17131f; font-weight: 800; font-size: 60px; }
+  #tick { position: absolute; left: 70px; top: 610px; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; font-size: 96px; font-weight: 900; opacity: 0; }
+
+  /* scene 3: calendar */
+  #cal { position: absolute; left: 90px; right: 90px; top: 760px; height: 470px; padding: 34px 34px; opacity: 0; }
+  #cal .months { display: flex; justify-content: space-between; font-size: 32px; color: var(--muted); font-weight: 700; padding: 0 6px 18px; }
+  #cal .grid { display: grid; grid-template-columns: repeat(14, 1fr); grid-template-rows: repeat(5, 1fr); grid-auto-flow: column; gap: 9px; height: 330px; direction: rtl; }
+  #cal .grid b { border-radius: 10px; background: rgba(255,255,255,.04); border: 2px solid rgba(255,255,255,.05); display: flex; align-items: center; justify-content: center; gap: 6px; }
+  #cal .grid b.on { background: rgba(124,92,255,.22); border-color: rgba(124,92,255,.55); }
+  #cal .grid b i { width: 11px; height: 11px; border-radius: 50%; background: var(--lilac); }
+  #count { position: absolute; left: 0; right: 0; top: 1270px; text-align: center; opacity: 0; }
+  #count .n { font-size: 150px; font-weight: 900; line-height: 1; }
+  #count .u { font-size: 50px; font-weight: 800; color: var(--muted); margin-top: 10px; }
+  #months3 { position: absolute; left: 0; right: 0; top: 1270px; text-align: center; opacity: 0; }
+
+  /* scene 6: replay ui */
+  #play { position: absolute; left: 380px; top: 1380px; width: 320px; height: 104px; border-radius: 999px; background: #1d1830; border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; gap: 26px; opacity: 0; }
+  #play span { font-size: 36px; color: var(--muted); font-weight: 700; }
+  #play i { width: 64px; height: 64px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; }
+
+  /* scene 7: dashboard */
+  #dash { position: absolute; left: 70px; right: 70px; top: 520px; height: 900px; padding: 40px; opacity: 0; }
+  #dash .row { display: flex; gap: 26px; }
+  #dash .tile { flex: 1; background: #120f1c; border: 2px solid var(--line); border-radius: 26px; padding: 20px 28px; text-align: right; }
+  #dash .tile .k { font-size: 32px; color: var(--muted); font-weight: 700; }
+  #dash .tile .v { font-size: 60px; font-weight: 900; line-height: 1.25; }
+  #dash .sample { position: absolute; left: 40px; top: -28px; font-size: 30px; font-weight: 800; background: var(--amber); color: #1a1405; border-radius: 12px; padding: 4px 18px 8px; }
+
+  /* scene 8: outro */
+  #logo { position: absolute; left: 190px; width: 700px; top: 500px; opacity: 0; }
+  #url { position: absolute; left: 0; right: 0; top: 930px; display: flex; justify-content: center; opacity: 0; }
+  #url span { display: flex; align-items: center; justify-content: center; height: 120px; min-width: 560px; padding: 0 64px; line-height: 1; direction: ltr; font-family: Vaz, sans-serif; font-size: 60px; font-weight: 800; border-radius: 999px; background: linear-gradient(90deg, #9273ff, #5430e6); box-shadow: 0 20px 60px rgba(84,48,230,.5); }
+  #soon { position: absolute; left: 0; right: 0; top: 690px; text-align: center; opacity: 0; }
+  #soon span { display: inline-flex; align-items: center; gap: 16px; font-size: 46px; font-weight: 900; padding: 10px 38px 14px; border-radius: 999px; color: #1a1405; background: var(--amber); box-shadow: 0 14px 40px rgba(245,176,20,.35); }
+  #soon i { width: 18px; height: 18px; border-radius: 50%; background: #1a1405; }
+  #follow { position: absolute; left: 0; right: 0; top: 1032px; display: flex; justify-content: center; align-items: center; gap: 14px; font-size: 42px; font-weight: 800; color: var(--ink); opacity: 0; }
+  #blank { position: absolute; left: 90px; right: 90px; top: 1135px; padding: 36px 44px 42px; opacity: 0; text-align: center; }
+  #blank .q { font-size: 46px; font-weight: 800; color: var(--muted); }
+  #blank .a { font-size: 74px; font-weight: 900; margin-top: 14px; }
+  #blank .gap { display: inline-block; width: 330px; height: 12px; border-radius: 6px; background: var(--lilac); vertical-align: middle; margin-right: 18px; }
+  #blank .c { font-size: 44px; font-weight: 800; color: var(--lilac); margin-top: 26px; }
+  #arrow { position: absolute; left: 500px; top: 1520px; width: 80px; height: 110px; opacity: 0; }
+
+  #brand { position: absolute; top: 236px; left: 0; right: 0; display: flex; justify-content: center; opacity: .0; }
+  #brand img { height: 54px; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1080" height="1920"></canvas>
+<canvas id="cv" width="1080" height="1920"></canvas>
+<div id="brand"><img src="../../../brand/svg/logo-fa-dark.svg" alt=""></div>
+
+<!-- 1 · hook: counter-belief -->
+<div id="demo" class="card">
+  <div class="tag">DEMO</div>
+  <div class="k">موجودی حساب دمو</div>
+  <div class="v num">$10,000</div>
+  <div class="bars"><i style="height:40%"></i><i style="height:62%"></i><i style="height:48%"></i><i style="height:80%"></i><i style="height:58%"></i><i style="height:92%"></i><i style="height:70%"></i></div>
+</div>
+<svg id="stamp" viewBox="0 0 500 500"><g stroke="#f25466" stroke-width="54" stroke-linecap="round"><line class="x1" x1="90" y1="90" x2="410" y2="410"/><line class="x2" x1="410" y1="90" x2="90" y2="410"/></g></svg>
+<div id="s1a" class="layer h3" style="top:330px" data-k="تمرین با حساب دمو؟"></div>
+<div id="s1b" class="layer" style="top:1110px"><div class="titlebox"><div class="h1" data-k="!وقت تلف کردنه‼!"></div></div></div>
+
+<!-- 2 · the belief, then the next hook -->
+<div id="s2a" class="layer" style="top:470px"><span class="chip">همه بهت گفتن:</span></div>
+<div id="bubble"><div class="body" data-k="«اول چند ماه با حساب دمو تمرین کن، بعد برو سراغ پول واقعی.»"></div></div>
+<div id="tick">✓</div>
+<div id="s2b" class="layer h2 pad" style="top:1200px" data-k="ولی *یه عدد* هست که هیچ‌کس بهت نمی‌گه…"></div>
+
+<!-- 3 · the numbers -->
+<div id="s3a" class="layer h3 pad" style="top:330px" data-k="ستاپِ استراتژیت *روزی چند بار* پیش میاد؟"></div>
+<div id="s3b" class="layer small" style="top:560px" data-k="یک بار؟ دو بار؟ برای ۱۰۰ معامله یعنی:"></div>
+<div id="cal" class="card"><div class="months"><span>ماه ۱</span><span>ماه ۲</span><span>ماه ۳</span></div><div class="grid"></div></div>
+<div id="count"><div class="n num">۰</div><div class="u">معامله</div></div>
+<div id="months3"><div class="titlebox"><div class="h1"><span class="amb">≈ ۳ ماه</span></div></div><div class="small" style="margin-top:22px">تمرین، فقط برای ۱۰۰ معامله</div></div>
+<div id="s3c" class="layer h2 pad" style="top:430px" data-k="ولی زمان، مشکلِ *اصلی* نیست…"></div>
+<div id="s3d" class="layer h3 pad" style="top:900px" data-k="یه چیز *خیلی مهم‌تر* هست که کسی بهت یاد نداده:"></div>
+
+<!-- 4 · market regimes -->
+<div id="s4a" class="layer h3 pad" style="top:330px" data-k="توی این ۳ ماه، فقط *یه جور* بازار می‌بینی."></div>
+<div id="s4b" class="layer body pad" style="top:1330px" data-k="استراتژی‌ای که توی روند +پول می‌سازه+، توی رنج !حسابت رو خالی می‌کنه.!"></div>
+
+<!-- 5 · imagine -->
+<div id="s5a" class="layer h2 pad" style="top:520px" data-k="حالا تصور کن…"></div>
+<div id="s5b" class="layer h2 pad" style="top:330px" data-k="*۵ سال* بازار رو…"></div>
+<div id="s5c" class="layer h3 pad" style="top:470px" data-k="توی *یک آخر هفته* معامله کنی."></div>
+<div id="s5d" class="layer" style="top:1390px"></div>
+<div id="s5e" class="layer h2 pad" style="top:600px" data-k="اسمش *بک‌تسته.*"></div>
+<div id="s5f" class="layer h3 pad" style="top:820px" data-k="ولی *نکته‌ی اصلی* اینجاست:"></div>
+
+<!-- 6 · candle by candle, no future -->
+<div id="s6a" class="layer h3 pad" style="top:330px" data-k="کندل به کندل، *بدون دیدن آینده.*"></div>
+<div id="play"><span class="num"><bdi dir="ltr">×۴</bdi></span><i><svg width="30" height="30" viewBox="0 0 30 30"><path d="M8 4 L26 15 L8 26 Z" fill="#fff"/></svg></i><span>پخش</span></div>
+<div id="s6b" class="layer body pad" style="top:1530px" data-k="درست مثل بازار واقعی؛ فقط *سریع‌تر.*"></div>
+<div id="s6c" class="layer h2 pad" style="top:820px" data-k="و آخرش… *عددها* حقیقت رو می‌گن."></div>
+
+<!-- 7 · dashboard (the outlier reel's format) -->
+<div id="s7a" class="layer" style="top:330px"><div class="titlebox"><div class="h2" data-k="داشبورد بک‌تست!!"></div></div></div>
+<div id="dash" class="card">
+  <div class="sample">داده‌ی نمونه</div>
+  <div class="row" style="height:400px">
+    <div class="tile" style="flex:1.05; position:relative"><div class="k">نرخ برد</div><canvas id="gauge" width="400" height="250" style="position:absolute; left:24px; bottom:14px"></canvas></div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:26px">
+      <div class="tile"><div class="k">ضریب سود</div><div class="v num good" id="pf">۰٫۰</div></div>
+      <div class="tile"><div class="k">حداکثر افت</div><div class="v num bad" id="dd">۰٪</div></div>
+    </div>
+  </div>
+  <div class="tile" style="margin-top:26px; height:400px; position:relative"><div class="k">منحنی سرمایه · <span class="num" id="tr">۰</span> معامله</div><canvas id="eq" width="860" height="300" style="position:absolute; left:28px; bottom:22px"></canvas></div>
+</div>
+<div id="s7b" class="layer body pad" style="top:1480px" data-k="قبل از اینکه *پول واقعی* بذاری، بدون استراتژیت چند می‌ارزه."></div>
+
+<!-- 8 · outro + fill-in-the-blank comment prompt -->
+<img id="logo" src="../../../brand/svg/logo-fa-dark.svg" alt="">
+<div id="soon"><span><i></i>به‌زودی</span></div>
+<div id="s8a" class="layer h3 pad" style="top:800px; font-size:56px; padding:0 60px" data-k="استراتژیت رو روی *گذشته* امتحان کن،
+!نه روی حسابت.!"></div>
+<div id="follow"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#b5a2ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>فالو کن تا <b style="color:#b5a2ff">روز لانچ</b> رو از دست ندی</span></div>
+<div id="blank" class="card">
+  <div class="q">بدترین توصیه‌ای که به‌عنوان تریدر شنیدی:</div>
+  <div class="a">«اول <span class="gap"></span>»</div>
+  <div class="c">جای خالی رو کامنت کن</div>
+</div>
+<svg id="arrow" viewBox="0 0 80 110"><path d="M40 6 V92 M12 64 L40 96 L68 64" stroke="#b5a2ff" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<script>
+// ---------- helpers ----------
+const W = 1080, H = 1920;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const E = {
+  out: (t) => 1 - Math.pow(1 - t, 3),
+  in: (t) => t * t * t,
+  inOut: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  back: (t) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+};
+const P = (t, a, d) => clamp((t - a) / d);
+const fa = (n, frac = 0) => n.toLocaleString('fa-IR', { minimumFractionDigits: frac, maximumFractionDigits: frac });
+const $ = (s) => document.querySelector(s);
+
+// text with *accent*, !loss!, +gain+ marks → one span per word
+function build(el) {
+  const raw = el.getAttribute('data-k');
+  let cls = '';
+  const words = [];
+  for (const tok of raw.split(/(\s+)/)) {
+    if (!tok) continue;
+    if (/^\s+$/.test(tok)) { words.push({ t: tok.includes('\n') ? '\n' : ' ', c: '' }); continue; }
+    let w = tok, c = cls;
+    const opens = w.match(/^[*!+]/);
+    if (opens) { c = { '*': 'acc', '!': 'bad', '+': 'good' }[opens[0]]; cls = c; w = w.slice(1); }
+    const closes = w.match(/[*!+]([،.؛:…؟]*)$/);
+    if (closes) { w = w.slice(0, closes.index) + closes[1]; cls = ''; }
+    words.push({ t: w, c });
+  }
+  el.innerHTML = words.map((w) => (w.t === ' ' ? ' ' : w.t === '\n' ? '<br>' : `<span class="w ${w.c}">${w.t}</span>`)).join('');
+  el._w = [...el.querySelectorAll('.w')];
+}
+document.querySelectorAll('[data-k]').forEach(build);
+
+/** A block on screen from a to b: rises in, fades out. Words appear one after another. */
+function show(sel, t, a, b, o = {}) {
+  const el = typeof sel === 'string' ? $(sel) : sel;
+  const inD = o.inD ?? 0.5, outD = o.outD ?? 0.35, per = o.per ?? 0.075;
+  if (t < a - 0.01 || t > b + 0.01) { el.style.opacity = 0; return 0; }
+  const out = 1 - E.in(P(t, b - outD, outD));
+  const lift = o.noLift ? 0 : (1 - E.out(P(t, a, inD))) * 50;
+  const pop = o.pop ? 0.6 + 0.4 * E.back(P(t, a, inD)) : 1;
+  const leave = (1 - out) * (o.outY ?? -40);
+  el.style.opacity = out;
+  el.style.transform = `translateY(${lift + leave}px) scale(${pop})`;
+  const ws = (el._w || el.querySelector('[data-k]')?._w) ?? null;
+  if (ws) ws.forEach((w, i) => {
+    const k = E.out(P(t, a + i * per, 0.38));
+    w.style.opacity = k;
+    w.style.transform = `translateY(${(1 - k) * 36}px)`;
+    w.style.filter = k < 1 ? `blur(${(1 - k) * 10}px)` : 'none';
+  });
+  else el.style.opacity = out * E.out(P(t, a, inD));
+  return out;
+}
+function hide(...sels) { sels.forEach((s) => ($(s).style.opacity = 0)); }
+
+// seeded random numbers, so every render is identical
+function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; }; }
+
+// ---------- background ----------
+const bg = $('#bg').getContext('2d');
+const grain = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); const d = g.createImageData(256, 256); const r = rng(7); for (let i = 0; i < d.data.length; i += 4) { const v = r() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 10; } g.putImageData(d, 0, 0); return c; })();
+function drawBg(t, flash) {
+  bg.fillStyle = '#0d0b14'; bg.fillRect(0, 0, W, H);
+  const gx = 540 + Math.sin(t * 0.35) * 260, gy = 820 + Math.cos(t * 0.27) * 300;
+  let g = bg.createRadialGradient(gx, gy, 0, gx, gy, 900);
+  g.addColorStop(0, 'rgba(124,92,255,0.30)'); g.addColorStop(0.5, 'rgba(84,48,230,0.10)'); g.addColorStop(1, 'rgba(13,11,20,0)');
+  bg.fillStyle = g; bg.fillRect(0, 0, W, H);
+  g = bg.createRadialGradient(W - gx * 0.6, H - 300, 0, W - gx * 0.6, H - 300, 700);
+  g.addColorStop(0, 'rgba(214,92,255,0.12)'); g.addColorStop(1, 'rgba(13,11,20,0)');
+  bg.fillStyle = g; bg.fillRect(0, 0, W, H);
+  // grid drifting slowly
+  bg.strokeStyle = 'rgba(255,255,255,0.035)'; bg.lineWidth = 2;
+  const off = (t * 18) % 90;
+  for (let x = -90 + off; x < W; x += 90) { bg.beginPath(); bg.moveTo(x, 0); bg.lineTo(x, H); bg.stroke(); }
+  for (let y = -90 + off; y < H; y += 90) { bg.beginPath(); bg.moveTo(0, y); bg.lineTo(W, y); bg.stroke(); }
+  if (flash > 0) { bg.fillStyle = `rgba(242,84,102,${0.22 * flash})`; bg.fillRect(0, 0, W, H); }
+  const v = bg.createRadialGradient(540, 960, 500, 540, 960, 1250);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.65)');
+  bg.fillStyle = v; bg.fillRect(0, 0, W, H);
+  bg.globalAlpha = 1; for (let y = 0; y < H; y += 256) for (let x = 0; x < W; x += 256) bg.drawImage(grain, x, y);
+}
+
+// ---------- charts ----------
+const cv = $('#cv').getContext('2d');
+const C = { gain: '#26c281', loss: '#f25466', line: '#302a44', lilac: '#b5a2ff', accent: '#7c5cff', amber: '#f5b014', muted: '#a39cba' };
+
+// a long random walk for the fast replay
+const candles = (() => {
+  const r = rng(42), out = []; let p = 100;
+  for (let i = 0; i < 1600; i++) {
+    const drift = Math.sin(i / 90) * 0.25 + Math.sin(i / 23) * 0.12;
+    const o = p, c = o + drift + (r() - 0.5) * 2.4;
+    out.push({ o, c, h: Math.max(o, c) + r() * 1.1, l: Math.min(o, c) - r() * 1.1 }); p = c;
+  }
+  return out;
+})();
+function drawCandles(list, x0, y0, w, h, o = {}) {
+  const n = list.length; if (!n) return;
+  let lo = Infinity, hi = -Infinity;
+  for (const k of (o.range ?? list)) { lo = Math.min(lo, k.l); hi = Math.max(hi, k.h); }
+  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+  const slots = o.slots ?? n, cw = w / slots;
+  const Y = (v) => y0 + h - ((v - lo) / (hi - lo)) * h;
+  cv.save(); cv.beginPath(); cv.rect(x0, y0, w, h); cv.clip();
+  list.forEach((k, i) => {
+    const x = x0 + i * cw + cw / 2, up = k.c >= k.o;
+    cv.strokeStyle = cv.fillStyle = up ? C.gain : C.loss;
+    cv.lineWidth = Math.max(2, cw * 0.12);
+    cv.beginPath(); cv.moveTo(x, Y(k.h)); cv.lineTo(x, Y(k.l)); cv.stroke();
+    const top = Y(Math.max(k.o, k.c)), bh = Math.max(3, Math.abs(Y(k.o) - Y(k.c)));
+    cv.fillRect(x - cw * 0.34, top, cw * 0.68, bh);
+  });
+  cv.restore();
+  return { Y, cw, lo, hi };
+}
+function panel(x, y, w, h, r = 32) {
+  cv.save();
+  cv.fillStyle = 'rgba(18,15,28,0.92)'; cv.strokeStyle = C.line; cv.lineWidth = 3;
+  cv.beginPath(); cv.roundRect(x, y, w, h, r); cv.fill(); cv.stroke();
+  cv.strokeStyle = 'rgba(255,255,255,0.04)'; cv.lineWidth = 2;
+  for (let i = 1; i < 5; i++) { const yy = y + (h * i) / 5; cv.beginPath(); cv.moveTo(x + 20, yy); cv.lineTo(x + w - 20, yy); cv.stroke(); }
+  cv.restore();
+}
+function label(text, x, y, color, size = 38, bgc = 'rgba(13,11,20,0.85)', dir = 'rtl') {
+  cv.save(); cv.font = `800 ${size}px Vaz`; cv.direction = dir; cv.textAlign = 'center'; cv.textBaseline = 'middle';
+  const w = cv.measureText(text).width + 40;
+  cv.fillStyle = bgc; cv.beginPath(); cv.roundRect(x - w / 2, y - size * 0.75, w, size * 1.5, 14); cv.fill();
+  cv.fillStyle = color; cv.fillText(text, x, y + 2); cv.restore();
+}
+
+// scene 4: five years of one market, in four moods
+const regime = (() => {
+  const r = rng(9), pts = []; let v = 0;
+  const seg = [[0, 0.24, 1.25, 0.6], [0.24, 0.46, 0, 0.9], [0.46, 0.53, -4.5, 2.2], [0.53, 0.74, -0.9, 0.7], [0.74, 1, 1.4, 0.6]];
+  for (let i = 0; i <= 600; i++) {
+    const f = i / 600, s = seg.find((q) => f >= q[0] && f <= q[1]);
+    v += s[2] * 0.22 + (r() - 0.5) * s[3] * 1.6 + (s === seg[1] ? -Math.sin(i / 7) * 0.5 : 0);
+    pts.push(v);
+  }
+  return { pts, seg };
+})();
+const REG = [
+  { t: 'روند صعودی', c: C.gain }, { t: 'رنج', c: C.amber }, { t: 'شوک خبری', c: C.loss }, { t: 'ریزش', c: C.loss }, { t: 'بازگشت', c: C.gain },
+];
+function drawRegime(t, a) {
+  const x0 = 80, y0 = 640, w = 920, h = 560;
+  const appear = E.out(P(t, a, 0.5));
+  cv.save(); cv.globalAlpha = appear; panel(x0, y0, w, h);
+  const reveal = E.inOut(P(t, a + 0.3, 3.2));
+  const pts = regime.pts, n = pts.length, lo = Math.min(...pts), hi = Math.max(...pts);
+  const X = (i) => x0 + w - 40 - (i / (n - 1)) * (w - 80); // time runs right to left, as Persian reads? no: charts stay left-to-right
+  const XL = (i) => x0 + 40 + (i / (n - 1)) * (w - 80);
+  const Y = (v) => y0 + h - 70 - ((v - lo) / (hi - lo)) * (h - 170);
+  const last = Math.floor(reveal * (n - 1));
+  // regime bands
+  regime.seg.forEach((s, k) => {
+    const i0 = Math.round(s[0] * (n - 1)), i1 = Math.round(s[1] * (n - 1));
+    if (i0 > last) return;
+    cv.fillStyle = REG[k].c + '14'; cv.fillRect(XL(i0), y0 + 20, XL(Math.min(i1, last)) - XL(i0), h - 40);
+  });
+  cv.lineWidth = 6; cv.lineJoin = 'round';
+  for (let k = 0; k < regime.seg.length; k++) {
+    const s = regime.seg[k], i0 = Math.round(s[0] * (n - 1)), i1 = Math.min(Math.round(s[1] * (n - 1)), last);
+    if (i0 > last) break;
+    cv.strokeStyle = REG[k].c; cv.beginPath();
+    for (let i = i0; i <= i1; i++) (i === i0 ? cv.moveTo : cv.lineTo).call(cv, XL(i), Y(pts[i]));
+    cv.stroke();
+  }
+  // labels as the line reaches each mood
+  regime.seg.forEach((s, k) => {
+    const mid = Math.round(((s[0] + s[1]) / 2) * (n - 1));
+    const la = E.out(P(t, a + 0.3 + 3.2 * ((s[0] + s[1]) / 2), 0.4));
+    if (la <= 0) return;
+    cv.globalAlpha = appear * la;
+    const yy = k % 2 ? y0 + h - 40 : y0 + 56;
+    label(REG[k].t, clamp(XL(mid), x0 + 110, x0 + w - 110), yy, REG[k].c, 34);
+  });
+  cv.globalAlpha = appear;
+  // years
+  cv.font = '700 28px Vaz'; cv.fillStyle = C.muted; cv.textAlign = 'center';
+  ['۲۰۲۰', '۲۰۲۱', '۲۰۲۲', '۲۰۲۳', '۲۰۲۴', '۲۰۲۵'].forEach((yv, i) => cv.fillText(yv, XL((i / 5) * (n - 1)), y0 + h + 44));
+  // "your 3 months": a narrow window over the range only
+  const hb = E.out(P(t, a + 4.0, 0.6));
+  if (hb > 0) {
+    const i0 = Math.round(0.3 * (n - 1)), i1 = Math.round(0.36 * (n - 1));
+    const xa = XL(i0), xb = XL(i1);
+    cv.globalAlpha = appear * hb;
+    cv.fillStyle = 'rgba(0,0,0,0.55)'; cv.fillRect(x0 + 3, y0 + 3, xa - x0 - 3, h - 6); cv.fillRect(xb, y0 + 3, x0 + w - xb - 3, h - 6);
+    cv.strokeStyle = C.lilac; cv.lineWidth = 5; cv.setLineDash([14, 10]); cv.strokeRect(xa, y0 + 12, xb - xa, h - 24); cv.setLineDash([]);
+    label('۳ ماهِ تو', (xa + xb) / 2, y0 - 46, '#fff', 40, '#5430e6');
+  }
+  cv.restore();
+}
+
+// scene 6: one trade, candle by candle, the future hidden
+const trade = (() => {
+  const r = rng(77), out = []; let p = 50;
+  for (let i = 0; i < 70; i++) {
+    let d = (r() - 0.5) * 2.2;
+    if (i >= 30 && i < 34) d = -1.1 + r() * 0.3;       // a pullback into the entry
+    if (i >= 36) d = 0.95 + (r() - 0.35) * 1.4;        // the move to the target
+    const o = p, c = o + d; out.push({ o, c, h: Math.max(o, c) + r() * 0.8, l: Math.min(o, c) - r() * 0.8 }); p = c;
+  }
+  return out;
+})();
+const ENTRY = 35, ENTRY_P = trade[ENTRY - 1].c, SL = ENTRY_P - 3.2, TP = ENTRY_P + 6.4;
+const TP_HIT = trade.findIndex((k, i) => i >= ENTRY && k.h >= TP);
+function drawTrade(t, a) {
+  const x0 = 70, y0 = 520, w = 940, h = 760;
+  const appear = E.out(P(t, a, 0.5));
+  cv.save(); cv.globalAlpha = appear; panel(x0, y0, w, h);
+  const shownF = 26 + E.inOut(clamp((t - a - 0.3) / 5.3)) * (TP_HIT + 4 - 26);
+  const shown = Math.floor(shownF);
+  const slots = 48, first = Math.max(0, shown - 36);
+  const list = trade.slice(first, shown);
+  const sc = drawCandles(list, x0 + 30, y0 + 40, (w - 60), h - 80, { slots, range: trade.slice(10, TP_HIT + 5) });
+  const cw = (w - 60) / slots, edge = x0 + 30 + list.length * cw;
+  // the position tool: open from the entry candle until the target is hit
+  const pa = E.out(clamp((shownF - ENTRY - 0.2) / 1.5));
+  if (pa > 0 && sc) {
+    const closed = shown > TP_HIT;
+    const xs = x0 + 30 + (ENTRY - first) * cw;
+    const xe = closed ? x0 + 30 + (TP_HIT + 1 - first) * cw : edge;
+    cv.globalAlpha = appear * pa;
+    cv.fillStyle = 'rgba(38,194,129,0.20)'; cv.fillRect(xs, sc.Y(TP), xe - xs, sc.Y(ENTRY_P) - sc.Y(TP));
+    cv.fillStyle = 'rgba(242,84,102,0.20)'; cv.fillRect(xs, sc.Y(ENTRY_P), xe - xs, sc.Y(SL) - sc.Y(ENTRY_P));
+    cv.lineWidth = 4;
+    [[TP, C.gain], [ENTRY_P, '#ffffff'], [SL, C.loss]].forEach(([v, c]) => { cv.strokeStyle = c; cv.beginPath(); cv.moveTo(xs, sc.Y(v)); cv.lineTo(xe, sc.Y(v)); cv.stroke(); });
+    label('حد سود', xs - 100, sc.Y(TP), C.gain, 30);
+    label('ورود', xs - 100, sc.Y(ENTRY_P), '#fff', 30);
+    label('حد ضرر', xs - 100, sc.Y(SL), C.loss, 30);
+  }
+  // the future: hidden behind a curtain
+  cv.globalAlpha = appear;
+  const cx = Math.min(edge + 6, x0 + w - 3);
+  cv.save(); cv.beginPath(); cv.roundRect(cx, y0 + 3, x0 + w - 3 - cx, h - 6, [0, 30, 30, 0]); cv.clip();
+  cv.fillStyle = 'rgba(13,11,20,0.94)'; cv.fillRect(cx, y0, x0 + w - cx, h);
+  cv.strokeStyle = 'rgba(181,162,255,0.10)'; cv.lineWidth = 14;
+  for (let k = -h; k < w; k += 46) { cv.beginPath(); cv.moveTo(cx + k, y0 + h); cv.lineTo(cx + k + h, y0); cv.stroke(); }
+  cv.restore();
+  if (x0 + w - cx > 150) {
+    const mx = (cx + x0 + w) / 2;
+    cv.fillStyle = C.lilac; cv.font = '800 36px Vaz'; cv.textAlign = 'center'; cv.direction = 'rtl';
+    cv.fillText('آینده', mx, y0 + h / 2 + 70);
+    // lock icon
+    cv.strokeStyle = C.lilac; cv.lineWidth = 8; cv.beginPath(); cv.arc(mx, y0 + h / 2 - 34, 24, Math.PI, 0); cv.stroke();
+    cv.fillStyle = C.lilac; cv.beginPath(); cv.roundRect(mx - 38, y0 + h / 2 - 34, 76, 58, 10); cv.fill();
+  }
+  cv.strokeStyle = C.lilac; cv.lineWidth = 4; cv.beginPath(); cv.moveTo(cx, y0 + 10); cv.lineTo(cx, y0 + h - 10); cv.stroke();
+  // the target is hit
+  const hit = E.back(clamp((shownF - TP_HIT - 1) / 1.6));
+  if (hit > 0 && sc) {
+    cv.globalAlpha = appear * clamp(hit);
+    cv.save(); cv.translate(x0 + 30 + (TP_HIT - first) * cw - 40, sc.Y(TP) - 90); cv.scale(hit, hit);
+    label('+۲R  ✓', 0, 0, '#0d0b14', 52, C.gain, 'ltr'); cv.restore();
+  }
+  cv.restore();
+}
+
+// scene 5: the fast replay
+function drawReplay(t, a, b) {
+  const x0 = 70, y0 = 640, w = 940, h = 680;
+  const appear = E.out(P(t, a, 0.5)) * (1 - E.in(P(t, b - 0.35, 0.35)));
+  if (appear <= 0) return;
+  cv.save(); cv.globalAlpha = appear; panel(x0, y0, w, h);
+  const k = clamp((t - a) / (b - a));
+  const pos = 60 + Math.floor(E.inOut(k) * 1500);
+  drawCandles(candles.slice(pos - 60, pos), x0 + 30, y0 + 90, w - 60, h - 130, { slots: 60 });
+  // speed badge and year
+  label('×۶۰', x0 + 90, y0 + 50, '#fff', 40, '#5430e6');
+  const year = 2020 + Math.floor(E.inOut(k) * 5.99);
+  label(fa(year).replace(/٬/g, ''), x0 + w - 110, y0 + 50, C.lilac, 40);
+  cv.restore();
+  return k;
+}
+
+// scene 7: the dashboard
+const eqPts = (() => { const r = rng(5), p = [0]; for (let i = 1; i < 120; i++) p.push(p[i - 1] + (r() < 0.54 ? 1 + r() * 0.9 : -(0.6 + r() * 0.8))); return p; })();
+function drawDash(t, a) {
+  const g = $('#gauge').getContext('2d'), k = E.out(P(t, a + 0.6, 1.6));
+  g.clearRect(0, 0, 400, 250);
+  g.lineWidth = 34; g.lineCap = 'round';
+  g.strokeStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.arc(200, 210, 150, Math.PI, 2 * Math.PI); g.stroke();
+  g.strokeStyle = C.gain; g.beginPath(); g.arc(200, 210, 150, Math.PI, Math.PI + Math.PI * 0.54 * k); g.stroke();
+  g.fillStyle = '#eeebf6'; g.font = '900 76px Vaz'; g.textAlign = 'center'; g.direction = 'rtl';
+  g.fillText(fa(Math.round(54 * k)) + '٪', 200, 205);
+  $('#pf').textContent = fa(1.8 * k, 1);
+  $('#dd').textContent = fa(Math.round(8 * k)) + '٪';
+  $('#tr').textContent = fa(Math.round(500 * E.out(P(t, a + 0.6, 2.4))));
+  const e = $('#eq').getContext('2d'), kk = E.inOut(P(t, a + 0.9, 2.6));
+  e.clearRect(0, 0, 860, 300);
+  const lo = Math.min(...eqPts), hi = Math.max(...eqPts), n = Math.max(2, Math.floor(kk * eqPts.length));
+  const X = (i) => 10 + (i / (eqPts.length - 1)) * 840, Y = (v) => 280 - ((v - lo) / (hi - lo)) * 250;
+  const grad = e.createLinearGradient(0, 0, 0, 300); grad.addColorStop(0, 'rgba(124,92,255,0.45)'); grad.addColorStop(1, 'rgba(124,92,255,0)');
+  e.beginPath(); e.moveTo(X(0), 296); for (let i = 0; i < n; i++) e.lineTo(X(i), Y(eqPts[i])); e.lineTo(X(n - 1), 296); e.closePath(); e.fillStyle = grad; e.fill();
+  e.beginPath(); for (let i = 0; i < n; i++) (i ? e.lineTo : e.moveTo).call(e, X(i), Y(eqPts[i])); e.strokeStyle = C.lilac; e.lineWidth = 6; e.lineJoin = 'round'; e.stroke();
+  if (n > 2) { e.fillStyle = '#fff'; e.beginPath(); e.arc(X(n - 1), Y(eqPts[n - 1]), 9, 0, Math.PI * 2); e.fill(); }
+}
+
+// calendar cells (scene 3)
+const DAYS = 67, cells = (() => { const r = rng(3); return Array.from({ length: 70 }, (_, i) => (i < DAYS ? (r() < 0.5 ? 1 : 2) : 0)); })();
+// exactly 100 trades over the 67 days
+(() => { let s = cells.reduce((a, b) => a + b, 0); for (let i = 0; s !== 100 && i < DAYS; i++) { if (s > 100 && cells[i] === 2) { cells[i] = 1; s--; } else if (s < 100 && cells[i] === 1) { cells[i] = 2; s++; } } })();
+$('#cal .grid').innerHTML = cells.map(() => '<b></b>').join('');
+const calCells = [...document.querySelectorAll('#cal .grid b')];
+
+// ---------- the timeline ----------
+const DURATION = 58;
+function render(t) {
+  cv.clearRect(0, 0, W, H);
+  let flash = 0, shake = 0;
+
+  // brand mark, always (quietly) there after the hook
+  $('#brand').style.opacity = 0.55 * E.out(P(t, 3.6, 0.6)) * (1 - E.out(P(t, 50.6, 0.5)));
+
+  // 1 · 0–3.6 hook: «تمرین با حساب دمو؟ وقت تلف کردنه‼»
+  show('#s1a', t, 0.05, 3.5, { per: 0.07, inD: 0.3 });
+  const demo = $('#demo');
+  if (t < 3.6) {
+    const k = E.back(P(t, 0, 0.45)), o = 1 - E.in(P(t, 3.2, 0.35));
+    demo.style.opacity = o; demo.style.transform = `scale(${0.7 + 0.3 * k}) rotate(${(1 - k) * -4}deg)`;
+    if (t > 1.15) demo.style.filter = `grayscale(${E.out(P(t, 1.15, 0.4))}) brightness(${1 - 0.35 * E.out(P(t, 1.15, 0.4))})`; else demo.style.filter = 'none';
+  } else demo.style.opacity = 0;
+  const st = $('#stamp'), sk = P(t, 1.05, 0.28);
+  st.style.opacity = t > 1.05 && t < 3.55 ? 1 - E.in(P(t, 3.2, 0.35)) : 0;
+  st.style.transform = `scale(${1.6 - 0.6 * E.out(sk)})`;
+  st.querySelector('.x1').style.strokeDasharray = 460; st.querySelector('.x1').style.strokeDashoffset = 460 * (1 - E.out(P(t, 1.05, 0.18)));
+  st.querySelector('.x2').style.strokeDasharray = 460; st.querySelector('.x2').style.strokeDashoffset = 460 * (1 - E.out(P(t, 1.2, 0.18)));
+  show('#s1b', t, 1.2, 3.55, { pop: true, inD: 0.4, per: 0.05 });
+  if (t > 1.05 && t < 1.6) { flash = 1 - P(t, 1.05, 0.55); shake = (1 - P(t, 1.05, 0.5)) * 22; }
+
+  // 2 · 3.6–9.2 the belief everyone repeats … then the next hook
+  show('#s2a', t, 3.7, 7.4, { pop: true });
+  const bub = $('#bubble');
+  if (t > 3.9 && t < 7.5) {
+    const k = E.back(P(t, 3.9, 0.45)), o = 1 - E.in(P(t, 7.15, 0.35));
+    bub.style.opacity = o; bub.style.transform = `scale(${0.85 + 0.15 * k})`; bub.style.transformOrigin = '80% 100%';
+    show(bub.querySelector('[data-k]'), t, 4.1, 7.5, { per: 0.11, noLift: true, outD: 0.01 });
+  } else bub.style.opacity = 0;
+  const tick = $('#tick');
+  if (t > 5.6 && t < 7.5) {
+    const flip = P(t, 6.4, 0.3);
+    tick.textContent = flip < 0.5 ? '✓' : '؟';
+    tick.style.background = flip < 0.5 ? '#26c281' : '#f5b014';
+    tick.style.color = '#0d0b14';
+    tick.style.opacity = 1 - E.in(P(t, 7.15, 0.35));
+    tick.style.transform = `scale(${E.back(P(t, 5.6, 0.4))}) rotateY(${Math.sin(flip * Math.PI) * 90}deg)`;
+  } else tick.style.opacity = 0;
+  show('#s2b', t, 7.5, 9.2, { per: 0.09, inD: 0.35 });
+
+  // 3 · 9.2–17.6 the numbers: ~1.5 setups a day → 100 trades ≈ 3 months
+  show('#s3a', t, 9.3, 14.9, { per: 0.07 });
+  show('#s3b', t, 9.9, 14.9, { per: 0.06 });
+  const cal = $('#cal');
+  if (t > 10.2 && t < 15) {
+    cal.style.opacity = E.out(P(t, 10.2, 0.4)) * (1 - E.in(P(t, 14.6, 0.35)));
+    cal.style.transform = `translateY(${(1 - E.out(P(t, 10.2, 0.5))) * 40}px)`;
+    const filled = Math.floor(E.inOut(P(t, 10.7, 3.0)) * DAYS);
+    let trades = 0;
+    calCells.forEach((c, i) => {
+      const on = i < filled && cells[i] > 0;
+      c.className = on ? 'on' : '';
+      c.innerHTML = on ? '<i></i>'.repeat(cells[i]) : '';
+      if (on) trades += cells[i];
+    });
+    const cnt = $('#count');
+    cnt.style.opacity = E.out(P(t, 10.6, 0.3)) * (1 - E.in(P(t, 13.7, 0.3)));
+    cnt.querySelector('.n').textContent = fa(trades);
+  } else { cal.style.opacity = 0; $('#count').style.opacity = 0; }
+  const m3 = $('#months3');
+  m3.style.opacity = t > 13.8 && t < 15 ? 1 - E.in(P(t, 14.65, 0.3)) : 0;
+  m3.style.transform = `scale(${0.6 + 0.4 * E.back(P(t, 13.8, 0.45))})`;
+  show('#s3c', t, 15.0, 17.6, { per: 0.09, pop: true, inD: 0.35 });
+  show('#s3d', t, 16.0, 17.6, { per: 0.06 });
+
+  // 4 · 17.6–26.4 the bigger problem: three months show one kind of market
+  show('#s4a', t, 17.7, 24.6, { per: 0.07 });
+  if (t > 17.7 && t < 24.7) { cv.save(); cv.globalAlpha = 1 - E.in(P(t, 24.3, 0.4)); drawRegime(t, 17.9); cv.restore(); }
+  show('#s4b', t, 22.3, 24.6, { per: 0.06 });
+
+  // 5 · 24.6–35.2 imagine five years in one weekend → this is backtesting
+  show('#s5a', t, 24.7, 26.6, { per: 0.1, pop: true });
+  show('#s5b', t, 26.6, 32.2, { per: 0.1 });
+  show('#s5c', t, 27.3, 32.2, { per: 0.08 });
+  if (t > 27.6 && t < 32.3) {
+    const k = drawReplay(t, 27.6, 32.3) ?? 0;
+    const d = $('#s5d');
+    d.style.opacity = E.out(P(t, 28.0, 0.4)) * (1 - E.in(P(t, 31.9, 0.35)));
+    d.innerHTML = `<span class="chip">${fa(Math.round(E.inOut(k) * 500))} معامله</span> &nbsp; <span class="chip red">${fa(Math.max(1, Math.round(E.inOut(k) * 48)))} ساعت</span>`;
+  } else $('#s5d').style.opacity = 0;
+  show('#s5e', t, 32.4, 35.1, { pop: true, per: 0.1 });
+  show('#s5f', t, 33.4, 35.1, { per: 0.08 });
+
+  // 6 · 35.2–43.6 candle by candle, without seeing the future
+  show('#s6a', t, 35.3, 41.5, { per: 0.07 });
+  if (t > 35.3 && t < 41.6) { cv.save(); cv.globalAlpha = 1 - E.in(P(t, 41.2, 0.4)); drawTrade(t, 35.4); cv.restore(); }
+  const play = $('#play');
+  play.style.opacity = t > 35.8 && t < 41.6 ? E.out(P(t, 35.8, 0.4)) * (1 - E.in(P(t, 41.2, 0.4))) : 0;
+  play.querySelector('i').style.transform = `scale(${1 + 0.08 * Math.sin(t * 9)})`;
+  show('#s6b', t, 37.0, 41.5, { per: 0.07 });
+  show('#s6c', t, 41.7, 43.6, { per: 0.09, pop: true, inD: 0.35 });
+
+  // 7 · 43.6–51 the dashboard (the account's best-performing format)
+  show('#s7a', t, 43.7, 50.7, { pop: true, per: 0.08 });
+  const dash = $('#dash');
+  if (t > 43.9 && t < 50.8) {
+    dash.style.opacity = E.out(P(t, 43.9, 0.45)) * (1 - E.in(P(t, 50.4, 0.4)));
+    dash.style.transform = `translateY(${(1 - E.out(P(t, 43.9, 0.6))) * 80}px) scale(${0.94 + 0.06 * E.out(P(t, 43.9, 0.6))})`;
+    drawDash(t, 43.9);
+  } else dash.style.opacity = 0;
+  show('#s7b', t, 46.6, 50.7, { per: 0.07 });
+
+  // 8 · 51–58 who we are + a blank to fill in the comments
+  const logo = $('#logo');
+  logo.style.opacity = t > 51 ? E.out(P(t, 51, 0.5)) : 0;
+  logo.style.transform = `scale(${0.7 + 0.3 * E.back(P(t, 51, 0.6))})`;
+  show('#s8a', t, 51.5, 58.2, { per: 0.07 });
+  const soon = $('#soon'); soon.style.opacity = t > 51.3 ? E.out(P(t, 51.3, 0.35)) : 0;
+  soon.style.transform = `scale(${0.5 + 0.5 * E.back(P(t, 51.3, 0.45))})`;
+  soon.querySelector('i').style.opacity = 0.35 + 0.65 * Math.abs(Math.sin(t * 3.2));
+  const fol = $('#follow'); fol.style.opacity = t > 52.7 ? E.out(P(t, 52.7, 0.4)) : 0;
+  fol.style.transform = `translateY(${(1 - E.out(P(t, 52.7, 0.45))) * 30}px)`;
+  fol.querySelector('svg').style.transform = `rotate(${Math.sin(t * 14) * 14 * Math.max(0, 1 - P(t, 53.0, 1.2))}deg)`;
+  const blank = $('#blank');
+  blank.style.opacity = t > 53.5 ? E.out(P(t, 53.5, 0.45)) : 0;
+  blank.style.transform = `translateY(${(1 - E.out(P(t, 53.5, 0.5))) * 60}px)`;
+  blank.querySelector('.gap').style.opacity = 0.35 + 0.65 * (Math.sin(t * 7) > 0 ? 1 : 0);
+  const ar = $('#arrow'); ar.style.opacity = t > 54.3 ? E.out(P(t, 54.3, 0.3)) : 0;
+  ar.style.transform = `translateY(${Math.sin(t * 6) * 16}px)`;
+
+  // hard cuts get a short punch-in, like the reels do
+  for (const cut of [3.6, 9.2, 17.6, 24.6, 35.2, 43.6, 51]) { const k = P(t, cut, 0.25); if (k > 0 && k < 1) shake = Math.max(shake, (1 - k) * 8); }
+  document.body.style.transform = shake ? `translate(${Math.sin(t * 90) * shake}px, ${Math.cos(t * 77) * shake}px)` : '';
+  drawBg(t, flash);
+}
+window.render = render;
+window.DURATION = DURATION;
+document.fonts.ready.then(() => { render(0); window.ready = true; });
+</script>
+</body>
+</html>

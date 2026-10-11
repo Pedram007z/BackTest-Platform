@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>BacktestLab reel 2</title>
+<style>
+  @font-face { font-family: Vaz; src: url(../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+  @font-face { font-family: Vaz; src: url(../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+  :root { --bg: #0d0b14; --line: #302a44; --ink: #eeebf6; --muted: #a39cba; --accent: #7c5cff; --lilac: #b5a2ff; --gain: #26c281; --loss: #f25466; --amber: #f5b014; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { font-family: Vaz, sans-serif; color: var(--ink); position: relative; }
+  #bg, #cv { position: absolute; inset: 0; }
+  .layer { position: absolute; left: 0; right: 0; text-align: center; opacity: 0; }
+  .w { display: inline-block; white-space: pre; }
+  .acc { color: var(--lilac); } .bad { color: var(--loss); } .good { color: var(--gain); } .amb { color: var(--amber); }
+  .h1 { font-size: 112px; font-weight: 900; line-height: 1.25; letter-spacing: -1px; }
+  .h2 { font-size: 84px; font-weight: 850; line-height: 1.3; }
+  .h3 { font-size: 62px; font-weight: 750; line-height: 1.45; }
+  .body { font-size: 52px; font-weight: 650; line-height: 1.6; }
+  .small { font-size: 38px; font-weight: 600; color: var(--muted); }
+  .pad { padding: 0 80px; }
+  .titlebox { display: inline-block; background: #0b0911; border: 3px solid rgba(255,255,255,.12); border-radius: 26px; padding: 16px 44px 26px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .chip { display: inline-block; font-size: 42px; font-weight: 800; padding: 12px 34px 16px; border-radius: 999px; background: rgba(124,92,255,.16); color: var(--lilac); border: 2px solid rgba(124,92,255,.45); }
+  .chip.red { background: rgba(242,84,102,.14); color: var(--loss); border-color: rgba(242,84,102,.5); }
+  .card { background: linear-gradient(180deg, #1c1729, #141020); border: 2px solid var(--line); border-radius: 36px; box-shadow: 0 40px 100px rgba(0,0,0,.55); }
+  .num { font-feature-settings: 'tnum'; }
+
+  #bubble { position: absolute; left: 110px; right: 110px; top: 690px; padding: 56px 60px 66px; border-radius: 44px; background: #f4f1fb; opacity: 0; }
+  #bubble:after { content: ''; position: absolute; right: 120px; bottom: -38px; border: 22px solid transparent; border-top: 30px solid #f4f1fb; border-right: 30px solid #f4f1fb; }
+  #bubble .body { color: #17131f; font-weight: 800; font-size: 60px; }
+  #tick { position: absolute; left: 70px; top: 610px; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; font-size: 96px; font-weight: 900; opacity: 0; color: #0d0b14; }
+
+  /* two strategies */
+  .strat { position: absolute; top: 500px; width: 440px; padding: 30px 34px 34px; text-align: right; opacity: 0; }
+  #sa { right: 80px; } #sb { left: 80px; }
+  .strat .name { font-size: 40px; font-weight: 900; }
+  .strat .name b { display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 18px; margin-left: 14px; font-size: 40px; vertical-align: middle; }
+  .strat .row { display: flex; justify-content: space-between; font-size: 36px; font-weight: 700; color: var(--muted); margin-top: 18px; }
+  .strat .row span:last-child { color: var(--ink); font-weight: 900; direction: ltr; }
+  .strat .res { margin-top: 22px; padding-top: 18px; border-top: 2px solid var(--line); font-size: 76px; font-weight: 900; text-align: center; direction: ltr; }
+
+  /* the streak */
+  #dots { position: absolute; left: 200px; right: 200px; top: 540px; display: grid; grid-template-columns: repeat(10, 1fr); gap: 18px; direction: ltr; opacity: 0; }
+  #dots i { aspect-ratio: 1; border-radius: 50%; background: rgba(255,255,255,.06); border: 3px solid rgba(255,255,255,.06); }
+  #dots i.w { background: var(--gain); border-color: var(--gain); }
+  #dots i.l { background: rgba(242,84,102,.55); border-color: rgba(242,84,102,.8); }
+  #dots i.hl { background: var(--loss); border-color: #fff; box-shadow: 0 0 26px rgba(242,84,102,.9); }
+
+  /* dashboard */
+  #dash { position: absolute; left: 70px; right: 70px; top: 520px; height: 860px; padding: 40px; opacity: 0; }
+  #dash .row { display: flex; gap: 22px; }
+  #dash .tile { flex: 1; background: #120f1c; border: 2px solid var(--line); border-radius: 26px; padding: 20px 24px; text-align: right; }
+  #dash .tile .k { font-size: 30px; color: var(--muted); font-weight: 700; }
+  #dash .tile .v { font-size: 58px; font-weight: 900; line-height: 1.3; direction: ltr; text-align: right; }
+  #dash .sample { position: absolute; left: 40px; top: -28px; font-size: 30px; font-weight: 800; background: var(--amber); color: #1a1405; border-radius: 12px; padding: 4px 18px 8px; }
+
+  /* end card */
+  #logo { position: absolute; left: 190px; width: 700px; top: 470px; opacity: 0; }
+  #soon { position: absolute; left: 0; right: 0; top: 660px; text-align: center; opacity: 0; }
+  #soon span { display: inline-flex; align-items: center; gap: 16px; font-size: 46px; font-weight: 900; padding: 10px 38px 14px; border-radius: 999px; color: #1a1405; background: var(--amber); }
+  #soon i { width: 18px; height: 18px; border-radius: 50%; background: #1a1405; }
+  #follow { position: absolute; left: 0; right: 0; top: 965px; display: flex; justify-content: center; align-items: center; gap: 14px; font-size: 42px; font-weight: 800; opacity: 0; }
+  #vote { position: absolute; left: 80px; right: 80px; top: 1070px; padding: 34px 40px 40px; text-align: center; opacity: 0; }
+  #vote .q { font-size: 48px; font-weight: 900; }
+  #vote .opts { display: flex; gap: 22px; margin-top: 26px; }
+  #vote .opt { flex: 1; border-radius: 24px; padding: 18px 14px 22px; border: 3px solid var(--line); background: #120f1c; }
+  #vote .opt b { display: inline-grid; place-items: center; width: 70px; height: 70px; border-radius: 20px; font-size: 44px; font-weight: 900; }
+  #vote .opt div { font-size: 34px; font-weight: 800; margin-top: 12px; color: var(--ink); }
+  #vote .c { font-size: 42px; font-weight: 800; color: var(--lilac); margin-top: 26px; }
+  #arrow { position: absolute; left: 500px; top: 1560px; width: 80px; height: 110px; opacity: 0; }
+  #brand { position: absolute; top: 236px; left: 0; right: 0; display: flex; justify-content: center; opacity: 0; }
+  #brand img { height: 54px; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1080" height="1920"></canvas>
+<canvas id="cv" width="1080" height="1920"></canvas>
+<div id="brand"><img src="../../../brand/svg/logo-fa-dark.svg" alt=""></div>
+
+<!-- 1 · hook -->
+<div id="s1a" class="layer h2" style="top:330px" data-k="وین‌ریت *۸۰٪*…"></div>
+<div id="s1b" class="layer" style="top:1150px"><div class="titlebox"><div class="h1" data-k="!و حسابت منفیه‼!"></div></div></div>
+
+<!-- 2 · the belief -->
+<div id="s2a" class="layer" style="top:470px"><span class="chip">همه دنبالشن:</span></div>
+<div id="bubble"><div class="body" data-k="«یه استراتژی با وین‌ریت بالا، که بیشتر معامله‌هاش سود بده.»"></div></div>
+<div id="tick">✓</div>
+<div id="s2b" class="layer h2 pad" style="top:1200px" data-k="ولی یه عدد *مهم‌تر* هست که کسی بهش نگاه نمی‌کنه…"></div>
+
+<!-- 3 · two strategies, 100 trades each -->
+<div id="s3a" class="layer h3 pad" style="top:330px" data-k="دو تا استراتژی، هر کدوم *۱۰۰ معامله:*"></div>
+<div id="sa" class="strat card">
+  <div class="name"><b style="background:rgba(242,84,102,.2); color:var(--loss)">A</b>استراتژی A</div>
+  <div class="row"><span>وین‌ریت</span><span class="good">۸۰٪</span></div>
+  <div class="row"><span>هر برد</span><span>+۰٫۲R</span></div>
+  <div class="row"><span>هر ضرر</span><span>−۱R</span></div>
+  <div class="res bad num" id="ra">۰R</div>
+</div>
+<div id="sb" class="strat card">
+  <div class="name"><b style="background:rgba(38,194,129,.2); color:var(--gain)">B</b>استراتژی B</div>
+  <div class="row"><span>وین‌ریت</span><span class="bad">۳۵٪</span></div>
+  <div class="row"><span>هر برد</span><span>+۳R</span></div>
+  <div class="row"><span>هر ضرر</span><span>−۱R</span></div>
+  <div class="res good num" id="rb">۰R</div>
+</div>
+<div id="s3b" class="layer body pad" style="top:1500px" data-k="به این میگن *امید ریاضی:* هر معامله، به‌طور میانگین چقدر برات درمیاره."></div>
+<div id="s3c" class="layer h2 pad" style="top:760px" data-k="ولی این هنوز *سخت‌ترین* قسمتش نیست…"></div>
+
+<!-- 4 · the losing streak -->
+<div id="s4a" class="layer h3 pad" style="top:330px" data-k="با وین‌ریت ۳۵٪، توی *۱۰۰ معامله*…"></div>
+<div id="dots"></div>
+<div id="s4b" class="layer" style="top:1268px"><span class="chip red" style="font-size:52px">۸ ضرر پشت سر هم</span><div class="small" style="margin-top:16px">با این وین‌ریت، به احتمال ۷۰٪ هشت تا یا بیشتر</div></div>
+<div id="s4c" class="layer body pad" style="top:1460px" data-k="بیشتر تریدرها *همین‌جا* استراتژی‌شون رو عوض می‌کنن… !درست قبل از سود.!"></div>
+
+<!-- 5 · how would you know? -->
+<div id="s5a" class="layer h2 pad" style="top:600px" data-k="از کجا بدونی این ضررها *عادیه؟*"></div>
+<div id="s5b" class="layer h2 pad" style="top:900px" data-k="باید *قبلش* دیده باشیش."></div>
+<div id="s5c" class="layer h3 pad" style="top:330px" data-k="۵ سال گذشته، *۵۰۰ معامله*، کندل به کندل:"></div>
+<div id="s5d" class="layer h2 pad" style="top:1390px" data-k="اسمش *بک‌تسته.*"></div>
+<div id="s5e" class="layer h2 pad" style="top:760px" data-k="و وقتی *عددها* رو دیدی…"></div>
+
+<!-- 6 · dashboard -->
+<div id="s6a" class="layer" style="top:330px"><div class="titlebox"><div class="h2" data-k="داشبورد بک‌تست!!"></div></div></div>
+<div id="dash" class="card">
+  <div class="sample">داده‌ی نمونه · استراتژی B</div>
+  <div class="row">
+    <div class="tile"><div class="k">امید ریاضی</div><div class="v good num" id="ev">۰R</div></div>
+    <div class="tile"><div class="k">زنجیره‌ی ضرر</div><div class="v bad num" id="st">۰</div></div>
+    <div class="tile"><div class="k">حداکثر افت</div><div class="v amb num" id="dd">۰٪</div></div>
+  </div>
+  <div class="tile" style="margin-top:22px; height:600px; position:relative"><div class="k">منحنی سرمایه · ۱۰۰ معامله</div><canvas id="eq" width="860" height="520" style="position:absolute; left:24px; bottom:22px"></canvas></div>
+</div>
+<div id="s6b" class="layer body pad" style="top:1440px" data-k="دیگه با ۸ ضرر پشت سر هم نمی‌ترسی؛ چون می‌دونی *جزو بازیه.*"></div>
+
+<!-- 7 · end card -->
+<img id="logo" src="../../../brand/svg/logo-fa-dark.svg" alt="">
+<div id="soon"><span><i></i>به‌زودی</span></div>
+<div id="s7a" class="layer h3 pad" style="top:770px; font-size:56px" data-k="قبل از پول واقعی،
+*عددهای* استراتژیت رو ببین."></div>
+<div id="follow"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#b5a2ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span>فالو کن تا <b style="color:#b5a2ff">روز لانچ</b> رو از دست ندی</span></div>
+<div id="vote" class="card">
+  <div class="q">تو کدوم رو انتخاب می‌کنی؟</div>
+  <div class="opts">
+    <div class="opt"><b style="background:rgba(242,84,102,.2); color:var(--loss)">A</b><div>وین‌ریت ۸۰٪</div></div>
+    <div class="opt"><b style="background:rgba(38,194,129,.2); color:var(--gain)">B</b><div>وین‌ریت ۳۵٪ و سود ۳R</div></div>
+  </div>
+  <div class="c">جوابت رو کامنت کن: A یا B؟</div>
+</div>
+<svg id="arrow" viewBox="0 0 80 110"><path d="M40 6 V92 M12 64 L40 96 L68 64" stroke="#b5a2ff" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+<script>
+const W = 1080, H = 1920;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const E = {
+  out: (t) => 1 - Math.pow(1 - t, 3),
+  in: (t) => t * t * t,
+  inOut: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  back: (t) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+};
+const P = (t, a, d) => clamp((t - a) / d);
+const fa = (n, frac = 0) => n.toLocaleString('fa-IR', { minimumFractionDigits: frac, maximumFractionDigits: frac });
+const sgn = (n, frac = 0) => (n > 0 ? '+' : n < 0 ? '−' : '') + fa(Math.abs(n), frac);
+const $ = (s) => document.querySelector(s);
+function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; }; }
+
+// text with *accent*, !loss!, +gain+ marks → one span per word
+function build(el) {
+  const raw = el.getAttribute('data-k');
+  let cls = '';
+  const words = [];
+  for (const tok of raw.split(/(\s+)/)) {
+    if (!tok) continue;
+    if (/^\s+$/.test(tok)) { words.push({ t: tok.includes('\n') ? '\n' : ' ', c: '' }); continue; }
+    let w = tok, c = cls;
+    const opens = w.match(/^[*!+]/);
+    if (opens) { c = { '*': 'acc', '!': 'bad', '+': 'good' }[opens[0]]; cls = c; w = w.slice(1); }
+    const closes = w.match(/[*!+]([،.؛:…؟]*)$/);
+    if (closes) { w = w.slice(0, closes.index) + closes[1]; cls = ''; }
+    words.push({ t: w, c });
+  }
+  el.innerHTML = words.map((w) => (w.t === ' ' ? ' ' : w.t === '\n' ? '<br>' : `<span class="w ${w.c}">${w.t}</span>`)).join('');
+  el._w = [...el.querySelectorAll('.w')];
+}
+document.querySelectorAll('[data-k]').forEach(build);
+
+function show(sel, t, a, b, o = {}) {
+  const el = typeof sel === 'string' ? $(sel) : sel;
+  const inD = o.inD ?? 0.5, outD = o.outD ?? 0.35, per = o.per ?? 0.075;
+  if (t < a - 0.01 || t > b + 0.01) { el.style.opacity = 0; return 0; }
+  const out = 1 - E.in(P(t, b - outD, outD));
+  const lift = o.noLift ? 0 : (1 - E.out(P(t, a, inD))) * 50;
+  const pop = o.pop ? 0.6 + 0.4 * E.back(P(t, a, inD)) : 1;
+  el.style.opacity = out;
+  el.style.transform = `translateY(${lift + (1 - out) * -40}px) scale(${pop})`;
+  const ws = el._w || el.querySelector('[data-k]')?._w || null;
+  if (ws) ws.forEach((w, i) => {
+    const k = E.out(P(t, a + i * per, 0.38));
+    w.style.opacity = k; w.style.transform = `translateY(${(1 - k) * 36}px)`; w.style.filter = k < 1 ? `blur(${(1 - k) * 10}px)` : 'none';
+  });
+  else el.style.opacity = out * E.out(P(t, a, inD));
+  return out;
+}
+function fadeEl(sel, t, a, b, o = {}) {
+  const el = $(sel);
+  if (t < a || t > b) { el.style.opacity = 0; return 0; }
+  const k = E.out(P(t, a, o.inD ?? 0.45)), out = 1 - E.in(P(t, b - (o.outD ?? 0.35), o.outD ?? 0.35));
+  el.style.opacity = Math.min(k, out);
+  el.style.transform = o.pop ? `scale(${0.7 + 0.3 * E.back(P(t, a, o.inD ?? 0.5))})` : `translateY(${(1 - k) * (o.lift ?? 60)}px)`;
+  return k;
+}
+
+// ---------- background ----------
+const bg = $('#bg').getContext('2d');
+const grain = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); const d = g.createImageData(256, 256); const r = rng(7); for (let i = 0; i < d.data.length; i += 4) { const v = r() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 10; } g.putImageData(d, 0, 0); return c; })();
+function drawBg(t, flash, red) {
+  bg.fillStyle = '#0d0b14'; bg.fillRect(0, 0, W, H);
+  const gx = 540 + Math.sin(t * 0.35) * 260, gy = 820 + Math.cos(t * 0.27) * 300;
+  let g = bg.createRadialGradient(gx, gy, 0, gx, gy, 900);
+  g.addColorStop(0, red > 0 ? `rgba(${Math.round(124 + 118 * red)},${Math.round(92 - 8 * red)},${Math.round(255 - 153 * red)},0.30)` : 'rgba(124,92,255,0.30)');
+  g.addColorStop(0.5, 'rgba(84,48,230,0.10)'); g.addColorStop(1, 'rgba(13,11,20,0)');
+  bg.fillStyle = g; bg.fillRect(0, 0, W, H);
+  g = bg.createRadialGradient(W - gx * 0.6, H - 300, 0, W - gx * 0.6, H - 300, 700);
+  g.addColorStop(0, 'rgba(214,92,255,0.12)'); g.addColorStop(1, 'rgba(13,11,20,0)');
+  bg.fillStyle = g; bg.fillRect(0, 0, W, H);
+  bg.strokeStyle = 'rgba(255,255,255,0.035)'; bg.lineWidth = 2;
+  const off = (t * 18) % 90;
+  for (let x = -90 + off; x < W; x += 90) { bg.beginPath(); bg.moveTo(x, 0); bg.lineTo(x, H); bg.stroke(); }
+  for (let y = -90 + off; y < H; y += 90) { bg.beginPath(); bg.moveTo(0, y); bg.lineTo(W, y); bg.stroke(); }
+  if (flash > 0) { bg.fillStyle = `rgba(242,84,102,${0.22 * flash})`; bg.fillRect(0, 0, W, H); }
+  const v = bg.createRadialGradient(540, 960, 500, 540, 960, 1250);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.65)');
+  bg.fillStyle = v; bg.fillRect(0, 0, W, H);
+  for (let y = 0; y < H; y += 256) for (let x = 0; x < W; x += 256) bg.drawImage(grain, x, y);
+}
+
+// ---------- data: the two strategies (exact counts, so the totals are exact) ----------
+function sequence(seed, wins, n, maxStreak) {
+  for (let s = seed; ; s++) {
+    const r = rng(s), seq = Array.from({ length: n }, (_, i) => i < wins);
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [seq[i], seq[j]] = [seq[j], seq[i]]; }
+    let best = 0, cur = 0, end = 0;
+    seq.forEach((w, i) => { cur = w ? 0 : cur + 1; if (cur > best) { best = cur; end = i; } });
+    if (maxStreak === undefined || best === maxStreak) return { seq, streak: best, streakEnd: end };
+  }
+}
+const A = sequence(3, 80, 100);                // 80% wins: +0.2R, losses −1R → −4R
+const B = sequence(21, 35, 100, 8);            // 35% wins: +3R, losses −1R → +40R, longest losing run 8
+const cum = (seq, win, loss) => { const out = [0]; seq.forEach((w) => out.push(out[out.length - 1] + (w ? win : -loss))); return out; };
+const eqA = cum(A.seq, 0.2, 1), eqB = cum(B.seq, 3, 1);
+// deepest fall of B's curve (1% risked per trade → R = %)
+const ddB = (() => { let peak = 0, dd = 0, a = 0, z = 0, pk = 0; eqB.forEach((v, i) => { if (v > peak) { peak = v; pk = i; } if (peak - v > dd) { dd = peak - v; a = pk; z = i; } }); return { dd, a, z }; })();
+
+const cv = $('#cv').getContext('2d');
+const C = { gain: '#26c281', loss: '#f25466', line: '#302a44', lilac: '#b5a2ff', amber: '#f5b014', muted: '#a39cba' };
+function panel(x, y, w, h, r = 32) {
+  cv.save(); cv.fillStyle = 'rgba(18,15,28,0.92)'; cv.strokeStyle = C.line; cv.lineWidth = 3;
+  cv.beginPath(); cv.roundRect(x, y, w, h, r); cv.fill(); cv.stroke();
+  cv.strokeStyle = 'rgba(255,255,255,0.04)'; cv.lineWidth = 2;
+  for (let i = 1; i < 5; i++) { const yy = y + (h * i) / 5; cv.beginPath(); cv.moveTo(x + 20, yy); cv.lineTo(x + w - 20, yy); cv.stroke(); }
+  cv.restore();
+}
+function label(text, x, y, color, size = 38, bgc = 'rgba(13,11,20,0.85)', dir = 'rtl') {
+  cv.save(); cv.font = `800 ${size}px Vaz`; cv.direction = dir; cv.textAlign = 'center'; cv.textBaseline = 'middle';
+  const w = cv.measureText(text).width + 40;
+  cv.fillStyle = bgc; cv.beginPath(); cv.roundRect(x - w / 2, y - size * 0.75, w, size * 1.5, 14); cv.fill();
+  cv.fillStyle = color; cv.fillText(text, x, y + 2); cv.restore();
+}
+function line(ctx, pts, n, X, Y, color, width = 7) {
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.beginPath();
+  for (let i = 0; i < n; i++) (i ? ctx.lineTo : ctx.moveTo).call(ctx, X(i), Y(pts[i])); ctx.stroke();
+}
+
+// scene 1: a winning gauge over a falling account
+function drawHook(t) {
+  const appear = E.out(P(t, 0, 0.35)) * (1 - E.in(P(t, 3.25, 0.35)));
+  if (appear <= 0) return;
+  cv.save(); cv.globalAlpha = appear;
+  const cx = 540, cy = 860, R = 250, k = E.out(P(t, 0.1, 0.8));
+  const turn = P(t, 1.05, 0.3);
+  cv.lineWidth = 56; cv.lineCap = 'round';
+  cv.strokeStyle = 'rgba(255,255,255,0.08)'; cv.beginPath(); cv.arc(cx, cy, R, Math.PI, 2 * Math.PI); cv.stroke();
+  cv.strokeStyle = turn < 0.5 ? C.gain : C.loss; cv.beginPath(); cv.arc(cx, cy, R, Math.PI, Math.PI + Math.PI * 0.8 * k); cv.stroke();
+  cv.fillStyle = '#eeebf6'; cv.font = '900 150px Vaz'; cv.textAlign = 'center'; cv.direction = 'rtl';
+  cv.fillText(fa(Math.round(80 * k)) + '٪', cx, cy - 10);
+  cv.fillStyle = C.muted; cv.font = '800 50px Vaz'; cv.fillText('وین‌ریت', cx, cy + 70);
+  // the account, under the gauge: drawn as it falls
+  const n = Math.max(2, Math.floor(E.inOut(P(t, 0.6, 2.2)) * eqA.length));
+  const lo = Math.min(...eqA), hi = Math.max(...eqA);
+  const X = (i) => 140 + (i / (eqA.length - 1)) * 800, Y = (v) => 980 + (1 - (v - lo) / (hi - lo)) * 130;
+  line(cv, eqA, n, X, Y, C.loss, 9);
+  cv.fillStyle = C.loss; cv.beginPath(); cv.arc(X(n - 1), Y(eqA[n - 1]), 14, 0, Math.PI * 2); cv.fill();
+  cv.restore();
+}
+
+// scene 3: the race of the two curves
+function drawRace(t, a, b) {
+  const appear = E.out(P(t, a, 0.4)) * (1 - E.in(P(t, b - 0.35, 0.35)));
+  if (appear <= 0) return;
+  const x0 = 80, y0 = 1000, w = 920, h = 440;
+  cv.save(); cv.globalAlpha = appear; panel(x0, y0, w, h);
+  const k = E.inOut(P(t, a + 0.5, 3.6));
+  const n = Math.max(2, Math.floor(k * 101));
+  const lo = Math.min(...eqA, ...eqB), hi = Math.max(...eqA, ...eqB);
+  const X = (i) => x0 + 50 + (i / 100) * (w - 100), Y = (v) => y0 + h - 50 - ((v - lo) / (hi - lo)) * (h - 100);
+  cv.strokeStyle = 'rgba(255,255,255,0.25)'; cv.setLineDash([10, 10]); cv.lineWidth = 2; cv.beginPath(); cv.moveTo(x0 + 40, Y(0)); cv.lineTo(x0 + w - 40, Y(0)); cv.stroke(); cv.setLineDash([]);
+  line(cv, eqA, n, X, Y, C.loss, 7);
+  line(cv, eqB, n, X, Y, C.gain, 7);
+  label('A', X(n - 1) + 34, Y(eqA[n - 1]), C.loss, 34, 'rgba(13,11,20,0.9)', 'ltr');
+  label('B', X(n - 1) + 34, Y(eqB[n - 1]), C.gain, 34, 'rgba(13,11,20,0.9)', 'ltr');
+  cv.fillStyle = C.muted; cv.font = '700 30px Vaz'; cv.textAlign = 'right'; cv.direction = 'rtl';
+  cv.fillText(`معامله‌ی ${fa(n - 1)}`, x0 + w - 30, y0 + 46);
+  cv.restore();
+  return n - 1;
+}
+
+// scene 5: fast replay
+const candles = (() => { const r = rng(42), out = []; let p = 100; for (let i = 0; i < 1600; i++) { const d = Math.sin(i / 90) * 0.25 + Math.sin(i / 23) * 0.12, o = p, c = o + d + (r() - 0.5) * 2.4; out.push({ o, c, h: Math.max(o, c) + r() * 1.1, l: Math.min(o, c) - r() * 1.1 }); p = c; } return out; })();
+function drawReplay(t, a, b) {
+  const appear = E.out(P(t, a, 0.45)) * (1 - E.in(P(t, b - 0.35, 0.35)));
+  if (appear <= 0) return 0;
+  const x0 = 70, y0 = 560, w = 940, h = 720;
+  cv.save(); cv.globalAlpha = appear; panel(x0, y0, w, h);
+  const k = clamp((t - a) / (b - a)), pos = 60 + Math.floor(E.inOut(k) * 1500), list = candles.slice(pos - 60, pos);
+  let lo = Infinity, hi = -Infinity; list.forEach((c) => { lo = Math.min(lo, c.l); hi = Math.max(hi, c.h); });
+  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+  const cw = (w - 60) / 60, Y = (v) => y0 + 100 + (1 - (v - lo) / (hi - lo)) * (h - 140);
+  list.forEach((c, i) => { const x = x0 + 30 + i * cw + cw / 2, up = c.c >= c.o; cv.strokeStyle = cv.fillStyle = up ? C.gain : C.loss; cv.lineWidth = 3; cv.beginPath(); cv.moveTo(x, Y(c.h)); cv.lineTo(x, Y(c.l)); cv.stroke(); cv.fillRect(x - cw * 0.34, Y(Math.max(c.o, c.c)), cw * 0.68, Math.max(3, Math.abs(Y(c.o) - Y(c.c)))); });
+  label('×۶۰', x0 + 90, y0 + 52, '#fff', 40, '#5430e6');
+  label(fa(2020 + Math.floor(E.inOut(k) * 5.99)).replace(/٬/g, ''), x0 + w - 110, y0 + 52, C.lilac, 40);
+  label(`${fa(Math.round(E.inOut(k) * 500))} معامله`, x0 + w / 2, y0 + 52, '#eeebf6', 40);
+  cv.restore();
+  return k;
+}
+
+// scene 6: dashboard
+function drawDash(t, a) {
+  const k = E.out(P(t, a + 0.6, 1.6));
+  $('#ev').textContent = sgn(0.4 * k, 1) + 'R';
+  $('#st').textContent = fa(Math.round(B.streak * k));
+  $('#dd').textContent = fa(Math.round(ddB.dd * k)) + '٪';
+  const e = $('#eq').getContext('2d'), kk = E.inOut(P(t, a + 0.8, 2.6));
+  e.clearRect(0, 0, 860, 520);
+  const lo = Math.min(...eqB), hi = Math.max(...eqB), n = Math.max(2, Math.floor(kk * eqB.length));
+  const X = (i) => 14 + (i / (eqB.length - 1)) * 830, Y = (v) => 490 - ((v - lo) / (hi - lo)) * 430;
+  // the deepest fall, marked as "normal" once drawn
+  const hz = E.out(P(t, a + 3.2, 0.6));
+  if (hz > 0) {
+    e.globalAlpha = hz; e.fillStyle = 'rgba(245,176,20,0.14)'; e.fillRect(X(ddB.a), 10, X(ddB.z) - X(ddB.a), 500);
+    e.strokeStyle = 'rgba(245,176,20,0.7)'; e.setLineDash([10, 8]); e.lineWidth = 3; e.strokeRect(X(ddB.a), 10, X(ddB.z) - X(ddB.a), 500); e.setLineDash([]);
+    e.globalAlpha = 1;
+  }
+  const grad = e.createLinearGradient(0, 0, 0, 520); grad.addColorStop(0, 'rgba(38,194,129,0.40)'); grad.addColorStop(1, 'rgba(38,194,129,0)');
+  e.beginPath(); e.moveTo(X(0), 515); for (let i = 0; i < n; i++) e.lineTo(X(i), Y(eqB[i])); e.lineTo(X(n - 1), 515); e.closePath(); e.fillStyle = grad; e.fill();
+  line(e, eqB, n, X, Y, C.gain, 6);
+  if (hz > 0) {
+    e.save(); e.globalAlpha = hz; e.font = '800 34px Vaz'; e.direction = 'rtl'; e.textAlign = 'center';
+    const mx = (X(ddB.a) + X(ddB.z)) / 2, txt = 'عادیه ✓', tw = e.measureText(txt).width + 36;
+    e.fillStyle = C.amber; e.beginPath(); e.roundRect(mx - tw / 2, 24, tw, 54, 14); e.fill();
+    e.fillStyle = '#1a1405'; e.fillText(txt, mx, 62); e.restore();
+  }
+}
+
+// dots (scene 4): B's 100 trades
+$('#dots').innerHTML = B.seq.map(() => '<i></i>').join('');
+const dotEls = [...document.querySelectorAll('#dots i')];
+const streakStart = B.streakEnd - B.streak + 1;
+
+// ---------- the timeline ----------
+const DURATION = 52.5;
+function render(t) {
+  cv.clearRect(0, 0, W, H);
+  let flash = 0, shake = 0, red = 0;
+  $('#brand').style.opacity = 0.55 * E.out(P(t, 3.6, 0.6)) * (1 - E.out(P(t, 44.6, 0.5)));
+
+  // 1 · 0–3.6 «وین‌ریت ۸۰٪… و حسابت منفیه‼»
+  show('#s1a', t, 0.05, 3.5, { per: 0.08, inD: 0.3 });
+  drawHook(t);
+  show('#s1b', t, 1.15, 3.55, { pop: true, inD: 0.4, per: 0.05 });
+  if (t > 1.05 && t < 1.65) { flash = 1 - P(t, 1.05, 0.6); shake = (1 - P(t, 1.05, 0.5)) * 22; }
+  if (t < 3.6) red = E.out(P(t, 1.05, 0.4)) * (1 - P(t, 3.2, 0.4));
+
+  // 2 · 3.6–9.2 the belief, then the next hook
+  show('#s2a', t, 3.7, 7.4, { pop: true });
+  const bub = $('#bubble');
+  if (t > 3.9 && t < 7.5) {
+    const k = E.back(P(t, 3.9, 0.45)), o = 1 - E.in(P(t, 7.15, 0.35));
+    bub.style.opacity = o; bub.style.transform = `scale(${0.85 + 0.15 * k})`; bub.style.transformOrigin = '80% 100%';
+    show(bub.querySelector('[data-k]'), t, 4.1, 7.5, { per: 0.11, noLift: true, outD: 0.01 });
+  } else bub.style.opacity = 0;
+  const tick = $('#tick');
+  if (t > 5.6 && t < 7.5) {
+    const flip = P(t, 6.4, 0.3);
+    tick.textContent = flip < 0.5 ? '✓' : '؟'; tick.style.background = flip < 0.5 ? '#26c281' : '#f5b014';
+    tick.style.opacity = 1 - E.in(P(t, 7.15, 0.35));
+    tick.style.transform = `scale(${E.back(P(t, 5.6, 0.4))}) rotateY(${Math.sin(flip * Math.PI) * 90}deg)`;
+  } else tick.style.opacity = 0;
+  show('#s2b', t, 7.5, 9.2, { per: 0.08, inD: 0.35 });
+
+  // 3 · 9.2–17.6 two strategies: A −4R, B +40R → expectancy
+  show('#s3a', t, 9.3, 17.4, { per: 0.07 });
+  fadeEl('#sa', t, 9.8, 17.4); fadeEl('#sb', t, 10.0, 17.4);
+  const done = t > 9.8 && t < 17.6 ? drawRace(t, 10.3, 17.5) ?? 0 : 0;
+  const va = Math.round(eqA[done] * 10) / 10;
+  $('#ra').textContent = sgn(va, Number.isInteger(va) ? 0 : 1) + 'R';
+  $('#rb').textContent = sgn(eqB[done]) + 'R';
+  for (const [id, end] of [['#ra', eqA[100]], ['#rb', eqB[100]]]) {
+    const el = $(id); const k = done === 100 ? E.back(P(t, 14.4, 0.4)) : 1;
+    el.style.transform = `scale(${done === 100 ? 0.8 + 0.2 * k + 0.08 * Math.max(0, 1 - P(t, 14.4, 0.6)) : 1})`;
+  }
+  show('#s3b', t, 14.9, 17.4, { per: 0.06 });
+  show('#s3c', t, 17.6, 19.6, { per: 0.09, pop: true, inD: 0.35 });
+
+  // 4 · 19.6–28.2 the losing streak
+  show('#s4a', t, 19.7, 28.0, { per: 0.07 });
+  const dots = $('#dots');
+  if (t > 19.9 && t < 28.1) {
+    dots.style.opacity = E.out(P(t, 19.9, 0.4)) * (1 - E.in(P(t, 27.7, 0.35)));
+    const shown = Math.floor(E.inOut(P(t, 20.3, 3.4)) * 100), hl = t > 23.9;
+    dotEls.forEach((d, i) => {
+      const inStreak = i >= streakStart && i <= B.streakEnd;
+      d.className = i < shown ? (hl && inStreak ? 'hl' : B.seq[i] ? 'w' : 'l') : '';
+      d.style.transform = hl && inStreak ? `scale(${1 + 0.18 * Math.sin((t - 23.9) * 8 - i * 0.6)})` : '';
+      d.style.opacity = hl && !inStreak ? 0.35 : 1;
+    });
+  } else dots.style.opacity = 0;
+  fadeEl('#s4b', t, 24.1, 28.0, { pop: true });
+  show('#s4c', t, 25.2, 28.0, { per: 0.06 });
+
+  // 5 · 28.2–37 how would you know → you must have seen it → backtest
+  show('#s5a', t, 28.3, 30.5, { per: 0.09, pop: true });
+  show('#s5b', t, 30.5, 32.5, { per: 0.1 });
+  show('#s5c', t, 32.6, 35.7, { per: 0.06 });
+  if (t > 32.6 && t < 35.8) drawReplay(t, 32.6, 35.8);
+  show('#s5d', t, 33.4, 35.7, { per: 0.1, pop: true });
+  show('#s5e', t, 35.8, 37.0, { per: 0.08, inD: 0.3 });
+
+  // 6 · 37–45 the dashboard
+  show('#s6a', t, 37.1, 44.8, { pop: true, per: 0.08 });
+  const dash = $('#dash');
+  if (t > 37.3 && t < 44.9) {
+    dash.style.opacity = E.out(P(t, 37.3, 0.45)) * (1 - E.in(P(t, 44.5, 0.4)));
+    dash.style.transform = `translateY(${(1 - E.out(P(t, 37.3, 0.6))) * 80}px) scale(${0.94 + 0.06 * E.out(P(t, 37.3, 0.6))})`;
+    drawDash(t, 37.3);
+  } else dash.style.opacity = 0;
+  show('#s6b', t, 41.0, 44.8, { per: 0.06 });
+
+  // 7 · 45–52.5 coming soon + A or B?
+  const logo = $('#logo'); logo.style.opacity = t > 45 ? E.out(P(t, 45, 0.5)) : 0;
+  logo.style.transform = `scale(${0.7 + 0.3 * E.back(P(t, 45, 0.6))})`;
+  const soon = $('#soon'); soon.style.opacity = t > 45.3 ? E.out(P(t, 45.3, 0.35)) : 0;
+  soon.style.transform = `scale(${0.5 + 0.5 * E.back(P(t, 45.3, 0.45))})`;
+  soon.querySelector('i').style.opacity = 0.35 + 0.65 * Math.abs(Math.sin(t * 3.2));
+  show('#s7a', t, 45.6, 52.6, { per: 0.07 });
+  const fol = $('#follow'); fol.style.opacity = t > 46.6 ? E.out(P(t, 46.6, 0.4)) : 0;
+  fol.style.transform = `translateY(${(1 - E.out(P(t, 46.6, 0.45))) * 30}px)`;
+  fol.querySelector('svg').style.transform = `rotate(${Math.sin(t * 14) * 14 * Math.max(0, 1 - P(t, 46.9, 1.2))}deg)`;
+  const vote = $('#vote'); vote.style.opacity = t > 47.4 ? E.out(P(t, 47.4, 0.45)) : 0;
+  vote.style.transform = `translateY(${(1 - E.out(P(t, 47.4, 0.5))) * 60}px)`;
+  vote.querySelectorAll('.opt').forEach((o, i) => { const k = P(t, 48.6 + i * 0.25, 0.3); o.style.borderColor = k > 0 ? (i ? 'rgba(38,194,129,.7)' : 'rgba(242,84,102,.7)') : ''; o.style.transform = `scale(${1 + 0.05 * Math.sin(Math.PI * k)})`; });
+  const ar = $('#arrow'); ar.style.opacity = t > 48.4 ? E.out(P(t, 48.4, 0.3)) : 0;
+  ar.style.transform = `translateY(${Math.sin(t * 6) * 16}px)`;
+
+  for (const cut of [3.6, 9.2, 17.6, 19.6, 28.2, 32.6, 37.0, 45.0]) { const k = P(t, cut, 0.25); if (k > 0 && k < 1) shake = Math.max(shake, (1 - k) * 8); }
+  document.body.style.transform = shake ? `translate(${Math.sin(t * 90) * shake}px, ${Math.cos(t * 77) * shake}px)` : '';
+  drawBg(t, flash, red);
+}
+window.render = render;
+window.DURATION = DURATION;
+window.facts = { finalA: Math.round(eqA[100] * 10) / 10, finalB: eqB[100], winsA: A.seq.filter(Boolean).length, winsB: B.seq.filter(Boolean).length, streak: B.streak, dd: ddB.dd };
+document.fonts.ready.then(() => { render(0); window.ready = true; });
+</script>
+</body>
+</html>

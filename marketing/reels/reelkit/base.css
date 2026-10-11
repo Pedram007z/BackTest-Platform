@@ -1,0 +1,48 @@
+/* Shared look of the BacktestLab reels (1080×1920). */
+@font-face { font-family: Vaz; src: url(../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+@font-face { font-family: Vaz; src: url(../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+:root { --bg: #0d0b14; --line: #302a44; --ink: #eeebf6; --muted: #a39cba; --accent: #7c5cff; --lilac: #b5a2ff; --gain: #26c281; --loss: #f25466; --amber: #f5b014; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+body { font-family: Vaz, sans-serif; color: var(--ink); position: relative; }
+#bg, #cv { position: absolute; inset: 0; }
+.layer { position: absolute; left: 0; right: 0; text-align: center; opacity: 0; }
+.w { display: inline-block; white-space: pre; }
+.acc { color: var(--lilac); } .bad { color: var(--loss); } .good { color: var(--gain); } .amb { color: var(--amber); }
+.h1 { font-size: 108px; font-weight: 900; line-height: 1.25; letter-spacing: -1px; }
+.h2 { font-size: 82px; font-weight: 850; line-height: 1.3; }
+.h3 { font-size: 62px; font-weight: 750; line-height: 1.45; }
+.body { font-size: 52px; font-weight: 650; line-height: 1.6; }
+.small { font-size: 38px; font-weight: 600; color: var(--muted); }
+.pad { padding: 0 80px; }
+.ltr { direction: ltr; unicode-bidi: isolate; }
+.titlebox { display: inline-block; background: #0b0911; border: 3px solid rgba(255,255,255,.12); border-radius: 26px; padding: 16px 44px 26px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+.chip { display: inline-block; font-size: 42px; font-weight: 800; padding: 12px 34px 16px; border-radius: 999px; background: rgba(124,92,255,.16); color: var(--lilac); border: 2px solid rgba(124,92,255,.45); }
+.chip.red { background: rgba(242,84,102,.14); color: var(--loss); border-color: rgba(242,84,102,.5); }
+.chip.green { background: rgba(38,194,129,.14); color: var(--gain); border-color: rgba(38,194,129,.5); }
+.chip.amber { background: rgba(245,176,20,.14); color: var(--amber); border-color: rgba(245,176,20,.5); }
+.card { background: linear-gradient(180deg, #1c1729, #141020); border: 2px solid var(--line); border-radius: 36px; box-shadow: 0 40px 100px rgba(0,0,0,.55); }
+.tile { background: #120f1c; border: 2px solid var(--line); border-radius: 26px; padding: 20px 24px; text-align: right; }
+.num { font-feature-settings: 'tnum'; }
+.sample { position: absolute; left: 40px; top: -28px; font-size: 30px; font-weight: 800; background: var(--amber); color: #1a1405; border-radius: 12px; padding: 4px 18px 8px; }
+
+/* the belief everyone repeats */
+#bubble { position: absolute; left: 110px; right: 110px; top: 690px; padding: 56px 60px 66px; border-radius: 44px; background: #f4f1fb; opacity: 0; }
+#bubble:after { content: ''; position: absolute; right: 120px; bottom: -38px; border: 22px solid transparent; border-top: 30px solid #f4f1fb; border-right: 30px solid #f4f1fb; }
+#bubble .body { color: #17131f; font-weight: 800; font-size: 60px; }
+#tick { position: absolute; left: 70px; top: 610px; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; font-size: 96px; font-weight: 900; opacity: 0; color: #0d0b14; }
+
+/* the pre-launch end card */
+#brand { position: absolute; top: 236px; left: 0; right: 0; display: flex; justify-content: center; opacity: 0; }
+#brand img { height: 54px; }
+#logo { position: absolute; left: 190px; width: 700px; top: 470px; opacity: 0; }
+#soon { position: absolute; left: 0; right: 0; top: 660px; text-align: center; opacity: 0; }
+#soon span { display: inline-flex; align-items: center; gap: 16px; font-size: 46px; font-weight: 900; padding: 10px 38px 14px; border-radius: 999px; color: #1a1405; background: var(--amber); }
+#soon i { width: 18px; height: 18px; border-radius: 50%; background: #1a1405; }
+#follow { position: absolute; left: 0; right: 0; top: 965px; display: flex; justify-content: center; align-items: center; gap: 14px; font-size: 42px; font-weight: 800; opacity: 0; }
+#cta { position: absolute; left: 80px; right: 80px; top: 1070px; padding: 34px 40px 40px; text-align: center; opacity: 0; }
+#cta .q { font-size: 46px; font-weight: 900; line-height: 1.45; }
+#cta .opts { display: flex; gap: 18px; margin-top: 26px; justify-content: center; }
+#cta .opt { flex: 1; border-radius: 22px; padding: 16px 10px 20px; border: 3px solid var(--line); background: #120f1c; font-size: 44px; font-weight: 900; }
+#cta .c { font-size: 42px; font-weight: 800; color: var(--lilac); margin-top: 24px; }
+#arrow { position: absolute; left: 500px; top: 1560px; width: 80px; height: 110px; opacity: 0; }

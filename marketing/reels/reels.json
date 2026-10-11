@@ -1,0 +1,316 @@
+{
+ "brand": "بک‌تست‌لب (BacktestLab)",
+ "status": "pre-launch: no website address anywhere",
+ "docs": [
+  "README.md",
+  "METHOD.md",
+  "PRODUCTION.md"
+ ],
+ "common": {
+  "format": {
+   "width": 1080,
+   "height": 1920,
+   "fps": 30,
+   "language": "fa",
+   "voiceover": null
+  },
+  "end_card": {
+   "badge": "به‌زودی",
+   "follow": "فالو کن تا روز لانچ رو از دست ندی",
+   "website": null
+  },
+  "caption_footer": [
+   "بک‌تست‌لب به‌زودی میاد 🚀",
+   "فالو کن تا روز لانچ رو از دست ندی 🔔"
+  ]
+ },
+ "reels": [
+  {
+   "id": 1,
+   "dir": "reel1-demo-account",
+   "duration_s": 58.0,
+   "hook": {
+    "question": "تمرین با حساب دمو؟",
+    "title_box": "وقت تلف کردنه‼"
+   },
+   "counter_belief": "Practise on a demo account for a few months first.",
+   "claim": "Demo practice is slow (100 trades ≈ 3 months) and shows only one kind of market; a backtest shows 5 years in a weekend.",
+   "next_hooks": [
+    [
+     7.5,
+     "ولی یه عدد هست که هیچ‌کس بهت نمی‌گه…"
+    ],
+    [
+     15.0,
+     "ولی زمان، مشکلِ اصلی نیست… یه چیز خیلی مهم‌تر هست که کسی بهت یاد نداده:"
+    ],
+    [
+     24.6,
+     "حالا تصور کن…"
+    ],
+    [
+     32.4,
+     "ولی نکته‌ی اصلی اینجاست:"
+    ],
+    [
+     41.7,
+     "و آخرش… عددها حقیقت رو می‌گن."
+    ]
+   ],
+   "outlier_format": "داشبورد بک‌تست!! (dashboard reveal, sample data)",
+   "comment_trigger": {
+    "type": "fill_in_the_blank",
+    "text": "بدترین توصیه‌ای که به‌عنوان تریدر شنیدی: «اول ____» / جای خالی رو کامنت کن"
+   },
+   "numbers": {
+    "trades": 100,
+    "months_on_demo": "≈3 (1–2 setups per trading day)",
+    "dashboard": "illustrative, labelled داده‌ی نمونه"
+   },
+   "sound": {
+    "source": "soundtrack.py + cues.json",
+    "key": "A minor (Am F C G)",
+    "bpm": 113
+   },
+   "cover": {
+    "file": "covers/reel1-cover.jpg",
+    "chip": "۱۰۰ معامله = ۳ ماه؟"
+   },
+   "pinned_comment": "اول یه حساب دمو باز کن 😅"
+  },
+  {
+   "id": 2,
+   "dir": "reel2-win-rate",
+   "duration_s": 52.5,
+   "hook": {
+    "question": "وین‌ریت ۸۰٪…",
+    "title_box": "و حسابت منفیه‼"
+   },
+   "counter_belief": "Look for a strategy with a high win rate.",
+   "claim": "Expectancy, not win rate, decides profit; the profitable low-win-rate strategy brings losing streaks you must have seen in a backtest to stick with it.",
+   "next_hooks": [
+    [
+     7.5,
+     "ولی یه عدد مهم‌تر هست که کسی بهش نگاه نمی‌کنه…"
+    ],
+    [
+     17.6,
+     "ولی این هنوز سخت‌ترین قسمتش نیست…"
+    ],
+    [
+     28.3,
+     "از کجا بدونی این ضررها عادیه؟"
+    ],
+    [
+     30.5,
+     "باید قبلش دیده باشیش."
+    ],
+    [
+     35.8,
+     "و وقتی عددها رو دیدی…"
+    ]
+   ],
+   "outlier_format": "داشبورد بک‌تست!! (dashboard reveal, sample data from strategy B)",
+   "comment_trigger": {
+    "type": "pick_a_side",
+    "text": "تو کدوم رو انتخاب می‌کنی؟ A یا B؟",
+    "options": [
+     "A وین‌ریت ۸۰٪",
+     "B وین‌ریت ۳۵٪ و سود ۳R"
+    ]
+   },
+   "numbers": {
+    "A": {
+     "win_rate": 0.8,
+     "win_R": 0.2,
+     "result_R": -4
+    },
+    "B": {
+     "win_rate": 0.35,
+     "win_R": 3,
+     "result_R": 40
+    },
+    "p_streak_8_plus_in_100": 0.69,
+    "median_longest_losing_run": 9,
+    "dashboard": {
+     "expectancy_R": 0.4,
+     "longest_losing_run": 8,
+     "max_drawdown_pct": 12
+    }
+   },
+   "sound": {
+    "source": "soundtrack.py",
+    "key": "D minor (Dm Bb F C)",
+    "bpm": 109
+   },
+   "cover": {
+    "file": "covers/reel2-cover.jpg",
+    "chip": "رازی به اسم «امید ریاضی»"
+   },
+   "pinned_comment": "من B رو انتخاب می‌کنم؛ تو چی؟"
+  },
+  {
+   "id": 3,
+   "dir": "reel3-new-strategy",
+   "duration_s": 52.0,
+   "hook": {
+    "question": "دنبال یه استراتژی جدیدی؟",
+    "title_box": "استراتژی جدید یاد نگیر‼"
+   },
+   "counter_belief": "When a strategy fails, learn a better one.",
+   "claim": "20 trades are mostly luck: the same 50% strategy reads 30–70%. Only hundreds of trades show the truth; a backtest gets there in a weekend.",
+   "next_hooks": [
+    [
+     8.3,
+     "مشکل از استراتژی‌ها نیست. مشکل، عدد ۲۰ است."
+    ],
+    [
+     17.6,
+     "ولی یه چیز مهم‌تر هست که کسی بهت نمی‌گه…"
+    ],
+    [
+     25.7,
+     "یعنی اون استراتژی که ول کردی… شاید اصلاً بد نبود."
+    ],
+    [
+     27.5,
+     "۵۰۰ معامله با حساب واقعی؟"
+    ],
+    [
+     31.4,
+     "با بک‌تست؟ یک آخر هفته."
+    ]
+   ],
+   "outlier_format": "۴ قانون قبل از قضاوت!! (save-worthy checklist)",
+   "save_card": [
+    "حداقل ۱۰۰ معامله، با قوانین ثابت",
+    "توی روند، رنج و خبر تستش کن",
+    "وین‌ریت رو کنار سودِ هر معامله ببین",
+    "بدترین زنجیره‌ی ضررش رو بشناس"
+   ],
+   "comment_trigger": {
+    "type": "number",
+    "text": "تا حالا چند تا استراتژی رو امتحان کردی و ول کردی؟",
+    "options": [
+     "۱",
+     "۳",
+     "۵",
+     "۱۰+"
+    ]
+   },
+   "numbers": {
+    "true_win_rate": 0.5,
+    "traders": 30,
+    "simulated_ranges": {
+     "20": [
+      0.3,
+      0.7
+     ],
+     "100": [
+      0.4,
+      0.59
+     ],
+     "500": [
+      0.46,
+      0.546
+     ]
+    },
+    "shown_ranges": {
+     "20": "30–70%",
+     "100": "40–60%",
+     "500": "45–55%"
+    },
+    "binomial_coverage": {
+     "20": 0.959,
+     "100": 0.965,
+     "500": 0.978
+    },
+    "500_real_trades": "1–2 years at 1–2 setups per trading day"
+   },
+   "sound": {
+    "source": "sound.json → reelkit/soundgen.py",
+    "key": "E minor (Em C G D)",
+    "bpm": 120
+   },
+   "cover": {
+    "file": "covers/reel3-cover.jpg",
+    "chip": "مشکل، عدد ۲۰ است"
+   },
+   "pinned_comment": "من ۵ تا. تو چند تا؟"
+  },
+  {
+   "id": 4,
+   "dir": "reel4-risk-per-trade",
+   "duration_s": 53.0,
+   "hook": {
+    "question": "یه استراتژی سودده…",
+    "title_box": "و حسابت نصف شد‼"
+   },
+   "counter_belief": "If your strategy is profitable, you will make money.",
+   "claim": "Risk per trade decides the outcome: the same profitable trades end +46% at 1% risk and −51% at 30%. Pick the risk whose worst day (seen in a backtest) you can survive.",
+   "next_hooks": [
+    [
+     7.6,
+     "ولی یه عدد هست که از خودِ استراتژی مهم‌تره…"
+    ],
+    [
+     9.5,
+     "ریسکِ هر معامله."
+    ],
+    [
+     17.2,
+     "ولی ترسناک‌ترش اینه:"
+    ],
+    [
+     25.4,
+     "پس ریسک درست چقدره؟"
+    ],
+    [
+     27.1,
+     "جوابش توی بدترین روزهای استراتژیته."
+    ]
+   ],
+   "outlier_format": "ماشین‌حساب ریسک!! (save-worthy calculator)",
+   "save_card": {
+    "title": "اگه ۸ ضرر پشت سر هم بیاد، حسابت:",
+    "rows": {
+     "1%": -7.7,
+     "2%": -14.9,
+     "5%": -33.7,
+     "10%": -57.0,
+     "30%": -94.2
+    }
+   },
+   "comment_trigger": {
+    "type": "number",
+    "text": "ریسک تو توی هر معامله چند درصده؟",
+    "options": [
+     "۰٫۵٪",
+     "۱٪",
+     "۲٪",
+     "۵٪+"
+    ]
+   },
+   "numbers": {
+    "sequence": "sequence(seed=21, wins=35, n=100, longest_losing_run=8), +3R / −1R, same as reel 2 strategy B",
+    "start_usd": 10000,
+    "risk_1pct_final_usd": 14642,
+    "risk_30pct_final_usd": 4872,
+    "risk_30pct_peak_usd": 1273879,
+    "risk_30pct_drawdown_pct": 99.8,
+    "risk_10pct_final_return_pct": 932,
+    "kelly_fraction": 0.133
+   },
+   "sound": {
+    "source": "sound.json → reelkit/soundgen.py",
+    "key": "C minor (Cm Ab Eb Bb)",
+    "bpm": 120
+   },
+   "cover": {
+    "file": "covers/reel4-cover.jpg",
+    "chip": "رازش: ریسک هر معامله"
+   },
+   "pinned_comment": "من روی ۱٪ ثابتم. تو چی؟"
+  }
+ ]
+}

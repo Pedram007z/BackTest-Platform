@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>BacktestLab reel 3</title>
+<link rel="stylesheet" href="../reelkit/base.css">
+<style>
+  .strat-card { position: absolute; width: 540px; height: 340px; padding: 34px 40px; text-align: right; opacity: 0; }
+  .strat-card .n { font-size: 56px; font-weight: 900; }
+  .strat-card .s { font-size: 34px; color: var(--muted); font-weight: 700; margin-top: 6px; }
+  .strat-card svg { position: absolute; left: 30px; right: 30px; bottom: 26px; }
+  #rules { position: absolute; left: 70px; right: 70px; top: 520px; padding: 34px 40px; opacity: 0; }
+  #rules .r { display: flex; align-items: center; gap: 26px; padding: 26px 6px; border-bottom: 2px solid var(--line); font-size: 46px; font-weight: 800; text-align: right; opacity: 0; }
+  #rules .r:last-child { border-bottom: none; }
+  #rules .r b { flex: none; width: 74px; height: 74px; border-radius: 22px; display: grid; place-items: center; font-size: 44px; background: rgba(38,194,129,.16); color: var(--gain); border: 3px solid rgba(38,194,129,.55); }
+  #save { position: absolute; left: 0; right: 0; top: 1500px; display: flex; justify-content: center; opacity: 0; }
+  #save span { display: inline-flex; align-items: center; gap: 16px; }
+</style>
+</head>
+<body>
+<canvas id="bg" width="1080" height="1920"></canvas>
+<canvas id="cv" width="1080" height="1920"></canvas>
+<div id="brand"><img src="../../../brand/svg/logo-fa-dark.svg" alt=""></div>
+
+<!-- 1 · hook -->
+<div id="s1a" class="layer h2" style="top:330px" data-k="دنبال یه استراتژی *جدیدی؟*"></div>
+<div id="cards"></div>
+<div id="s1b" class="layer" style="top:1180px"><div class="titlebox"><div class="h1" style="font-size:92px" data-k="!استراتژی جدید یاد نگیر‼!"></div></div></div>
+
+<!-- 2 · the loop -->
+<div id="s2a" class="layer" style="top:330px"><span class="chip" style="font-size:48px">این چرخه آشناست؟</span></div>
+<div id="s2b" class="layer h2 pad" style="top:1440px" data-k="مشکل از استراتژی‌ها نیست. مشکل، *عدد ۲۰* است."></div>
+
+<!-- 3 · twenty trades say nothing -->
+<div id="s3a" class="layer h3 pad" style="top:330px" data-k="یه استراتژی با وین‌ریت *واقعیِ ۵۰٪*؛
+۳۰ نفر، هر کدوم *۲۰ معامله:*"></div>
+<div id="s3b" class="layer body pad" style="top:1300px" data-k="همون استراتژی؛ یکی !۳۰٪! می‌بینه، یکی +۷۰٪.+"></div>
+<div id="s3c" class="layer h2 pad" style="top:800px" data-k="ولی یه چیز *مهم‌تر* هست که کسی بهت نمی‌گه…"></div>
+
+<!-- 4 · more trades, the truth -->
+<div id="s4a" class="layer h3 pad" style="top:330px" data-k="همین ۳۰ نفر، با معامله‌های *بیشتر:*"></div>
+<div id="s4b" class="layer body pad" style="top:1330px" data-k="هرچی معامله بیشتر، عدد *واقعی‌تر.*"></div>
+<div id="s4c" class="layer h2 pad" style="top:800px" data-k="یعنی اون استراتژی که ول کردی… !شاید اصلاً بد نبود.!"></div>
+
+<!-- 5 · five hundred trades: years, or a weekend -->
+<div id="s5a" class="layer h2 pad" style="top:640px" data-k="۵۰۰ معامله با *حساب واقعی؟*"></div>
+<div id="s5b" class="layer h2 pad" style="top:900px" data-k="یعنی !بیش از یک سال.!"></div>
+<div id="s5c" class="layer h3 pad" style="top:330px" data-k="با بک‌تست؟ *یک آخر هفته.*"></div>
+
+<!-- 6 · four rules (save-worthy) -->
+<div id="s6a" class="layer" style="top:330px"><div class="titlebox"><div class="h2" data-k="۴ قانون قبل از قضاوت!!"></div></div></div>
+<div id="rules" class="card">
+  <div class="r"><b>✓</b><span>حداقل ۱۰۰ معامله، با قوانین ثابت</span></div>
+  <div class="r"><b>✓</b><span>توی روند، رنج و خبر تستش کن</span></div>
+  <div class="r"><b>✓</b><span>وین‌ریت رو کنار سودِ هر معامله ببین</span></div>
+  <div class="r"><b>✓</b><span>بدترین زنجیره‌ی ضررش رو بشناس</span></div>
+</div>
+<div id="save"><span class="chip"><span><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#b5a2ff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>این رو ذخیره کن</span></span></div>
+
+<div id="end"></div>
+
+<script src="../reelkit/base.js"></script>
+<script>
+document.getElementById('end').outerHTML = END_CARD_HTML('یه استراتژی، ۵۰۰ معامله،\n*یک آخر هفته.*', 'تا حالا چند تا استراتژی رو<br>امتحان کردی و ول کردی؟', ['۱', '۳', '۵', '۱۰+'], 'عددش رو کامنت کن');
+
+// the strategies everyone jumps between
+const STRATS = [['پرایس اکشن', 'هفته‌ی ۱'], ['اسمارت مانی', 'هفته‌ی ۳'], ['ICT', 'هفته‌ی ۶'], ['اسکالپ ۱ دقیقه', 'هفته‌ی ۹']];
+document.getElementById('cards').innerHTML = STRATS.map(([n, s], i) => `<div class="strat-card card" id="sc${i}"><div class="n">${n}</div><div class="s">${s}</div><svg width="460" height="130" viewBox="0 0 360 110" preserveAspectRatio="none"><polyline fill="none" stroke="${['#26c281', '#f25466', '#b5a2ff', '#f5b014'][i]}" stroke-width="7" stroke-linejoin="round" points="${Array.from({ length: 12 }, (_, k) => `${k * 32},${55 + Math.sin(k * 1.3 + i) * 30 + (k % 3) * 6}`).join(' ')}"/></svg></div>`).join('');
+setupReel();
+
+// thirty traders, the same strategy (true win rate 50%), 500 trades each: their win rate after 20, 100 and 500
+const SIM = (() => {
+  for (let seed = 1; ; seed++) {
+    const r = rng(seed * 97), wr = [[], [], []];
+    for (let p = 0; p < 30; p++) {
+      let w = 0;
+      for (let i = 1; i <= 500; i++) { if (r() < 0.5) w++; if (i === 20) wr[0].push(w / 20); if (i === 100) wr[1].push(w / 100); if (i === 500) wr[2].push(w / 500); }
+    }
+    const lo = (a) => Math.min(...a), hi = (a) => Math.max(...a);
+    if (lo(wr[0]) <= 0.31 && hi(wr[0]) >= 0.69 && lo(wr[0]) >= 0.25 && hi(wr[0]) <= 0.75 && lo(wr[1]) >= 0.39 && hi(wr[1]) <= 0.61 && lo(wr[2]) >= 0.45 && hi(wr[2]) <= 0.55) return { wr, seed };
+  }
+})();
+// dots stacked where they meet (a beeswarm)
+function layout(vals, X) {
+  const pos = [], placed = [];
+  vals.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]).forEach(([v, i]) => {
+    const x = X(v); let k = 0;
+    while (placed.some((q) => Math.abs(q.x - x) < 30 && q.k === k)) k++;
+    placed.push({ x, k }); pos[i] = { x, k };
+  });
+  return pos;
+}
+const AX = { x0: 80, y0: 600, w: 920, h: 620 };
+const X = (v) => AX.x0 + 70 + v * (AX.w - 140);
+const BASE = AX.y0 + AX.h - 130;
+const LAY = SIM.wr.map((vals) => layout(vals, X));
+// the vertical step per stage, so the tallest pile fits under the label
+const STEP = LAY.map((lay) => Math.min(30, 330 / Math.max(1, ...lay.map((q) => q.k))));
+const RANGES = [['۲۰ معامله', '۳۰٪ تا ۷۰٪', 0.3, 0.7], ['۱۰۰ معامله', '۴۰٪ تا ۶۰٪', 0.4, 0.6], ['۵۰۰ معامله', '۴۵٪ تا ۵۵٪', 0.45, 0.55]];
+
+function drawAxis(t, a, b, stage, mix, o = {}) {
+  const appear = E.out(P(t, a, 0.45)) * (1 - E.in(P(t, b - 0.35, 0.35)));
+  if (appear <= 0) return;
+  cv.save(); cv.globalAlpha = appear; panel(AX.x0, AX.y0, AX.w, AX.h);
+  // axis and the true value
+  cv.strokeStyle = 'rgba(255,255,255,0.35)'; cv.lineWidth = 3; cv.beginPath(); cv.moveTo(X(0), BASE + 30); cv.lineTo(X(1), BASE + 30); cv.stroke();
+  cv.font = '700 30px Vaz'; cv.fillStyle = C.muted; cv.textAlign = 'center';
+  [0, 0.25, 0.5, 0.75, 1].forEach((v) => { cv.fillText(fa(v * 100) + '٪', X(v), BASE + 74); cv.fillRect(X(v) - 1.5, BASE + 22, 3, 16); });
+  cv.strokeStyle = C.lilac; cv.setLineDash([12, 10]); cv.lineWidth = 3; cv.beginPath(); cv.moveTo(X(0.5), AX.y0 + 80); cv.lineTo(X(0.5), BASE + 30); cv.stroke(); cv.setLineDash([]);
+  label('وین‌ریت واقعی ۵۰٪', X(0.5), AX.y0 + 56, C.lilac, 32);
+  // the range most people would see (95%)
+  const [n0, r0, lo0, hi0] = RANGES[stage], next = RANGES[Math.min(2, stage + 1)];
+  const lo = lo0 + (next[2] - lo0) * mix, hi = hi0 + (next[3] - hi0) * mix;
+  const ra = E.out(P(t, o.rangeAt ?? a, 0.5));
+  if (ra > 0) {
+    cv.globalAlpha = appear * ra;
+    cv.fillStyle = 'rgba(181,162,255,0.10)'; cv.fillRect(X(lo), AX.y0 + 100, X(hi) - X(lo), BASE + 30 - AX.y0 - 100);
+    cv.strokeStyle = 'rgba(181,162,255,0.6)'; cv.lineWidth = 3; cv.strokeRect(X(lo), AX.y0 + 100, X(hi) - X(lo), BASE + 30 - AX.y0 - 100);
+    cv.globalAlpha = appear;
+  }
+  // the dots: fall in, then move as the sample grows
+  const from = LAY[stage], to = LAY[Math.min(2, stage + 1)];
+  SIM.wr[0].forEach((_, i) => {
+    const drop = o.drop ? E.out(P(t, a + 0.5 + i * 0.07, 0.45)) : 1;
+    const s0 = STEP[stage], s1 = STEP[Math.min(2, stage + 1)];
+    const x = from[i].x + (to[i].x - from[i].x) * mix, yk = from[i].k * s0 + (to[i].k * s1 - from[i].k * s0) * mix;
+    const y = BASE - yk - (1 - drop) * 400;
+    cv.globalAlpha = appear * drop;
+    cv.fillStyle = SIM.wr[stage][i] < 0.4 && mix < 0.5 ? C.loss : SIM.wr[stage][i] > 0.6 && mix < 0.5 ? C.gain : C.ink;
+    cv.beginPath(); cv.arc(x, y, 13, 0, Math.PI * 2); cv.fill();
+  });
+  cv.globalAlpha = appear;
+  return { lo, hi };
+}
+
+function drawLoop(t, a, b) {
+  const appear = E.out(P(t, a, 0.45)) * (1 - E.in(P(t, b - 0.35, 0.35)));
+  if (appear <= 0) return;
+  const cx = 540, cy = 900, R = 330;
+  cv.save(); cv.globalAlpha = appear;
+  const nodes = [['استراتژی جدید', C.lilac], ['۲۰ معامله', C.ink], ['چند ضرر پشت هم', C.loss], ['«این جواب نمی‌ده!»', C.amber]];
+  // the circle, drawn round
+  const draw = E.out(P(t, a + 0.2, 0.9));
+  cv.strokeStyle = 'rgba(181,162,255,0.35)'; cv.lineWidth = 8; cv.beginPath(); cv.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * draw); cv.stroke();
+  // a dot going round, faster and faster
+  const turns = Math.pow(P(t, a + 0.6, b - a - 1.0), 1.6) * 2.25;
+  const ang = -Math.PI / 2 + turns * Math.PI * 2;
+  for (let k = 0; k < 10; k++) { const aa = ang - k * 0.06; cv.fillStyle = `rgba(181,162,255,${0.5 * (1 - k / 10)})`; cv.beginPath(); cv.arc(cx + Math.cos(aa) * R, cy + Math.sin(aa) * R, 22 - k * 1.5, 0, Math.PI * 2); cv.fill(); }
+  nodes.forEach(([txt, col], i) => {
+    const na = -Math.PI / 2 + i * Math.PI / 2;
+    const lit = Math.max(0, 1 - Math.abs(((turns * 4 - i) % 4 + 4) % 4 - 0) * 1.5);
+    const ap = E.back(P(t, a + 0.3 + i * 0.25, 0.4));
+    if (ap <= 0) return;
+    cv.save(); cv.translate(cx + Math.cos(na) * R, cy + Math.sin(na) * R); cv.scale(ap * (1 + 0.12 * lit), ap * (1 + 0.12 * lit));
+    label(txt, 0, 0, col, 40, lit > 0.2 ? 'rgba(84,48,230,0.95)' : 'rgba(13,11,20,0.92)');
+    cv.restore();
+  });
+  // the loop's arrow heads
+  cv.fillStyle = 'rgba(181,162,255,0.7)';
+  for (let i = 0; i < 4; i++) { const aa = -Math.PI / 2 + i * Math.PI / 2 + Math.PI / 4; const x = cx + Math.cos(aa) * R, y = cy + Math.sin(aa) * R; cv.save(); cv.translate(x, y); cv.rotate(aa + Math.PI / 2); cv.globalAlpha = appear * draw; cv.beginPath(); cv.moveTo(14, 0); cv.lineTo(-12, -14); cv.lineTo(-12, 14); cv.closePath(); cv.fill(); cv.restore(); }
+  cv.restore();
+}
+
+const DURATION = 52;
+function render(t) {
+  cv.clearRect(0, 0, W, H);
+  let flash = 0, extra = 0;
+  $('#brand').style.opacity = 0.55 * E.out(P(t, 3.6, 0.6)) * (1 - E.out(P(t, 43.6, 0.5)));
+
+  // 1 · 0–3.6 «دنبال یه استراتژی جدیدی؟ … استراتژی جدید یاد نگیر‼»
+  show('#s1a', t, 0.05, 3.5, { per: 0.08, inD: 0.3 });
+  STRATS.forEach((_, i) => {
+    const el = $('#sc' + i), inK = E.back(P(t, 0.05 + i * 0.12, 0.4)), fall = E.in(P(t, 1.05 + i * 0.05, 0.6));
+    const by = 560 + i * 44, rot = [-9, -3, 3, 9][i];
+    el.style.left = 270 + (i - 1.5) * 46 + 'px'; el.style.top = by + 'px';
+    el.style.opacity = t < 3.6 ? clamp(inK) * (1 - fall) : 0;
+    el.style.transform = `rotate(${rot + fall * (i % 2 ? 40 : -40)}deg) translateY(${fall * 700}px) scale(${0.8 + 0.2 * clamp(inK)})`;
+    el.style.zIndex = 5 + i;
+  });
+  show('#s1b', t, 1.15, 3.55, { pop: true, inD: 0.4, per: 0.06 });
+  if (t > 1.05 && t < 1.65) { flash = 1 - P(t, 1.05, 0.6); extra = (1 - P(t, 1.05, 0.5)) * 22; }
+
+  // 2 · 3.6–10 the loop everyone is stuck in
+  fadeEl('#s2a', t, 3.7, 9.9, { pop: true });
+  if (t > 3.7 && t < 8.4) drawLoop(t, 3.8, 8.4);
+  show('#s2b', t, 8.3, 10.0, { per: 0.08, inD: 0.35 });
+
+  // 3 · 10–19.4 thirty traders, twenty trades each
+  show('#s3a', t, 10.1, 17.4, { per: 0.06 });
+  if (t > 10.3 && t < 17.5) drawAxis(t, 10.4, 17.5, 0, 0, { drop: true, rangeAt: 14.0 });
+  if (t > 13.4 && t < 17.3) {
+    const k = E.out(P(t, 13.4, 0.4));
+    const lo = SIM.wr[0].indexOf(Math.min(...SIM.wr[0])), hi = SIM.wr[0].indexOf(Math.max(...SIM.wr[0]));
+    cv.save(); cv.globalAlpha = k * (1 - E.in(P(t, 17.0, 0.3)));
+    label('«افتضاحه!»', LAY[0][lo].x - 30, BASE - LAY[0][lo].k * STEP[0] - 80, C.loss, 36);
+    label('«معجزه‌ست!»', LAY[0][hi].x + 30, BASE - LAY[0][hi].k * STEP[0] - 80, C.gain, 36);
+    cv.restore();
+  }
+  if (t > 14.0 && t < 17.4) { cv.save(); cv.globalAlpha = E.out(P(t, 14.0, 0.4)) * (1 - E.in(P(t, 17.0, 0.35))); label('۲۰ معامله: ۳۰٪ تا ۷۰٪', 540, AX.y0 + AX.h + 60, C.ink, 40, 'rgba(84,48,230,0.9)'); cv.restore(); }
+  show('#s3b', t, 14.9, 17.4, { per: 0.07 });
+  show('#s3c', t, 17.6, 19.4, { per: 0.08, pop: true, inD: 0.35 });
+
+  // 4 · 19.4–27.4 the same thirty with 100 and 500 trades
+  show('#s4a', t, 19.5, 25.6, { per: 0.07 });
+  if (t > 19.6 && t < 25.7) {
+    const m1 = E.inOut(P(t, 20.4, 1.4)), m2 = E.inOut(P(t, 22.6, 1.4));
+    const stage = m1 < 1 ? 0 : 1, mix = m1 < 1 ? m1 : m2;
+    drawAxis(t, 19.6, 25.7, stage, mix, { rangeAt: 19.6 });
+    const cur = m2 >= 0.5 ? RANGES[2] : m1 >= 0.5 ? RANGES[1] : RANGES[0];
+    cv.save(); cv.globalAlpha = 1 - E.in(P(t, 25.3, 0.35));
+    label(`${cur[0]}: ${cur[1]}`, 540, AX.y0 + AX.h + 60, C.ink, 40, 'rgba(84,48,230,0.9)');
+    cv.restore();
+  }
+  show('#s4b', t, 23.9, 25.6, { per: 0.08 });
+  show('#s4c', t, 25.7, 27.4, { per: 0.07, pop: true, inD: 0.35 });
+
+  // 5 · 27.4–35.4 500 real trades = more than a year; a backtest = one weekend
+  show('#s5a', t, 27.5, 29.5, { per: 0.09, pop: true });
+  show('#s5b', t, 29.5, 31.3, { per: 0.1 });
+  show('#s5c', t, 31.4, 35.3, { per: 0.08 });
+  if (t > 31.6 && t < 35.4) drawReplay(t, 31.6, 35.4);
+
+  // 6 · 35.4–44 four rules
+  show('#s6a', t, 35.5, 43.8, { pop: true, per: 0.07 });
+  const rules = $('#rules');
+  if (t > 35.8 && t < 43.9) {
+    rules.style.opacity = E.out(P(t, 35.8, 0.4)) * (1 - E.in(P(t, 43.5, 0.4)));
+    rules.style.transform = `translateY(${(1 - E.out(P(t, 35.8, 0.5))) * 60}px)`;
+    rules.querySelectorAll('.r').forEach((r, i) => {
+      const k = E.out(P(t, 36.4 + i * 1.15, 0.45));
+      r.style.opacity = k; r.style.transform = `translateX(${(1 - k) * -60}px)`;
+      r.querySelector('b').style.transform = `scale(${E.back(P(t, 36.6 + i * 1.15, 0.4))})`;
+    });
+  } else rules.style.opacity = 0;
+  fadeEl('#save', t, 41.4, 43.8, { pop: true });
+
+  // 7 · 44–52 coming soon + how many strategies have you quit?
+  endCard(t, 44);
+
+  cutShake(t, [3.6, 10.0, 19.4, 27.4, 35.4, 44.0], extra);
+  drawBg(t, flash, t < 3.6 ? E.out(P(t, 1.05, 0.4)) * (1 - P(t, 3.2, 0.4)) : 0);
+}
+window.render = render;
+window.DURATION = DURATION;
+window.facts = { seed: SIM.seed, n20: [Math.min(...SIM.wr[0]), Math.max(...SIM.wr[0])], n100: [Math.min(...SIM.wr[1]), Math.max(...SIM.wr[1])], n500: [Math.min(...SIM.wr[2]), Math.max(...SIM.wr[2])] };
+document.fonts.ready.then(() => { render(0); window.ready = true; });
+</script>
+</body>
+</html>

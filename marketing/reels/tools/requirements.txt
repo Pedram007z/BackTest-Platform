@@ -1,0 +1,3 @@
+# Python packages for the soundtracks (reelkit/soundgen.py, reel1/reel2 soundtrack.py) and tools/verify_numbers.py
+numpy>=1.26
+scipy>=1.11
