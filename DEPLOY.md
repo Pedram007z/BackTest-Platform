@@ -55,6 +55,7 @@ check-sources.sh      checks whether the server reaches the data sources (step 8
 make-admin.sh         admin sign-in: username and password, or a mobile number (step 7)
 import-market-data.sh loads ready-made market history from GitHub (step 9)
 backup-s3.sh          nightly backup to ArvanCloud Object Storage or any S3 service (Backups)
+setup-backup.sh       sets that backup up in one go (Backups)
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
@@ -416,6 +417,17 @@ after the first run only changed files are uploaded, and a dropped connection is
 uploads a small archive of the JSON files and `.env` (kept 30 days, plus one per month for 12 months),
 then updates a copy of the data folder in the bucket. Files that copy replaces or deletes are kept for 30
 days, so a mistake can be undone.
+
+**In one go:** create the bucket and keys (step 1), then on the server:
+
+```bash
+curl -fsSLo /tmp/setup-backup.sh https://raw.githubusercontent.com/Pedram007z/BackTest-Platform/main/deploy/setup-backup.sh
+sudo bash /tmp/setup-backup.sh
+```
+
+It installs rclone and `backup-s3.sh`, asks for the endpoint, bucket and keys, tests them, adds the nightly
+run (`/etc/cron.d/backtestlab-backup`, log in `/var/log/backtestlab-backup.log`) and starts the first
+backup. Steps 2–6 below do the same by hand.
 
 1. In the ArvanCloud panel: **Object Storage** → create a **private** bucket (for example
    `backtestlab-backup`), then the access key and secret key. Choose the region of your VPS: traffic inside
