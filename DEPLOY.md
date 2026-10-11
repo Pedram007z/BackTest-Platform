@@ -54,6 +54,7 @@ relay-nginx.conf      relay abroad for servers in Iran (step 8)
 check-sources.sh      checks whether the server reaches the data sources (step 8)
 make-admin.sh         admin sign-in: username and password, or a mobile number (step 7)
 import-market-data.sh loads ready-made market history from GitHub (step 9)
+backup-s3.sh          nightly backup to ArvanCloud Object Storage or any S3 service (Backups)
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
@@ -121,7 +122,7 @@ cd /tmp && tar -xzf backtestlab-*.tar.gz
 sudo cp -r backtestlab/web/. /var/www/backtestlab/
 sudo cp backtestlab/server/server.mjs /opt/backtestlab/server/
 sudo cp backtestlab/backtestlab.service /etc/systemd/system/
-sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh backtestlab/import-market-data.sh /opt/backtestlab/
+sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh backtestlab/import-market-data.sh backtestlab/backup-s3.sh /opt/backtestlab/
 ```
 
 If you uploaded the folder instead of the archive, skip the `tar` line.
@@ -401,10 +402,84 @@ folders are no longer used and can be deleted.
 
 ## Backups
 
+The code is on GitHub; what exists only on the server is the data folder and `.env`.
 `/var/lib/backtestlab/db.json` holds accounts, payments, settings, the sign-in log and announcements;
-`backtests/` the copies of users' backtests and `media/` the announcements' pictures and videos. Back them
-up daily. The market history
-(`market/store`) can be downloaded again, but that takes hours: keep a copy of it too, for example monthly.
+`blog.json` and `news.json` the blog and the calendar; `workspaces/`, `layouts/` and `shots/` each user's
+sessions, chart drawings and journal screenshots; `backtests/` the copies of users' backtests and `media/`
+the announcements' pictures and videos. The market history (`market/store`) can be imported again from
+GitHub (`import-market-data.sh`) and downloaded again (step 9).
+
+### To object storage (ArvanCloud S3)
+
+`backup-s3.sh` copies all of this every night to an S3 bucket with rclone. It is made for a slow link:
+after the first run only changed files are uploaded, and a dropped connection is retried. Each night it
+uploads a small archive of the JSON files and `.env` (kept 30 days, plus one per month for 12 months),
+then updates a copy of the data folder in the bucket. Files that copy replaces or deletes are kept for 30
+days, so a mistake can be undone.
+
+1. In the ArvanCloud panel: **Object Storage** → create a **private** bucket (for example
+   `backtestlab-backup`), then the access key and secret key. Choose the region of your VPS: traffic inside
+   the same datacenter is much faster. The panel shows the bucket's endpoint
+   (for example `s3.ir-thr-at1.arvanstorage.ir`).
+2. Install rclone: `sudo apt install -y rclone` (from your provider's Ubuntu mirror). If that fails, download
+   the `.deb` on your computer from [rclone.org/downloads](https://rclone.org/downloads/), upload it with
+   `scp`, and `sudo dpkg -i rclone-*-linux-amd64.deb`.
+3. The settings, in a file only root can read (not in `.env`, which the API server can read):
+
+   ```bash
+   sudo nano /opt/backtestlab/backup.env
+   ```
+
+   ```ini
+   S3_ENDPOINT=https://s3.ir-thr-at1.arvanstorage.ir
+   S3_BUCKET=backtestlab-backup
+   S3_ACCESS_KEY=YOUR_ACCESS_KEY
+   S3_SECRET_KEY=YOUR_SECRET_KEY
+   # optional:
+   # BWLIMIT=1M       cap the upload speed during a backup, so the site stays fast
+   # MARKET=yes       also back up market/store (about 1.2 MB per symbol per year)
+   # KEEP_DAYS=30     KEEP_MONTHS=12
+   ```
+
+   ```bash
+   sudo chmod 600 /opt/backtestlab/backup.env
+   ```
+
+4. Test it: `sudo bash /opt/backtestlab/backup-s3.sh --check` writes and deletes a test file, shows the
+   upload speed and how long the first backup will take.
+5. Run the first backup. On a slow link it can take a while; this keeps it running after you close SSH:
+
+   ```bash
+   sudo systemd-run --unit=backtestlab-backup-first bash /opt/backtestlab/backup-s3.sh
+   sudo journalctl -fu backtestlab-backup-first
+   ```
+
+6. Every night at 03:15:
+
+   ```bash
+   sudo crontab -e
+   # add this line:
+   15 3 * * * bash /opt/backtestlab/backup-s3.sh >> /var/log/backtestlab-backup.log 2>&1
+   ```
+
+   A night that runs into the next one is not started twice: the next run waits for the next night.
+   Check it with `sudo tail /var/log/backtestlab-backup.log` and
+   `sudo bash /opt/backtestlab/backup-s3.sh --list`.
+
+To restore, on this server or a new one (install the site first, steps 1–6):
+
+```bash
+sudo bash /opt/backtestlab/backup-s3.sh --restore              # the latest
+sudo bash /opt/backtestlab/backup-s3.sh --restore 2026-10-05   # a day (or 2026-09: a month)
+```
+
+This downloads into a new folder next to `/var/lib/backtestlab` and does not touch the live data; it then
+prints the commands that switch the server to it. The `.env` of that day is in the folder's
+`config/server.env`.
+
+### On the server itself
+
+A copy on the same disk does not survive the loss of the server, but it is quick to restore from:
 
 ```bash
 sudo mkdir -p /root/backups
