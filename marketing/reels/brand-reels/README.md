@@ -294,6 +294,34 @@ After the rounds come the score, the lesson and the app («برو به», risk a
 
 ---
 
+## Two motion reels built from the competitor analysis (`r1`, `r2`)
+
+These are based on what drives views and comments on @fxfaridb, @theiman_mkt and @myjournal_ir:
+- a hook that borrows credibility (a study or a famous person) in the first sentence;
+- "comment a keyword and I'll send you a file" offers, which earn 2,000–12,000 comments on those pages;
+- big centred captions.
+
+| Reel | File | Length | Voice |
+|---|---|---|---|
+| r1 «تحقیقی که دی‌تریدرها نمی‌خوان ببینن» | `backtestlab-brazil-study.mp4` | 53 s | Kourosh, take `r1/t2.mp3` |
+| r2 «برگرد به ۱۲ مارس ۲۰۲۰» | `backtestlab-12-march.mp4` | 44 s | Kourosh, take `r2/t1.mp3` |
+
+**r1, the Brazil study:**
+- Source: Chague, De-Losso & Giovannetti, *Day Trading for a Living?* (SSRN working paper). It covers individuals who started day trading futures on Brazil's exchange in 2013–2015.
+- Of those who persisted for more than 300 days, **97% lost money**, and only **1.1% earned more than the Brazilian minimum wage**. The authors found **no evidence of learning**.
+- The learning chart is labelled «نمودار مفهومی» because it is illustrative, not the paper's data.
+- The reward for commenting «چک‌لیست» is the one-page checklist in `data/`: `checklist-sheet-A4.pdf`, its PNG, and the HTML that renders it.
+
+**r2, the product demo:**
+- Calendar rewind to 12 March 2020, the «برو به» date picker, a replay with the future hidden, entry/stop/target with volume computed from risk, then the journal and analytics.
+- The chart is real Bitcoin daily data. The app screens come from `c3/img` and are labelled «داده‌ی نمونه».
+- The narration says «اینجا» instead of the brand name, to avoid the «بک‌تست‌لیب» mispronunciation.
+- The call to action is "comment «تمرین»".
+
+Both reels need an automatic DM for the keyword (for example ManyChat), or someone answering the comments by hand.
+
+---
+
 ## How they are built
 
 Same method as the other reels in this folder (see [../PRODUCTION.md](../PRODUCTION.md)), with a shared brand kit:

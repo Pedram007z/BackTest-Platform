@@ -1,0 +1,166 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+@font-face { font-family: Rdx; src: url(../../../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-arabic-wght-normal.woff2) format('woff2'); font-weight: 160 700; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+@font-face { font-family: Rdx; src: url(../../../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-latin-wght-normal.woff2) format('woff2'); font-weight: 160 700; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0D0B14; }
+canvas#c { position: absolute; inset: 0; }
+</style></head><body><canvas id="c" width="1080" height="1920"></canvas>
+<script>window.ASSET = "../../../../";</script>
+<script src="../kit.js"></script>
+<script>
+const DATA = {"place": [0.3, 8.318, 14.098, 20.313, 22.994, 29.361, 33.482, 41.682, 47.546], "lens": [7.518, 5.33, 5.715, 2.331, 5.867, 3.771, 7.75, 5.464, 3.183], "dur": 53.33, "lines": [["محقق‌ها، همه‌ی کسایی که توی برزیل دی‌تریدینگ رو شروع کرده بودن بررسی کردن… و نتیجه‌ش خیلی تلخ بود.", "محقق‌ها همه‌ی کسایی که توی برزیل دی‌تریدینگ رو شروع کرده بودن بررسی کردن… و نتیجه‌ش خیلی تلخ بود."], ["از کسایی که بیشتر از سیصد روز ادامه دادن، نود و هفت درصد ضرر کردن.", "از کسایی که بیشتر از ۳۰۰ روز ادامه دادن، ۹۷٪ ضرر کردن."], ["فقط یک و یک دهم درصد، بیشتر از حداقلِ حقوقِ برزیل درآمد داشتن.", "فقط ۱٫۱٪ بیشتر از حداقل حقوق برزیل درآمد داشتن."], ["[dramatically] ولی ترسناک‌ترین بخشش این نبود…", "ولی ترسناک‌ترین بخشش این نبود…"], ["هیچ نشونه‌ای از یادگیری پیدا نکردن. یعنی ادامه دادن، بهترشون نکرد.", "هیچ نشونه‌ای از یادگیری پیدا نکردن. یعنی ادامه دادن، بهترشون نکرد."], ["تجربه با پولِ واقعی، خودبه‌خود آدم رو بهتر نمی‌کنه.", "تجربه با پول واقعی، خودبه‌خود آدم رو بهتر نمی‌کنه."], ["تمرینِ سنجیده می‌کنه: قانونِ مشخص، تعدادِ کافی معامله، و دیدنِ نتیجه قبل از ریسک.", "تمرین سنجیده می‌کنه: قانون مشخص، تعداد کافی معامله، و دیدن نتیجه قبل از ریسک."], ["یه چک‌لیستِ یک‌صفحه‌ای، از پنج اشتباهی که بک‌تست رو بی‌ارزش می‌کنه درست کردیم.", "یه چک‌لیست یک‌صفحه‌ای از ۵ اشتباهی که بک‌تست رو بی‌ارزش می‌کنه درست کردیم."], ["کلمه‌ی چک‌لیست رو کامنت کن، تا برات بفرستم.", "کلمه‌ی «چک‌لیست» رو کامنت کن تا برات بفرستم."]]};
+setTimeline(DATA);
+// «تحقیقی که دی‌تریدرها نمی‌خوان ببینن»: the Brazil day-trading study (Chague, De-Losso & Giovannetti),
+// told as a motion reel: the paper, 97 of 100 turning red, 11 of 1000 glowing, "no sign of learning", the checklist offer.
+const SUB_ON = [1, 1, 1, 0, 1, 0, 0, 1, 0].map(Boolean);
+const LABEL = 'تحقیق · بازار واقعی';
+
+function person(x, y, s, col, a = 1) { cv.save(); cv.globalAlpha *= a; cv.fillStyle = col; cv.beginPath(); cv.arc(x, y - s * 0.55, s * 0.32, 0, 7); cv.fill(); rr(x - s * 0.42, y - s * 0.12, s * 0.84, s * 0.62, s * 0.3); cv.fill(); cv.restore(); }
+
+// ---- 0 · the paper (the cover) ----
+function paper(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a;
+  headline([['تحقیقی که', 76, C.ink], [[['دی‌تریدرها', C.lilac], ['نمی‌خوان', C.ink], ['ببینن', C.ink]], 70]], t, -1, S(1), { y: 410, gap: 104, instant: true, hold: true, glow: rgba(C.accent, 0.7) });
+  const fl = Math.sin(t * 1.2) * 6;
+  cv.save(); cv.translate(540, 900 + fl); cv.rotate(-0.045 + Math.sin(t * 0.7) * 0.006);
+  cv.shadowColor = 'rgba(0,0,0,0.55)'; cv.shadowBlur = 60; cv.shadowOffsetY = 24; rr(-360, -300, 720, 600, 18); cv.fillStyle = '#F6F4FB'; cv.fill(); cv.shadowColor = 'transparent';
+  txt('WORKING PAPER · SSRN', -310, -245, { size: 22, font: 'Rdx', weight: 600, color: '#8C85A2', dir: 'ltr', align: 'left', spacing: 2 });
+  txt('Day Trading for a Living?', -310, -180, { size: 50, font: 'Rdx', weight: 700, color: '#181324', dir: 'ltr', align: 'left' });
+  txt('Chague · De-Losso · Giovannetti', -310, -122, { size: 26, font: 'Rdx', weight: 500, color: '#5C5573', dir: 'ltr', align: 'left' });
+  cv.fillStyle = '#E2DDEF'; cv.fillRect(-310, -88, 620, 3);
+  const r = rng(3); for (let i = 0; i < 9; i++) { const y = -45 + i * 34, w = i === 3 ? 600 : 420 + r() * 200; if (i === 3) continue; rr(-310, y - 7, w, 14, 7); cv.fillStyle = '#D9D4EA'; cv.fill(); }
+  // the highlighted sentence
+  const hk = E.inOut(P(t, 0.6, 1.2)); rr(-318, 52 - 24, 636 * hk, 48, 8); cv.fillStyle = 'rgba(245,176,20,0.45)'; cv.fill();
+  txt('97% of all individuals who persisted for more than', -310, 52, { size: 23, font: 'Rdx', weight: 600, color: '#181324', dir: 'ltr', align: 'left' });
+  txt('300 days lost money.', -310, 90, { size: 23, font: 'Rdx', weight: 600, color: '#181324', dir: 'ltr', align: 'left' });
+  cv.restore();
+  const st = E.back(P(t, 1.3, 0.5)); if (st > 0) { cv.save(); cv.translate(800, 1180); cv.rotate(0.12); cv.scale(st, st); rr(-150, -42, 300, 84, 42); cv.strokeStyle = C.loss; cv.lineWidth = 5; cv.stroke(); txt('برزیل · ۲۰۱۳ تا ۲۰۱۵', 0, 2, { size: 30, weight: 800, color: C.loss }); cv.restore(); }
+  cv.restore();
+}
+
+// ---- 1 · 97 of 100 ----
+function grid100(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a;
+  const k = E.inOut(P(t, S(1) + LN[1] * 0.35, LN[1] * 0.5)), red = Math.round(97 * k);
+  txt(fa(red) + '٪', 540, 470, { size: 170, font: 'Rdx', weight: 700, color: C.loss, glow: rgba(C.loss, 0.6), scale: 0.9 + 0.1 * E.back(P(t, S(1), 0.5)) });
+  txt('ضرر کردن', 540, 590, { size: 50, weight: 800, color: C.ink });
+  const order = (() => { const r = rng(9), ids = [...Array(100).keys()]; for (let i = 99; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; } return ids; })();
+  const keep = new Set(order.slice(97));
+  let n = 0;
+  for (let i = 0; i < 100; i++) { const x = 540 + ((i % 10) - 4.5) * 80, y = 720 + Math.floor(i / 10) * 74, appear = E.back(P(t, S(1) - 0.2 + (i % 10) * 0.02 + Math.floor(i / 10) * 0.03, 0.35));
+    const idx = order.indexOf(i), isRed = !keep.has(i) && idx < red; if (isRed) n++;
+    person(x, y, 52 * clamp(appear), keep.has(i) && k > 0.95 ? C.gain : isRed ? C.loss : C.faint, clamp(appear)); }
+  pill(540, 1500, 'کسایی که بیشتر از ۳۰۰ روز ادامه دادن', { size: 34, color: C.ink, dot: C.loss, alpha: E.out(P(t, S(1) + 0.3, 0.4)) * (SUB_ON[1] ? 0 : 1) });
+  cv.restore();
+}
+
+// ---- 2 · 11 of 1000 ----
+function grid1000(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a;
+  const k = E.out(P(t, S(2) + LN[2] * 0.25, 0.6));
+  txt('۱٫۱٪', 540, 470, { size: 170, font: 'Rdx', weight: 700, color: C.amber, glow: rgba(C.amber, 0.6), alpha: k, scale: 0.85 + 0.15 * E.back(k) });
+  txt('درآمدی بیشتر از حداقل حقوق', 540, 590, { size: 46, weight: 800, color: C.ink, alpha: k });
+  const r = rng(21), hot = new Set(); while (hot.size < 11) hot.add(Math.floor(r() * 1000));
+  for (let i = 0; i < 1000; i++) { const x = 540 + ((i % 40) - 19.5) * 22, y = 700 + Math.floor(i / 40) * 26, h = hot.has(i) && k > 0;
+    cv.fillStyle = h ? C.amber : rgba(C.loss, 0.55); if (h) { cv.save(); cv.shadowColor = C.amber; cv.shadowBlur = 18 * k; cv.beginPath(); cv.arc(x, y, 7 + 3 * k, 0, 7); cv.fill(); cv.restore(); } else { cv.beginPath(); cv.arc(x, y, 6, 0, 7); cv.fill(); } }
+  txt('از هر ۱۰۰۰ نفر، حدود ۱۱ نفر', 540, 1390, { size: 34, weight: 600, color: C.muted, alpha: k });
+  cv.restore();
+}
+
+// ---- 3 · the twist ----
+function twist(t, a) {
+  if (a <= 0) return; glow(540, 900, 700, 500, C.loss, 0.18 * a);
+  txt('ولی ترسناک‌ترین بخشش…', 540, 820, { size: 66, font: 'Rdx', weight: 700, color: C.ink, alpha: a, reveal: E.out(P(t, S(3), 0.6)) });
+  txt('این نبود.', 540, 960, { size: 110, font: 'Rdx', weight: 700, color: C.loss, alpha: a * E.out(P(t, S(3) + LN[3] * 0.55, 0.4)), glow: rgba(C.loss, 0.6) });
+}
+
+// ---- 4 · no sign of learning ----
+function learning(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a;
+  headline([[[['ادامه', C.ink], ['دادن،', C.ink], ['بهترشون', C.loss], ['نکرد.', C.loss]], 76]], t, S(4) + LN[4] * 0.45, S(5) + 0.1, { y: 440, hold: true, glow: rgba(C.loss, 0.5) });
+  const r = { x: 150, y: 640, w: 800, h: 560 }; card(90, 560, 900, 760);
+  cv.strokeStyle = C.line; cv.lineWidth = 3; cv.beginPath(); cv.moveTo(r.x, r.y); cv.lineTo(r.x, r.y + r.h); cv.lineTo(r.x + r.w, r.y + r.h); cv.stroke();
+  txt('مهارت', r.x + 20, r.y + 10, { size: 28, color: C.muted, weight: 600, align: 'left' }); txt('روزهای معامله ←', r.x + r.w, r.y + r.h + 40, { size: 28, color: C.muted, weight: 600, align: 'right' });
+  const k1 = E.inOut(P(t, S(4), 1.2)), k2 = E.inOut(P(t, S(4) + 1.0, 1.6)), N = 60;
+  cv.save(); cv.setLineDash([12, 10]); cv.strokeStyle = C.lilac; cv.lineWidth = 4; cv.beginPath();
+  for (let i = 0; i <= N * k1; i++) { const u = i / N; const x = r.x + u * r.w, y = r.y + r.h - (0.12 + 0.8 * (1 - Math.pow(1 - u, 2))) * r.h; i ? cv.lineTo(x, y) : cv.moveTo(x, y); } cv.stroke(); cv.restore();
+  if (k1 > 0.9) txt('انتظار', r.x + r.w - 10, r.y + 40, { size: 32, weight: 700, color: C.lilac, align: 'right' });
+  const rr_ = rng(4), noise = [...Array(N + 1)].map(() => rr_() - 0.5);
+  cv.strokeStyle = C.loss; cv.lineWidth = 6; cv.shadowColor = C.loss; cv.shadowBlur = 16; cv.beginPath();
+  for (let i = 0; i <= N * k2; i++) { const u = i / N, x = r.x + u * r.w, y = r.y + r.h - (0.16 + 0.06 * noise[i] - 0.02 * u) * r.h; i ? cv.lineTo(x, y) : cv.moveTo(x, y); } cv.stroke(); cv.shadowBlur = 0;
+  if (k2 > 0.9) txt('یافته‌ی تحقیق', r.x + r.w - 10, r.y + r.h - 130, { size: 32, weight: 700, color: C.loss, align: 'right' });
+  txt('نمودار مفهومی', 540, 1290, { size: 24, color: C.faint, weight: 500 });
+  cv.restore();
+}
+
+// ---- 5 · experience ≠ progress ----
+function experience(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a;
+  // a loop arrow: going round in circles
+  cv.save(); cv.translate(540, 700); cv.rotate(t * 2.2); cv.strokeStyle = C.lilac; cv.lineWidth = 14; cv.lineCap = 'round'; cv.shadowColor = C.accent; cv.shadowBlur = 30;
+  cv.beginPath(); cv.arc(0, 0, 110, 0.3, Math.PI * 1.75); cv.stroke(); cv.fillStyle = C.lilac; cv.beginPath(); const ax = 110 * Math.cos(Math.PI * 1.75), ay = 110 * Math.sin(Math.PI * 1.75); cv.moveTo(ax + 30, ay - 10); cv.lineTo(ax - 20, ay - 34); cv.lineTo(ax - 8, ay + 26); cv.closePath(); cv.fill(); cv.restore();
+  headline([['تجربه با پول واقعی،', 70, C.ink], [[['خودبه‌خود', C.ink], ['آدم', C.ink], ['رو', C.ink]], 70], [[['بهتر', C.lilac], ['نمی‌کنه.', C.lilac]], 82]], t, S(5), S(6) + 0.1, { y: 960, gap: 112, hold: true, glow: rgba(C.accent, 0.6) });
+  cv.restore();
+}
+
+// ---- 6 · deliberate practice ----
+function practice(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a;
+  headline([[[['تمرین', C.lilac], ['سنجیده', C.lilac], ['یعنی:', C.ink]], 84]], t, S(6), S(7) + 0.1, { y: 440, hold: true, glow: rgba(C.accent, 0.7) });
+  [['قانون مشخص', 0.3], ['تعداد کافی معامله', 0.5], ['دیدن نتیجه قبل از ریسک', 0.72]].forEach(([s, f], i) => { const k = E.back(P(t, S(6) + LN[6] * f, 0.45)); if (k <= 0) return; const y = 650 + i * 210;
+    cv.save(); cv.translate(540, y); cv.scale(0.9 + 0.1 * k, 0.9 + 0.1 * k); cv.globalAlpha *= clamp(k); card(-420, -80, 840, 160, { r: 32, border: rgba(C.gain, 0.6), glow: rgba(C.gain, 0.2) });
+    cv.fillStyle = rgba(C.gain, 0.18); cv.beginPath(); cv.arc(330, 0, 46, 0, 7); cv.fill(); cv.strokeStyle = C.gain; cv.lineWidth = 9; cv.lineCap = 'round'; cv.beginPath(); cv.moveTo(308, 2); cv.lineTo(324, 18); cv.lineTo(354, -16); cv.stroke();
+    txt(s, 250, 4, { size: 50, weight: 800, color: C.ink, align: 'right' }); cv.restore(); });
+  cv.restore();
+}
+
+// ---- 7 · the checklist ----
+function checklist(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a;
+  headline([['یه چک‌لیست یک‌صفحه‌ای', 70, C.ink]], t, S(7), S(8) + 0.1, { y: 400, hold: true });
+  const k = E.back(P(t, S(7), 0.6)), fl = Math.sin(t * 1.4) * 10;
+  if (IMG.sheet) { const w = 560, h = (w * 3509) / 2481; cv.save(); cv.translate(540, 980 + fl); cv.rotate(0.04 + Math.sin(t * 0.8) * 0.01); cv.scale(0.8 + 0.2 * k, 0.8 + 0.2 * k);
+    cv.shadowColor = rgba(C.accent, 0.55); cv.shadowBlur = 80; cv.fillStyle = '#fff'; cv.fillRect(-w / 2, -h / 2, w, h); cv.shadowBlur = 0; cv.drawImage(IMG.sheet, -w / 2, -h / 2, w, h);
+    rr(w / 2 - 150, -h / 2 - 30, 160, 70, 18); cv.fillStyle = C.loss; cv.fill(); txt('PDF', w / 2 - 70, -h / 2 + 6, { size: 38, font: 'Rdx', weight: 700, color: '#fff', dir: 'ltr' }); cv.restore(); }
+  cv.restore();
+}
+
+// ---- 8 · comment to get it ----
+function cta(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a; const c0 = S(8);
+  headline([[[['کلمه‌ی', C.ink], ['«چک‌لیست»', C.lilac]], 96], ['رو کامنت کن', 96, C.ink]], t, c0, DUR + 1, { y: 520, gap: 130, hold: true, glow: rgba(C.accent, 0.7) });
+  card(110, 800, 860, 150, { r: 75 });
+  const g = cv.createLinearGradient(870, 830, 950, 920); g.addColorStop(0, C.grad0); g.addColorStop(1, C.grad1); cv.fillStyle = g; cv.beginPath(); cv.arc(900, 875, 42, 0, 7); cv.fill();
+  const word = 'چک‌لیست', typed = word.slice(0, Math.floor(P(t, c0 + 0.2, 0.9) * word.length + 0.001));
+  const tw = txt(typed, 830, 878, { size: 48, color: C.ink, weight: 700, align: 'right' }); if (Math.floor(t * 2.5) % 2 === 0 && typed.length < word.length) { cv.fillStyle = C.lilac; cv.fillRect(830 - tw - 10, 852, 4, 52); }
+  const sent = P(t, c0 + 1.3, 0.3); txt('ارسال', 190, 878, { size: 38, weight: 800, color: sent > 0 ? C.lilac : C.faint });
+  // the DM arriving
+  const dm = E.back(P(t, c0 + 1.8, 0.5)); if (dm > 0) { cv.save(); cv.translate(540, 1150); cv.scale(dm, dm); card(-380, -110, 760, 220, { r: 34, border: rgba(C.accent, 0.6), glow: rgba(C.accent, 0.3) });
+    if (IMG.sheet) { cv.drawImage(IMG.sheet, 220, -85, 120, 170); } txt('دایرکت', 190, -50, { size: 30, color: C.muted, weight: 600, align: 'right' });
+    txt('چک‌لیست ۵ اشتباه بک‌تست 📄'.replace(' 📄', ''), 190, 10, { size: 40, color: C.ink, weight: 800, align: 'right' }); txt('فرستاده شد ✓'.replace(' ✓', ''), 190, 62, { size: 30, color: C.gain, weight: 700, align: 'right' }); cv.restore(); }
+  if (IMG.logo) { const w = 320, h = (w * IMG.logo.height) / IMG.logo.width, e = E.out(P(t, c0 + 2.2, 0.6)); cv.save(); cv.globalAlpha *= e; cv.drawImage(IMG.logo, 540 - w / 2, 1420 - h / 2, w, h); cv.restore(); }
+  cv.restore();
+}
+
+function render(t) {
+  background(t, { tense: 0.9 * win(t, S(1), S(5), 0.4, 0.5), happy: 0.5 * win(t, S(6), S(7), 0.3, 0.3) });
+  paper(t, 1 - E.in(P(t, S(1) - 0.3, 0.3)));
+  grid100(t, win(t, S(1) - 0.1, S(2) + 0.05, 0.3, 0.3));
+  grid1000(t, win(t, S(2) - 0.05, S(3) + 0.05, 0.3, 0.3));
+  twist(t, win(t, S(3) - 0.05, S(4) + 0.05, 0.25, 0.25));
+  learning(t, win(t, S(4) - 0.05, S(5) + 0.05, 0.3, 0.3));
+  experience(t, win(t, S(5) - 0.05, S(6) + 0.05, 0.3, 0.3));
+  practice(t, win(t, S(6) - 0.05, S(7) + 0.05, 0.3, 0.3));
+  checklist(t, win(t, S(7) - 0.05, S(8) + 0.05, 0.3, 0.3));
+  cta(t, E.out(P(t, S(8) - 0.05, 0.3)));
+  chrome(t, LABEL, { dot: C.loss });
+  subs(t, SUB_ON);
+  cutFx(t, [S(1) - 0.1, S(2) - 0.05, S(3) - 0.05, S(4) - 0.05, S(5) - 0.05, S(6) - 0.05, S(7) - 0.05, S(8) - 0.05]);
+  finish(t);
+}
+boot(render, [loadImg('sheet', '../data/checklist-sheet.png')]);
+
+</script></body></html>
