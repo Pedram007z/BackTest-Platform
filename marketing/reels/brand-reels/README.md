@@ -1,0 +1,340 @@
+# Brand reels: 2 before launch, 1 on launch day, 1 after launch
+
+All four use the website's own look:
+
+- **Colours:** night background `#0D0B14`, mist text `#EEEBF6`, accent violet `#7C5CFF` / lilac `#A58BFF`, the logo gradient `#9273FF → #5430E6`, and the app's gain green `#26C281` and loss red `#F25466`.
+- **Background:** the landing page's hero glow.
+- **Type:** Readex Pro for headings and Vazirmatn for text, the same as the site.
+- **Components:** app-style cards, pills and buttons.
+
+Every reel opens on a question or an open loop in the first 3 seconds, then adds a new hook every 4–8 seconds.
+
+| # | When | File | Length | Voice |
+|---|---|---|---|---|
+| 1 | Before launch | `backtestlab-847-days.mp4` | 68 s | Kourosh (ElevenLabs) |
+| 2 | Before launch | `backtestlab-one-line-rule.mp4` | 73 s | Kourosh (ElevenLabs) |
+| 3 | Launch day | `backtestlab-launch-day.mp4` | 63 s | Kourosh (ElevenLabs) |
+| 4 | After launch | `backtestlab-tomorrow-quiz.mp4` | 47 s | None (see below) |
+
+**Reel 4 has no narration.** ElevenLabs refused every take with "Free Tier access has been disabled" and then "You have 0 credits remaining" (quota 10,000), so it is built as a text-and-music quiz. That format works muted, which is how most people watch Reels. When there are credits again, its script is ready below and can be voiced the same way.
+
+**Subtitles:** chart and screen scenes carry subtitles for muted viewers. In the text scenes, the words on screen are the narration.
+
+---
+
+## 1 · «۸۴۷ روز» (before launch)
+
+**The open loop:** «اگه درست توی سقف خریده بودی… چند روز طول می‌کشید تا فقط به پولت برگردی؟» The counter shows «؟؟؟ روز» and the narrator says «یه عدد حدس بزن. جوابش رو آخر ویدیو می‌گم.» The answer comes at 41 s. The comment prompt asks viewers to post their guess, which drives comments.
+
+| Time | Narration | On screen |
+|---|---|---|
+| 0.3 | اگه بیت‌کوین رو، درست توی سقف خریده بودی… | Cover: headline, the 2021 run-up with the top marked $67,526, «؟؟؟ روز» |
+| 3.9 | چند روز طول می‌کشید، فقط تا به پولِ خودت برگردی؟ | The question; the digit reels spin |
+| 8.0 | یه عدد حدس بزن. جوابش رو آخرِ ویدیو می‌گم. | The reels lock on «؟»; a pill: «یه عدد حدس بزن · جوابش آخر ویدیو» |
+| 12.1 | هشتم نوامبرِ ۲۰۲۱. بیت‌کوین رسید به ۶۷٬۵۰۰ دلار. | The real chart draws to the top; dashed «قیمت خرید تو» line |
+| 18.0 | یه سال بعد… ۱۵٬۸۰۰. | The fall in red, the underwater area fills, a big «−۷۶٫۶٪» |
+| 21.8 | هر ۱۰۰۰ دلاری … شده بود ۲۳۴ دلار. | $1,000 → $234 |
+| 27.2 | اون روز، روزِ ۳۷۸ام بود… و تازه، نصفِ راه هم نبود. | Day counter «روز ۳۷۸» and «تازه نصف راه هم نیست» |
+| 32.9 | ماه‌ها گذشت. هنوز زیرِ قیمتِ خریدت بودی. | The counter rolls as the price crawls under the line |
+| 36.7 | تا بالاخره… چهارم مارسِ ۲۰۲۴. | The counter hides as «؟؟؟»; the price touches the line (green flash) |
+| 40.9 | ۸۴۷ روز. | Reveal: a huge «۸۴۷» «روز», «از ۸ نوامبر ۲۰۲۱ تا ۴ مارس ۲۰۲۴ · بیش از ۲ سال» |
+| 43.4 | حدسِ تو چند بود؟ | Pill |
+| 45.2 | ولی سؤالِ اصلی این نیست که برگشت. سؤال اینه: تو، این ۸۴۷ روز رو دووم میاوردی؟ | The question over the "valley": the drop below the buy price, day by day |
+| 53.8 | قبل از هر ورود، باید بدونی بدترین افتت چقدره… و برگشتنش چقدر طول می‌کشه. این، کارِ بک‌تسته. | Two app-style stat cards: «بدترین افت −۷۶٫۶٪», «زمان برگشت ۸۴۷ روز»; then «این، کار بک‌تسته.» |
+| 62.9 | حدست رو کامنت کن. | A comment box typing «حدس من: … روز» |
+| 64.5 | بک‌تست‌لب… به‌زودی. | Logo, «به‌زودی» button, «فالو کن تا روز لانچ رو از دست ندی» |
+
+**Facts** (Binance BTC/USDT daily closing prices):
+
+- Top close: **$67,526** on 2021-11-08.
+- Lowest close after it: **$15,781** on 2022-11-21, which is **−76.6%**, 378 days later. $1,000 became **$233.7**.
+- First close back at or above $67,526: **2024-03-04** ($68,246), **847 days** after the top. Every close in between was lower.
+- The narration rounds to «۶۷٬۵۰۰» and «۱۵٬۸۰۰»; the chart labels show the exact values. Intraday highs were higher (about $69,000 on 10 Nov 2021); the reel uses daily closes and labels them «قیمت پایانی روزانه».
+
+**Caption**
+
+```
+اگه بیت‌کوین رو درست توی سقف خریده بودی، چند روز طول می‌کشید فقط تا به پولت برگردی؟ 🤔
+قبل از اینکه ادامه بدی، یه عدد حدس بزن و کامنت کن 👇
+.
+۸ نوامبر ۲۰۲۱: بیت‌کوین رسید به ۶۷٬۵۲۶ دلار (قیمت پایانی روزانه).
+یه سال بعد: ۱۵٬۷۸۱ دلار؛ یعنی ۷۶٫۶٪ پایین‌تر.
+هر ۱۰۰۰ دلار شده بود ۲۳۴ دلار.
+
+و برگشت به همون قیمت؟
+۴ مارس ۲۰۲۴… ۸۴۷ روز بعد.
+
+سؤال اصلی این نیست که برگشت؛
+اینه که تو این ۸۴۷ روز رو دووم میاوردی؟
+
+قبل از هر ورود باید بدونی بدترین افتت چقدره و برگشتنش چقدر طول می‌کشه.
+این کار بک‌تسته.
+
+بک‌تست‌لب به‌زودی میاد 🚀
+فالو کن تا روز لانچ رو از دست ندی 🔔
+.
+.
+#بیت_کوین #بک_تست #ترید #تریدر #کریپتو #مدیریت_ریسک #بازار_مالی #تحلیل_تکنیکال #بکتست #سرمایه_گذاری
+```
+
+**Pinned comment:** «جواب توی ویدیوئه 😉 حدس اولت چند بود؟ 👇»
+
+---
+
+## 2 · «یه قانون یک‌خطی… و رازش» (before launch)
+
+**The open loop:** «یه قانون یک‌خطی، ۸ سال از نگه‌داشتن بیت‌کوین بیشتر سود داد.» The rule is hidden behind a locked, redacted code line, and the scoreboard shows «؟٪». Then «ولی یه رازی پشت این سوده… که کسی دوست نداره ببینه.»
+
+The reel follows the sequence rule → result → «خب… رازش چیه؟» → the secret → the question.
+
+| Time | Narration | On screen |
+|---|---|---|
+| 0.3 | یه قانونِ یک‌خطی، هشت سال، از نگه‌داشتنِ بیت‌کوین بیشتر سود داد. | Cover: headline, the locked rule card, bars «این قانون ؟٪» vs «فقط نگه‌داشتن ؟٪» |
+| 5.8 | ولی یه رازی پشتِ این سوده… که کسی دوست نداره ببینه. | Glowing line under the bars |
+| 10.7 | قانون اینه: وقتی میانگینِ ۵۰ روزه، از میانگینِ ۲۰۰ روزه بالاتر رفت، بخر. | Rule chip; the 2019 chart with both averages; the cross marked «خرید» |
+| 17.5 | وقتی برگشت زیرش، بفروش. همین. | Second chip; the cross back down marked «فروش» |
+| 21.3 | ۲۰۱۸ تا ۲۰۲۵: فقط ۸ تا معامله. | The 8-year log chart; the 8 trades shaded green or red; «۸ معامله · ۵ برد» |
+| 25.8 | نتیجه؟ ۶۲۴٪ سود. کسی که فقط نگه داشت؟ ۵۳۹٪. | Bars «+۶۲۴٪» vs «+۵۳۹٪» |
+| 33.6 | خب… رازش چیه؟ | Full-screen title |
+| 35.7 | برگرد به ۱۲ مارسِ ۲۰۲۰. | Date pill; the rule's own account curve draws from 2018 |
+| 38.6 | دو سال بعد از شروع، حسابِ این قانون، ۲۰٪ زیرِ پولِ اولش بود. | The curve dips under the «پول اول» line in red, «۰٫۸۰×», «۲۰٪ زیر پول اول» |
+| 43.9 | از اوجش، ۶۷٪ پایین اومده بود. | Peak «۲٫۴۲×» → bracket → «−۶۷٪ از اوج» (screen shake) |
+| 47.6 | اون ۶۰۰٪ سود، فقط مالِ کسی بود که از این دره رد شد… بدونِ اینکه بدونه تهش چیه. | Zoom out to 2018–2025: the "valley" band «دره · ۵۲۳ روز», the end «+۶۲۴٪» |
+| 55.2 | تو اونجا، به قانونت وفادار می‌موندی؟ | The question over the valley |
+| 58.7 | بک‌تست فقط سود رو نشون نمی‌ده. دره‌ها رو نشونت می‌ده… قبل از اینکه توش باشی. | Three lines of type |
+| 65.4 | تو اون دره، ادامه می‌دادی؟ کامنت کن. | A two-option poll «آره، ادامه می‌دادم» / «نه، می‌بستم» and a «کامنت کن» button |
+| 69.1 | بک‌تست‌لب… به‌زودی. | Logo, «به‌زودی», follow line |
+
+**Facts** (Binance BTC/USDT daily, 2018-01-01 to 2025-12-31):
+
+- **The rule:** when the 50-day SMA crosses above the 200-day SMA, buy at the next day's open; when it crosses back below, sell at the next day's open. Fee 0.1% per side.
+- **Trades:** **8 trades, 5 wins.** Compounded, **+624.3%**.
+- **Holding:** buying at the first open (13,716) and holding to the last close (87,648) gives **+539%**.
+- **The account curve** (marked to market each day) peaked at **2.42×** on 2019-06-26. On **2020-03-12** it was at **0.80×**: 20% under the starting money and **66.8% below the peak**. That is the curve's maximum drawdown.
+- The curve got back above that peak on 2020-11-30, **523 days** after it.
+- **Wording:** the narration says «۶۰۰٪» once as a round figure for 624%.
+
+**Caption**
+
+```
+یه قانون یک‌خطی، ۸ سال از نگه‌داشتن بیت‌کوین بیشتر سود داد… ولی یه رازی داره 🤫
+.
+قانون: وقتی میانگین ۵۰ روزه از میانگین ۲۰۰ روزه بالاتر رفت، بخر؛ وقتی برگشت زیرش، بفروش.
+۲۰۱۸ تا ۲۰۲۵ روی بیت‌کوین (روزانه، با کارمزد ۰٫۱٪):
+۸ معامله، ۵ برد
+این قانون: +۶۲۴٪
+فقط نگه‌داشتن: +۵۳۹٪
+
+رازش؟
+۱۲ مارس ۲۰۲۰، دو سال بعد از شروع، حساب این قانون ۲۰٪ زیر پول اولش بود؛
+۶۷٪ پایین‌تر از اوجش.
+و از اون اوج، ۵۲۳ روز طول کشید تا دوباره بهش برسه.
+
+اون سود فقط مال کسی بود که از این دره رد شد.
+بک‌تست فقط سود رو نشونت نمی‌ده؛ دره‌ها رو هم نشونت می‌ده، قبل از اینکه توش باشی.
+
+تو اون دره ادامه می‌دادی؟ کامنت کن 👇
+بک‌تست‌لب به‌زودی 🚀 فالو کن تا روز لانچ رو از دست ندی.
+(بررسی آموزشیه، نه توصیه‌ی مالی.)
+.
+.
+#بیت_کوین #بک_تست #ترید #تریدر #میانگین_متحرک #گلدن_کراس #مدیریت_ریسک #تحلیل_تکنیکال #بکتست #کریپتو
+```
+
+**Pinned comment:** «تو اون ۱۲ مارس، به قانونت وفادار می‌موندی یا می‌بستی؟ 👇»
+
+---
+
+## 3 · «از امروز» (launch day)
+
+**The open loop:** «از امروز… می‌تونی برگردی به گذشته.» The opening shot is a Bitcoin chart rewinding: the play-head runs back from ۱۴۰۴ to ۱۳۹۶ and the future goes behind frosted glass. Then «ولی یه قانون داره: آینده رو نمی‌بینی.»
+
+The product scenes use **real app screenshots** (replay, journal, analytics, dashboard), labelled «تصویر واقعی برنامه · داده‌ی نمونه» because the account in them is a test account with sample trades.
+
+| Time | Narration | On screen |
+|---|---|---|
+| 0.3 | از امروز… می‌تونی برگردی به گذشته. | Cover: headline with «گذشته» in lilac; the chart rewinding, year tag rolling back |
+| 3.9 | به هر روزی از بازار. فارکس، طلا، شاخص‌ها، کریپتو. | Four market cards pop on each word (EURUSD · GBPJPY, XAUUSD, NAS100 · GER40, BTCUSD · ETHUSD), «داده‌ی تاریخی از ۲۰۱۵ · تایم‌فریم ۱ ثانیه تا روزانه» |
+| 8.7 | ولی یه قانون داره: آینده رو نمی‌بینی. | Real BTC daily candles up to 11 March 2020; the rest locked behind «آینده» |
+| 12.1 | کندل به کندل جلو می‌ری… درست مثلِ بازارِ واقعی، و تصمیم می‌گیری. | The candles play on and the 12 March crash appears (−۳۹٫۵٪); the app's play bar |
+| 17.6 | ورود، حدِ ضرر، حدِ سود. حجم رو هم خودش از درصدِ ریسکت حساب می‌کنه. | The real replay screen in a phone; callouts on «ورود», «حد ضرر», «حد سود», then on «ریسک ۱٪» and «حجم ≈ ۱۴٫۸۵ لات» |
+| 24.2 | خبرهای اقتصادی روی چارت میان… و عددِ واقعیشون، تا لحظه‌ی انتشار مخفیه. | Pan to «تقویم اقتصادی»; an event card with «واقعی» locked, which flips to «منتشر شد» |
+| 31.0 | هر معامله می‌ره توی ژورنال: عکسِ چارت، چک‌لیست، یادداشت. | The real journal page scrolling |
+| 36.1 | و آنالیز بهت می‌گه، استراتژیت کجا جواب می‌ده… و کجا نه. | The real analytics page scrolling |
+| 41.4 | صدها معامله تمرین، بدونِ یه ریال ریسک. | A grid of practice trades filling, a counter, «ریسک پول واقعی: ۰ ریال» |
+| 45.9 | اسمش بک‌تست‌لبه. و از امروز، بازه. | The app icon and logo with light rays, «از امروز، بازه.», confetti in brand colours |
+| 50.3 | شروعش رایگانه. فقط با شماره موبایل. | «شروعش رایگانه.», a mobile-number field, the site's «شروع رایگان» button, «بدون ایمیل، بدون رمز عبور» |
+| 54.0 | روی گوشی، تبلت و کامپیوتر. | Phone, tablet and laptop with the real dashboard and replay |
+| 56.7 | لینک توی بیوئه. اولین روزی که می‌خوای بهش برگردی رو کامنت کن. | «لینک توی بیوئه» with a bouncing arrow, «اولین روزی که می‌خوای بهش برگردی کدومه؟», «کامنت کن», logo |
+
+**Every product claim was checked against the site:**
+
+- **Landing page** (features, FAQ):
+  - candle-by-candle replay without the future
+  - order lines, with the lot size computed from the risk %
+  - news on the chart, with the actual number hidden until release
+  - journal with screenshot, checklist and notes
+  - analytics
+  - sign-up by mobile number only, with no email or password
+  - browser, Android app and home-screen install
+- **`DATA_START` = 2015-01-01** and **timeframes from 1 s to daily** come from `src/lib/market.ts`.
+- **The free plan** is listed in `server/src/db.ts`: no time limit, but **5 forex symbols**, 1 active session and timeframes of 15 minutes and up. Gold, indices and crypto need a paid plan, so the caption says so.
+
+**The website address is not in the video.** I only found `backtestlab.ir` as an example domain in the deploy config, so the reel says «لینک توی بیو». If the real domain is final, it can go on the last frame.
+
+**Caption**
+
+```
+از امروز می‌تونی برگردی به گذشته ⏪
+
+بک‌تست‌لب امروز باز شد 🎉
+به هر روزی از بازار برگرد (فارکس، طلا، شاخص‌ها، کریپتو) و کندل به کندل جلو برو؛ بدون اینکه آینده رو ببینی.
+
+✅ ورود، حد ضرر و حد سود روی چارت؛ حجم از درصد ریسکت خودکار حساب می‌شه
+✅ خبرهای اقتصادی روی چارت، عدد واقعی تا لحظه‌ی انتشار مخفی
+✅ ژورنال با عکس چارت، چک‌لیست و یادداشت
+✅ آنالیز کامل: کجا جواب می‌ده، کجا نه
+✅ روی گوشی، تبلت و کامپیوتر
+
+شروعش رایگانه، فقط با شماره موبایل (پلن رایگان: ۵ نماد فارکس، بدون محدودیت زمانی).
+🔗 لینک توی بیو
+
+اولین روزی که می‌خوای بهش برگردی کدومه؟ کامنت کن 👇
+.
+.
+#بک_تست #بکتست #ترید #تریدر #فارکس #طلا #کریپتو #بیت_کوین #ژورنال_معاملاتی #مدیریت_ریسک
+```
+
+**Pinned comment:** «اولین تاریخی که می‌ری سراغش؟ ما می‌گیم ۱۲ مارس ۲۰۲۰ 😅👇»
+
+---
+
+## 4 · «فردا چی می‌شه؟» (after launch, quiz)
+
+**The open loop:** «فردا… بالا یا پایین؟» over a real chart whose last candle is hidden behind «؟», with two buttons and a 3-second countdown. There are three rounds, and each answer flips the trend you'd expect:
+
+1. A falling chart that went **up**.
+2. A 50% rally that went **down**.
+3. A "you'll surely get this one" round that turns out to be the −39.5% Black Thursday.
+
+After the rounds come the score, the lesson and the app («برو به», risk and lot), and finally «امتیازت از ۳ چند شد؟ کامنت کن».
+
+| Time | On screen |
+|---|---|
+| 0.0 | Cover: «چارت ۱ از ۳ · بیت‌کوین روزانه», «فردا… بالا یا پایین؟», 45 real daily candles, the next one hidden, ▲ بالا / ▼ پایین |
+| 1.2–4.2 | 3-2-1 countdown ring (ticks) |
+| 4.2 | «بالا! +۱۶٫۸٪»: the candle grows, the chart rescales, the date «۲۵ اکتبر ۲۰۱۹» |
+| 7.1 | Round 2: «۳۰ روز، نزدیک ۵۰٪ رشد. فردا؟»; countdown; «پایین! −۱۳٫۵٪», «۲۷ ژوئن ۲۰۱۹» |
+| 15.2 | Round 3: «این یکی رو دیگه حتماً درست می‌گی.»; countdown; «پایین! −۳۹٫۵٪», «۱۲ مارس ۲۰۲۰», with a shake and red flash |
+| 24.6 | «چند تا رو درست گفتی؟» and the three answers |
+| 28.0 | «فردا رو هیچ‌کس نمی‌دونه.» |
+| 31.0 | «ولی می‌شه تمرین کرد که با هر فردایی چی کار کنی.» |
+| 35.0 | «توی بک‌تست‌لب:» the real replay screen. Callouts on «برو به» and on risk, with «برو به هر روزی از گذشته», «آینده رو نمی‌بینی، تصمیم می‌گیری» and «با حد ضرر و حجم درست · بدون ریسک پول واقعی» |
+| 41.6 | «امتیازت از ۳ چند شد؟», «کامنت کن», «خودت امتحان کن · لینک توی بیو», logo |
+
+**Facts** (Binance BTC/USDT, daily close against the previous close):
+
+| Date | Change | The 30 days before |
+|---|---|---|
+| 2019-10-25 | **+16.8%** | −12.7% |
+| 2019-06-27 | **−13.5%** | +49.5% |
+| 2020-03-12 | **−39.5%** | −19.5% |
+
+**Narration script, ready if credits come back:**
+
+- این چارتِ واقعیِ بیت‌کوینه. فردا… بالا یا پایین؟
+- سه ثانیه وقت داری.
+- بالا! نزدیکِ هفده درصد، توی یه روز.
+- دومی. سی روز، نزدیکِ پنجاه درصد بالا رفته. فردا؟
+- پایین. سیزده و نیم درصد.
+- آخری. این یکی رو دیگه حتماً درست می‌گی. فردا؟
+- منفیِ سی و نه درصد. پنجشنبه‌ی سیاه.
+- چند تا رو درست گفتی؟
+- واقعیت اینه که فردا رو هیچ‌کس نمی‌دونه. ولی می‌شه تمرین کرد که با هر فردایی، چی کار کنی.
+- توی بک‌تست‌لب، برو به هر روزی از گذشته… آینده رو نمی‌بینی، و تصمیم می‌گیری.
+- با حدِ ضرر، با حجمِ درست… بدونِ یه ریال ریسک.
+- امتیازت از سه، چند شد؟ کامنت کن. لینک توی بیوئه.
+
+**Caption**
+
+```
+۳ چارت واقعی بیت‌کوین. فردا بالا رفت یا پایین؟ 📈📉
+قبل از دیدن جواب حدس بزن، بعد امتیازت رو کامنت کن 👇
+.
+چارت ۱: ۲۵ اکتبر ۲۰۱۹ ← +۱۶٫۸٪
+چارت ۲: ۲۷ ژوئن ۲۰۱۹ ← −۱۳٫۵٪
+چارت ۳: ۱۲ مارس ۲۰۲۰ (پنجشنبه‌ی سیاه) ← −۳۹٫۵٪
+(تغییر قیمت پایانی روزانه نسبت به روز قبل)
+
+فردا رو هیچ‌کس نمی‌دونه.
+ولی می‌شه تمرین کرد که با هر فردایی چی کار کنی.
+
+توی بک‌تست‌لب برو به هر روزی از گذشته، آینده رو نبین و تصمیم بگیر؛ با حد ضرر و حجم درست، بدون ریسک پول واقعی.
+🔗 لینک توی بیو
+.
+.
+#بیت_کوین #چالش #ترید #تریدر #بک_تست #بکتست #کریپتو #تحلیل_تکنیکال #مدیریت_ریسک #فارکس
+```
+
+**Pinned comment:** «من ۱ از ۳ گرفتم 😅 تو چند؟»
+
+---
+
+## Posting order
+
+1. Reel 1, about 10–14 days before launch.
+2. Reel 2, about 5–7 days before launch.
+3. Reel 3, on launch day.
+4. Reel 4, 3–7 days after launch.
+
+## Notes
+
+- **Reply to comments with each guess or answer in the first hour.** Comments on the open questions are what these reels are built to get.
+- **Use the cover JPGs (the first frame) as the Reel cover.** All key text sits in the 4:5 crop used by the profile grid.
+
+---
+
+## How they are built
+
+Same method as the other reels in this folder (see [../PRODUCTION.md](../PRODUCTION.md)), with a shared brand kit:
+
+| File | What it is |
+|---|---|
+| `kit.js` | The brand look and helpers (listed below) |
+| `head.html` + `mkpage.py` | Assemble `cN/index.html` from `cN/data.json` and `cN/scenes.js` |
+| `cN/build.py` | Recomputes the facts from `data/btc_daily.json` (Binance BTC/USDT daily, 2018–2025) and lays the timeline out from the voice line lengths |
+| `cut.py` | Splits a voice take into its script lines |
+| `score.py` | Writes `cN/sound.json` from the timeline; `../reelkit/soundgen.py` synthesises it into `music.wav` |
+| `mix.py` | Places the lines on the timeline (`vo.wav`), ducks the music under the voice and loudness-normalises the result (`mix.wav`) |
+| `encode.sh` | Muxes the silent render and the mix: two-pass H.264 at 3.3 Mb/s, AAC 192k (use 3000k for the 73 s reel 2 to stay under 30 MB) |
+| `cover.cjs` | Saves the first frame (the cover) as PNG |
+| `sheet.py` | Tiles stills for review |
+
+`kit.js` provides:
+
+- The site palette (`C`), Readex Pro (`Rdx`) and Vazirmatn (`Vaz`) text.
+- The hero glow background.
+- App-style `card`, `pill` and `button`.
+- Subtitles, headlines, `candles` and `series` charts, and cut effects.
+
+The voice for reels 1–3 is the take each one was cut from (`cN/t1.mp3` with its whisper word timings `t1.words.json`). The other takes, the cut line WAVs, the music and the renders are not in git.
+
+**Rebuild** (from `marketing/reels/brand-reels`; the Python with numpy/scipy/faster-whisper is the one from `../tools/requirements.txt`):
+
+```sh
+cd c1 && python3 build.py && cd ..          # facts + timeline (needs cN/lens.json from cut.py for c1–c3)
+python3 cut.py c1 t1                        # only to recut the voice: writes c1/line*.wav and c1/lens.json
+python3 mkpage.py c1                        # c1/index.html
+node ../tools/stills.cjs c1 /tmp/st 0 20 40 # check frames
+python3 score.py c1 && python ../reelkit/soundgen.py c1/sound.json c1/music.wav
+python3 mix.py c1                           # c1/vo.wav + c1/mix.wav (needs the line WAVs)
+node ../tools/render.cjs c1 c1/reel-hq.mp4  # silent render, about 15–25 min each on 4 cores
+sh encode.sh c1 backtestlab-847-days.mp4
+```
+
+Reel 4 has no voice: `c4/build.py` writes its fixed timeline (`T`), and `mix.py c4` only normalises the music.
+
+**Gotchas**
+
+- **Never start a second render into a file another render is still writing.** Killing `render.cjs` leaves its ffmpeg running, and the two writers corrupt the MP4. Render to a new file name instead.
+- **Pages load their assets relative to the repo root.** That covers the fonts from `public/fonts` and `node_modules/@fontsource-variable/readex-pro`, and the logo from `brand/svg`. Run `npm install` first.

@@ -25,6 +25,17 @@ Four pre-launch Instagram reels for بک‌تست‌لب (BacktestLab), in Persi
 - Reel 4 reuses reel 2's strategy B trades, so it works as a sequel.
 - Pin a first comment that answers your own question; the per-reel READMEs have suggestions.
 
+## Brand reels: before launch, launch day, after launch
+
+[`brand-reels/`](brand-reels/README.md) has four more reels in the website's own palette and fonts. Each opens on a curiosity hook in the first 3 seconds, and reels 1–3 are narrated in the ElevenLabs "Kourosh" voice.
+
+1. «۸۴۷ روز» (before launch)
+2. «یه قانون یک‌خطی… و رازش» (before launch)
+3. «از امروز» (launch day, with real app screens)
+4. «فردا چی می‌شه؟» (after launch: a three-chart quiz without narration)
+
+That folder holds the scripts, facts, captions, covers and the code that renders them.
+
 ## Status and hard rules
 
 - **Pre-launch:** بک‌تست‌لب has not launched.

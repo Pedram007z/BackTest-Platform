@@ -1,0 +1,123 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+@font-face { font-family: Rdx; src: url(../../../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-arabic-wght-normal.woff2) format('woff2'); font-weight: 160 700; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+@font-face { font-family: Rdx; src: url(../../../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-latin-wght-normal.woff2) format('woff2'); font-weight: 160 700; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0D0B14; }
+canvas#c { position: absolute; inset: 0; }
+</style></head><body><canvas id="c" width="1080" height="1920"></canvas>
+<script>window.ASSET = "../../../../";</script>
+<script src="../kit.js"></script>
+<script>
+const DATA = {"place": [0], "lens": [0], "dur": 46.5, "lines": [], "rounds": [{"day": "2019-10-25", "ohlc": [[10302.58, 10384.99, 9953.0, 10098.15], [10098.19, 10293.0, 9880.0, 10158.33], [10158.75, 10448.81, 10040.0, 10415.01], [10415.01, 10439.0, 10153.0, 10342.06], [10344.13, 10419.99, 10222.33, 10335.02], [10332.81, 10360.0, 10252.15, 10302.01], [10303.34, 10355.0, 10078.0, 10251.31], [10249.68, 10275.0, 10128.01, 10187.82], [10187.48, 10258.02, 10100.0, 10156.99], [10156.41, 10325.0, 9653.0, 10244.29], [10243.7, 10281.0, 10061.39, 10168.59], [10167.92, 10176.7, 9900.0, 9986.39], [9985.15, 10089.0, 9853.97, 10028.87], [10028.05, 10049.99, 9615.77, 9702.25], [9702.2, 9794.99, 7800.0, 8493.14], [8497.55, 8730.0, 8215.64, 8430.05], [8430.05, 8465.99, 7750.0, 8063.73], [8063.49, 8265.0, 7852.15, 8177.91], [8177.47, 8315.0, 8001.09, 8198.81], [8199.38, 8229.13, 7890.0, 8043.82], [8043.04, 8337.26, 7710.0, 8289.34], [8289.97, 8500.0, 8173.05, 8292.44], [8292.67, 8373.91, 8151.22, 8359.94], [8360.0, 8393.0, 8060.0, 8223.96], [8224.43, 8232.41, 8005.0, 8137.13], [8137.09, 8183.41, 8012.98, 8126.19], [8127.55, 8153.87, 7785.0, 7854.25], [7855.3, 8299.92, 7762.0, 8190.09], [8190.82, 8325.0, 8088.75, 8168.39], [8170.79, 8670.0, 8115.0, 8560.74], [8562.15, 8644.0, 8414.52, 8558.03], [8557.82, 8779.51, 8212.38, 8258.5], [8257.95, 8400.0, 8250.0, 8300.09], [8301.98, 8451.37, 8160.0, 8275.01], [8275.24, 8388.85, 8203.0, 8348.2], [8346.86, 8403.0, 8090.0, 8159.29], [8159.3, 8181.16, 7917.0, 7991.74], [7995.02, 8124.92, 7929.03, 8070.58], [8070.71, 8115.0, 7816.01, 7947.01], [7946.89, 8098.1, 7866.92, 7948.01], [7949.87, 8297.0, 7870.0, 8223.35], [8223.35, 8333.0, 8142.03, 8197.27], [8197.28, 8297.99, 8000.0, 8020.0], [8020.06, 8047.59, 7300.0, 7466.62], [7468.47, 7503.68, 7337.99, 7412.41], [7412.41, 8799.0, 7361.0, 8655.02]], "chg": 16.8, "pre30": -12.7}, {"day": "2019-06-27", "ohlc": [[6968.24, 8100.0, 6870.0, 7790.71], [7795.62, 8366.0, 7599.56, 7947.56], [7945.26, 8249.0, 7850.0, 8169.87], [8169.08, 8320.0, 7705.0, 7866.59], [7868.67, 7925.0, 6913.0, 7355.26], [7355.28, 7458.0, 7156.61, 7257.45], [7257.32, 8275.09, 7243.08, 8148.48], [8147.94, 8156.03, 7553.0, 7938.15], [7937.16, 8042.32, 7771.0, 7904.87], [7904.48, 8016.0, 7465.0, 7628.43], [7627.8, 7940.98, 7461.0, 7851.51], [7849.95, 8130.0, 7766.0, 7964.87], [7964.52, 8091.8, 7908.34, 8025.41], [8023.0, 8740.0, 7833.42, 8614.43], [8612.54, 8908.32, 8589.0, 8756.32], [8752.52, 8798.49, 8510.63, 8715.64], [8716.87, 8750.0, 8406.6, 8645.68], [8646.5, 9074.26, 8005.0, 8269.54], [8267.1, 8594.0, 8108.5, 8555.0], [8555.0, 8626.0, 8442.36, 8544.07], [8545.1, 8814.78, 8524.0, 8725.98], [8726.0, 8800.95, 8080.8, 8115.82], [8115.66, 8115.66, 7481.02, 7687.03], [7687.04, 7896.7, 7572.78, 7776.5], [7778.08, 7868.13, 7444.58, 7786.7], [7787.57, 8100.0, 7737.49, 7980.53], [7978.94, 8044.65, 7751.0, 7893.62], [7895.28, 7935.0, 7506.66, 7628.13], [7627.57, 8020.0, 7511.0, 7982.75], [7981.0, 8010.0, 7692.23, 7884.9], [7884.9, 8200.0, 7788.99, 8127.64], [8127.64, 8309.82, 8010.03, 8218.54], [8216.44, 8684.41, 8144.32, 8650.0], [8650.88, 8864.99, 8567.63, 8808.7], [8810.77, 9333.0, 8760.0, 8953.33], [8953.0, 9444.0, 8950.0, 9313.96], [9312.13, 9336.36, 8950.0, 9081.55], [9081.97, 9304.0, 8960.0, 9255.49], [9253.76, 9590.0, 9175.2, 9517.12], [9518.06, 10174.99, 9518.06, 10159.86], [10159.86, 11160.0, 9921.72, 10729.5], [10729.0, 11392.64, 10555.18, 10906.07], [10905.95, 11143.63, 10620.8, 11056.59], [11056.59, 11850.0, 11026.0, 11820.86], [11821.28, 13970.0, 11741.0, 13093.8], [13098.38, 13478.04, 10525.1, 11329.99]], "chg": -13.5, "pre30": 49.5}, {"day": "2020-03-12", "ohlc": [[8614.39, 9000.0, 8535.0, 8907.57], [8907.57, 9400.0, 8862.4, 9374.21], [9375.34, 9449.24, 9216.0, 9301.53], [9301.57, 9578.0, 9204.44, 9513.21], [9511.52, 9530.22, 9210.01, 9352.89], [9351.71, 9464.53, 9281.0, 9384.61], [9384.41, 9477.03, 9120.0, 9331.51], [9331.59, 9618.79, 9234.0, 9292.24], [9291.35, 9350.0, 9093.01, 9197.02], [9197.02, 9744.45, 9177.22, 9612.04], [9612.03, 9862.57, 9526.35, 9772.0], [9772.0, 9885.0, 9730.0, 9813.73], [9813.87, 9940.0, 9667.11, 9895.05], [9895.04, 10166.0, 9880.75, 10151.75], [10151.72, 10188.0, 9756.0, 9851.83], [9851.74, 10323.59, 9700.0, 10223.08], [10223.08, 10450.0, 10223.08, 10326.46], [10325.33, 10500.0, 10080.0, 10229.63], [10227.78, 10381.56, 10111.37, 10344.36], [10344.36, 10375.0, 9801.0, 9904.72], [9904.46, 10050.0, 9638.12, 9917.27], [9910.7, 9964.16, 9452.67, 9706.0], [9706.0, 10250.0, 9576.01, 10164.71], [10164.78, 10250.0, 9350.0, 9593.79], [9594.65, 9699.0, 9400.0, 9596.42], [9597.21, 9755.51, 9550.21, 9677.05], [9677.05, 9709.17, 9560.02, 9650.86], [9650.85, 9990.0, 9645.0, 9936.4], [9936.4, 9990.0, 9473.56, 9656.13], [9655.52, 9675.0, 9250.0, 9315.84], [9316.48, 9377.44, 8633.63, 8785.25], [8786.0, 8971.77, 8531.0, 8823.21], [8823.25, 8900.0, 8445.0, 8692.91], [8690.8, 8790.0, 8523.55, 8523.61], [8523.61, 8750.0, 8411.0, 8531.88], [8530.3, 8965.75, 8498.0, 8915.24], [8911.18, 8919.65, 8651.0, 8760.07], [8760.07, 8848.29, 8660.0, 8750.87], [8750.99, 9159.42, 8746.54, 9054.68], [9054.64, 9170.0, 8985.5, 9131.88], [9130.89, 9188.0, 8835.0, 8886.66], [8885.25, 8886.76, 8000.0, 8033.31], [8034.76, 8179.31, 7632.01, 7929.87], [7929.87, 8149.0, 7728.01, 7894.56], [7894.57, 7980.0, 7590.0, 7934.52], [7934.58, 7966.17, 4410.0, 4800.0]], "chg": -39.5, "pre30": -19.5}], "T": {"r1": [1.2, 4.2, 6.9], "r2": [7.1, 9.3, 12.3, 15.0], "r3": [15.2, 17.6, 20.6, 24.4], "score": [24.6, 27.8], "l1": [28.0, 31.0], "l2": [31.0, 34.8], "app": [35.0, 41.4], "cta": [41.6, 46.5]}};
+setTimeline(DATA);
+// «فردا چی می‌شه؟»: after-launch quiz reel. Three real Bitcoin charts, guess the next day, then try it in the app.
+// No narration: the words on screen carry it, the music and effects keep the beat.
+const RD = DATA.rounds, T = DATA.T;
+const LABEL = 'چالش · فردا چی می‌شه؟';
+const SH = 1992 / 1170;
+const RT = [[0, T.r1[0], T.r1[1], T.r1[2]], [T.r2[0], T.r2[1], T.r2[2], T.r2[3]], [T.r3[0], T.r3[1], T.r3[2], T.r3[3]]]; // intro, countdown, reveal, end
+const DATES = ['۲۵ اکتبر ۲۰۱۹', '۲۷ ژوئن ۲۰۱۹', '۱۲ مارس ۲۰۲۰'];
+const HINTS = [null, ['۳۰ روز، نزدیک ۵۰٪ رشد.', 'فردا؟'], ['این یکی رو دیگه', 'حتماً درست می‌گی.']];
+
+function phone(cx, top, w, img, sx, sy, sw) {
+  const h = w * SH, x = cx - w / 2; cv.save(); cv.shadowColor = rgba(C.accent, 0.35); cv.shadowBlur = 80; rr(x - 16, top - 16, w + 32, h + 32, 70); cv.fillStyle = '#05040a'; cv.fill(); cv.shadowBlur = 0; cv.lineWidth = 3; cv.strokeStyle = C.line; cv.stroke();
+  cv.save(); rr(x, top, w, h, 54); cv.clip(); if (img) { const k = w / sw; cv.drawImage(img, sx, sy, sw, h / k, x, top, w, h); } cv.restore(); cv.restore();
+  return { X: (px) => x + (px - sx) * (w / sw), Y: (py) => top + (py - sy) * (w / sw), k: w / sw };
+}
+function ring(x, y, w, h, col, k) { if (k <= 0) return; cv.save(); cv.globalAlpha *= clamp(k); cv.shadowColor = col; cv.shadowBlur = 24; rr(x - 8, y - 8, w + 16, h + 16, 18); cv.lineWidth = 5; cv.strokeStyle = col; cv.stroke(); cv.restore(); }
+
+// ---- one round ----
+const CR = { x: 120, y: 650, w: 840, h: 560 };
+function round(t, k) {
+  const [a0, c0, rv, e] = RT[k], r = RD[k], al = k === 0 ? 1 - E.in(P(t, e - 0.3, 0.3)) : win(t, a0, e, 0.3, 0.3); if (al <= 0) return;
+  cv.save(); cv.globalAlpha = al;
+  const o = r.ohlc, n = o.length - 1, tgt = o[n]; let lo = Infinity, hi = -Infinity; for (let i = 0; i < n; i++) { lo = Math.min(lo, o[i][2]); hi = Math.max(hi, o[i][1]); }
+  const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+  const rk = E.inOut(P(t, rv, 0.7)), lo2 = Math.min(lo, tgt[2] - pad * 0.5), hi2 = Math.max(hi, tgt[1] + pad * 0.5);
+  const LO = lerp(lo, lo2, rk), HI = lerp(hi, hi2, rk);
+  pill(540, 380, `چارت ${fa(k + 1)} از ۳ · بیت‌کوین روزانه`, { size: 30, color: C.ink, dot: C.lilac });
+  // the question / the answer
+  const ans = E.back(P(t, rv + 0.1, 0.45)), up = r.chg > 0, col = up ? C.gain : C.loss;
+  const qa = 1 - P(t, rv, 0.2);
+  if (qa > 0) { if (k === 0) runs([['فردا…', C.ink], ['بالا', C.gain], ['یا', C.ink], ['پایین؟', C.loss]], 540, 500, { size: 92, glow: rgba(C.accent, 0.3), reveal: 1 });
+    else { cv.save(); cv.globalAlpha *= qa * E.out(P(t, a0 + 0.1, 0.4)); txt(HINTS[k][0], 540, 470, { size: 54, font: 'Rdx', weight: 700, color: C.ink }); txt(HINTS[k][1], 540, 550, { size: 54, font: 'Rdx', weight: 700, color: C.lilac }); cv.restore(); } }
+  if (ans > 0) { cv.save(); cv.translate(540, 500); cv.scale(ans, ans); runs([[up ? 'بالا!' : 'پایین!', col], [(up ? '+' : '−') + fa(Math.abs(r.chg), 1) + '٪', col]], 0, 0, { size: 100, glow: rgba(col, 0.6) }); cv.restore(); }
+  // the chart
+  card(CR.x - 50, CR.y - 60, CR.w + 100, CR.h + 110);
+  txt('BTCUSD · 1D', CR.x + CR.w, CR.y - 22, { size: 26, color: C.muted, weight: 500, dir: 'ltr', align: 'right' });
+  const c = candles(CR, o, 0, n, { span: n + 3, lo: LO, hi: HI });
+  const x = c.X(n), cw = CR.w / (n + 3);
+  if (t < rv) { rr(x - cw * 1.2, CR.y + 10, cw * 2.4 + 40, CR.h - 20, 16); cv.fillStyle = rgba(C.accent, 0.12 + 0.06 * Math.sin(t * 6)); cv.fill(); cv.strokeStyle = rgba(C.accentInk, 0.7); cv.lineWidth = 3; cv.setLineDash([10, 8]); cv.stroke(); cv.setLineDash([]);
+    txt('؟', x + 20, CR.y + CR.h / 2, { size: 110, font: 'Rdx', weight: 700, color: C.lilac, glow: rgba(C.accent, 0.8) }); }
+  else { const g = E.out(P(t, rv, 0.6)), [op, h, l, cl] = tgt, cNow = op + (cl - op) * g, hNow = Math.max(op, cNow, op + (h - op) * g), lNow = Math.min(op, cNow, op + (l - op) * g);
+    cv.save(); cv.shadowColor = col; cv.shadowBlur = 30; cv.strokeStyle = col; cv.fillStyle = col; cv.lineWidth = 4; cv.beginPath(); cv.moveTo(x, c.Y(hNow)); cv.lineTo(x, c.Y(lNow)); cv.stroke();
+    cv.fillRect(x - cw * 0.45, c.Y(Math.max(op, cNow)), cw * 0.9, Math.max(3, Math.abs(c.Y(op) - c.Y(cNow)))); cv.restore();
+    const dk = P(t, rv + 0.6, 0.4); if (dk > 0) tag(x - 30, c.Y(cl) + (up ? -50 : 50), DATES[k], col, { size: 30, dir: 'rtl', align: 'right', alpha: dk }); }
+  // the buttons and the countdown
+  const pick = P(t, rv, 0.3);
+  [[815, '▲ بالا', C.gain, true], [265, '▼ پایین', C.loss, false]].forEach(([bx, s, bc, isUp]) => { const right = isUp === up, dim = pick * (right ? 0 : 0.7), grow = right ? 1 + 0.1 * E.back(clamp(pick)) * (1 - P(t, rv + 0.8, 0.4)) : 1;
+    cv.save(); cv.globalAlpha *= 1 - dim; cv.translate(bx, 1390); cv.scale(grow, grow); card(-170, -62, 340, 124, { r: 62, fill: rgba(bc, right && pick > 0 ? 0.35 : 0.14), border: bc, glow: right && pick > 0 ? rgba(bc, 0.6) : undefined }); txt(s, 0, 2, { size: 44, weight: 700, color: C.ink }); cv.restore(); });
+  if (t >= c0 && t < rv) { const left = rv - t, num = Math.ceil(left - 1e-6), f = 1 - (left % 1 || 1);
+    cv.save(); cv.translate(540, 1390); cv.strokeStyle = C.line; cv.lineWidth = 10; cv.beginPath(); cv.arc(0, 0, 66, 0, 7); cv.stroke();
+    cv.strokeStyle = C.lilac; cv.shadowColor = C.accent; cv.shadowBlur = 20; cv.beginPath(); cv.arc(0, 0, 66, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (left / (rv - c0))); cv.stroke(); cv.restore();
+    txt(fa(num), 540, 1394, { size: 76, font: 'Rdx', weight: 700, color: C.ink, scale: 1.25 - 0.25 * E.out(clamp(f * 3)) }); }
+  else if (t < c0) txt('vs', 540, 1392, { size: 1, alpha: 0 });
+  cv.restore();
+}
+
+// ---- the rest ----
+function score(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a;
+  headline([['چند تا رو', 96, C.ink], ['درست گفتی؟', 110, C.lilac]], t, T.score[0], T.score[1] + 0.3, { y: 520, gap: 140, glowAll: rgba(C.accent, 0.5) });
+  RD.forEach((r, i) => { const k = E.back(P(t, T.score[0] + 0.5 + i * 0.35, 0.4)); if (k <= 0) return; const up = r.chg > 0, col = up ? C.gain : C.loss, y = 850 + i * 170;
+    cv.save(); cv.translate(540, y); cv.scale(0.9 + 0.1 * k, 0.9 + 0.1 * k); cv.globalAlpha *= clamp(k); card(-400, -65, 800, 130, { r: 30, border: rgba(col, 0.7) });
+    txt(`چارت ${fa(i + 1)}`, 360, 0, { size: 40, weight: 700, color: C.ink, align: 'right' }); txt(DATES[i], 120, 0, { size: 30, weight: 500, color: C.muted });
+    txt((up ? '▲ +' : '▼ −') + fa(Math.abs(r.chg), 1) + '٪', -360, 0, { size: 44, font: 'Rdx', weight: 700, color: col, align: 'left', dir: 'ltr' }); cv.restore(); });
+  cv.restore();
+}
+function lessons(t) {
+  headline([[[['فردا', C.lilac], ['رو', C.ink], ['هیچ‌کس', C.ink]], 100], ['نمی‌دونه.', 110, C.ink]], t, T.l1[0], T.l1[1], { y: 840, gap: 140, glow: rgba(C.accent, 0.7) });
+  headline([['ولی می‌شه تمرین کرد', 84, C.ink], ['که با هر فردایی', 84, C.ink], ['چی کار کنی.', 104, C.lilac]], t, T.l2[0], T.l2[1], { y: 760, gap: 140, stagger: 0.5, glowAll: rgba(C.accent, 0.4) });
+}
+function app(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a; const [a0, a1] = T.app;
+  txt('توی بک‌تست‌لب:', 540, 380, { size: 50, font: 'Rdx', weight: 700, color: C.ink });
+  const p = E.inOut(P(t, a0 + 2.2, 0.8)); const f = phone(540, 450, 560, IMG.replay, lerp(0, 300, p), lerp(160, 520, p), lerp(1170, 870, p));
+  ring(f.X(733), f.Y(335), 237 * f.k, 105 * f.k, C.lilac, win(t, a0 + 0.4, a0 + 2.2, 0.3, 0.3));
+  ring(f.X(310), f.Y(1785), 360 * f.k, 98 * f.k, C.lilac, win(t, a0 + 4.2, a1, 0.3, 0.3));
+  const chips = [['برو به هر روزی از گذشته', a0 + 0.3], ['آینده رو نمی‌بینی، تصمیم می‌گیری', a0 + 2.2], ['با حد ضرر و حجم درست · بدون ریسک پول واقعی', a0 + 4.2]];
+  chips.forEach(([s, at], i) => { const k = win(t, at, i < 2 ? chips[i + 1][1] : a1, 0.3, 0.25); if (k > 0) pill(540, 1500, s, { size: 36, color: C.ink, dot: C.lilac, weight: 700, alpha: k }); });
+  txt('تصویر واقعی برنامه · داده‌ی نمونه', 540, 1440, { size: 24, color: C.faint, weight: 500 });
+  cv.restore();
+}
+function cta(t, a) {
+  if (a <= 0) return; cv.save(); cv.globalAlpha = a; const c0 = T.cta[0];
+  headline([['امتیازت از ۳', 104, C.ink], ['چند شد؟', 120, C.lilac]], t, c0, DUR + 1, { y: 560, gap: 150, hold: true, glowAll: rgba(C.accent, 0.5) });
+  const b = E.back(P(t, c0 + 0.6, 0.45)); if (b > 0) button(540, 860, 'کامنت کن', { size: 48, scale: b });
+  const l = E.out(P(t, c0 + 1.3, 0.5)); if (l > 0) { const up = Math.sin(t * 6) * 10; cv.save(); cv.globalAlpha *= l; cv.translate(540, 1030 + up); cv.fillStyle = C.lilac; cv.beginPath(); cv.moveTo(0, -40); cv.lineTo(30, -6); cv.lineTo(11, -6); cv.lineTo(11, 34); cv.lineTo(-11, 34); cv.lineTo(-11, -6); cv.lineTo(-30, -6); cv.closePath(); cv.fill(); cv.restore();
+    txt('خودت امتحان کن · لینک توی بیو', 540, 1120, { size: 44, weight: 700, color: C.ink, alpha: l }); }
+  if (IMG.logo) { const w = 420, h = (w * IMG.logo.height) / IMG.logo.width, e = E.out(P(t, c0 + 1.8, 0.6)); cv.save(); cv.globalAlpha *= e; cv.drawImage(IMG.logo, 540 - w / 2, 1330 - h / 2, w, h); cv.restore(); }
+  cv.restore();
+}
+
+function render(t) {
+  const crash = RT[2][2], shake = t > crash && t < crash + 0.9 ? (1 - P(t, crash, 0.9)) * 14 : 0;
+  background(t, { tense: 0.9 * win(t, crash, RT[2][3], 0.2, 0.4), happy: 0.7 * win(t, RT[0][2], RT[0][3], 0.2, 0.3) });
+  cv.save(); cv.translate(Math.sin(t * 70) * shake, Math.cos(t * 61) * shake);
+  [0, 1, 2].forEach((k) => round(t, k));
+  score(t, win(t, T.score[0] - 0.05, T.score[1] + 0.1, 0.3, 0.3));
+  lessons(t);
+  app(t, win(t, T.app[0] - 0.05, T.app[1] + 0.1, 0.3, 0.3));
+  cta(t, E.out(P(t, T.cta[0] - 0.05, 0.3)));
+  cv.restore();
+  chrome(t, LABEL, { dot: C.amber });
+  cutFx(t, [T.r2[0], T.r3[0], T.score[0], T.l1[0], T.l2[0], T.app[0], T.cta[0]]);
+  RT.forEach(([, , rv], k) => { const q = 1 - Math.abs(t - rv - 0.05) / 0.25; if (q > 0) { cv.fillStyle = rgba(RD[k].chg > 0 ? C.gain : C.loss, (k === 2 ? 0.35 : 0.2) * q); cv.fillRect(0, 0, W, H); } });
+  finish(t);
+}
+boot(render, [loadImg('replay', 'img/03-replay.png')]);
+
+</script></body></html>
