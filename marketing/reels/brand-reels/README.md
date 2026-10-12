@@ -336,5 +336,7 @@ Reel 4 has no voice: `c4/build.py` writes its fixed timeline (`T`), and `mix.py 
 
 **Gotchas**
 
+- **Reel 1's closing line uses reel 2's take.** Reel 1's own take says «بک‌تست‌لیب»: Whisper reads "Back Test Lip", and the last vowel measures F1 ≈ 355 Hz, an "i/e". Reel 2's take of the same sentence «بک‌تست‌لب… به‌زودی.» says "lab" (F1 ≈ 705 Hz). `c1/overrides.json` makes `mix.py` use `../c2/line15.wav` (+0.5 dB) instead of `c1/line15.wav`, so recut `c2` before mixing `c1`. Check the brand name in every new take before using it.
+
 - **Never start a second render into a file another render is still writing.** Killing `render.cjs` leaves its ffmpeg running, and the two writers corrupt the MP4. Render to a new file name instead.
 - **Pages load their assets relative to the repo root.** That covers the fonts from `public/fonts` and `node_modules/@fontsource-variable/readex-pro`, and the logo from `brand/svg`. Run `npm install` first.
