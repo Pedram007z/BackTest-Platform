@@ -1,9 +1,10 @@
 # Split a voice-over take into its script lines.
-# usage: python3 cut.py <dir> <take> [atempo]
+# usage: python3 cut.py <dir> <take> [atempo] [tight]  (tight: pauses inside a line over 0.25 s become 0.16 s instead of 0.35 → 0.25)
 # Aligns the script (lines.json) to the whisper words (<take>.words.json) character by character,
 # then cuts each boundary at the real silence nearest the transcript gap.
 import json, re, subprocess, sys
 d, take = sys.argv[1], sys.argv[2]; tempo = float(sys.argv[3]) if len(sys.argv) > 3 else 1.06
+sd, ss = (0.25, 0.16) if len(sys.argv) > 4 and sys.argv[4] == 'tight' else (0.35, 0.25)
 lines = json.load(open(f'{d}/lines.json')); words = json.load(open(f'{d}/{take}.words.json'))
 def norm(s):
     s = re.sub(r'\[[^\]]*\]', '', s)
@@ -62,7 +63,7 @@ for k in range(len(lines)):
     a = 0.0 if k == 0 else cuts[k - 1][1] - 0.09
     b = cuts[k][0] + 0.18 if k < len(lines) - 1 else words[last[k]][1] + 0.35
     o = f'{d}/line{k + 1:02d}.wav'
-    af = (f'silenceremove=stop_periods=-1:stop_duration=0.35:stop_threshold=-42dB:stop_silence=0.25,atempo={tempo},'
+    af = (f'silenceremove=stop_periods=-1:stop_duration={sd}:stop_threshold=-42dB:stop_silence={ss},atempo={tempo},'
           'areverse,silenceremove=start_periods=1:start_threshold=-45dB,afade=t=in:d=0.04,areverse,silenceremove=start_periods=1:start_threshold=-45dB,afade=t=in:d=0.02')
     subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-y', '-ss', f'{a:.3f}', '-to', f'{b:.3f}', '-i', wav, '-af', af, o], check=True)
     lens.append(round(float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', o], capture_output=True, text=True).stdout), 3))

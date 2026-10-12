@@ -322,6 +322,42 @@ Both reels need an automatic DM for the keyword (for example ManyChat), or someo
 
 ---
 
+## r3 «با پول واقعی تست می‌کنی؟ صبر کن!»: why backtesting comes before profit
+
+| Reel | File | Length | Voice |
+|---|---|---|---|
+| r3 «با پول واقعی تست می‌کنی؟ صبر کن!» | `backtestlab-real-money-wait.mp4` | 54 s | Kourosh, take `r3/t1.mp3`, cut with `python3 cut.py r3 t1 1.2 tight` |
+
+- **Brief:** a ~50 s script for all traders, casual tone, short sentences, a follow call at the end and a sale through the link in bio. The hook mixes "If you're still using a common method, wait!" with "Nobody tells you this…".
+- **Scenes, one per line:**
+  1. A real-money EURUSD order frozen by «صبر کن!».
+  2. The balance draining.
+  3. An equity curve whose underwater stretches turn red.
+  4. 100 coin-flip trades with a run of 5 losses.
+  5. Panic at the bottom, with the dashed "right after" recovery.
+  6. The app's replay, with the drop boxed and "$0 at risk".
+  7. Three example stats.
+  8. "Magic strategy" struck out next to "knowing your strategy".
+  9. Forex, index and crypto chips and «لینکش توی بیوئه».
+  10. A follow button.
+- **The 81% figure:** at a 50% win rate, the chance of at least one run of 5 losses within 100 trades is 0.81. The grid is one sample, chosen in `build.py` to hold exactly one run of 5 inside a single row.
+- **Labelled on screen:**
+  - The stats cards are marked as example numbers («اعداد نمونه‌ان»).
+  - The app screens come from `c3/img` (`02-sessions.png` was added for this reel) and are marked «داده‌ی نمونه».
+- **No brand name in the narration.** The voice says «پلتفرم» and «لینکش توی بیوئه» to avoid the «بک‌تست‌لیب» mispronunciation.
+- **Subtitles:** `r3/subtitles.srt` is the voice-over's subtitle file, for posting the voice over other footage.
+- **Rebuild:**
+  ```sh
+  python3 cut.py r3 t1 1.2 tight
+  cd r3 && python3 build.py && cd ..
+  python3 mkpage.py r3
+  python3 ../reelkit/soundgen.py r3/sound.json r3/music.wav
+  python3 mix.py r3
+  ```
+  Then render and encode as for the other reels.
+
+---
+
 ## How they are built
 
 Same method as the other reels in this folder (see [../PRODUCTION.md](../PRODUCTION.md)), with a shared brand kit:
