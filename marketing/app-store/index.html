@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>BacktestLab store screenshots</title>
+<!-- Six 1080x1920 store screenshots for the Android app (Cafe Bazaar, Myket, Google Play).
+     The phone screens (screens/) are captured from the app at 390x844 @3x: the gold replay runs on real
+     April 2025 prices from the platform's own server; journal, analytics and dashboard are the sample account.
+     render.cjs saves each .shot as out/0N.png. -->
+<style>
+@font-face { font-family: Vaz; src: url(../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+@font-face { font-family: Vaz; src: url(../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+@font-face { font-family: Rdx; src: url(../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-arabic-wght-normal.woff2) format('woff2'); font-weight: 160 700; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+@font-face { font-family: Rdx; src: url(../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-latin-wght-normal.woff2) format('woff2'); font-weight: 160 700; }
+:root { --bg: #0D0B14; --surface: #181424; --raised: #221D32; --line: #302A44; --ink: #EEEBF6; --muted: #A39CBA; --faint: #706988;
+  --accent: #7C5CFF; --lilac: #B5A2FF; --violet: #6A46FF; --pink: #D65CFF; --gain: #26C281; --loss: #F25466; --amber: #F5B014; --sky: #6E8BFF; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #000; font-family: Vaz, sans-serif; color: var(--ink); }
+.shot { width: 1080px; height: 1920px; position: relative; overflow: hidden; margin-bottom: 40px;
+  background: radial-gradient(900px 700px at 80% 6%, rgba(124, 92, 255, 0.38), transparent 70%),
+              radial-gradient(700px 600px at 6% 40%, rgba(214, 92, 255, 0.13), transparent 70%),
+              radial-gradient(1000px 500px at 50% 104%, rgba(106, 70, 255, 0.30), transparent 70%),
+              linear-gradient(180deg, #17113A 0%, #0D0B14 48%, #0B0918 100%); }
+.shot::before { content: ''; position: absolute; inset: 0; opacity: 0.5;
+  background-image: radial-gradient(rgba(48, 42, 68, 0.9) 1.6px, transparent 1.8px); background-size: 60px 60px;
+  -webkit-mask-image: radial-gradient(70% 55% at 50% 45%, #000 0%, transparent 100%); mask-image: radial-gradient(70% 55% at 50% 45%, #000 0%, transparent 100%); }
+.head { position: absolute; top: 150px; left: 60px; right: 60px; text-align: center; z-index: 3; }
+.shot.hero .head { top: 205px; }
+.logo { position: absolute; top: 78px; left: 0; right: 0; display: flex; justify-content: center; z-index: 3; }
+.logo img { height: 74px; }
+h1 { font-family: Rdx; font-weight: 700; font-size: 82px; line-height: 1.32; letter-spacing: -0.5px; }
+h1 em { font-style: normal; color: var(--lilac); text-shadow: 0 0 44px rgba(124, 92, 255, 0.7); }
+h1 em.g { color: #4EE3A4; text-shadow: 0 0 44px rgba(38, 194, 129, 0.6); }
+.sub { margin-top: 22px; font-size: 38px; font-weight: 500; color: var(--muted); line-height: 1.6; }
+.phone { position: absolute; left: 240px; top: 600px; width: 600px; border-radius: 74px; padding: 16px; z-index: 2;
+  background: linear-gradient(160deg, #3A3258, #120F1C 40%, #0A0812);
+  box-shadow: 0 0 0 2px #3F3760, 0 50px 120px rgba(0, 0, 0, 0.65), 0 0 180px rgba(124, 92, 255, 0.38); }
+.screen { border-radius: 58px; overflow: hidden; position: relative; background: var(--bg); height: 1270px; }
+.status { height: 40px; display: flex; justify-content: space-between; align-items: center; padding: 0 44px 0 48px; direction: ltr;
+  font: 600 22px Vaz; color: #fff; background: var(--bg); }
+.status i { display: inline-block; width: 34px; height: 16px; border: 2px solid #fff; border-radius: 5px; position: relative; margin-left: 10px; }
+.status i::after { content: ''; position: absolute; inset: 2px 6px 2px 2px; background: #fff; border-radius: 2px; }
+.status b { display: inline-block; width: 6px; height: 14px; background: #fff; margin-left: 3px; border-radius: 1px; vertical-align: bottom; }
+.status b:nth-child(1) { height: 7px } .status b:nth-child(2) { height: 10px } .status b:nth-child(3) { height: 13px }
+.view { height: 1230px; overflow: hidden; }
+.view img { width: 568px; display: block; }
+/* a floating card: part of a screenshot (crop in screenshot px), drawn at --s */
+.card { position: absolute; z-index: 4; border-radius: 34px; overflow: hidden; border: 2px solid #3F3760; background: var(--bg);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7), 0 0 90px rgba(124, 92, 255, 0.35); }
+.card img { display: block; }
+.chip { position: absolute; z-index: 5; display: flex; align-items: center; gap: 16px; padding: 18px 30px; border-radius: 999px;
+  font: 700 34px Vaz; color: var(--ink); white-space: nowrap; background: rgba(18, 15, 28, 0.94);
+  border: 2px solid rgba(124, 92, 255, 0.75); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 40px rgba(124, 92, 255, 0.35); }
+.chip .d { width: 16px; height: 16px; border-radius: 50%; background: var(--gain); box-shadow: 0 0 14px currentColor; flex: none; }
+.chip.g { border-color: rgba(38, 194, 129, 0.85); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 44px rgba(38, 194, 129, 0.45); }
+.chip.big { font: 700 56px Rdx; padding: 16px 36px; direction: ltr; color: #5BF0B0; }
+.chip .ltr { direction: ltr; unicode-bidi: isolate; }
+.ico { width: 34px; height: 34px; flex: none; }
+</style>
+</head>
+<body>
+<div id="shots"></div>
+<script>
+// Each shot: headline (HTML), sub, the phone's screen (src + scroll offset in screenshot px), cards and chips.
+const K = 568 / 1170;   // screenshot px → screen px
+const SHOTS = [
+  { cls: 'hero', logo: true, h1: 'استراتژیت رو روی گذشته‌ی بازار امتحان کن؛ <em>نه روی سرمایه‌ات.</em>', sub: '',
+    src: 'm-step14', off: 0,
+    chips: [{ t: 'داده‌ی واقعی بازار از ۲۰۱۵', x: 28, y: 830, dot: 'var(--amber)' }, { t: '+2R', cls: 'g big', right: 34, y: 1020 }, { t: '۷۲ نماد در ۵ بازار', right: 30, y: 1290, dot: 'var(--sky)' }] },
+  { h1: 'بازار رو <em>کندل به کندل</em><br>دوباره پخش کن', sub: 'بدون دیدن آینده؛ از ۱ ثانیه تا روزانه',
+    src: 'm-step10', off: 0,
+    chips: [{ t: 'آینده قفله', right: 26, y: 1080, icon: 'lock' }, { t: 'پخش با سرعت دلخواه', x: 26, y: 1690, icon: 'play' }] },
+  { h1: 'ابزار رسم، اندیکاتور و<br><em>تقویم اقتصادی</em>', sub: 'همه‌چیز روی همون چارت',
+    src: 'm-tools0', off: 0,
+    cards: [{ src: 'm-news', x: 0, y: 870, w: 1170, h: 1620, s: 0.40, left: 26, top: 1180 }],
+    chips: [{ t: 'فیبوناچی · خط روند · EMA · RSI', right: 26, y: 880, dot: 'var(--lilac)' }] },
+  { h1: 'پوزیشن بگیر؛<br>حجم از <em>درصد ریسکت</em>', sub: 'حد سود و ضرر روی چارت، با ریسک به ریوارد',
+    src: 'm-ticket', off: 0,
+    chips: [{ t: 'R:R 2', cls: 'g', right: 30, y: 960, dot: 'var(--gain)', ltr: true }, { t: 'ریسک ۱٪ ← حجم ۰٫۰۵ لات', x: 26, y: 1690, dot: 'var(--amber)' }] },
+  { h1: 'ژورنال و <em>آنالیز کامل</em>', sub: 'وین‌ریت، منحنی سرمایه، بدترین روزها<br>و شبیه‌سازی مونت‌کارلو',
+    src: 'm-analytics-full', off: 1780,
+    cards: [{ src: 'm-analytics-full', x: 0, y: 19420, w: 1170, h: 1910, s: 0.36, left: 22, top: 1180 }],
+  },
+  { h1: 'چند سال بازار،<br><em class="g">توی چند ساعت</em>', sub: 'همه‌چیز روی سرور ذخیره می‌شه؛<br>روی هر دستگاهی ادامه بده',
+    src: 'm-dashboard-full', off: 0,
+    chips: [{ t: 'ژورنال و آمار روزانه', x: 26, y: 1560, dot: 'var(--lilac)' }, { t: 'روی هر دستگاه', right: 26, y: 1760, dot: 'var(--gain)' }] },
+];
+const ICON = {
+  lock: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="#B5A2FF" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  play: '<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#7C5CFF"/><path d="M10 8l6 4-6 4z" fill="#fff"/></svg>',
+};
+const root = document.getElementById('shots');
+SHOTS.forEach((s, i) => {
+  const el = document.createElement('section'); el.className = 'shot ' + (s.cls || ''); el.id = 'shot' + (i + 1);
+  let html = s.logo ? '<div class="logo"><img src="../../brand/svg/logo-fa-dark.svg"></div>' : '';
+  html += `<div class="head"><h1>${s.h1}</h1>${s.sub ? `<p class="sub">${s.sub}</p>` : ''}</div>`;
+  html += `<div class="phone"><div class="screen"><div class="status"><span>9:41</span><span><b></b><b></b><b></b><i></i></span></div>
+    <div class="view"><img src="screens/${s.src}.jpg" style="margin-top:${-s.off * K}px"></div></div></div>`;
+  (s.cards || []).forEach((c) => { html += `<div class="card" style="left:${c.left}px;top:${c.top}px;width:${c.w * c.s}px;height:${c.h * c.s}px">
+    <img src="screens/${c.src}.jpg" style="width:${1170 * c.s}px;margin-left:${-c.x * c.s}px;margin-top:${-c.y * c.s}px"></div>`; });
+  (s.chips || []).forEach((c) => { const pos = c.right !== undefined ? `right:${c.right}px` : `left:${c.x}px`;
+    const lead = c.icon ? ICON[c.icon] : c.dot ? `<span class="d" style="background:${c.dot};color:${c.dot}"></span>` : '';
+    html += `<div class="chip ${c.cls || ''}" style="${pos};top:${c.y}px">${lead}<span class="${c.ltr ? 'ltr' : ''}">${c.t}</span></div>`; });
+  el.innerHTML = html; root.appendChild(el);
+});
+Promise.all([document.fonts.load('700 80px Rdx', 'آب'), document.fonts.load('700 40px Vaz', 'آب'), document.fonts.load('500 40px Vaz', 'آب')])
+  .then(() => Promise.all([...document.images].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; })))))
+  .then(() => { window.ready = true; });
+</script>
+</body>
+</html>
