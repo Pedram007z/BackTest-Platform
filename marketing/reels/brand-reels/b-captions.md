@@ -2,6 +2,34 @@
 
 Each caption is ready to paste. Each one leads with the hook, then the numbers from the reel, the link in bio, a question for the comments and hashtags. The site address isn't in the text (it's in the bio).
 
+## Short versions
+
+Shorter captions, ready to paste. Each has the hook, one key point, the link in bio and 5 hashtags. The long versions below still have the comment question and the "not financial advice" line.
+
+**b1**
+```
+ترید رو شروع نکن… اگه نمی‌دونی استراتژیت توی ۱۰۰ معامله چی کار می‌کنه 👀
+بک‌تست یعنی آمار واقعی استراتژیت رو ببینی، قبل از اینکه یه ریال خرج کنی.
+🔗 لینک توی بیو؛ رایگان شروع کن.
+#بک_تست #ترید #تریدر #فارکس #استراتژی_معاملاتی
+```
+
+**b2**
+```
+بیشتر تریدرها استراتژی رو بعد از ۲۰ تا معامله قضاوت می‌کنن 😅
+۲۰ تا معامله تقریباً هیچی نمی‌گه؛ با بک‌تست خیلی سریع‌تر به ۵۰۰ تا می‌رسی.
+🔗 لینک توی بیو؛ رایگان امتحانش کن.
+#بک_تست #ترید #تریدر #فارکس #وین_ریت
+```
+
+**b3**
+```
+قبل از اینکه پوزیشن باز کنی، بدترین روزهای استراتژیت رو ببین 👇
+همون ۸ ضرر پشت سر هم: با ریسک ۱٪ حدود ۸٪ افت، با ریسک ۱۰٪ بیشتر از نصف حساب.
+🔗 لینک توی بیو؛ رایگان شروع کن.
+#بک_تست #مدیریت_ریسک #ترید #تریدر #فارکس
+```
+
 ## b1 — «ترید رو شروع نکن اگه…»
 
 ```
