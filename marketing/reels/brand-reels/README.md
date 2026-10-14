@@ -404,3 +404,48 @@ Reel 4 has no voice: `c4/build.py` writes its fixed timeline (`T`), and `mix.py 
 
 - **Never start a second render into a file another render is still writing.** Killing `render.cjs` leaves its ffmpeg running, and the two writers corrupt the MP4. Render to a new file name instead.
 - **Pages load their assets relative to the repo root.** That covers the fonts from `public/fonts` and `node_modules/@fontsource-variable/readex-pro`, and the logo from `brand/svg`. Run `npm install` first.
+
+---
+
+## Backtesting reels b1–b3: «اهمیت بک‌تست برای سودآوری» (the user's own voice)
+
+Three ~50 s reels for all traders, in a casual tone, from the hooks «ترید رو شروع نکن اگه…», «۹۰٪ تریدرها این اشتباه رو می‌کنن…» and «قبل از اینکه پوزیشن باز کنی، اینو بدون». Each ends with the link in bio and a follow. The voice is the user's own recording of the script (`bN/t1.mp3`), so the brand name is said correctly; the scenes follow it word by word.
+
+| Reel | File | Length | Hook |
+|---|---|---|---|
+| b1 | `backtestlab-b1-dont-start-trading.mp4` | 51 s | ترید رو شروع نکن… اگه هنوز نمی‌دونی استراتژیت توی صد تا معامله چی کار می‌کنه |
+| b2 | `backtestlab-b2-90-percent-mistake.mp4` | 54 s | ۹۰٪ تریدرها این اشتباه رو می‌کنن… احتمالاً تو هم |
+| b3 | `backtestlab-b3-before-you-open.mp4` | 54 s | قبل از اینکه پوزیشن باز کنی، اینو بدون… |
+
+**The numbers and where they come from:**
+
+- **b1:**
+  - At a 50% win rate, a run of 5 losses within 100 trades has an 81% chance ("about 80%" in the voice). This is the same figure r3 uses.
+  - The grid is one random sample, picked in `b1/build.py` to hold exactly one run of 5.
+  - The replay scene shows real Bitcoin daily candles (Binance BTC/USDT, 1 April–9 July 2019, from `data/btc_daily.json`).
+- **b2:**
+  - With a true 50% win rate, 20 trades land anywhere in 30–70% (95.9% of the time); 500 trades land in 45–55% (97.8%), as `tools/verify_numbers.py` checks.
+  - The dot plot is a labelled simulation of 30 traders, picked in `b2/build.py` so the 20-trade spread runs exactly from 30% to 70%.
+  - "500 trades on a real account: at least a year" assumes 2 setups a day, the fastest case (0.99 years), and the scene says so.
+- **b3:**
+  - At a 35% win rate, 8 or more losses in a row within 100 trades has a 69% chance ("close to 70%").
+  - 8 losses in a row cost 7.7% of the account at 1% risk per trade and 57.0% at 10%.
+  - The app's lot size from risk % and its «بیشترین باخت‌های پیاپی» are real features; their screens are labelled «تصویر واقعی برنامه · داده‌ی نمونه».
+- **The 90% in b2's hook** is the requested hook line, not a measured statistic. Keep it out of the caption's claims, or swap it for «بیشتر تریدرها».
+
+**Rebuild a reel** (from `marketing/reels/brand-reels`; needs `pip install faster-whisper` for the timings):
+
+```sh
+python3 transcribe.py bN/t1.mp3 bN/t1.words.json      # word timings of the take (once)
+python3 cut.py bN t1 1.0 tight                         # bN/line01..12.wav + lens.json
+cd bN && python3 build.py && cd ..                     # data.json, vo.wav, sound.json (markers estimated)
+python3 transcribe.py bN/vo.wav bN/vo.words.json       # the words as heard on the timeline
+cd bN && python3 build.py && cd ..                     # markers from the heard words
+python3 mkpage_b.py bN                                 # bN/index.html (kit.js + b-common.js + scenes.js)
+python3 ../reelkit/soundgen.py bN/sound.json bN/music.wav && python3 mix.py bN
+node ../tools/render.cjs bN bN/reel-hq.mp4 && sh encode.sh bN bN/<name>.mp4
+node cover.cjs bN bN/cover.png
+```
+
+- **Markers:** `bcommon.py` puts scene timings on spoken words. `'=word'` matches a whole word, so «پنج» does not find «پنجاه». Whisper writes numbers as digits, so the alignment text in `lines.json` does too, while the subtitle column keeps the script's wording.
+- **Captions:** they are in `b-captions.md`.

@@ -1,0 +1,5 @@
+# the backtesting reels b1–b3: cut voice lines, mixes and renders are rebuilt from t1.mp3 (see README)
+b[0-9]/*.wav
+b[0-9]/*.mp4
+b[0-9]/*.png
+voice-in/
