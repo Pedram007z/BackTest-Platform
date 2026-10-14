@@ -143,8 +143,9 @@ function app(t, a) {
   const second = t >= M.bishtarin - 0.25;
   headline([[[['توی', C.ink], ['بک‌تست‌لب', C.lilac]], 84]], t, S(9), S(10) + 0.1, { y: 400, hold: true, glow: rgba(C.accent, 0.7) });
   const k = E.out(P(t, S(9), 0.5)); cv.save(); cv.translate(0, (1 - k) * 200);
-  const f = second ? phone(540, 500, 640, IMG.analytics, 0, 5880, 1170, { alpha: k, h: 900 }) : phone(540, 500, 640, IMG.replay, 0, 347, 1170, { alpha: k, h: 900 });
-  if (second) { const ck = P(t, M.bishtarin - 0.25, 0.25); if (ck < 1) { cv.save(); cv.globalAlpha *= 1 - ck; rr(220, 500, 640, 900, 48); cv.fillStyle = C.bg; cv.fill(); cv.restore(); } }
+  // the phone ends above the three-line subtitle of this line
+  const f = second ? phone(540, 500, 640, IMG.analytics, 0, 5880, 1170, { alpha: k, h: 760 }) : phone(540, 500, 640, IMG.replay, 0, 603, 1170, { alpha: k, h: 760 });
+  if (second) { const ck = P(t, M.bishtarin - 0.25, 0.25); if (ck < 1) { cv.save(); cv.globalAlpha *= 1 - ck; rr(220, 500, 640, 760, 48); cv.fillStyle = C.bg; cv.fill(); cv.restore(); } }
   if (!second) {
     const hk = E.out(P(t, M.hajm - 0.15, 0.4)); if (hk > 0) { cv.save(); cv.globalAlpha *= hk; rr(f.X(210), f.Y(1790), f.X(664) - f.X(210), f.Y(1870) - f.Y(1790), 14); cv.strokeStyle = C.amber; cv.lineWidth = 5; cv.shadowColor = C.amber; cv.shadowBlur = 20; cv.stroke();
       rr(f.X(850), f.Y(1905), f.X(1160) - f.X(850), f.Y(1975) - f.Y(1905), 14); cv.stroke(); cv.restore();
@@ -154,7 +155,7 @@ function app(t, a) {
       tag(540, f.Y(6455) - 44, 'بیشترین ضررهای پشت سر هم', C.loss, { size: 30, alpha: hk, dir: 'rtl' }); }
   }
   cv.restore();
-  txt('تصویر واقعی برنامه · داده‌ی نمونه', 540, 1470, { size: 24, color: C.faint, weight: 500, alpha: k });
+  txt('تصویر واقعی برنامه · داده‌ی نمونه', 540, 1305, { size: 24, color: C.faint, weight: 500, alpha: k });
   cv.restore();
 }
 
