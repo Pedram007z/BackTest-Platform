@@ -77,13 +77,13 @@ function account(t, cx, cy, w, risk, t0, o = {}) {
   card(-w / 2, -250, w, 500, { r: 40, border: rgba(col, 0.6), glow: o.glow ? rgba(col, 0.4) : undefined });
   pill(w / 2 - 40, -190, 'ریسک ' + fa(risk) + '٪ در هر معامله', { align: 'right', size: 30, dot: col, color: C.ink, border: rgba(col, 0.6) });
   const bal = 10000 * Math.pow(1 - risk / 100, 8 * k);
-  txt(usd(bal), w / 2 - 40, -80, { size: o.small ? 64 : 92, font: 'Rdx', weight: 700, color: C.ink, align: 'right', dir: 'ltr' });
+  txt(usd(bal), w / 2 - 40, -80, { size: o.small ? 52 : 92, font: 'Rdx', weight: 700, color: C.ink, align: 'right', dir: 'ltr' });
   // 8 losses ticking in
   for (let j = 0; j < 8; j++) { const on = k * 8 > j; const x = w / 2 - 70 - j * ((w - 120) / 8); rr(x - 20, 10, 40, 34, 8); cv.fillStyle = on ? rgba(C.loss, 0.85) : rgba(C.line, 0.6); cv.fill(); }
   // the bar: what's left of the account; half marked
   const bw = w - 80; rr(-bw / 2, 90, bw, 34, 17); cv.fillStyle = rgba(C.line, 0.7); cv.fill(); rr(bw / 2 - bw * (bal / 10000), 90, bw * (bal / 10000), 34, 17); cv.fillStyle = col; cv.fill();
   dashLine(0, 76, 0, 140, rgba(C.ink, 0.6), 3, [6, 6]); txt('نصف', 0, 166, { size: 24, weight: 700, color: C.faint });
-  txt('−' + fa1(DD[risk] * k) + '٪', -w / 2 + 40, -80, { size: o.small ? 52 : 70, font: 'Rdx', weight: 700, color: col, align: 'left', dir: 'ltr', alpha: clamp(k * 3) });
+  txt('−' + fa1(DD[risk] * k) + '٪', -w / 2 + 40, -80, { size: o.small ? 38 : 70, font: 'Rdx', weight: 700, color: col, align: 'left', dir: 'ltr', alpha: clamp(k * 3) });
   cv.restore();
 }
 
