@@ -449,3 +449,24 @@ node cover.cjs bN bN/cover.png
 
 - **Markers:** `bcommon.py` puts scene timings on spoken words. `'=word'` matches a whole word, so «پنج» does not find «پنجاه». Whisper writes numbers as digits, so the alignment text in `lines.json` does too, while the subtitle column keeps the script's wording.
 - **Captions:** they are in `b-captions.md`.
+
+## Launch reel (`launch/`)
+
+A launch reel in the style of two references the user sent: kinetic type on changing backgrounds (a search bar being typed into, word-by-word lines, a stacked repeat, a glowing counter, a tilted feature stack, a light streak) and the real site on a desktop, with a big cursor, camera moves and motion blur. Two versions: music only (`build.py`, 39 s), and one with the user's Persian voice (built once the recording arrives).
+
+**Screens.** The replay screens show real prices: the platform ran locally on its own API server, with the `market-data` branch's months for XAUUSD, EURUSD, NAS100 and BTCUSD (2024–2026) as its storage. The gold session starts on 9 April 2025 (1h). The take-profit trade (+2R, +$193 at 1% risk) happened on that real data. The journal, analytics and dashboard screens come from the sample account. The reel labels the dashboard shot «حساب نمونه».
+
+Facts on screen: 72 symbols in 5 markets, 11 timeframes from 1 second to daily, 4 charts at once, and data from 2015. All four are on the site's landing page; 2015 is `DATA_START` in `src/lib/market.ts`. «۱۱ سال» counts whole years from January 2015 to October 2026.
+
+**Rebuild.**
+1. Run the API server with `DATA_DIR` holding `market/store/<SYMBOL>/<YYYY-MM>.m1` from the `market-data` branch, with `OTP_DEV_ECHO` on (the default outside production). Run the app with `VITE_API_URL` pointing at it, on port 5174.
+2. Run the captures in `launch/capture/`, in this order: `login.cjs`, `sample.cjs`, `newsession.cjs`, `capture.cjs <out> clean`, `capture.cjs <out> trade`, `pages.cjs`. Restore the server's data folder between the two `capture.cjs` runs, so both start from the same session state. The sign-in uses a made-up number against the local server only. Then copy the shots to `launch/shots/`.
+3. Build and render:
+   1. `cd launch && python3 build.py`
+   2. `python3 mkpage_b.py launch`
+   3. `python3 ../reelkit/soundgen.py launch/sound.json launch/music.wav`
+   4. `python3 mix.py launch`
+   5. `node ../tools/render.cjs launch launch/reel-hq.mp4`
+   6. `sh encode.sh launch <name>.mp4`
+
+Captions are in `launch/captions.md`.

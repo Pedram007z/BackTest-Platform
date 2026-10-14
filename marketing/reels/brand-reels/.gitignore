@@ -3,3 +3,9 @@ b[0-9]/*.wav
 b[0-9]/*.mp4
 b[0-9]/*.png
 voice-in/
+# the launch reel: renders, audio and the captured screens are rebuilt (see README)
+launch/*.wav
+launch/*.mp4
+launch/*.png
+launch/shots/
+launch/capture/state.json
