@@ -469,4 +469,14 @@ Facts on screen: 72 symbols in 5 markets, 11 timeframes from 1 second to daily, 
    5. `node ../tools/render.cjs launch launch/reel-hq.mp4`
    6. `sh encode.sh launch <name>.mp4`
 
+**The voiced version (`launch/voice/`).** It uses the same scenes. `scenes.js` is written in the music-only times (`TB`). The voiced cut gives each scene its own start and a few warp knots, so that a scene's key moments land on the words that name them. For example, «ابزار رسم», «اندیکاتور» and «تقویم اقتصادی» appear as they are spoken, the trade hits its target after line 6, and the end card's link button lands on «لینکش». It leaves out the counter and the four-chart scenes; the feature stack fills the pause after line 8 instead. The score is the same one, with every effect moved through the warp (`score.py`).
+
+To rebuild it:
+1. `python3 cut.py launch/voice t1 1.0 tight`
+2. `cd launch/voice && python3 build.py && python3 ../../transcribe.py vo.wav vo.words.json && python3 build.py && cd ../..`
+3. `python3 mkpage_b.py launch/voice`
+4. `python3 ../reelkit/soundgen.py launch/voice/sound.json launch/voice/music.wav`
+5. `python3 mix.py launch/voice`
+6. Render and encode as for the music-only version.
+
 Captions are in `launch/captions.md`.

@@ -4,7 +4,11 @@
 // Screens (launch/shots, see README): the platform on its own API server with real gold prices from April 2025
 // (seq1, seq2, r-*), the 4-chart layout with real EURUSD/XAUUSD/BTCUSD/NAS100, and the journal, analytics and
 // dashboard of the sample account (p-*).
-const T = DATA.t;
+// Scenes are written in the music-only version's times (TB). A voiced cut sets its own scene starts (DATA.t) and,
+// per scene, knots [[actual s, base s], …] from the scene start (DATA.warp): render() maps its time into TB.
+const TB = { hook: 0.0, problem: 3.0, brand: 5.0, stack: 6.5, replay: 8.5, tools: 13.0, pos: 16.0, journal: 20.5, hours: 23.5, count: 25.5, layout: 27.0, pills: 28.5, streak: 31.5, end: 35.0, _end: 39.0 };
+const T = TB;
+const SHOTS_DIR = DATA.shots ?? 'shots/';
 const PW = 1440, PH = 900;
 const SEQ1 = 17, SEQ2 = 10;
 
@@ -72,11 +76,12 @@ function pageImg(img, o = {}) {
 }
 function desk(cam, paint) { cv.save(); cv.translate(540 - cam.x * cam.z, (cam.sy ?? 960) - cam.y * cam.z); cv.scale(cam.z, cam.z); paint(); cv.restore(); }
 /** The desktop layer with camera motion blur: camAt(t) gives the camera, paint(t) draws the window in page coordinates. */
+let SLOPE = 1;   // music-only seconds per second of the cut being rendered (set by render), so the blur follows real motion
 function deskBlur(t, camAt, paint, t0 = -1) {
-  const c0 = camAt(t), c1 = camAt(Math.max(t0, t - 1 / 30));
+  const dt = SLOPE / 30, c0 = camAt(t), c1 = camAt(Math.max(t0, t - dt));
   const move = Math.hypot((c0.x - c1.x) * c0.z, (c0.y - c1.y) * c0.z, (c0.sy ?? 960) - (c1.sy ?? 960)) + Math.abs(c0.z - c1.z) * 700;
   const n = move > 5 ? Math.min(9, 2 + Math.round(move / 10)) : 1;
-  for (let i = 0; i < n; i++) { const ti = Math.max(t0, t - (i / n) * (1.3 / 30)); DESK_I = i; cv.save(); cv.globalAlpha *= 1 / (i + 1); desk(camAt(ti), () => paint(ti)); cv.restore(); }
+  for (let i = 0; i < n; i++) { const ti = Math.max(t0, t - (i / n) * 1.3 * dt); DESK_I = i; cv.save(); cv.globalAlpha *= 1 / (i + 1); desk(camAt(ti), () => paint(ti)); cv.restore(); }
   DESK_I = 0; return c0;
 }
 function bgDesk(t, o = {}) {
@@ -278,7 +283,7 @@ function sJournal(t) {
   const scrollAt = (tt) => track(tt - T.journal, [[1.35, 0], [1.55, 0], [1.85, 860], [2.15, 860], [2.45, 3852], [9, 3852]]);
   const cam = deskBlur(t, camJournal, (tt) => { windowFrame(); if (an) pageImg(IMG.analytics, { scroll: scrollAt(tt) }); else pageImg(IMG.journal); }, an ? T.journal + 1.25 : T.journal);
   if (an) { // scroll blur
-    const v = scrollAt(t) - scrollAt(t - 1 / 30); if (v > 8) for (let i = 1; i < 6; i++) { cv.save(); cv.globalAlpha = 1 / (i + 1); desk(cam, () => pageImg(IMG.analytics, { scroll: scrollAt(t) - (v * i) / 6 })); cv.restore(); }
+    const v = scrollAt(t) - scrollAt(t - SLOPE / 30); if (v > 8) for (let i = 1; i < 6; i++) { cv.save(); cv.globalAlpha = 1 / (i + 1); desk(cam, () => pageImg(IMG.analytics, { scroll: scrollAt(t) - (v * i) / 6 })); cv.restore(); }
   }
   if (!an) hiRect(cam, 22, 428, 1140, 36, P(l, 0.35, 0.3) * (1 - P(l, 1.1, 0.15)), C.gain);
   topCap([['ژورنال', C.lilac], ['خودکار']], t, T.journal + 0.1, T.journal + 1.25);
@@ -369,25 +374,38 @@ function sEnd(t) {
   chip(540, 1010, 'از امروز در دسترس', P(l, 0.65, 0.35), { size: 40, dot: C.gain });
   const bk = E.back(P(l, 1.0, 0.45)); if (bk > 0) { const bob = Math.sin((l - 1.0) * 6) * 8; cv.save(); cv.translate(540, 1210); cv.scale(bk, bk); button(0, 0, 'لینک در بیو', { size: 54 }); cv.restore();
     cv.save(); cv.globalAlpha = clamp(bk); cv.translate(540, 1080 + bob + 22); cv.fillStyle = C.lilac; cv.beginPath(); cv.moveTo(0, -30); cv.lineTo(28, 4); cv.lineTo(10, 4); cv.lineTo(10, 32); cv.lineTo(-10, 32); cv.lineTo(-10, 4); cv.lineTo(-28, 4); cv.closePath(); cv.fill(); cv.restore(); }
-  bline('شروعش رایگانه', 540, 1350, t, T.end + 1.35, DUR + 1, { size: 50, color: C.gain, weight: 700, font: 'Vaz' });
-  bline('فالو کن تا چیزی رو از دست ندی', 540, 1450, t, T.end + 1.7, DUR + 1, { size: 38, color: C.muted, weight: 600, font: 'Vaz' });
+  bline('شروعش رایگانه', 540, 1350, t, T.end + 1.35, 999, { size: 50, color: C.gain, weight: 700, font: 'Vaz' });
+  bline('فالو کن تا چیزی رو از دست ندی', 540, 1450, t, T.end + 1.7, 999, { size: 38, color: C.muted, weight: 600, font: 'Vaz' });
 }
 
 const SCENES = { hook: sHook, problem: sProblem, brand: sBrand, stack: sStack, replay: sReplay, tools: sTools, pos: sPos, journal: sJournal, hours: sHours, count: sCount, layout: sLayout, pills: sPills, streak: sStreak, end: sEnd };
-const ORDER = Object.keys(SCENES).filter((k) => T[k] !== undefined).sort((a, b) => T[a] - T[b]);
+const BASE_ORDER = Object.keys(TB).sort((a, b) => TB[a] - TB[b]);
+const ACT = DATA.t, ORDER = Object.keys(SCENES).filter((k) => ACT[k] !== undefined).sort((a, b) => ACT[a] - ACT[b]);
+/** Actual time → the scene and its time in TB. Without knots a scene keeps its music-only pace. */
+function toBase(t) {
+  let k = ORDER[0]; for (const s of ORDER) if (t >= ACT[s]) k = s;
+  const la = t - ACT[k], kn = DATA.warp?.[k]; let lb = la;
+  if (kn && kn.length) {
+    if (la <= kn[0][0]) lb = kn[0][1] + (la - kn[0][0]);
+    else if (la >= kn[kn.length - 1][0]) lb = kn[kn.length - 1][1] + (la - kn[kn.length - 1][0]);
+    else for (let i = 1; i < kn.length; i++) if (la <= kn[i][0]) { const [a0, b0] = kn[i - 1], [a1, b1] = kn[i]; lb = b0 + ((la - a0) / (a1 - a0)) * (b1 - b0); break; }
+  }
+  return [k, TB[k] + lb];
+}
 function render(t) {
   cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none'; cv.globalCompositeOperation = 'source-over';
-  let k = ORDER[0]; for (const s of ORDER) if (t >= T[s]) k = s;
-  SCENES[k](t);
+  const [k, tb] = toBase(t), [k2, tb2] = toBase(t + 0.01);
+  SLOPE = k2 === k ? clamp((tb2 - tb) / 0.01, 0.05, 4) : 1;
+  SCENES[k](tb);
   cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none';
-  const light = k === 'problem' ? 1 : k === 'hook' ? 1 - E.inOut(P(t - T.hook, 2.15, 0.6)) : 0;
+  const light = k === 'problem' ? 1 : k === 'hook' ? 1 - E.inOut(P(tb - T.hook, 2.15, 0.6)) : 0;
   const f = Math.floor(t * 24); for (let y = 0; y < H; y += 256) for (let x = 0; x < W; x += 256) cv.drawImage(GRAIN[f % 3], x, y);
   if (light < 1) { const v = cv.createRadialGradient(540, 960, 520, 540, 960, 1250); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${0.5 * (1 - light)})`); cv.fillStyle = v; cv.fillRect(0, 0, W, H); }
 }
 const SHOTS = [['tools', 'r-tools'], ['buy', 'r-buy'], ['news', 'r-news'], ['layout4', 'r-layout4'], ['journal', 'p-journal'], ['analytics', 'p-analytics-full'], ['dashboard', 'p-dashboard']];
 boot(render, [
   loadImg('logoW', window.ASSET + 'brand/svg/logo-fa-white.svg'), loadImg('wordmark', window.ASSET + 'brand/svg/wordmark-fa-dark.svg'),
-  ...SHOTS.map(([k, f]) => loadImg(k, `shots/${f}.jpg`)),
-  ...Array.from({ length: SEQ1 }, (_, i) => loadImg('s1_' + i, `shots/seq1/${String(i).padStart(3, '0')}.jpg`)),
-  ...Array.from({ length: SEQ2 }, (_, i) => loadImg('s2_' + i, `shots/seq2/${String(i).padStart(3, '0')}.jpg`)),
+  ...SHOTS.map(([k, f]) => loadImg(k, `${SHOTS_DIR}${f}.jpg`)),
+  ...Array.from({ length: SEQ1 }, (_, i) => loadImg('s1_' + i, `${SHOTS_DIR}seq1/${String(i).padStart(3, '0')}.jpg`)),
+  ...Array.from({ length: SEQ2 }, (_, i) => loadImg('s2_' + i, `${SHOTS_DIR}seq2/${String(i).padStart(3, '0')}.jpg`)),
 ]);

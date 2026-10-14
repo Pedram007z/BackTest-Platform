@@ -9,3 +9,6 @@ launch/*.mp4
 launch/*.png
 launch/shots/
 launch/capture/state.json
+launch/voice/*.wav
+launch/voice/*.mp4
+launch/voice/*.png
