@@ -15,3 +15,6 @@ launch/voice/*.png
 g[0-9]/*.wav
 g[0-9]/*.mp4
 g[0-9]/*.png
+g[0-9]/voice/*.wav
+g[0-9]/voice/*.mp4
+g[0-9]/voice/*.png

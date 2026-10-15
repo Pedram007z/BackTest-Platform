@@ -1,7 +1,10 @@
 // g1 · «زیر ۳۰ بخر، بالای ۷۰ بفروش»: the RSI 30/70 rule on 11 years of real gold prices, built for reach:
 // the rule on screen from the first frame, 11 years fast-forwarded with every trade flashing, a win-rate tease,
 // the twist (the account ends −59%), the buy-and-hold comparison, and a comment prompt that opens a series.
-const T = DATA.t, ST = DATA.stats;
+// Scenes are written in the music-only cut's times (TB). The voiced cut sets its own scene starts (DATA.t) and
+// warp knots [[actual s, base s], …] per scene (DATA.warp); render() maps its time into TB.
+const TB = { hook: 0.0, run: 2.2, tease: 6.4, reveal: 8.0, compare: 11.6, cta: 14.2 };
+const T = TB, ST = DATA.stats, SUB_AT = DATA.sub_at ?? 0.7;
 const GOLD = '#F5B014', GOLD2 = '#FFD566';
 const lt = (t, k) => t - T[k];
 const shake = (t, t0, d = 0.35, a = 14) => { const k = 1 - P(t, t0, d); return k > 0 && t >= t0 ? [Math.sin(t * 90) * a * k, Math.cos(t * 77) * a * k] : [0, 0]; };
@@ -33,7 +36,7 @@ function sHook(t) {
   // fully readable from the first frame (the frame people see while scrolling)
   kw([['زیر'], ['۳۰', C.gain], ['بخر،']], 540, 330, t, -1, { size: 104, stagger: 0.06 });
   kw([['بالای'], ['۷۰', C.loss], ['بفروش']], 540, 470, t, -1, { size: 104, stagger: 0.06 });
-  kw([['۱۱'], ['سال'], ['طلا'], ['رو'], ['باهاش'], ['تست'], ['کردم…', GOLD2]], 540, 605, t, 0.7, { size: 60, stagger: 0.05, font: 'Vaz' });
+  kw([['۱۱'], ['سال'], ['طلا'], ['رو'], ['باهاش'], ['تست'], ['کردم…', GOLD2]], 540, 605, t, SUB_AT, { size: 60, stagger: 0.05, font: 'Vaz' });
   const k = 1; panel(90, 700, 900, 720, k);
   if (k <= 0) return;
   const cr = { x: 130, y: 740, w: 820, h: 360 }, rr_ = { x: 130, y: 1150, w: 820, h: 220 };
@@ -45,6 +48,7 @@ function sHook(t) {
   cv.beginPath(); RW.forEach((b, i) => (i ? cv.lineTo : cv.moveTo).call(cv, X(i), RY(b[5]))); cv.strokeStyle = C.lilac; cv.lineWidth = 4; cv.stroke();
   txt('RSI', rr_.x + rr_.w, rr_.y - 14, { size: 26, weight: 700, color: C.lilac, align: 'right', dir: 'ltr', font: 'Rdx' });
   cv.restore();
+  const fk = P(l, 1.3, 0.3); if (fk > 0) { cv.save(); cv.translate(540, 1495); cv.scale(E.back(fk), E.back(fk)); pill(0, 0, 'معروف‌ترین قانون RSI', { size: 40, dot: GOLD, color: C.ink, alpha: clamp(fk * 2), border: rgba(GOLD, 0.8) }); cv.restore(); }
   MARKS.forEach(([i, side], j) => { const pk = E.back(P(l, 0.45 + j * 0.6, 0.35)); if (pk <= 0) return; const x = X(i), y = side > 0 ? Y(RW[i][3]) + 46 : Y(RW[i][2]) - 46;
     cv.save(); cv.translate(x, y); cv.scale(pk, pk); tag(0, 0, side > 0 ? 'خرید' : 'فروش', side > 0 ? C.gain : C.loss, { size: 30, dir: 'rtl' }); cv.restore();
     dot(x, RY(RW[i][5]), side > 0 ? C.gain : C.loss, 10, P(l, 0.45 + j * 0.6, 0.6)); });
@@ -148,10 +152,20 @@ function sCta(t) {
 }
 
 const SCENES = { hook: sHook, run: sRun, tease: sTease, reveal: sReveal, compare: sCompare, cta: sCta };
-const ORDER = Object.keys(SCENES).sort((a, b) => T[a] - T[b]);
+const ACT = DATA.t, ORDER = Object.keys(SCENES).filter((k) => ACT[k] !== undefined).sort((a, b) => ACT[a] - ACT[b]);
+function toBase(t) {
+  let k = ORDER[0]; for (const s of ORDER) if (t >= ACT[s]) k = s;
+  const la = t - ACT[k], kn = DATA.warp?.[k]; let lb = la;
+  if (kn && kn.length) {
+    if (la <= kn[0][0]) lb = kn[0][1] + (la - kn[0][0]);
+    else if (la >= kn[kn.length - 1][0]) lb = kn[kn.length - 1][1] + (la - kn[kn.length - 1][0]);
+    else for (let i = 1; i < kn.length; i++) if (la <= kn[i][0]) { const [a0, b0] = kn[i - 1], [a1, b1] = kn[i]; lb = b0 + ((la - a0) / (a1 - a0)) * (b1 - b0); break; }
+  }
+  return [k, TB[k] + lb];
+}
 function render(t) {
   cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none';
-  let k = ORDER[0]; for (const s of ORDER) if (t >= T[s]) k = s;
-  SCENES[k](t); cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none'; finish(t);
+  const [k, tb] = toBase(t);
+  SCENES[k](tb); cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none'; finish(t);
 }
 boot(render);
