@@ -23,3 +23,6 @@ e[0-9]/*.mp4
 e[0-9]/*.png
 e[0-9]/shots/
 e[0-9]/capture/state.json
+e[0-9]/voice/*.wav
+e[0-9]/voice/*.mp4
+e[0-9]/voice/*.png
