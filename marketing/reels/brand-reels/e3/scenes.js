@@ -1,0 +1,141 @@
+// e3 · «از شنبه»: the FOMO reel. The same trader writes «از شنبه شروع می‌کنم» on his closed laptop and picks his phone
+// back up. Days and nights race past the window, the desk calendar flips Saturday after Saturday, the notes pile up on
+// the glass, other people post their progress, and gold climbs on its real monthly closes, from $2,045 to $4,108.
+// Everything stops: 145 Saturdays. He puts the phone down and opens the laptop: no sessions yet. Start tonight.
+const T = DATA.t, ST3 = DATA.steps;
+const BASE = (o) => ({ sky: 4, rain: 0, screenOn: 1, scr: 'sessions', lid: 0, lidNote: true, note: false, deskPhone: false, pose: 1, phone: 1, ...o });
+const WIDE = { x: 556, y: 1004, z: 1.12 };
+const fmtUsd = (v) => '⁦$' + fa(Math.round(v)).replace(/٬/g, ',') + '⁩';
+
+// where we are in the time-lapse: the step, its progress, the date on the calendar
+function lapseAt(t) {
+  let i = -1; while (i + 1 < ST3.length && t >= ST3[i + 1].t) i++;
+  const prev = i >= 0 ? ST3[i] : { day: '۱۶', month: 'دی', year: '۱۴۰۲', price: DATA.p0, label: 'دی ۱۴۰۲', i: 0 };
+  const flip = i >= 0 ? clamp((t - ST3[i].t) / 0.22) : 0;
+  const before = i >= 1 ? ST3[i - 1] : { day: '۱۶', month: 'دی', year: '۱۴۰۲' };
+  return { i, cur: prev, cal: i >= 0 && flip < 1 ? { ...before, next: prev, flip } : { ...prev } };
+}
+// the sky: night through the hook and the reveal, then days racing past (one turn per ~1.5 s, faster near the end), night at the freeze
+function skyAt(t) {
+  if (t < T.lapse) return 4;
+  const u = clamp((t - T.lapse) / (T.freeze - T.lapse)), turns = 7.0 * (0.55 * u + 0.45 * u * u);
+  return 4 + turns * 4;
+}
+function notesAt(t) { const { i } = lapseAt(t); if (i < 0) return 0; const f = clamp((t - ST3[i].t) / 0.3); return Math.min(58, (i + f) * 2.6 + 1); }
+
+// hook: the closed laptop from above, the note on its lid
+function sceneHook(t) {
+  reset(cv);
+  const dg = cv.createLinearGradient(0, 0, 0, H); dg.addColorStop(0, '#120E16'); dg.addColorStop(1, '#07060A'); cv.fillStyle = dg; cv.fillRect(0, 0, W, H);
+  for (const l of GRAINW) { cv.fillStyle = `rgba(255,230,210,${l.a})`; cv.save(); cv.translate(0, (l.y - 1000) * 2.1); cv.rotate(l.k - 0.2); cv.fillRect(-400, 0, W + 800, l.w * 2); cv.restore(); }
+  const z = 1 + 0.05 * P(t, 0, T.room);
+  cv.save(); cv.translate(540, 1000); cv.scale(z, z); cv.rotate(-0.06);
+  cv.shadowColor = 'rgba(0,0,0,0.7)'; cv.shadowBlur = 60; cv.shadowOffsetY = 26;
+  rr(-430, -300, 860, 580, 40); const lg = cv.createLinearGradient(-430, -300, 430, 280); lg.addColorStop(0, '#2C2B36'); lg.addColorStop(1, '#17161E'); cv.fillStyle = lg; cv.fill(); cv.shadowColor = 'transparent';
+  cv.strokeStyle = 'rgba(255,255,255,0.10)'; cv.lineWidth = 3; cv.stroke();
+  if (IMG.icon) { cv.save(); cv.globalAlpha = 0.28; cv.drawImage(IMG.icon, -46, -46, 92, 92); cv.restore(); }
+  for (let i = 0; i < 70; i++) { const r = rng(i + 3); cv.fillStyle = `rgba(255,255,255,${0.04 + 0.05 * r()})`; cv.beginPath(); cv.arc(-410 + r() * 820, -280 + r() * 540, 1 + r() * 2.2, 0, 7); cv.fill(); }
+  cv.save(); cv.translate(150, 90); cv.rotate(0.05);
+  cv.shadowColor = 'rgba(0,0,0,0.5)'; cv.shadowBlur = 20; cv.shadowOffsetY = 8; cv.fillStyle = '#F6D468'; cv.fillRect(-170, -150, 340, 300); cv.shadowColor = 'transparent';
+  cv.fillStyle = 'rgba(150,100,20,0.15)'; cv.fillRect(-170, -150, 340, 46);
+  txt('از شنبه', 0, -48, { size: 64, weight: 700, color: '#1D2C6E', rot: -0.03 });
+  txt('شروع می‌کنم.', 0, 34, { size: 50, weight: 500, color: '#1D2C6E', rot: 0.02 });
+  cv.strokeStyle = '#1D2C6E'; cv.lineWidth = 3; cv.lineCap = 'round'; cv.beginPath(); cv.moveTo(-120, 80); cv.quadraticCurveTo(0, 92, 120, 76); cv.stroke();
+  txt('۱۴۰۲/۱۰/۱۶', 60, 118, { size: 26, weight: 500, color: '#1D2C6E', dir: 'ltr', alpha: 0.8 });
+  cv.restore();
+  cv.restore();
+  glow(1000, 1500, 600, 500, '#8E9CFF', 0.22);   // his phone's light from off-frame
+}
+function hud(t, a = 1) {
+  if (a <= 0) return;
+  const { i, cur } = lapseAt(t), frozen = t >= T.freeze;
+  const tg = cv.createLinearGradient(0, 180, 0, 800); tg.addColorStop(0, `rgba(5,4,10,${0.86 * a})`); tg.addColorStop(1, 'rgba(5,4,10,0)'); cv.fillStyle = tg; cv.fillRect(0, 0, W, 800);
+  const label = frozen ? DATA.last.label : cur.label, price = frozen ? DATA.last.price : cur.price, gain = Math.round((price / DATA.p0 - 1) * 100);
+  const pop = i >= 0 ? E.out(clamp((t - ST3[i].t) / 0.18)) : 1;
+  pill(540, 300, label, { size: 30, dot: C.amber, color: C.ink, alpha: a, fill: rgba('#0E0C16', 0.75) });
+  txt('طلا', 830, 410, { size: 36, weight: 600, color: C.muted, alpha: a });
+  txt(fmtUsd(price), 480, 410, { size: 104, font: 'Rdx', weight: 800, color: '#F5C451', alpha: a, dir: 'ltr', scale: lerp(1.06, 1, pop), glow: rgba('#F5B014', 0.35), glowBlur: 40 });
+  if (gain > 0) pill(540, 505, '⁦+' + fa(gain) + '٪⁩', { size: 32, dot: C.gain, color: '#7CFFB8', alpha: a, fill: rgba('#0F2A1F', 0.85), border: rgba(C.gain, 0.6) });
+  // the climb: real monthly closes, drawn up to this week
+  const S = DATA.series, upto = frozen ? S.length : i < 0 ? 1 : ST3[i].i + 1 + (i + 1 < ST3.length ? (ST3[i + 1].i - ST3[i].i) * clamp((t - ST3[i].t) / (ST3[i + 1].t - ST3[i].t)) : 0);
+  const r = { x: 110, y: 570, w: 860, h: 150 }, vals = [DATA.p0, ...S.map((x) => x[1])];
+  cv.save(); cv.globalAlpha = a;
+  dashLine(r.x, r.y + r.h * (1 - (DATA.p0 - 1900) / 3500), r.x + r.w, r.y + r.h * (1 - (DATA.p0 - 1900) / 3500), rgba(C.muted, 0.35), 2, [6, 8]);
+  const s = series(r, vals, { lo: 1900, hi: 5400, upto: Math.max(1.01, upto + 1), color: '#F5C451', fill: '#F5B014', lw: 4, glow: true });
+  const m = Math.min(vals.length - 1, upto); const xi = Math.floor(m), f = m - xi, vy = xi + 1 < vals.length ? lerp(vals[xi], vals[xi + 1], f) : vals[xi];
+  dot(s.X(m), s.Y(vy), '#F5C451', 8);
+  cv.restore();
+}
+const BUB = [['سارا', 'بک‌تست ۳۰۰ ساعتم تموم شد ✅', 6.2], ['امیر', 'استراتژیم رو روی ۵ سال طلا تست کردم', 8.6], ['علی', 'اولین ماه سودده‌م، بعد از ۶ ماه تمرین 🎯', 11.0]];
+function bubbles(t) {
+  for (const [who, msg, t0] of BUB) {
+    const k = t - t0; if (k < 0 || k > 2.0) continue;
+    const a = Math.min(E.out(clamp(k / 0.25)), 1 - E.in(clamp((k - 1.6) / 0.4))), x = 540 + (1 - E.out(clamp(k / 0.35))) * -60;
+    cv.save(); cv.globalAlpha = a; cv.translate(x, 860);
+    rr(-400, -58, 800, 116, 30); cv.fillStyle = 'rgba(40,36,58,0.9)'; cv.fill(); cv.strokeStyle = 'rgba(255,255,255,0.08)'; cv.lineWidth = 2; cv.stroke();
+    cv.fillStyle = ['#7C5CFF', '#26C281', '#F5B014'][BUB.findIndex((b) => b[2] === t0)]; cv.beginPath(); cv.arc(340, 0, 32, 0, 7); cv.fill();
+    txt(who[0], 340, 2, { size: 30, weight: 700, color: '#fff' });
+    txt(who, 286, -20, { size: 30, weight: 700, color: '#fff', align: 'right' });
+    txt(msg, 286, 22, { size: 30, weight: 500, color: 'rgba(255,255,255,0.88)', align: 'right' });
+    cv.restore();
+  }
+}
+function sceneRoom(t) {
+  const { cal } = lapseAt(t);
+  const bob = Math.sin(t * 2.2) * 0.04;
+  let st = BASE({ sky: skyAt(t), cal, notes: notesAt(t), phone: 1 - bob * 0, cloudT: t * 6 });
+  const fig = figGeo(t, st); st.light = { x: fig.hd.x - 20, y: fig.hd.y - 80 }; st.rimCol = '#AFC2FF'; st.rimA = 0.8;
+  let cam;
+  if (t < T.lapse) cam = dolly({ x: 620, y: 930, z: 1.7 }, WIDE, E.inOut(P(t, T.room, T.lapse - T.room - 0.1)));
+  else cam = WIDE;
+  room(t, st, cam, { bgBlur: 2.5 });
+}
+function sceneFreeze(t) {
+  const st = BASE({ sky: 4, cal: { ...ST3[ST3.length - 1] }, notes: notesAt(T.freeze - 0.01), phone: 1 });
+  const fig = figGeo(t, st); st.light = { x: fig.hd.x - 20, y: fig.hd.y - 80 }; st.rimCol = '#AFC2FF'; st.rimA = 0.8;
+  room(t, st, { x: 556, y: 1004, z: 1.12 + 0.03 * P(t, T.freeze, T.turn - T.freeze) }, { bgBlur: 2.5 });
+  cv.fillStyle = 'rgba(5,4,10,0.35)'; cv.fillRect(0, 0, W, H);
+}
+function sceneTurn(t) {
+  const down = P(t, T.turn, 0.55), reach = P(t, T.turn + 0.3, T.lid - T.turn - 0.25), lid = E.inOut(P(t, T.lid, 0.75));
+  const st = BASE({ sky: 4, cal: { ...ST3[ST3.length - 1] }, notes: notesAt(T.freeze - 0.01), phone: 1 - down, arm: 1, reach: reach * (1 - P(t, T.lid + 0.3, 0.35)),
+    reachHd: { x: 742, y: lerp(1068, 1000, lid) }, reachEl: { x: 700, y: 1300 }, lid: Math.max(0.0001, lid), lidNote: lid < 0.2, screenOn: clamp((lid - 0.85) / 0.15) });
+  if (st.phone > 0.05) { const fig = figGeo(t, st); st.light = { x: fig.hd.x - 20, y: fig.hd.y - 80 }; st.rimCol = '#AFC2FF'; }
+  const push = E.inOut(P(t, T.lid + 0.4, DATA.dur - T.lid - 0.4));
+  room(t, st, dolly({ x: 556, y: 1004, z: 1.15 }, { x: 640, y: 880, z: 1.6 }, push), { bgBlur: 2.5 });
+  const g = P(t, T.end - 0.1, 0.8); if (g > 0) soften(16 * E.inOut(g), 0.58 * E.inOut(g));
+}
+function render(t) {
+  reset(cv);
+  if (t < 0) { sceneRoom(T.lapse + 2.2); reset(cv); finish(1); hud(T.lapse + 2.2); return; }
+  if (t < T.room) sceneHook(t); else if (t < T.freeze) sceneRoom(t); else if (t < T.turn) sceneFreeze(t); else sceneTurn(t);
+  reset(cv); finish(t);
+  if (t < T.room) {
+    const tg = cv.createLinearGradient(0, 160, 0, 640); tg.addColorStop(0, 'rgba(5,4,10,0.85)'); tg.addColorStop(1, 'rgba(5,4,10,0)'); cv.fillStyle = tg; cv.fillRect(0, 0, W, 640);
+    txt('دی ۱۴۰۲.', 540, 340, { size: 72, font: 'Rdx', weight: 800, color: '#fff' });
+    txt('طلا: ' + fmtUsd(DATA.p0), 540, 450, { size: 64, font: 'Rdx', weight: 700, color: '#F5C451', glow: rgba('#F5B014', 0.3), glowBlur: 30 });
+  } else if (t < T.lapse) {
+    const a = Math.min(E.out(P(t, T.room + 0.2, 0.3)), 1 - E.in(P(t, T.lapse - 0.25, 0.25)));
+    if (a > 0) { const tg = cv.createLinearGradient(0, 160, 0, 640); tg.addColorStop(0, `rgba(5,4,10,${0.8 * a})`); tg.addColorStop(1, 'rgba(5,4,10,0)'); cv.fillStyle = tg; cv.fillRect(0, 0, W, 640);
+      txt('گفت: «از شنبه.»', 540, 380, { size: 70, font: 'Rdx', weight: 800, color: '#fff', alpha: a }); }
+  } else if (t < T.turn) {
+    hud(t, t < T.freeze ? E.out(P(t, T.lapse, 0.3)) : 1);
+    if (t < T.freeze) bubbles(t);
+    else {
+      const a = E.out(P(t, T.freeze + 0.25, 0.35));
+      txt(fa(DATA.saturdays) + ' تا شنبه گذشت.', 540, 900, { size: 84, font: 'Rdx', weight: 800, color: '#fff', alpha: a, scale: lerp(1.08, 1, a), stroke: 'rgba(5,4,10,0.7)', strokeW: 14 });
+    }
+  } else if (t < T.end + 0.2) {
+    const out = 1 - E.in(P(t, T.end - 0.2, 0.3)), a = E.out(P(t, T.lid + 0.5, 0.4)) * out;
+    if (a > 0) { const tg = cv.createLinearGradient(0, 160, 0, 640); tg.addColorStop(0, `rgba(5,4,10,${0.8 * a})`); tg.addColorStop(1, 'rgba(5,4,10,0)'); cv.fillStyle = tg; cv.fillRect(0, 0, W, 640);
+      txt('بازار منتظر هیچ‌کس نمی‌مونه.', 540, 380, { size: 64, font: 'Rdx', weight: 800, color: '#fff', alpha: a }); }
+  } else {
+    const a1 = E.out(P(t, T.end + 0.2, 0.45)), a2 = E.out(P(t, T.end + 0.75, 0.45)), a3 = E.out(P(t, T.end + 1.4, 0.6));
+    txt('امشب شروع کن،', 540, 830, { size: 76, font: 'Rdx', weight: 800, color: '#fff', alpha: a1 });
+    txt('نه شنبه.', 540, 945, { size: 76, font: 'Rdx', weight: 800, color: '#F5C451', alpha: a2, glow: rgba('#F5B014', 0.4), glowBlur: 40 });
+    if (IMG.logo && a3 > 0) { const h = 66, w = (IMG.logo.width / IMG.logo.height) * h; cv.save(); cv.globalAlpha = a3; cv.drawImage(IMG.logo, 540 - w / 2, 1160 - h / 2, w, h); cv.restore();
+      txt('بک‌تست با داده‌ی واقعی بازار', 540, 1242, { size: 30, weight: 500, color: C.muted, alpha: a3 }); }
+  }
+  dipAt(t, [T.room], 0.12);
+}
+boot(render, ['sessions'].map((k) => loadImg('s_' + k, SHOTS + k + '.jpg')));
