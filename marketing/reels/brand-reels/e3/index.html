@@ -123,7 +123,11 @@ function sceneTurn(t) {
 }
 function render(t) {
   reset(cv);
-  if (t < 0) { sceneRoom(T.lapse + 2.2); reset(cv); finish(1); hud(T.lapse + 2.2); return; }
+  if (t < 0) {   // the cover: the freeze, every note on the glass
+    const tc = T.freeze + 1.2; sceneFreeze(tc); reset(cv); finish(1); hud(tc);
+    txt(fa(DATA.saturdays) + ' تا شنبه گذشت.', 540, 900, { size: 92, font: 'Rdx', weight: 800, color: '#fff', stroke: 'rgba(5,4,10,0.7)', strokeW: 14 });
+    return;
+  }
   if (t < T.room) sceneHook(t); else if (t < T.freeze) sceneRoom(t); else if (t < T.turn) sceneFreeze(t); else sceneTurn(t);
   reset(cv); finish(t);
   if (t < T.room) {
