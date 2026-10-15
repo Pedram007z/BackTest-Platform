@@ -1,0 +1,67 @@
+{
+ "res": {
+  "D1-long": {
+   "trades": 11,
+   "win_rate": 72.7,
+   "return_pct": 62.4,
+   "max_dd_pct": 17.9,
+   "worst_losing_streak": 2,
+   "open_at_end": 0,
+   "avg_win_pct": 7.41,
+   "avg_loss_pct": -2.42
+  },
+  "D1-both": {
+   "trades": 22,
+   "win_rate": 63.6,
+   "return_pct": -16.9,
+   "max_dd_pct": 65.3,
+   "worst_losing_streak": 4,
+   "open_at_end": -1,
+   "avg_win_pct": 6.67,
+   "avg_loss_pct": -11.33
+  },
+  "H4-long": {
+   "trades": 77,
+   "win_rate": 64.9,
+   "return_pct": 70.5,
+   "max_dd_pct": 16.1,
+   "worst_losing_streak": 4,
+   "open_at_end": 1,
+   "avg_win_pct": 2.62,
+   "avg_loss_pct": -2.43
+  },
+  "H4-both": {
+   "trades": 155,
+   "win_rate": 63.9,
+   "return_pct": -14.4,
+   "max_dd_pct": 33.7,
+   "worst_losing_streak": 6,
+   "open_at_end": 1,
+   "avg_win_pct": 2.33,
+   "avg_loss_pct": -4.04
+  },
+  "H1-long": {
+   "trades": 275,
+   "win_rate": 65.1,
+   "return_pct": 19.9,
+   "max_dd_pct": 23.9,
+   "worst_losing_streak": 4,
+   "open_at_end": 1,
+   "avg_win_pct": 1.16,
+   "avg_loss_pct": -1.86
+  },
+  "H1-both": {
+   "trades": 550,
+   "win_rate": 61.3,
+   "return_pct": -59.0,
+   "max_dd_pct": 74.0,
+   "worst_losing_streak": 5,
+   "open_at_end": 1,
+   "avg_win_pct": 1.13,
+   "avg_loss_pct": -2.12
+  }
+ },
+ "buy_hold_pct": 246.9,
+ "first": 1184.13,
+ "last": 4108.14
+}

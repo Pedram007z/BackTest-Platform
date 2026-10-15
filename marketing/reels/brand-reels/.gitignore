@@ -12,3 +12,6 @@ launch/capture/state.json
 launch/voice/*.wav
 launch/voice/*.mp4
 launch/voice/*.png
+g[0-9]/*.wav
+g[0-9]/*.mp4
+g[0-9]/*.png
