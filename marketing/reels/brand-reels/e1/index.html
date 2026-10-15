@@ -1,0 +1,506 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+@font-face { font-family: Rdx; src: url(../../../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-arabic-wght-normal.woff2) format('woff2'); font-weight: 160 700; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+@font-face { font-family: Rdx; src: url(../../../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-latin-wght-normal.woff2) format('woff2'); font-weight: 160 700; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0D0B14; }
+canvas#c { position: absolute; inset: 0; }
+</style></head><body><canvas id="c" width="1080" height="1920"></canvas>
+<script>window.ASSET = "../../../../";</script>
+<script src="../kit.js"></script>
+<script src="../b-common.js"></script>
+<script>
+const DATA = {"t": {"note": 4.58, "focus": 5.1, "decide": 6.59, "lift": 6.82, "click": 7.98, "replay": 8.85, "stop": 9.98, "phone": 10.24, "n1": 10.38, "n2": 11.55, "n3": 12.64, "grab": 13.13, "flip": 13.54, "down": 13.93, "persist": 14.35, "dawn": 15.88, "reach": 17.08, "end": 18.55}, "dur": 21.7, "voice_end": 19.06, "subs": [[["هیچ‌وقت", 0.0, 0.26], ["به", 0.26, 0.52], ["کسی", 0.52, 0.82], ["اجازه", 0.82, 1.3], ["نده", 1.3, 1.6], ["بهت", 1.6, 1.86], ["بگه", 1.86, 2.2], ["که", 2.2, 2.5], ["نمی‌تونی", 2.5, 3.0], ["کاری", 3.0, 3.26], ["را", 3.26, 3.48], ["انجام", 3.48, 3.88], ["بدی.", 3.88, 4.16]], [["اگه", 4.16, 5.1], ["آرزویی", 5.1, 5.72], ["داری،", 5.72, 6.04], ["باید", 6.82, 7.46], ["سعی", 7.46, 7.76], ["کنی", 7.76, 7.98], ["بهش", 7.98, 8.3], ["برسی.", 8.3, 8.8]], [["اشخاصی", 10.3, 10.94], ["که", 10.94, 11.14], ["نمی‌تونن", 11.14, 11.6], ["خودشون", 11.6, 12.04], ["کاری", 12.04, 12.28], ["انجام", 12.28, 12.74], ["بدن،", 12.74, 13.0], ["بهت", 13.0, 13.28], ["میگن", 13.28, 13.54], ["تو", 13.54, 13.68], ["هم", 13.68, 13.88], ["نمی‌تونی.", 13.88, 14.4]], [["اگه", 14.4, 15.18], ["چیزی", 15.18, 15.48], ["را", 15.48, 15.66], ["می‌خوای،", 15.66, 15.98], ["براش", 15.98, 16.36], ["تلاش", 16.36, 16.74], ["کن", 16.74, 17.08], ["تا", 17.08, 17.58], ["بهش", 17.58, 17.9], ["برسی.", 17.9, 18.3]]], "sessions": [[23, -2029.31, -20.29], [24, -1522.85, -15.23], [25, -1201.86, -12.02], [26, -1033.02, -10.33], [27, -1196.91, -11.97], [28, -398.76, -3.99], [29, -393.16, -3.93], [30, -256.28, -2.56], [31, -144.45, -1.44]], "place": [], "lens": [], "lines": []};
+setTimeline(DATA);
+// e1 · an emotional reel on the user's voice-over: a trader backtests night after night on the platform and keeps
+// losing (real screens of a test account whose sessions were traded on real gold prices), the people around him say
+// he can't, he keeps going until dawn. The platform comes in quietly at the end.
+// One illustrated room in world units (1080×1920 = the wide shot) seen through a camera, a phone close-up, and panels.
+const T = DATA.t;
+const SHOTS = 'shots/';
+const SHOT = (k) => IMG['s_' + k];
+const mkc = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c.getContext('2d'); };
+const OF = [mkc(W, H), mkc(W, H), mkc(W, H), mkc(W, H), mkc(W, H)];
+const SCR = { x: 372, y: 612, w: 600, h: 375 }, SS = 600 / 2880;   // laptop screen in the world; screenshot px → world
+const sp = (px, py) => ({ x: SCR.x + px * SS, y: SCR.y + py * SS });
+const WIN = { x: 70, y: 150, w: 940, h: 820 };
+const hexA = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const mix = (a, b, k, al = 1) => { const A = hexA(a), B = hexA(b); return `rgba(${A.map((v, i) => Math.round(lerp(v, B[i], clamp(k)))).join(',')},${al})`; };
+const fa1 = (v) => '−' + fa(Math.abs(v), 1) + '٪';
+
+// ---------- camera ----------
+const camM = (c) => [c.z, 0, 0, c.z, 540 - c.x * c.z, 960 - c.y * c.z];
+const apply = (g, c) => g.setTransform(...camM(c));
+const reset = (g) => { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.filter = 'none'; };
+/** Dolly between two framings: the frame width moves on a log scale and the centre follows it, so nothing swims. */
+function dolly(a, b, k) {
+  const wa = 1080 / a.z, wb = 1080 / b.z, w = Math.exp(lerp(Math.log(wa), Math.log(wb), k));
+  const u = Math.abs(wb - wa) < 1e-6 ? k : (w - wa) / (wb - wa);
+  return { x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u), z: 1080 / w };
+}
+
+// ---------- the world ----------
+const R = rng(11);
+const BOKEH = Array.from({ length: 70 }, () => ({ x: 80 + R() * 920, y: 600 + R() * 360, r: 7 + R() * 22, c: R() < 0.62 ? '#FFB86B' : R() < 0.55 ? '#7FA8FF' : '#FF7A95', a: 0.22 + R() * 0.4, ph: R() * 6 }));
+const BLD = []; { let x = 64; while (x < 1012) { const w = 46 + R() * 96; BLD.push({ x, w, top: 640 + R() * 230, seed: Math.floor(R() * 1e6) }); x += w + 3 + R() * 12; } }
+const STREAK = Array.from({ length: 160 }, () => ({ x: R() * 1120 - 40, y: R(), v: 1100 + R() * 900, l: 26 + R() * 64, a: 0.05 + R() * 0.13 }));
+const DROP = Array.from({ length: 260 }, () => ({ x: 76 + R() * 928, y: 156 + R() * 808, r: 1.2 + R() * R() * 6, a: 0.25 + R() * 0.5 }));
+const SLIDE = Array.from({ length: 16 }, () => ({ x: 90 + R() * 900, y0: 150 + R() * 260, v: 16 + R() * 46, r: 3 + R() * 3.5, ph: R() * 10 }));
+const HP = [R() * 6, R() * 6, R() * 6];
+const hairR = (a) => 0.03 * Math.sin(5 * a + HP[0]) + 0.022 * Math.sin(9 * a + HP[1]) + 0.012 * Math.sin(17 * a + HP[2]);
+const GRAINW = Array.from({ length: 34 }, () => ({ y: 1004 + R() * 900, a: 0.015 + R() * 0.03, w: 1 + R() * 3, k: R() * 0.02 - 0.01 }));
+
+function rad(g, x, y, rx, ry, col, a, op) {
+  g.save(); if (op) g.globalCompositeOperation = op; g.translate(x, y); g.scale(1, ry / rx);
+  const gr = g.createRadialGradient(0, 0, 0, 0, 0, rx); const c = hexA(col);
+  gr.addColorStop(0, `rgba(${c},${a})`); gr.addColorStop(0.55, `rgba(${c},${a * 0.35})`); gr.addColorStop(1, `rgba(${c},0)`);
+  g.fillStyle = gr; g.fillRect(-rx, -rx, 2 * rx, 2 * rx); g.restore();
+}
+
+function windowLayer(g, t, st) {
+  const d = st.dawn, rain = st.rain;
+  const wg = g.createLinearGradient(0, -300, 0, 1010); wg.addColorStop(0, mix('#06070D', '#2A2133', d)); wg.addColorStop(1, mix('#0C0E17', '#3D2D36', d));
+  g.fillStyle = wg; g.fillRect(-600, -600, W + 1200, 1610);
+  g.save(); g.beginPath(); g.rect(WIN.x, WIN.y, WIN.w, WIN.h); g.clip();
+  const sky = g.createLinearGradient(0, WIN.y, 0, WIN.y + WIN.h);
+  sky.addColorStop(0, mix('#04060D', '#3B3D72', d)); sky.addColorStop(0.55, mix('#0B1126', '#C47C7A', d)); sky.addColorStop(1, mix('#22192F', '#FFC28A', d));
+  g.fillStyle = sky; g.fillRect(WIN.x, WIN.y, WIN.w, WIN.h);
+  if (d > 0) { rad(g, 760, 905, 520, 360, '#FFD9A6', 0.75 * d); rad(g, 760, 905, 150, 110, '#FFF4DE', 0.9 * d * d); }
+  for (const b of BLD) {
+    g.fillStyle = mix('#0A0F21', '#5A3F55', d * 0.85); g.fillRect(b.x, b.top, b.w, 975 - b.top);
+    const r = rng(b.seed), cols = Math.floor((b.w - 10) / 15), rows = Math.floor((975 - b.top - 12) / 21);
+    for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) { const lit = r() < 0.3; if (!lit) continue; g.fillStyle = `rgba(255,${200 + Math.floor(r() * 40)},120,${(0.55 + 0.3 * r()) * (1 - d)})`; g.fillRect(b.x + 7 + j * 15, b.top + 10 + i * 21, 6, 9); }
+  }
+  for (const k of BOKEH) { const a = k.a * (0.75 + 0.25 * Math.sin(t * 1.4 + k.ph)) * (1 - 0.85 * d); if (a > 0.01) rad(g, k.x, k.y, k.r * 1.6, k.r * 1.6, k.c, a); }
+  if (rain > 0) {
+    g.lineCap = 'round'; g.strokeStyle = mix('#C8D2FF', '#FFE8D0', d); g.lineWidth = 1.6;
+    for (const s of STREAK) { const y = ((s.y * 1300 + t * s.v) % 1300) - 140 + WIN.y, x = s.x + (y - WIN.y) * 0.07; g.globalAlpha = s.a * rain; g.beginPath(); g.moveTo(x, y); g.lineTo(x + s.l * 0.07, y + s.l); g.stroke(); }
+  }
+  const dropA = 0.25 + 0.75 * rain;
+  for (const q of DROP) { g.globalAlpha = q.a * dropA; g.fillStyle = 'rgba(210,220,255,0.16)'; g.beginPath(); g.arc(q.x, q.y, q.r, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.arc(q.x - q.r * 0.3, q.y - q.r * 0.35, q.r * 0.32, 0, 7); g.fill(); }
+  for (const s of SLIDE) {
+    const y = s.y0 + ((t * s.v + s.ph * 40) % 640), x = s.x + Math.sin(y * 0.03 + s.ph) * 3;
+    g.globalAlpha = 0.14 * dropA; g.strokeStyle = 'rgba(220,230,255,1)'; g.lineWidth = s.r * 0.7; g.beginPath(); g.moveTo(x, y - 70); g.lineTo(x, y); g.stroke();
+    g.globalAlpha = 0.5 * dropA; g.fillStyle = 'rgba(220,230,255,0.35)'; g.beginPath(); g.arc(x, y, s.r, 0, 7); g.fill();
+  }
+  g.globalAlpha = 1;
+  // the laptop's light on the glass
+  rad(g, 672, 790, 420, 260, '#8C7CFF', 0.10 * st.screenOn, 'lighter');
+  g.restore();
+  // frame, mullions, sill
+  const fc = mix('#090A11', '#2E2229', d);
+  g.fillStyle = fc; g.fillRect(WIN.x - 28, WIN.y - 28, WIN.w + 56, 28); g.fillRect(WIN.x - 28, WIN.y, 28, WIN.h); g.fillRect(WIN.x + WIN.w, WIN.y, 28, WIN.h);
+  g.fillRect(538 - 12, WIN.y, 24, WIN.h); g.fillRect(WIN.x, 548, WIN.w, 18);
+  g.fillStyle = mix('#1A1B26', '#7A5A55', d, 0.8); g.fillRect(WIN.x, 548, WIN.w, 2); g.fillRect(538 - 12, WIN.y, 2, WIN.h);
+  g.fillStyle = mix('#10111A', '#55403F', d); g.fillRect(WIN.x - 44, WIN.y + WIN.h, WIN.w + 88, 32);
+  g.fillStyle = mix('#1D1E2A', '#9A7464', d, 0.7); g.fillRect(WIN.x - 44, WIN.y + WIN.h, WIN.w + 88, 3);
+}
+
+function desk(g, t, st) {
+  const d = st.dawn;
+  const dg = g.createLinearGradient(0, 1002, 0, 1920); dg.addColorStop(0, mix('#15111A', '#4A3533', d)); dg.addColorStop(1, mix('#08070B', '#20171A', d));
+  g.fillStyle = dg; g.fillRect(-600, 1002, W + 1200, 1400);
+  for (const l of GRAINW) { g.fillStyle = `rgba(255,230,210,${l.a})`; g.save(); g.translate(0, l.y); g.rotate(l.k); g.fillRect(-600, 0, W + 1200, l.w); g.restore(); }
+  g.fillStyle = mix('#2A2433', '#9C7466', d, 0.5); g.fillRect(-600, 1002, W + 1200, 3);
+  rad(g, 672, 1050, 560, 230, '#8C7CFF', 0.20 * st.screenOn, 'lighter');
+  if (d > 0) rad(g, 700, 1010, 900, 360, '#FFB27A', 0.16 * d, 'lighter');
+}
+
+function mug(g, t, st) {
+  g.save(); g.translate(150, 1046);
+  g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.ellipse(6, 44, 52, 13, 0, 0, 7); g.fill();
+  g.strokeStyle = mix('#1E1D27', '#5A4440', st.dawn); g.lineWidth = 12; g.beginPath(); g.arc(-40, 4, 20, Math.PI * 0.5, Math.PI * 1.5); g.stroke();
+  const mg = g.createLinearGradient(-38, 0, 38, 0); mg.addColorStop(0, mix('#121119', '#3C2E30', st.dawn)); mg.addColorStop(1, mix('#2B2838', '#8A6A60', st.dawn));
+  g.fillStyle = mg; g.beginPath(); g.roundRect(-38, -38, 76, 80, [4, 4, 14, 14]); g.fill();
+  g.fillStyle = mix('#3A3550', '#C29A86', st.dawn, 0.9); g.beginPath(); g.ellipse(0, -38, 38, 10, 0, 0, 7); g.fill();
+  g.fillStyle = '#1A0F0A'; g.beginPath(); g.ellipse(0, -37, 32, 7, 0, 0, 7); g.fill();
+  g.restore();
+  // steam
+  g.save(); g.lineCap = 'round'; g.strokeStyle = 'rgba(230,225,255,1)';
+  for (let i = 0; i < 3; i++) {
+    g.lineWidth = 9 - i * 2; g.globalAlpha = 0.05 * (1 - 0.5 * st.dawn); g.beginPath();
+    for (let y = 1000; y > 840; y -= 6) { const k = (1000 - y) / 160, x = 150 + (i - 1) * 10 + Math.sin(y * 0.035 + t * 1.6 + i * 2) * 14 * k; y === 1000 ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.stroke();
+  }
+  g.restore();
+}
+
+function mouseAndPhone(g, t, st) {
+  g.save(); g.translate(852, 1166); g.rotate(-0.2);
+  g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.ellipse(4, 10, 30, 44, 0, 0, 7); g.fill();
+  g.fillStyle = '#17161E'; g.beginPath(); g.ellipse(0, 0, 26, 40, 0, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(180,165,255,0.25)'; g.lineWidth = 2; g.beginPath(); g.ellipse(0, 0, 26, 40, 0, Math.PI * 1.1, Math.PI * 1.9); g.stroke();
+  g.restore();
+  g.save(); g.translate(968, 1150); g.rotate(-0.26);
+  g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.roundRect(-38, -72, 84, 156, 14); g.fill();
+  if (st.phoneDown) { g.fillStyle = mix('#1C1B24', '#4A3A3A', st.dawn); g.beginPath(); g.roundRect(-40, -78, 80, 156, 13); g.fill(); g.fillStyle = 'rgba(0,0,0,0.5)'; g.beginPath(); g.roundRect(-30, -68, 30, 34, 8); g.fill(); }
+  else {
+    g.fillStyle = '#07070A'; g.beginPath(); g.roundRect(-40, -78, 80, 156, 13); g.fill();
+    g.fillStyle = st.phoneOn > 0 ? mix('#0B0B12', '#8E9CFF', st.phoneOn * 0.8) : '#0C0C12'; g.beginPath(); g.roundRect(-35, -73, 70, 146, 10); g.fill();
+  }
+  g.restore();
+  if (st.phoneOn > 0) rad(g, 968, 1150, 220, 160, '#8E9CFF', 0.3 * st.phoneOn, 'lighter');
+}
+
+function screenContent(g, t, st) {
+  g.save(); g.beginPath(); g.rect(SCR.x, SCR.y, SCR.w, SCR.h); g.clip();
+  g.fillStyle = '#0D0B14'; g.fillRect(SCR.x, SCR.y, SCR.w, SCR.h);
+  g.imageSmoothingQuality = 'high';
+  const put = (k, a) => { const im = SHOT(k); if (!im || a <= 0) return; g.globalAlpha = a; g.drawImage(im, SCR.x, SCR.y, SCR.w, SCR.h); };
+  put(st.scr, 1); if (st.scr2) put(st.scr2, st.mix ?? 0);
+  g.globalAlpha = 1;
+  if (st.flash) { g.fillStyle = `rgba(255,255,255,${0.18 * st.flash})`; g.fillRect(SCR.x, SCR.y, SCR.w, SCR.h); }
+  const gl = g.createLinearGradient(SCR.x, SCR.y, SCR.x + SCR.w * 0.7, SCR.y + SCR.h); gl.addColorStop(0, 'rgba(255,255,255,0.06)'); gl.addColorStop(0.5, 'rgba(255,255,255,0)');
+  g.fillStyle = gl; g.fillRect(SCR.x, SCR.y, SCR.w, SCR.h);
+  g.restore();
+}
+
+function laptop(g, t, st) {
+  g.beginPath(); g.moveTo(352, 1001); g.lineTo(992, 1001); g.lineTo(1046, 1072); g.lineTo(298, 1072); g.closePath();
+  const bg = g.createLinearGradient(0, 1001, 0, 1072); bg.addColorStop(0, mix('#26252F', '#5C4848', st.dawn)); bg.addColorStop(1, mix('#15141B', '#3A2C2E', st.dawn)); g.fillStyle = bg; g.fill();
+  for (let row = 0; row < 4; row++) {
+    const y = 1009 + row * 12, k = (y - 1001) / 71, xl = lerp(352, 298, k) + 52, xr = lerp(992, 1046, k) - 52, n = 15, kw = (xr - xl) / n;
+    g.fillStyle = `rgba(190,180,255,${0.05 + 0.05 * st.screenOn})`;
+    for (let i = 0; i < n; i++) g.fillRect(xl + i * kw + 2, y, kw - 4, 8);
+  }
+  g.fillStyle = `rgba(190,180,255,${0.04 + 0.03 * st.screenOn})`; g.fillRect(612, 1058, 120, 10);
+  g.fillStyle = '#09090D'; g.beginPath(); g.moveTo(298, 1072); g.lineTo(1046, 1072); g.lineTo(1040, 1081); g.lineTo(304, 1081); g.closePath(); g.fill();
+  g.fillStyle = '#0D0D12'; g.beginPath(); g.roundRect(356, 596, 632, 407, 18); g.fill();
+  g.strokeStyle = mix('#2A2A36', '#8E6E66', st.dawn, 0.9); g.lineWidth = 2; g.stroke();
+  g.fillStyle = '#1C1C26'; g.beginPath(); g.arc(672, 604, 2.5, 0, 7); g.fill();
+  screenContent(g, t, st);
+}
+
+/** The sticky note on the lid. Written in pen: «یه روز تریدر حرفه‌ای می‌شم.» */
+function note(g, st, o = {}) {
+  g.save(); g.translate(1006, 842); g.rotate(0.07);
+  g.fillStyle = 'rgba(0,0,0,0.45)'; g.beginPath(); g.roundRect(-58, -52, 128, 120, 3); g.fill();
+  const ng = g.createLinearGradient(-62, -58, 62, 58); ng.addColorStop(0, '#F6D468'); ng.addColorStop(1, '#E7B941'); g.fillStyle = ng; g.fillRect(-62, -58, 124, 116);
+  g.fillStyle = 'rgba(150,100,20,0.15)'; g.fillRect(-62, -58, 124, 20);
+  g.fillStyle = 'rgba(120,80,10,0.25)'; g.beginPath(); g.moveTo(62, 58); g.lineTo(46, 58); g.lineTo(62, 44); g.closePath(); g.fill();
+  g.fillStyle = '#1D2C6E'; g.direction = 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = '500 17px Vaz'; g.save(); g.rotate(-0.04); g.fillText('یه روز', 2, -24); g.restore();
+  g.font = '700 18.5px Vaz'; g.save(); g.rotate(0.02); g.fillText('تریدر حرفه‌ای', 0, 2); g.restore();
+  g.font = '500 17px Vaz'; g.save(); g.rotate(-0.02); g.fillText('می‌شم.', -14, 28); g.restore();
+  g.strokeStyle = '#1D2C6E'; g.lineWidth = 1.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(-42, 14); g.quadraticCurveTo(0, 18, 46, 12); g.stroke();
+  g.beginPath(); g.moveTo(16, 50); g.lineTo(28, 42); g.lineTo(35, 46); g.lineTo(50, 33); g.stroke();
+  g.beginPath(); g.moveTo(43, 33); g.lineTo(50, 33); g.lineTo(49, 40); g.stroke();
+  const dim = o.dim ?? 0.42 * (1 - st.dawn); if (dim > 0) { g.fillStyle = `rgba(8,6,20,${dim})`; g.fillRect(-62, -58, 124, 116); }
+  rad(g, -62, -10, 120, 120, '#8C7CFF', 0.16 * st.screenOn, 'lighter');
+  if (st.dawn > 0) rad(g, 20, -40, 140, 140, '#FFC08A', 0.18 * st.dawn, 'lighter');
+  g.restore();
+}
+
+// ---------- the trader (seen from behind) ----------
+function figGeo(t, st) {
+  const p = st.pose, br = Math.sin(t * 1.7) * (1 - 0.4 * p);
+  const G = { hx: lerp(330, 296, p), hy: lerp(1114, 1046, p) + br * 2, rot: lerp(0.2, 0.03, p), rx: 108, ry: 126,
+    lsx: lerp(112, 70, p), lsy: lerp(1286, 1302, p) + br * 3, rsx: lerp(548, 588, p), rsy: lerp(1292, 1306, p) + br * 3 };
+  const k = E.inOut(clamp(st.arm ?? p));
+  G.j0 = { x: G.rsx - 26, y: G.rsy + 46 };
+  G.el = { x: lerp(652, 724, k), y: lerp(1402, 1352, k) };
+  G.hd = { x: lerp(G.hx + 86, 836, k) - 30 * Math.sin(Math.PI * k), y: lerp(G.hy - 14, 1214, k) - 80 * Math.sin(Math.PI * k) };
+  G.k = k;
+  return G;
+}
+function figShape(g, G, mask) {
+  const col = (c) => (mask ? '#fff' : c);
+  // torso and hood
+  g.fillStyle = col('#10121B');
+  g.beginPath(); g.moveTo(-140, 1960); g.lineTo(-120, 1480); g.quadraticCurveTo(-70, G.lsy + 12, G.lsx, G.lsy);
+  g.quadraticCurveTo(G.hx - 128, G.hy + 118, G.hx - 56, G.hy + 108); g.lineTo(G.hx + 50, G.hy + 104);
+  g.quadraticCurveTo(G.hx + 126, G.hy + 126, G.rsx, G.rsy); g.quadraticCurveTo(G.rsx + 96, G.rsy + 40, G.rsx + 112, 1560); g.lineTo(G.rsx + 160, 1960); g.closePath(); g.fill();
+  g.beginPath(); g.ellipse(G.hx - 14, G.hy + 116, 160, 60, -0.04, 0, 7); g.fill();
+  if (!mask) {
+    g.strokeStyle = 'rgba(255,255,255,0.05)'; g.lineWidth = 3;
+    g.beginPath(); g.ellipse(G.hx - 14, G.hy + 116, 132, 40, -0.04, Math.PI * 0.05, Math.PI * 0.95); g.stroke();
+    g.beginPath(); g.moveTo(G.lsx + 60, G.lsy + 80); g.quadraticCurveTo(G.hx - 30, G.hy + 260, G.rsx - 60, G.rsy + 110); g.stroke();
+  }
+  // neck
+  g.save(); g.translate(G.hx, G.hy); g.rotate(G.rot);
+  g.fillStyle = col('#24191A'); g.beginPath(); g.roundRect(-44, G.ry * 0.62, 88, 70, 20); g.fill();
+  // head and hair
+  g.fillStyle = col('#0A0A0F'); g.beginPath();
+  for (let i = 0; i <= 96; i++) { const a = Math.PI * 0.6 + (i / 96) * Math.PI * 1.8, top = clamp(-Math.sin(a) + 0.3), s = 0.03 + hairR(a) * (0.35 + top); const x = Math.cos(a) * G.rx * (1 + s), y = Math.sin(a) * G.ry * (1 + s); i ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.closePath(); g.fill();
+  // ear (the screen side)
+  g.fillStyle = col('#2E211F'); g.beginPath(); g.ellipse(G.rx * 0.95, 8, 15, 30, 0.15, 0, 7); g.fill();
+  g.restore();
+  // arm: sleeve, forearm, hand
+  const dx = G.hd.x - G.el.x, dy = G.hd.y - G.el.y, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
+  const wr = { x: G.hd.x - ux * 36, y: G.hd.y - uy * 36 };
+  g.lineCap = 'round'; g.strokeStyle = col('#131623'); g.fillStyle = col('#131623');
+  g.lineWidth = 98; g.beginPath(); g.moveTo(G.j0.x, G.j0.y); g.lineTo(G.el.x, G.el.y); g.stroke();
+  const nx = -uy, ny = ux, w0 = lerp(46, 50, G.k), w1 = lerp(34, 40, G.k);   // tapered sleeve from the elbow to the cuff
+  g.beginPath(); g.moveTo(G.el.x + nx * w0, G.el.y + ny * w0); g.lineTo(wr.x + nx * w1, wr.y + ny * w1); g.lineTo(wr.x - nx * w1, wr.y - ny * w1); g.lineTo(G.el.x - nx * w0, G.el.y - ny * w0); g.closePath(); g.fill();
+  g.beginPath(); g.arc(G.el.x, G.el.y, w0, 0, 7); g.fill();
+  g.fillStyle = col('#191C2B'); g.beginPath(); g.ellipse(wr.x, wr.y, w1 + 2, 13, Math.atan2(ny, nx), 0, 7); g.fill();
+  g.fillStyle = col('#3B2A27'); g.save(); g.translate(G.hd.x, G.hd.y); g.rotate(Math.atan2(uy, ux) - Math.PI / 2);
+  if (G.k < 0.5) {   // fingers in the hair
+    g.beginPath(); g.ellipse(0, -2, 30, 36, 0, 0, 7); g.fill();
+    for (let i = 0; i < 4; i++) { g.beginPath(); g.roundRect(-26 + i * 14, 16, 12, 30 - Math.abs(i - 1.5) * 5, 6); g.fill(); }
+  } else {           // resting on the mouse: a closed hand, knuckles forward
+    g.beginPath(); g.roundRect(-34, -18, 68, 50, [18, 18, 26, 26]); g.fill();
+    g.beginPath(); g.ellipse(-34, 6, 10, 18, 0.5, 0, 7); g.fill();
+  }
+  g.restore();
+}
+function trader(t, st, cam, blur = 0) {
+  const G = figGeo(t, st), [m, rim, fig] = OF;
+  for (const g of [m, rim, fig]) { reset(g); g.clearRect(0, 0, W, H); }
+  apply(m, cam); figShape(m, G, true); reset(m);
+  const sh = { x: lerp(-4.5, -1.5, st.dawn), y: lerp(6, 7, st.dawn) };
+  rim.drawImage(m.canvas, 0, 0); rim.globalCompositeOperation = 'destination-out'; rim.drawImage(m.canvas, sh.x * cam.z, sh.y * cam.z);
+  rim.globalCompositeOperation = 'source-in'; rim.fillStyle = mix('#B9A8FF', '#FFC08A', st.dawn, 0.9 * Math.max(st.screenOn, st.dawn)); rim.fillRect(0, 0, W, H);
+  // strongest where the figure faces the light (screen, then the window at dawn), gone by the lower back
+  rim.globalCompositeOperation = 'destination-in'; apply(rim, cam);
+  const L = { x: lerp(680, 640, st.dawn), y: lerp(820, 640, st.dawn) }, fall = rim.createRadialGradient(L.x, L.y, 120, L.x, L.y, 780);
+  fall.addColorStop(0, 'rgba(0,0,0,1)'); fall.addColorStop(0.55, 'rgba(0,0,0,0.75)'); fall.addColorStop(1, 'rgba(0,0,0,0)'); rim.fillStyle = fall; rim.fillRect(-600, -600, W + 1200, H + 1200); reset(rim);
+  apply(fig, cam); figShape(fig, G, false);
+  fig.globalCompositeOperation = 'source-atop';
+  rad(fig, 700, 820, 760, 760, st.dawn > 0.5 ? '#FFB27A' : '#8C7CFF', 0.14 * Math.max(st.screenOn, st.dawn));
+  reset(fig); fig.globalCompositeOperation = 'source-atop'; fig.drawImage(rim.canvas, 0, 0); reset(fig);
+  reset(cv); if (blur > 0.3) cv.filter = `blur(${blur}px)`; cv.drawImage(fig.canvas, 0, 0);
+  cv.globalCompositeOperation = 'lighter'; cv.filter = `blur(${8 + blur}px)`; cv.globalAlpha = 0.55; cv.drawImage(rim.canvas, 0, 0); reset(cv);
+}
+
+/** The whole room through camera `cam`. o: bgBlur (window), fgBlur (trader). */
+function room(t, st, cam, o = {}) {
+  reset(cv); cv.fillStyle = '#05050A'; cv.fillRect(0, 0, W, H);
+  const g = OF[3]; reset(g); g.clearRect(0, 0, W, H); apply(g, cam); windowLayer(g, t, st); reset(g);
+  if (o.bgBlur > 0.3) cv.filter = `blur(${o.bgBlur}px)`; cv.drawImage(g.canvas, 0, 0); reset(cv);
+  apply(cv, cam); desk(cv, t, st); mug(cv, t, st); mouseAndPhone(cv, t, st); laptop(cv, t, st); note(cv, st);
+  { const G = figGeo(t, st); if (G.k > 0.3) { cv.save(); cv.globalAlpha = 0.5 * clamp((G.k - 0.3) / 0.4); cv.filter = 'blur(10px)'; cv.fillStyle = '#000'; cv.beginPath(); cv.ellipse(G.hd.x + 18, G.hd.y + 34, 48, 26, -0.3, 0, 7); cv.fill(); cv.restore(); } }
+  reset(cv); trader(t, st, cam, o.fgBlur ?? 0);
+  apply(cv, cam);
+  rad(cv, 672, 800, 520, 420, '#7C5CFF', 0.08 * st.screenOn, 'lighter');
+  if (st.dawn > 0) rad(cv, 700, 700, 900, 900, '#FFB27A', 0.10 * st.dawn, 'lighter');
+  reset(cv);
+}
+/** Copy the frame and draw it back blurred and darkened (a background for panels and the end card). */
+function soften(blur, dark) {
+  const g = OF[4]; reset(g); g.clearRect(0, 0, W, H); g.drawImage(cv.canvas, 0, 0);
+  reset(cv); cv.fillStyle = '#05050A'; cv.fillRect(0, 0, W, H); cv.filter = `blur(${blur}px)`; cv.drawImage(g.canvas, -20, -20, W + 40, H + 40); reset(cv);
+  if (dark > 0) { cv.fillStyle = `rgba(5,4,10,${dark})`; cv.fillRect(0, 0, W, H); }
+}
+/** A screenshot crop [sx, sy, sw, sh] as a floating screen panel centred at (cx, cy), w px wide. */
+function panel(k, crop, cx, cy, w, o = {}) {
+  const im = SHOT(k); if (!im) return; const h = (w * crop[3]) / crop[2];
+  cv.save(); cv.globalAlpha *= o.alpha ?? 1; cv.translate(cx, cy); const s = o.scale ?? 1; cv.scale(s, s);
+  cv.shadowColor = 'rgba(0,0,0,0.6)'; cv.shadowBlur = 60; cv.shadowOffsetY = 20; rr(-w / 2, -h / 2, w, h, 26); cv.fillStyle = '#0D0B14'; cv.fill(); cv.shadowColor = 'transparent';
+  cv.save(); rr(-w / 2, -h / 2, w, h, 26); cv.clip(); cv.imageSmoothingQuality = 'high'; cv.drawImage(im, ...crop, -w / 2, -h / 2, w, h);
+  if (o.k2 && o.mix > 0) { cv.globalAlpha = o.mix; cv.drawImage(SHOT(o.k2), ...crop, -w / 2, -h / 2, w, h); cv.globalAlpha = 1; }
+  if (o.tint) { cv.fillStyle = o.tint; cv.fillRect(-w / 2, -h / 2, w, h); }
+  const gl = cv.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2); gl.addColorStop(0, 'rgba(255,255,255,0.05)'); gl.addColorStop(0.5, 'rgba(255,255,255,0)'); cv.fillStyle = gl; cv.fillRect(-w / 2, -h / 2, w, h);
+  cv.restore();
+  rr(-w / 2, -h / 2, w, h, 26); cv.lineWidth = 2; cv.strokeStyle = rgba(C.line, 0.9); cv.stroke();
+  cv.restore(); return h;
+}
+
+// ---------- scenes ----------
+const NIGHT = (o) => ({ pose: 0, dawn: 0, rain: 1, screenOn: 1, scr: 'an23', phoneOn: 0, phoneDown: false, ...o });
+const WIDE = { x: 556, y: 1004, z: 1.12 };
+// A · the analysis close up (the P/L row and the falling equity curve), pulling back to the trader with his head in his hand
+const A0 = { ...sp(1880, 1010), z: 5.7 };
+function sceneA(t) {
+  const k = E.inOut(P(t, 0.9, 3.4));
+  const cam = k <= 0 ? { ...A0, z: A0.z * (1 + 0.03 * t) } : dolly({ ...A0, z: A0.z * 1.027 }, WIDE, k);
+  room(t, NIGHT({}), cam, { bgBlur: lerp(10, 2.5, k), fgBlur: lerp(22, 0, E.out(k)) });
+}
+// B · the sticky note on the lid, coming into focus on «آرزویی»
+function sceneB(t) {
+  const u = P(t, T.note, T.decide - T.note);
+  const cam = { x: lerp(1000, 1004, u), y: lerp(846, 842, u), z: lerp(6.4, 7.2, u) };
+  room(t, NIGHT({}), cam, { bgBlur: 6 });
+  soften(16, 0.25);
+  apply(cv, cam); note(cv, NIGHT({})); reset(cv);
+  const b = 14 * (1 - E.out(P(t, T.note, T.focus + 0.25 - T.note)));
+  if (b > 0.3) soften(b, 0);
+}
+// C · back in the room: he lifts his head, takes the mouse, clicks — the replay starts — and we push into the screen
+function sceneC(t) {
+  const lift = P(t, T.lift, T.click - 0.12 - T.lift);
+  const st = NIGHT({ pose: E.inOut(lift), arm: P(t, T.lift + 0.2, T.click - 0.15 - T.lift - 0.2), scr: 'an23', scr2: 'r0', mix: E.out(P(t, T.click + 0.05, 0.18)), flash: Math.max(0, 1 - Math.abs(t - T.click - 0.06) / 0.12) });
+  const u = E.inOut(P(t, T.decide, T.click - T.decide)), push = E.in(P(t, T.click + 0.15, T.replay - T.click - 0.15));
+  const base = { x: lerp(520, 590, u), y: lerp(1030, 990, u), z: lerp(1.2, 1.34, u) };
+  room(t, st, push > 0 ? dolly(base, { x: 672, y: 812, z: 2.2 }, push) : base, { bgBlur: 2.5, fgBlur: 14 * push });
+}
+// D · the replay: buy, a candle of hope, then the stop
+const RCROP = [1250, 250, 1130, 750];
+const RFR = () => [['r0', T.replay], ['r1', T.replay + 0.28], ['r2', T.replay + 0.56], ['r3', T.stop - 0.2], ['r4', T.stop]];
+function sceneD(t) {
+  room(t, NIGHT({ pose: 1, arm: 1, scr: 'r0' }), { x: 672, y: 812, z: 1.9 }, { bgBlur: 3, fgBlur: 8 });
+  soften(16, 0.5);
+  const fr = RFR(); let i = 0; while (i + 1 < fr.length && t >= fr[i + 1][1]) i++;
+  const sh = t > T.stop ? Math.exp(-(t - T.stop) * 9) * 14 : 0;
+  const s = lerp(1.0, 1.06, P(t, T.replay, T.phone - T.replay));
+  const hit = P(t, T.stop, 0.12);
+  panel(fr[i][0], RCROP, 540 + Math.sin(t * 90) * sh, 900 + Math.cos(t * 77) * sh * 0.6, 1040, { scale: s, alpha: E.out(P(t, T.replay, 0.12)), tint: hit > 0 ? `rgba(242,84,102,${0.16 * (1 - P(t, T.stop + 0.1, 0.5))})` : undefined });
+  if (t > T.stop) {
+    const a = E.out(P(t, T.stop + 0.04, 0.2)), sc = E.back(P(t, T.stop + 0.04, 0.3));
+    cv.save(); cv.translate(540, 1335); cv.scale(sc, sc); cv.globalAlpha = a;
+    const l1 = measure('حد ضرر خورد', 40, 700), l2 = measure('−$۹۶٫۶۷', 40, 800, 'Rdx'), w = l1 + l2 + 110;
+    rr(-w / 2, -40, w, 80, 40); cv.fillStyle = rgba('#3A1520', 0.92); cv.fill(); cv.strokeStyle = rgba(C.loss, 0.8); cv.lineWidth = 2; cv.stroke();
+    cv.fillStyle = C.loss; cv.beginPath(); cv.arc(w / 2 - 34, 0, 8, 0, 7); cv.fill();
+    txt('حد ضرر خورد', w / 2 - 58, 2, { size: 40, weight: 700, color: '#fff', align: 'right' });
+    txt('−$۹۶٫۶۷', -w / 2 + 30, 2, { size: 40, font: 'Rdx', weight: 800, color: C.loss, align: 'left', dir: 'ltr' });
+    cv.restore();
+    rad(cv, 540, 960, 900, 1100, '#F25466', 0.22 * Math.exp(-(t - T.stop) * 4), 'lighter');
+  }
+}
+// E · the phone on the desk: three messages, then his hand turns it face down
+const MSG = [['بردیا', 'هنوز داری وقتتو با این نمودارا هدر می‌دی؟ 😂', T.n1], ['کیان', 'منم امتحان کردم. نمی‌شه، همه آخرش ضرر می‌کنن.', T.n2], ['علی', 'ترید کار تو نیست. بیخیال شو.', T.n3]];
+const MSGL = MSG.map(([, m]) => null);
+function phoneUI(t, on) {
+  const wp = cv.createLinearGradient(0, -594, 0, 594); wp.addColorStop(0, '#1A1530'); wp.addColorStop(1, '#09080F');
+  rr(-284, -594, 568, 1188, 70); cv.fillStyle = wp; cv.fill();
+  cv.save(); rr(-284, -594, 568, 1188, 70); cv.clip();
+  glow(-120, -420, 420, 420, C.violet, 0.35); glow(200, 380, 380, 380, C.pink, 0.16);
+  txt('۳:۱۴', 0, -400, { size: 150, font: 'Rdx', weight: 500, color: '#fff', alpha: 0.94 });
+  txt('پنجشنبه، ۲۴ مهر', 0, -295, { size: 32, weight: 500, color: 'rgba(255,255,255,0.78)' });
+  const vis = MSG.map(([s, m, tn], i) => ({ s, m, tn, i, lines: wrap(m, 29, 420, 500) })).filter((x) => t >= x.tn - 0.02);
+  let y0 = -200;
+  for (let j = vis.length - 1; j >= 0; j--) {
+    const x = vis[j], h = 104 + x.lines.length * 40, a = E.out(P(t, x.tn, 0.22)), sc = lerp(0.9, 1, E.out(P(t, x.tn, 0.3)));
+    const newer = vis.slice(j + 1).reduce((acc, n) => acc + E.out(P(t, n.tn, 0.32)) * (104 + n.lines.length * 40 + 14), 0);
+    const y = y0 + newer - (1 - a) * 30;
+    cv.save(); cv.globalAlpha *= a; cv.translate(0, y + h / 2); cv.scale(sc, sc); cv.translate(0, -h / 2);
+    rr(-262, 0, 524, h, 34); cv.fillStyle = 'rgba(52,48,72,0.82)'; cv.fill(); cv.strokeStyle = 'rgba(255,255,255,0.06)'; cv.lineWidth = 2; cv.stroke();
+    const ig = cv.createLinearGradient(0, 18, 0, 58); ig.addColorStop(0, '#63D47B'); ig.addColorStop(1, '#2FA851'); rr(204, 18, 40, 40, 11); cv.fillStyle = ig; cv.fill();
+    cv.fillStyle = '#fff'; cv.beginPath(); cv.ellipse(224, 36, 12, 9.5, 0, 0, 7); cv.fill(); cv.beginPath(); cv.moveTo(216, 41); cv.lineTo(212, 49); cv.lineTo(222, 44); cv.fill();
+    txt('پیام‌ها', 192, 39, { size: 24, weight: 500, color: 'rgba(255,255,255,0.6)', align: 'right' });
+    txt('الان', -238, 39, { size: 24, weight: 500, color: 'rgba(255,255,255,0.5)', align: 'left' });
+    txt(x.s, 238, 86, { size: 31, weight: 700, color: '#fff', align: 'right' });
+    x.lines.forEach((l, i) => txt(l, 238, 128 + i * 40, { size: 29, weight: 500, color: 'rgba(255,255,255,0.9)', align: 'right' }));
+    cv.restore();
+  }
+  cv.restore();
+  if (on < 1) { rr(-284, -594, 568, 1188, 70); cv.fillStyle = `rgba(6,6,9,${1 - on})`; cv.fill(); }
+}
+function hand(x, y, ang, lit) {
+  cv.save(); cv.translate(x, y); cv.rotate(ang);
+  cv.lineCap = 'round'; cv.strokeStyle = '#141726'; cv.lineWidth = 168; cv.beginPath(); cv.moveTo(0, 150); cv.lineTo(40, 900); cv.stroke();
+  cv.fillStyle = '#1B1F31'; cv.beginPath(); cv.ellipse(2, 132, 86, 30, 0, 0, 7); cv.fill();
+  cv.shadowColor = `rgba(150,160,255,${0.45 * lit})`; cv.shadowBlur = 22; cv.fillStyle = '#33251F';
+  cv.beginPath(); cv.moveTo(-56, 128); cv.quadraticCurveTo(-82, 40, -76, -18); cv.lineTo(76, -26); cv.quadraticCurveTo(84, 40, 58, 128); cv.closePath(); cv.fill();
+  for (const [fx, len, w, rot] of [[-56, 92, 30, -0.06], [-20, 104, 31, -0.02], [16, 98, 30, 0.02], [50, 80, 26, 0.07]]) { cv.save(); cv.translate(fx, -14); cv.rotate(rot); cv.beginPath(); cv.roundRect(-w / 2, -len, w, len + 12, w / 2); cv.fill(); cv.restore(); }
+  cv.save(); cv.translate(-70, 52); cv.rotate(-0.75); cv.beginPath(); cv.roundRect(-16, -84, 32, 92, 16); cv.fill(); cv.restore();
+  cv.shadowColor = 'transparent'; cv.strokeStyle = 'rgba(0,0,0,0.25)'; cv.lineWidth = 2;
+  for (const fx of [-38, -2, 33]) { cv.beginPath(); cv.moveTo(fx, -20); cv.lineTo(fx, -70); cv.stroke(); }
+  cv.restore();
+}
+function sceneE(t) {
+  reset(cv);
+  const dg = cv.createLinearGradient(0, 0, 0, H); dg.addColorStop(0, '#16111C'); dg.addColorStop(1, '#09070C'); cv.fillStyle = dg; cv.fillRect(0, 0, W, H);
+  for (const l of GRAINW) { cv.fillStyle = `rgba(255,230,210,${l.a * 1.2})`; cv.save(); cv.translate(0, (l.y - 1000) * 2.1); cv.rotate(l.k + 0.35); cv.fillRect(-400, 0, W + 800, l.w * 2); cv.restore(); }
+  glow(540, -150, 1100, 700, C.accent, 0.28);
+  const on = E.out(P(t, T.n1 - 0.02, 0.1)) * (1 - P(t, T.flip + 0.12, 0.08));
+  const f = E.inOut(P(t, T.flip, T.down - T.flip)), sx = Math.cos(f * Math.PI), lift = Math.sin(f * Math.PI);
+  let bx = 0, br = 0; for (const [, , tn] of MSG) { const k = t - tn; if (k > 0 && k < 0.4) { const a = 1 - k / 0.4; bx += Math.sin(k * 210) * 5 * a; br += Math.sin(k * 250) * 0.008 * a; } }
+  const thud = t > T.down ? Math.exp(-(t - T.down) * 16) * 8 : 0;
+  const z = 1 + 0.06 * P(t, T.phone, T.persist - T.phone);
+  const PX = 540 + bx - 40 * lift, PY = 930 + thud;
+  if (on > 0) glow(PX, PY, 760, 900, '#8E9CFF', 0.26 * on);
+  cv.save(); cv.translate(540, 960); cv.scale(z, z); cv.translate(-540, -960);
+  cv.save(); cv.translate(PX + 30 + 50 * lift, PY + 40 + 60 * lift); cv.rotate(-0.07 + br); cv.scale(Math.max(0.08, Math.abs(sx)), 1);
+  cv.filter = `blur(${24 + 30 * lift}px)`; rr(-300, -610, 600, 1220, 86); cv.fillStyle = `rgba(0,0,0,${0.7 - 0.25 * lift})`; cv.fill(); cv.filter = 'none'; cv.restore();
+  cv.save(); cv.translate(PX, PY); cv.rotate(-0.07 + br + 0.12 * lift); const ps = 1 + 0.07 * lift; cv.scale(sx * ps, ps);
+  rr(-300, -610, 600, 1220, 86); cv.fillStyle = '#050507'; cv.fill(); cv.strokeStyle = 'rgba(255,255,255,0.14)'; cv.lineWidth = 3; cv.stroke();
+  if (sx > 0) { if (on > 0) phoneUI(t, on); else { rr(-284, -594, 568, 1188, 70); cv.fillStyle = '#07070B'; cv.fill(); } }
+  else {
+    rr(-300, -610, 600, 1220, 86); const bk = cv.createLinearGradient(-300, -610, 300, 610); bk.addColorStop(0, '#26242F'); bk.addColorStop(1, '#14131A'); cv.fillStyle = bk; cv.fill();
+    rr(-250, -560, 230, 250, 60); cv.fillStyle = '#1B1A22'; cv.fill(); cv.strokeStyle = 'rgba(255,255,255,0.08)'; cv.stroke();
+    for (const [cx, cy] of [[-182, -490], [-88, -490], [-182, -380]]) { cv.fillStyle = '#0B0B10'; cv.beginPath(); cv.arc(cx, cy, 36, 0, 7); cv.fill(); cv.strokeStyle = 'rgba(255,255,255,0.1)'; cv.beginPath(); cv.arc(cx, cy, 36, 0, 7); cv.stroke(); }
+  }
+  cv.restore();
+  // his hand: reaches in, takes the right edge, turns the phone over, leaves
+  const reach = E.out(P(t, T.grab, T.flip - T.grab)), leave = E.in(P(t, T.down + 0.05, 0.4));
+  if (reach > 0 && leave < 1) {
+    const gx = PX + 300 * sx * 1.02, gy = PY + 160;
+    const hx = lerp(1320, gx + 40, reach) + 600 * leave, hy = lerp(2250, gy, reach) + 700 * leave;
+    hand(hx, hy, -0.62 + 0.5 * f, Math.max(on, 0.3));
+  }
+  cv.restore();
+  if (t > T.flip + 0.2) { cv.fillStyle = `rgba(4,3,8,${0.35 * E.out(P(t, T.flip + 0.2, 0.5))})`; cv.fillRect(0, 0, W, H); }
+}
+// F1 · sessions 24…31: the losses shrink, still red, while the sky behind starts to turn
+const ACROP = [1000, 655, 1304, 871];
+const FSEQ = [[24, 0], [25, 0.17], [26, 0.32], [27, 0.47], [28, 0.62], [29, 0.79], [30, 0.97], [31, 1.19]];
+function sceneF1(t) {
+  const u = P(t, T.persist, T.dawn - T.persist);
+  room(t, NIGHT({ pose: 1, arm: 1, dawn: 0.5 * u, rain: 1 - u, phoneDown: true, scr: 'an24' }), { x: 640, y: 900, z: 1.5 }, { bgBlur: 3 });
+  soften(14, 0.48);
+  let i = 0; while (i + 1 < FSEQ.length && t - T.persist >= FSEQ[i + 1][1]) i++;
+  const [n, t0] = FSEQ[i], sess = DATA.sessions.find((x) => x[0] === n);
+  const pop = E.out(P(t - T.persist, t0, 0.12));
+  panel('an' + n, ACROP, 540, 980, 1000, { scale: lerp(0.985, 1, pop) });
+  pill(540, 420, 'جلسه‌ی ' + fa(n), { size: 34, dot: C.loss, color: C.ink });
+  txt(fa1(sess[2]), 540, 560, { size: 136, font: 'Rdx', weight: 800, color: mix('#F25466', '#F58A6E', u), dir: 'ltr', scale: lerp(1.04, 1, pop), glow: rgba(C.loss, 0.35), glowBlur: 50 });
+}
+// F2 · dawn: same desk, same chair, the rain has stopped; session 31 on the screen. G · the line and the logo
+function sceneF2(t) {
+  const u = P(t, T.dawn, T.end - T.dawn), dawn = lerp(0.55, 1, E.out(P(t, T.dawn, 1.6)));
+  const st = NIGHT({ pose: 1, arm: 1, dawn, rain: 0, phoneDown: true, scr: 'an31', screenOn: 1 });
+  const cam = dolly({ x: 540, y: 990, z: 1.06 }, { x: 610, y: 950, z: 1.3 }, E.inOut(P(t, T.dawn, DATA.dur - T.dawn)));
+  room(t, st, cam, { bgBlur: 2.5 });
+  const g = P(t, T.end - 0.1, 0.9);
+  if (g > 0) soften(16 * E.inOut(g), 0.58 * E.inOut(g));
+}
+
+// ---------- overlays ----------
+function hook(t) {
+  const a = 1 - E.in(P(t, 2.9, 0.45)); if (a <= 0) return;
+  const tg = cv.createLinearGradient(0, 160, 0, 640); tg.addColorStop(0, `rgba(5,4,10,${0.82 * a})`); tg.addColorStop(1, 'rgba(5,4,10,0)'); cv.fillStyle = tg; cv.fillRect(0, 0, W, 640);
+  txt('۳ ماه. ۲۳ جلسه بک‌تست.', 540, 352, { size: 58, font: 'Rdx', weight: 700, color: C.ink, alpha: a });
+  txt('هنوز ضرر.', 540, 458, { size: 84, font: 'Rdx', weight: 800, color: C.loss, alpha: a, glow: rgba(C.loss, 0.45), glowBlur: 40 });
+}
+function chip(t, s, a0, a1, col) { const a = Math.min(E.out(P(t, a0, 0.3)), 1 - E.in(P(t, a1 - 0.25, 0.25))); if (a > 0) pill(540, 330, s, { size: 30, dot: col, alpha: a, color: C.ink, fill: rgba('#0E0C16', 0.7) }); }
+function subtitles(t) {
+  DATA.subs.forEach((ws, k) => {
+    const a0 = ws[0][1] - 0.12, a1 = (k + 1 < DATA.subs.length ? DATA.subs[k + 1][0][1] - 0.12 : ws[ws.length - 1][2] + 0.45);
+    if (t < a0 || t > a1) return;
+    const out = 1 - E.in(P(t, a1 - 0.15, 0.15)), size = 44, gap = measure(' ', size, 700);
+    const rows = []; let cur = []; for (const w of ws) { const test = [...cur, w].map((x) => x[0]).join(' '); if (cur.length && measure(test, size, 700) > 820) { rows.push(cur); cur = [w]; } else cur.push(w); } rows.push(cur);
+    rows.forEach((row, ri) => {
+      const ww = row.map((w) => measure(w[0], size, 700)), tot = ww.reduce((x, y) => x + y, 0) + gap * (row.length - 1);
+      let right = 540 + tot / 2; const y = 1452 - (rows.length - 1 - ri) * 64;
+      row.forEach((w, i) => { const p = E.out(P(t, w[1] - 0.06, 0.2)); if (p > 0) txt(w[0], right, y + (1 - p) * 10, { size, weight: 700, color: '#fff', align: 'right', alpha: p * out, stroke: 'rgba(4,3,10,0.6)', strokeW: 9 }); right -= ww[i] + gap; });
+    });
+  });
+}
+function endCard(t) {
+  const a1 = E.out(P(t, T.end + 0.2, 0.5)), a2 = E.out(P(t, T.end + 0.85, 0.5)), a3 = E.out(P(t, T.end + 1.6, 0.7));
+  if (a1 > 0) txt('هر ضرری که اینجا می‌دی،', 540, 840 - 14 * (1 - a1), { size: 60, font: 'Rdx', weight: 700, color: C.ink, alpha: a1 });
+  if (a2 > 0) txt('ضرریه که توی حساب واقعی نمی‌دی.', 540, 940 - 14 * (1 - a2), { size: 60, font: 'Rdx', weight: 700, color: '#FFD0A0', alpha: a2, glow: rgba('#FF9F5A', 0.35), glowBlur: 40 });
+  if (a3 > 0 && IMG.logo) {
+    const h = 66, w = (IMG.logo.width / IMG.logo.height) * h; cv.save(); cv.globalAlpha = a3; cv.drawImage(IMG.logo, 540 - w / 2, 1150 - h / 2, w, h); cv.restore();
+    txt('بک‌تست با داده‌ی واقعی بازار', 540, 1232, { size: 30, weight: 500, color: C.muted, alpha: a3 });
+  }
+}
+function dips(t) { for (const c of [T.note, T.decide, T.phone, T.persist, T.dawn]) { const k = 1 - Math.abs(t - c) / 0.09; if (k > 0) { cv.fillStyle = `rgba(3,2,6,${0.85 * k})`; cv.fillRect(0, 0, W, H); } } }
+
+/** The cover (render(-1)): the wide night shot with the hook. */
+function cover() {
+  room(4.3, NIGHT({}), WIDE, { bgBlur: 2.5 }); reset(cv); finish(4.3);
+  const tg = cv.createLinearGradient(0, 160, 0, 700); tg.addColorStop(0, 'rgba(5,4,10,0.85)'); tg.addColorStop(1, 'rgba(5,4,10,0)'); cv.fillStyle = tg; cv.fillRect(0, 0, W, 700);
+  txt('۳ ماه. ۲۳ جلسه بک‌تست.', 540, 372, { size: 62, font: 'Rdx', weight: 700, color: C.ink });
+  txt('هنوز ضرر.', 540, 486, { size: 96, font: 'Rdx', weight: 800, color: C.loss, glow: rgba(C.loss, 0.45), glowBlur: 40 });
+}
+function render(t) {
+  reset(cv);
+  if (t < 0) return cover();
+  if (t < T.note) sceneA(t); else if (t < T.decide) sceneB(t); else if (t < T.replay) sceneC(t);
+  else if (t < T.phone) sceneD(t); else if (t < T.persist) sceneE(t); else if (t < T.dawn) sceneF1(t); else sceneF2(t);
+  reset(cv); finish(t);
+  if (t < 3.5) hook(t);
+  chip(t, '۲:۴۷ بامداد', 3.15, T.note, C.sky);
+  chip(t, '۵:۵۸ صبح', T.dawn + 0.35, T.end + 0.05, C.amber);
+  if (t < T.end + 0.1) subtitles(t);
+  if (t > T.end) endCard(t);
+  dips(t);
+}
+boot(render, ['an23', 'an24', 'an25', 'an26', 'an27', 'an28', 'an29', 'an30', 'an31', 'r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'journal'].map((k) => loadImg('s_' + k, SHOTS + k + '.jpg')));
+
+</script></body></html>
