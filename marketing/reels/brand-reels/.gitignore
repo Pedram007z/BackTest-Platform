@@ -26,3 +26,7 @@ e[0-9]/capture/state.json
 e[0-9]/voice/*.wav
 e[0-9]/voice/*.mp4
 e[0-9]/voice/*.png
+m[0-9]/*.wav
+m[0-9]/*.mp4
+m[0-9]/*.png
+m[0-9]/voice/*.wav
