@@ -1,0 +1,393 @@
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+@font-face { font-family: Rdx; src: url(../../../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-arabic-wght-normal.woff2) format('woff2'); font-weight: 160 700; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC; }
+@font-face { font-family: Rdx; src: url(../../../../node_modules/@fontsource-variable/readex-pro/files/readex-pro-latin-wght-normal.woff2) format('woff2'); font-weight: 160 700; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0D0B14; }
+canvas#c { position: absolute; inset: 0; }
+</style></head><body><canvas id="c" width="1080" height="1920"></canvas>
+<script>window.ASSET = "../../../../";</script>
+<script src="../kit.js"></script>
+<script src="../b-common.js"></script>
+<script>
+const DATA = {"w": [[0.9, 1.48], [1.48, 2.04], [2.04, 2.2], [2.2, 2.72], [2.72, 3.16], [3.16, 3.74], [3.74, 4.68], [4.68, 4.96], [4.96, 5.34], [5.34, 5.64], [5.64, 6.1], [6.1, 6.22], [6.22, 6.54], [6.68, 7.258], [7.258, 7.638], [7.638, 8.118], [8.118, 8.558], [8.558, 8.658], [8.658, 9.058], [9.078, 9.492], [9.492, 10.072], [10.072, 11.221], [11.221, 11.381], [11.381, 11.621], [11.621, 12.181], [12.181, 12.56], [12.56, 13.04], [13.04, 13.48], [13.48, 13.9], [13.9, 14.08], [14.08, 14.44], [14.44, 14.94], [15.82, 16.392], [16.392, 16.752], [16.752, 17.372], [17.372, 17.672], [17.672, 18.192], [18.192, 19.032], [19.642, 20.253], [20.253, 20.813], [20.813, 21.073], [21.073, 21.493], [21.493, 22.473], [22.473, 22.913], [23.073, 23.576], [23.576, 24.176], [24.176, 24.416], [24.416, 24.856], [25.016, 25.482], [25.482, 26.182], [26.182, 26.362], [26.362, 26.782], [26.782, 27.242], [27.242, 27.562], [27.602, 28.371], [28.371, 28.511], [28.511, 29.051], [29.071, 29.617], [29.617, 29.957], [29.957, 30.537], [31.067, 31.247], [31.247, 31.427], [31.427, 31.627], [31.627, 31.887], [31.887, 32.367], [32.367, 32.987], [32.987, 33.567], [33.567, 33.707], [33.707, 33.967], [33.967, 34.287], [34.327, 34.8], [34.8, 35.18], [35.54, 36.157], [36.157, 36.537], [36.717, 37.208], [37.208, 37.648], [37.918, 38.451], [38.451, 39.071], [39.071, 39.351], [39.351, 39.751], [39.751, 40.031], [40.091, 40.498], [40.498, 40.638], [40.638, 41.098], [41.098, 41.678], [41.678, 42.018], [42.018, 42.338], [42.338, 42.598], [43.428, 43.909], [43.909, 44.269], [44.389, 44.916], [44.916, 45.136], [45.136, 45.416], [45.616, 46.243], [46.243, 46.443], [46.443, 46.923]], "words": ["خلبانها", "قبل", "از", "اولین", "پرواز", "واقعی", "ساعتها", "توی", "شبیه", "ساز", "پرواز", "می", "کنن.", "جراها", "روی", "مودل", "تمرین", "می", "کنن.", "ولی", "تریدرها", "مستقیم", "با", "پول", "واقعی", "و", "اولین", "سقوط", "می", "شه", "حساب", "خودشون.", "بکتست", "لب", "شبیه", "ساز", "پرواز", "تریدرهاست.", "بازار", "واقعی", "از", "2015", "تا", "امروز.", "از", "فارکس", "تا", "کریپتو.", "هر", "توفانی", "رو", "دوباره", "پرواز", "کن.", "کندل", "به", "کندل.", "بدون", "دیدن", "آینده.", "و", "بعد", "از", "هر", "پرواز", "جعبه", "سیاهت", "رو", "باس", "کن.", "وین", "ریت.", "بدترین", "روزها.", "منت", "کارلو.", "اینجا", "هزار", "بار", "سقوط", "کن.", "تا", "اون", "بیرون", "حتی", "یه", "بارم", "نه.", "بکتست", "لب.", "لینک", "توی", "بیو.", "هفت", "روز", "رایگان."], "dur": 49.32, "lead": 0.9, "storm": {"bars": [[1722758400, 60374, 60666, 60082, 60565], [1722762000, 60566, 60740, 60504, 60708], [1722765600, 60708, 60829, 60529, 60812], [1722769200, 60812, 61000, 60779, 60896], [1722772800, 60896, 61098, 60800, 61062], [1722776400, 61062, 61089, 60822, 60822], [1722780000, 60822, 60876, 59317, 59587], [1722783600, 59587, 59600, 58960, 59086], [1722787200, 59086, 59315, 58621, 58664], [1722790800, 58664, 58750, 57123, 57864], [1722794400, 57864, 58931, 57749, 58771], [1722798000, 58771, 59497, 58531, 59258], [1722801600, 59258, 59583, 58850, 59158], [1722805200, 59158, 59164, 58357, 58460], [1722808800, 58460, 59133, 58392, 58716], [1722812400, 58716, 58762, 58002, 58161], [1722816000, 58161, 58306, 55701, 56174], [1722819600, 56174, 56294, 52300, 54433], [1722823200, 54433, 54720, 53600, 54698], [1722826800, 54698, 54714, 53797, 53891], [1722830400, 53891, 54577, 53394, 53528], [1722834000, 53526, 53856, 52300, 52718], [1722837600, 52718, 52994, 49000, 51588], [1722841200, 51588, 53088, 51356, 52674], [1722844800, 52674, 53218, 52288, 52752], [1722848400, 52752, 52936, 51750, 52668], [1722852000, 52668, 52668, 50672, 51386], [1722855600, 51384, 51900, 50633, 51340], [1722859200, 51340, 51542, 49543, 49804], [1722862800, 49804, 52534, 49600, 51951], [1722866400, 51951, 54516, 51951, 54062], [1722870000, 54062, 54980, 53500, 54321], [1722873600, 54321, 55600, 54034, 54039], [1722877200, 54039, 55068, 53767, 54708], [1722880800, 54708, 54717, 53000, 53097], [1722884400, 53097, 53601, 52555, 53470], [1722888000, 53470, 54404, 53462, 54394], [1722891600, 54394, 55200, 54272, 54372], [1722895200, 54372, 54971, 54206, 54696], [1722898800, 54696, 55082, 53876, 54019]], "low": 22}, "place": [], "lens": [], "lines": []};
+setTimeline(DATA);
+// m7 · «شبیه‌ساز پرواز تریدرها»: BacktestLab as the flight simulator traders never had. A night flight on a head-up
+// display, a surgeon's wireframe heart, the jump to live money, a nosedive into cracked glass, a reset that rewinds it
+// all into the logo, a radar of markets, a storm flown candle by candle on Bitcoin's real crash of 5 August 2024 with
+// the future fogged out, the black box opening into the analytics, a thousand crashes, and one calm flight into
+// daylight. Every beat is timed from the spoken words (DATA.w[i] = [start, end] of word i in voice/t1.words.json).
+const WT = DATA.w, ws = (i) => WT[i][0], we = (i) => WT[i][1], STB = DATA.storm.bars, SLOW = DATA.storm.low;
+const VIO = '#7C5CFF', LIL = '#B5A2FF', HUDC = '#CBBEFF', MINT = '#5CF2B0', ALR = '#FF4D5E', AMB = '#FF8A1F', INK = '#0D0B14', WHITE = '#ffffff';
+const CX = 540, HY = 980;           // the display's centre
+const fp = (v, d = 0) => fa(v, d).replace(/٬/g, '');
+const k01 = (t, a, d) => clamp((t - a) / d);
+const smooth = (t, a, d) => E.inOut(k01(t, a, d));
+// scene boundaries
+const SB = { a: 0, b: ws(13) - 0.15, c: ws(19) - 0.08, d: ws(25), e: we(31) + 0.25, f: ws(38) - 0.1, g: ws(48) - 0.12, h: ws(60) - 0.1, i: ws(76) - 0.1, j: ws(81) - 0.05, k: ws(88) - 0.25 };
+
+// ---------- type ----------
+/** A title that resolves out of blur, rises, and gets a light sweep; o: size, color, out, brk (HUD brackets), font, weight. */
+function title(s, x, y, t, t0, o = {}) {
+  const k = E.out(k01(t, t0 - 0.06, o.d ?? 0.42)); if (k <= 0) return; const out = o.out !== undefined ? 1 - E.in(k01(t, o.out, 0.22)) : 1; if (out <= 0) return;
+  const size = o.size ?? 96, font = o.font ?? 'Vaz', wt = o.weight ?? 900, a = k * out, yy = y + (1 - k) * 36;
+  cv.save(); cv.filter = k < 0.99 ? `blur(${((1 - k) * 18).toFixed(1)}px)` : 'none';
+  const w = txt(s, x, yy, { size, font, weight: wt, color: o.color ?? WHITE, alpha: a, scale: 1.08 - 0.08 * k, glow: o.glow ?? rgba(VIO, 0.55), glowBlur: o.glowBlur ?? 40, dir: o.dir, align: o.align });
+  cv.restore();
+  const sk = k01(t, t0 + 0.05, 0.9); if (sk > 0 && sk < 1 && o.sweep !== false) { cv.save(); cv.globalCompositeOperation = 'lighter'; const gx = -w / 2 - 240 + (w + 480) * sk;
+    const g = cv.createLinearGradient(gx - 120, 0, gx + 120, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,0.75)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    txt(s, x, yy, { size, font, weight: wt, color: g, alpha: a * 0.8, dir: o.dir, align: o.align }); cv.restore(); }
+  if (o.brk) brackets(x - w / 2 - 40, yy - size * 0.75, w + 80, size * 1.5, a, o.brkCol ?? LIL);
+  return w;
+}
+function brackets(x, y, w, h, a = 1, col = LIL, L = 26) { if (a <= 0) return; cv.save(); cv.globalAlpha *= a; cv.strokeStyle = col; cv.lineWidth = 3; cv.shadowColor = col; cv.shadowBlur = 12;
+  [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]].forEach(([px, py, sx, sy]) => { cv.beginPath(); cv.moveTo(px + sx * L, py); cv.lineTo(px, py); cv.lineTo(px, py + sy * L); cv.stroke(); }); cv.restore(); }
+function hudText(s, x, y, o = {}) { txt(s, x, y, { size: o.size ?? 26, weight: o.weight ?? 600, font: o.font ?? 'Rdx', color: o.color ?? HUDC, align: o.align ?? 'center', dir: o.dir ?? 'ltr', alpha: o.alpha, glow: rgba(o.color ?? HUDC, 0.6), glowBlur: 10 }); }
+
+// ---------- the sky ----------
+const STARS = (() => { const r = rng(4), o = []; for (let i = 0; i < 160; i++) o.push([r() * W, r() * H * 0.75, r() * 1.8 + 0.4, r() * 6.28]); return o; })();
+const CLOUDS = (() => { const r = rng(12), o = []; for (let i = 0; i < 34; i++) o.push([(r() - 0.5) * 3.2, r() * 0.9 - 0.15, r() * 11, 0.6 + r() * 0.9]); return o; })();
+function nightSky(t, o = {}) {
+  const g = cv.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#03030F'); g.addColorStop(0.42, o.mid ?? '#0E0A2E'); g.addColorStop(0.55, o.hor ?? '#2A1868'); g.addColorStop(0.7, '#0B0822'); g.addColorStop(1, '#020208');
+  cv.fillStyle = g; cv.fillRect(-200, -200, W + 400, H + 400);
+  STARS.forEach(([x, y, s, p]) => { cv.globalAlpha = (0.35 + 0.35 * Math.sin(t * 1.3 + p)) * (o.stars ?? 1); cv.fillStyle = '#fff'; cv.fillRect(x, y, s, s); }); cv.globalAlpha = 1;
+  glow(CX, H * 0.55, 900, 160, o.glowCol ?? VIO, o.glowA ?? 0.35);
+}
+/** Clouds rushing past the nose; speed in depth units a second. */
+function flyClouds(t, speed, o = {}) {
+  const F = 900, hy = o.hy ?? HY;
+  const list = CLOUDS.map(([x, y, z0, s]) => { const z = 0.6 + ((z0 - t * speed) % 11 + 11) % 11; return [x, y, z, s]; }).sort((a, b) => b[2] - a[2]);
+  list.forEach(([x, y, z, s]) => { const sx = CX + (x / z) * F, sy = hy + (y / z) * F * 0.6, r = (s / z) * 420, a = Math.min(1, (11 - z) / 3) * Math.min(1, (z - 0.6) / 1.2) * (o.alpha ?? 0.16);
+    if (a <= 0 || r < 2) return; const gg = cv.createRadialGradient(sx, sy, 0, sx, sy, r); gg.addColorStop(0, rgba(o.col ?? '#C8C0F0', a)); gg.addColorStop(1, rgba(o.col ?? '#C8C0F0', 0)); cv.fillStyle = gg; cv.fillRect(sx - r, sy - r, 2 * r, 2 * r); });
+}
+
+// ---------- the head-up display ----------
+/** o: roll (deg), pitch (deg), hdg, spd, alt, col, a, altFmt (value → text), altLabel, warn */
+function hud(t, o) {
+  const col = o.col ?? HUDC, a = o.a ?? 1; if (a <= 0) return; cv.save(); cv.globalAlpha *= a; cv.strokeStyle = col; cv.fillStyle = col; cv.lineWidth = 3; cv.shadowColor = col; cv.shadowBlur = 14;
+  const PPD = 14;     // pixels per degree of pitch
+  // horizon and pitch ladder (rotate with the roll)
+  cv.save(); cv.beginPath(); cv.rect(130, HY - 330, 820, 660); cv.clip(); cv.translate(CX, HY); cv.rotate((-(o.roll ?? 0) * Math.PI) / 180); cv.translate(0, (o.pitch ?? 0) * PPD);
+  cv.lineWidth = 4; cv.beginPath(); cv.moveTo(-700, 0); cv.lineTo(-90, 0); cv.moveTo(90, 0); cv.lineTo(700, 0); cv.stroke(); cv.lineWidth = 3;
+  for (let p = -60; p <= 60; p += 10) { if (!p) continue; const y = -p * PPD; if (p < 0) cv.setLineDash([16, 12]); cv.beginPath(); cv.moveTo(-220, y + (p > 0 ? 14 : -14)); cv.lineTo(-220, y); cv.lineTo(-90, y); cv.moveTo(90, y); cv.lineTo(220, y); cv.lineTo(220, y + (p > 0 ? 14 : -14)); cv.stroke(); cv.setLineDash([]);
+    hudText(fy(Math.abs(p)), -258, y, { size: 24, color: col }); hudText(fy(Math.abs(p)), 258, y, { size: 24, color: col }); }
+  cv.restore();
+  // flight path marker
+  cv.beginPath(); cv.arc(CX, HY, 20, 0, 7); cv.stroke(); cv.beginPath(); cv.moveTo(CX - 60, HY); cv.lineTo(CX - 20, HY); cv.moveTo(CX + 20, HY); cv.lineTo(CX + 60, HY); cv.moveTo(CX, HY - 20); cv.lineTo(CX, HY - 42); cv.stroke();
+  // heading tape
+  const hdg = o.hdg ?? 0, ty = HY - 380; cv.save(); cv.beginPath(); cv.rect(CX - 300, ty - 50, 600, 90); cv.clip();
+  for (let d = Math.floor((hdg - 25) / 5) * 5; d <= hdg + 25; d += 5) { const x = CX + (d - hdg) * 12; cv.beginPath(); cv.moveTo(x, ty); cv.lineTo(x, ty - (d % 10 ? 10 : 20)); cv.stroke(); if (d % 10 === 0) hudText(fy(((d % 360) + 360) % 360).padStart(3, '۰'), x, ty - 38, { size: 22, color: col }); }
+  cv.restore(); cv.beginPath(); cv.moveTo(CX, ty + 4); cv.lineTo(CX - 10, ty + 18); cv.lineTo(CX + 10, ty + 18); cv.closePath(); cv.fill();
+  // speed tape (left) and altitude tape (right)
+  const tape = (x, val, step, lab, right, fmt) => { cv.save(); cv.beginPath(); cv.rect(x - 70, HY - 260, 140, 520); cv.clip();
+    for (let v = Math.floor((val - 5 * step) / step) * step; v <= val + 5 * step; v += step) { const y = HY - (v - val) * (52 / step); cv.beginPath(); cv.moveTo(right ? x - 70 : x + 70, y); cv.lineTo(right ? x - 50 : x + 50, y); cv.stroke(); if (v % (step * 2) === 0) hudText(fmt ? fmt(v) : fy(v), x + (right ? 10 : -10), y, { size: 22, color: col }); }
+    cv.restore(); cv.lineWidth = 3; cv.fillStyle = 'rgba(5,4,16,0.85)'; rr(x - 74, HY - 26, 148, 52, 6); cv.fill(); cv.stroke(); hudText(fmt ? fmt(Math.round(val)) : fy(Math.round(val)), x, HY + 1, { size: 26, color: col, weight: 700 });
+    hudText(lab, x, HY - 300, { size: 22, color: col, font: 'Vaz', dir: 'rtl' }); };
+  tape(160, o.spd ?? 250, 10, 'سرعت', false); tape(920, o.alt ?? 12000, o.altStep ?? 100, o.altLabel ?? 'ارتفاع', true, o.altFmt);
+  brackets(110, HY - 450, 860, 900, 0.8, col, 40);
+  cv.restore();
+}
+
+// ---------- 1 · «خلبان‌ها قبل از اولین پرواز واقعی، ساعت‌ها توی شبیه‌ساز پرواز می‌کنن.» ----------
+function sA(t) {
+  const boot = smooth(t, 0.1, 0.7), roll = 6 * Math.sin(t * 0.55) - 3, pitch = 2 + 1.5 * Math.sin(t * 0.4);
+  cv.save(); cv.translate(CX, HY); cv.rotate((roll * Math.PI) / 180 * 0.35); cv.translate(-CX, -HY);
+  nightSky(t); flyClouds(t, 1.6); cv.restore();
+  // boot-up: lines draw in from the centre
+  cv.save(); cv.beginPath(); const rw = 30 + 600 * boot; cv.rect(CX - rw, HY - rw * 1.1, rw * 2, rw * 2.2); cv.clip();
+  hud(t, { roll, pitch, hdg: 284 + t * 3, spd: 248 + 4 * Math.sin(t), alt: 11800 + t * 60, a: boot }); cv.restore();
+  // «ساعت‌ها»: a clock ring around the marker, hours ticking round
+  const ck = smooth(t, ws(6) - 0.1, 0.5) * (1 - smooth(t, SB.b - 0.4, 0.3)); if (ck > 0) { cv.save(); cv.globalAlpha = ck; cv.strokeStyle = MINT; cv.shadowColor = MINT; cv.shadowBlur = 16; cv.lineWidth = 3;
+    for (let i = 0; i < 60; i++) { const an = (i / 60) * 6.283 - 1.571, r0 = i % 5 ? 120 : 110; cv.globalAlpha = ck * (i % 5 ? 0.45 : 1); cv.beginPath(); cv.moveTo(CX + Math.cos(an) * r0, HY + Math.sin(an) * r0); cv.lineTo(CX + Math.cos(an) * 128, HY + Math.sin(an) * 128); cv.stroke(); }
+    cv.globalAlpha = ck; const sp = (t - ws(6)) * 9; [[sp, 92, 3], [sp / 12, 70, 6]].forEach(([an, L, lw]) => { cv.lineWidth = lw; cv.beginPath(); cv.moveTo(CX, HY); cv.lineTo(CX + Math.cos(an - 1.571) * L, HY + Math.sin(an - 1.571) * L); cv.stroke(); }); cv.restore(); }
+  // «شبیه‌ساز»: the mode badge
+  const sk = E.back(k01(t, ws(8) - 0.05, 0.4)); if (sk > 0) { const blink = Math.floor(t * 3) % 2 ? 1 : 0.35; cv.save(); cv.translate(CX, HY + 270); cv.scale(sk, sk); rr(-170, -34, 340, 68, 34); cv.fillStyle = rgba(MINT, 0.14); cv.fill(); cv.strokeStyle = MINT; cv.lineWidth = 3; cv.stroke();
+    cv.fillStyle = MINT; cv.globalAlpha = blink; cv.beginPath(); cv.arc(130, 0, 9, 0, 7); cv.fill(); cv.globalAlpha = 1; txt('حالت شبیه‌ساز', -10, 2, { size: 34, weight: 800, color: MINT }); cv.restore(); }
+  if (COVER) { title('شبیه‌ساز پرواز', CX, 330, 99, 0, { size: 130, brk: true, sweep: false }); title('برای تریدرها', CX, 480, 99, 0, { size: 90, color: MINT, glow: rgba(MINT, 0.6), sweep: false }); return; }
+  title('خلبان‌ها', CX, 360, t, ws(0), { size: 150, brk: true, out: SB.b - 0.3 });
+  title('ساعت‌ها توی شبیه‌ساز پرواز می‌کنن', CX, 500, t, ws(6), { size: 56, weight: 700, glow: rgba(MINT, 0.4), out: SB.b - 0.3, sweep: false });
+}
+// ---------- 2 · «جراح‌ها روی مدل تمرین می‌کنن.» ----------
+const HEART = (() => { const P = (u, v) => [Math.sin(u) * (15 * Math.sin(v) - 4 * Math.sin(3 * v)), 8 * Math.cos(u), Math.sin(u) * (15 * Math.cos(v) - 5 * Math.cos(2 * v) - 2 * Math.cos(3 * v) - Math.cos(4 * v))];
+  const lines = []; for (let j = 0; j < 26; j++) { const v = (j / 26) * 6.283, l = []; for (let i = 0; i <= 36; i++) l.push(P((i / 36) * Math.PI, v)); lines.push(l); }
+  for (let i = 1; i < 14; i++) { const u = (i / 14) * Math.PI, l = []; for (let j = 0; j <= 60; j++) l.push(P(u, (j / 60) * 6.283)); lines.push(l); } return lines; })();
+function proj(p, ry, rx, s, cx, cy, F = 900) { let [x, y, z] = p; const c = Math.cos(ry), sn = Math.sin(ry); [x, y] = [x * c - y * sn, x * sn + y * c]; const c2 = Math.cos(rx), s2 = Math.sin(rx); [y, z] = [y * c2 - z * s2, y * s2 + z * c2];
+  const d = F / (F + y * s); return [cx + x * s * d, cy - z * s * d, y]; }
+function sB(t) {
+  const l = t - SB.b; cv.fillStyle = '#05040F'; cv.fillRect(0, 0, W, H); glow(CX, HY, 700, 700, VIO, 0.28);
+  // grid floor
+  cv.save(); cv.strokeStyle = rgba(LIL, 0.12); cv.lineWidth = 1.5; for (let i = -10; i <= 10; i++) { cv.beginPath(); cv.moveTo(CX + i * 40, 1300); cv.lineTo(CX + i * 160, 1700); cv.stroke(); } for (let j = 0; j < 8; j++) { const y = 1300 + j * j * 7; cv.beginPath(); cv.moveTo(0, y); cv.lineTo(W, y); cv.stroke(); } cv.restore();
+  const appear = E.out(k01(t, SB.b, 0.6)), ry = 0.75 * Math.sin(l * 1.1) + 0.2 * (1 - appear) * 6, rx = 0.12 + 0.06 * Math.sin(l * 0.8), s = 15 * (0.85 + 0.15 * appear), cy = HY - 20;
+  const scanY = cy + Math.sin(l * 1.6) * 210;
+  cv.save(); cv.globalCompositeOperation = 'lighter'; cv.lineWidth = 2;
+  HEART.forEach((line) => { const pts = line.map((p) => proj(p, ry, rx, s, CX, cy)); for (let i = 1; i < pts.length; i++) { const [x0, y0, d0] = pts[i - 1], [x1, y1, d1] = pts[i]; const depth = clamp(0.5 - (d0 + d1) / 60);
+    const near = Math.max(0, 1 - Math.abs((y0 + y1) / 2 - scanY) / 30); cv.strokeStyle = near > 0 ? rgba(MINT, (0.3 + 0.7 * near) * appear) : rgba(LIL, (0.12 + 0.55 * depth) * appear); cv.beginPath(); cv.moveTo(x0, y0); cv.lineTo(x1, y1); cv.stroke(); } });
+  cv.restore();
+  // the scan plane
+  cv.save(); cv.globalAlpha = appear; const sg = cv.createLinearGradient(0, scanY - 40, 0, scanY + 40); sg.addColorStop(0, rgba(MINT, 0)); sg.addColorStop(0.5, rgba(MINT, 0.35)); sg.addColorStop(1, rgba(MINT, 0)); cv.fillStyle = sg; cv.fillRect(160, scanY - 40, 760, 80);
+  cv.strokeStyle = MINT; cv.lineWidth = 2; cv.beginPath(); cv.moveTo(160, scanY); cv.lineTo(920, scanY); cv.stroke(); cv.restore();
+  // labels with leader lines
+  [[ws(14), 'مدل تمرینی', 250, 700, 420, 820], [ws(16), 'تمرین · ۱۰۰٪ بدون خطر', 830, 1250, 650, 1120]].forEach(([t0, s2, lx, ly, px, py]) => { const k = E.out(k01(t, t0, 0.35)); if (k <= 0) return; cv.save(); cv.globalAlpha = k; cv.strokeStyle = LIL; cv.lineWidth = 2; cv.beginPath(); cv.moveTo(px, py); cv.lineTo(lx + (lx < CX ? 120 : -120), ly); cv.lineTo(lx, ly); cv.stroke(); cv.fillStyle = LIL; cv.beginPath(); cv.arc(px, py, 6, 0, 7); cv.fill(); cv.restore();
+    txt(s2, lx, ly - 30, { size: 30, weight: 700, color: HUDC, alpha: k, align: lx < CX ? 'center' : 'center' }); });
+  brackets(140, HY - 440, 800, 880, appear * 0.7, LIL, 40);
+  title('جراح‌ها', CX, 360, t, ws(13), { size: 150, brk: true, out: SB.c - 0.25, glow: rgba(MINT, 0.5) });
+  title('روی مدل تمرین می‌کنن', CX, 500, t, ws(14), { size: 60, weight: 700, out: SB.c - 0.25, sweep: false });
+}
+// ---------- 3–4 · «ولی تریدرها؟ مستقیم با پول واقعی… و اولین سقوط، می‌شه حساب خودشون.» ----------
+const LIVE_PATH = (() => { const r = rng(31), o = []; let v = 0; for (let i = 0; i < 90; i++) { v += (r() - 0.42) * 0.9; o.push(v); } return o; })();
+const BAL0 = 10000;
+const diveK = (t) => smooth(t, ws(26), we(29) - ws(26) + 0.1);           // the nosedive, «اولین سقوط می‌شه»
+const IMPACT = () => ws(30);
+function sCD(t) {
+  const live = smooth(t, SB.c, 0.25), dk = diveK(t), imp = t >= IMPACT(), ik = k01(t, IMPACT(), 0.18);
+  const roll = imp ? 32 : lerp(-2 + 3 * Math.sin(t * 0.7), 34, dk), pitch = imp ? -38 : lerp(1, -38, E.in(dk));
+  // a red sky
+  cv.save(); cv.translate(CX, HY); cv.rotate((roll * Math.PI) / 180 * 0.4); cv.translate(-CX, -HY + pitch * 6);
+  nightSky(t, { mid: '#24060F', hor: '#5A0F22', glowCol: ALR, glowA: 0.3 + 0.2 * dk, stars: 0.4 }); flyClouds(t * (1 + 2 * dk), 1.8 + 3 * dk, { col: '#F0B8C0', alpha: 0.12 }); cv.restore();
+  const bal = imp ? 0 : Math.round(BAL0 * (1 - E.in(dk)) + (t < ws(26) ? 600 * Math.sin(t * 2.3) : 0));
+  hud(t, { roll, pitch, hdg: 284 + t * 3 + dk * 40, spd: 250 + 180 * dk, alt: bal, altStep: 500, altLabel: 'موجودی', altFmt: (v) => '$' + fa(Math.max(0, v)).replace(/٬/g, ','), col: ALR, a: 1 });
+  // LIVE badge
+  { const blink = Math.floor(t * 3) % 2 ? 1 : 0.4, k = E.back(k01(t, ws(21) - 0.05, 0.35)) * (1 - clamp(dk * 4)); if (k > 0) { cv.save(); cv.translate(CX, HY + 270); cv.scale(k, k); rr(-130, -34, 260, 68, 34); cv.fillStyle = rgba(ALR, 0.2); cv.fill(); cv.strokeStyle = ALR; cv.lineWidth = 3; cv.stroke();
+    cv.fillStyle = ALR; cv.globalAlpha = blink; cv.beginPath(); cv.arc(90, 0, 10, 0, 7); cv.fill(); cv.globalAlpha = 1; txt('حساب زنده', -12, 2, { size: 34, weight: 800, color: '#fff' }); cv.restore(); } }
+  // money pouring in on «پول واقعی»
+  const mk = k01(t, ws(23) - 0.1, 1.4); if (mk > 0 && mk < 1 && !imp) { const r = rng(7); cv.save(); for (let i = 0; i < 40; i++) { const a0 = r() * 6.283, sp = 0.6 + r() * 0.8, u = (mk * sp * 1.6 + r()) % 1, d = 700 * (1 - u); cv.globalAlpha = Math.sin(u * Math.PI) * 0.8;
+    txt('$', CX + Math.cos(a0) * d, HY + Math.sin(a0) * d, { size: 30 + r() * 30, weight: 800, font: 'Rdx', color: MINT, dir: 'ltr' }); } cv.restore(); }
+  // warning
+  if (dk > 0.05 && !imp) { const on = Math.floor(t * 6) % 2; if (on) { cv.save(); cv.translate(CX, HY + 160); cv.fillStyle = ALR; cv.shadowColor = ALR; cv.shadowBlur = 40; cv.beginPath(); cv.moveTo(0, -70); cv.lineTo(80, 60); cv.lineTo(-80, 60); cv.closePath(); cv.fill(); cv.shadowBlur = 0; txt('!', 0, 18, { size: 90, weight: 900, color: '#fff', font: 'Rdx' }); cv.restore();
+    txt('هشدار · افت حساب', CX, HY + 290, { size: 40, weight: 900, color: ALR }); } glow(CX, HY, 900, 1100, ALR, 0.18 * dk * (on ? 1 : 0.5)); }
+  if (!imp) { title('ولی تریدرها؟', CX, 360, t, ws(19), { size: 140, brk: true, brkCol: ALR, glow: rgba(ALR, 0.6), out: ws(25) - 0.1 });
+    title('مستقیم با پول واقعی…', CX, 510, t, ws(21), { size: 64, weight: 800, color: '#FFD3D8', out: ws(25) - 0.1, sweep: false });
+    title('و اولین سقوط…', CX, 400, t, ws(26), { size: 130, glow: rgba(ALR, 0.7) }); }
+  // impact: the glass cracks
+  if (imp) { flashW(t, IMPACT(), 0.9, 0.25); crack(ik, 1); cv.save(); cv.fillStyle = `rgba(0,0,0,${0.35 * k01(t, IMPACT() + 0.2, 0.5)})`; cv.fillRect(0, 0, W, H); cv.restore();
+    title('…می‌شه حساب خودشون.', CX, 400, t, IMPACT() + 0.08, { size: 96, color: '#FFD3D8', glow: rgba(ALR, 0.8), sweep: false });
+    title('$۰', CX, HY + 380, t, IMPACT() + 0.25, { size: 120, font: 'Rdx', color: ALR, glow: rgba(ALR, 0.9), sweep: false, dir: 'ltr' }); }
+}
+function flashW(t, t0, a = 0.8, d = 0.25) { const k = 1 - k01(t, t0, d); if (t < t0 || k <= 0) return; cv.save(); cv.globalAlpha = a * k; cv.fillStyle = '#fff'; cv.fillRect(0, 0, W, H); cv.restore(); }
+// the cracked glass: rays with jitter and branches, rings between the rays
+const CRACK = (() => { const r = rng(77), ox = 640, oy = HY - 60, rays = []; const n = 13;
+  for (let i = 0; i < n; i++) { const a0 = (i / n) * 6.283 + (r() - 0.5) * 0.35, pts = [[ox, oy]]; let a = a0, x = ox, y = oy; const L = 500 + r() * 900; let d = 0;
+    while (d < L) { const s = 24 + r() * 46; a += (r() - 0.5) * 0.35; x += Math.cos(a) * s; y += Math.sin(a) * s; d += s; pts.push([x, y, d / L]); }
+    const br = []; for (let b = 0; b < 3; b++) { const k = 2 + Math.floor(r() * (pts.length - 3)); const [bx, by] = pts[k]; let ba = a0 + (r() < 0.5 ? 1 : -1) * (0.5 + r() * 0.6), px = bx, py = by; const bp = [[px, py]]; for (let j = 0; j < 4 + r() * 5; j++) { const s = 20 + r() * 35; ba += (r() - 0.5) * 0.4; px += Math.cos(ba) * s; py += Math.sin(ba) * s; bp.push([px, py]); } br.push([pts[k][2] ?? 0, bp]); }
+    rays.push({ pts, br }); }
+  const rings = [70, 150, 260].map((R) => rays.map((ray) => { let best = ray.pts[0]; for (const p of ray.pts) if (Math.hypot(p[0] - ox, p[1] - oy) > R) { best = p; break; } return best; }));
+  return { ox, oy, rays, rings }; })();
+function crack(k, a = 1) {
+  if (k <= 0) return; cv.save(); cv.globalAlpha = a; cv.lineJoin = 'round';
+  const draw = (pts, lw, col) => { cv.strokeStyle = col; cv.lineWidth = lw; cv.beginPath(); pts.forEach(([x, y], i) => (i ? cv.lineTo(x, y) : cv.moveTo(x, y))); cv.stroke(); };
+  CRACK.rays.forEach(({ pts, br }) => { const m = Math.max(2, Math.floor(pts.length * k)); const seg = pts.slice(0, m); draw(seg.map(([x, y]) => [x + 2, y + 2]), 4, 'rgba(0,0,0,0.5)'); draw(seg, 2.4, 'rgba(255,255,255,0.9)');
+    br.forEach(([at, bp]) => { if (k > at + 0.1) draw(bp, 1.4, 'rgba(255,255,255,0.65)'); }); });
+  if (k > 0.5) CRACK.rings.forEach((ring, j) => { cv.strokeStyle = `rgba(255,255,255,${0.55 - j * 0.12})`; cv.lineWidth = 1.6; cv.beginPath(); ring.forEach(([x, y], i) => (i ? cv.lineTo(x, y) : cv.moveTo(x, y))); cv.closePath(); cv.stroke(); });
+  const g = cv.createRadialGradient(CRACK.ox, CRACK.oy, 0, CRACK.ox, CRACK.oy, 90); g.addColorStop(0, 'rgba(255,255,255,0.8)'); g.addColorStop(1, 'rgba(255,255,255,0)'); cv.fillStyle = g; cv.fillRect(CRACK.ox - 90, CRACK.oy - 90, 180, 180);
+  cv.restore();
+}
+// ---------- 5 · reset → rewind → «بک‌تست‌لب، شبیه‌ساز پرواز تریدرهاست.» ----------
+const PRESS = () => SB.e + 0.2, REW = () => [PRESS() + 0.08, ws(32) + 0.12];
+function sE(t) {
+  const [r0, r1] = REW(), logoT = r1;
+  if (t < logoT) {
+    // the frozen crash, then rewinding
+    const rw = k01(t, r0, r1 - r0), back = E.inOut(rw);
+    cv.save(); nightSky(t, { mid: lerp(0, 1, back) > 0.5 ? '#0E0A2E' : '#24060F', hor: back > 0.5 ? '#2A1868' : '#5A0F22', glowCol: back > 0.5 ? VIO : ALR, stars: 0.5 }); cv.restore();
+    hud(t, { roll: lerp(32, 0, back), pitch: lerp(-38, 2, back), hdg: 300 - back * 20, spd: lerp(430, 250, back), alt: Math.round(BAL0 * back), altStep: 500, altLabel: 'موجودی', altFmt: (v) => '$' + fa(Math.max(0, v)).replace(/٬/g, ','), col: back > 0.5 ? HUDC : ALR, a: 0.85 });
+    crack(1 - back, 1 - back * 0.3);
+    if (rw > 0 && rw < 1) { const r = rng(Math.floor(t * 40)); cv.save(); for (let i = 0; i < 9; i++) { cv.globalAlpha = 0.08 + r() * 0.12; cv.fillStyle = '#fff'; cv.fillRect(0, r() * H, W, 2 + r() * 10); } cv.restore();
+      cv.save(); cv.fillStyle = '#fff'; cv.globalAlpha = 0.9; [0, 1].forEach((j) => { const x = CX + 40 - j * 70; cv.beginPath(); cv.moveTo(x, HY - 300); cv.lineTo(x - 64, HY - 260); cv.lineTo(x, HY - 220); cv.closePath(); cv.fill(); }); cv.restore(); }
+    // the reset button
+    const bk = E.back(k01(t, SB.e + 0.02, 0.3)) * (1 - k01(t, r0 + 0.1, 0.2)); if (bk > 0) { const press = Math.sin(Math.PI * k01(t, PRESS() - 0.08, 0.2)); cv.save(); cv.translate(CX, HY); cv.scale(bk * (1 - 0.12 * press), bk * (1 - 0.12 * press));
+      cv.fillStyle = 'rgba(5,4,16,0.75)'; cv.beginPath(); cv.arc(0, 0, 140, 0, 7); cv.fill(); cv.strokeStyle = WHITE; cv.lineWidth = 8; cv.shadowColor = LIL; cv.shadowBlur = 40; cv.beginPath(); cv.arc(0, 0, 140, 0, 7); cv.stroke();
+      cv.lineWidth = 16; cv.lineCap = 'round'; cv.beginPath(); cv.arc(0, 0, 70, -0.5, 4.2); cv.stroke(); const ex = Math.cos(-0.5) * 70, ey = Math.sin(-0.5) * 70; cv.fillStyle = WHITE; cv.beginPath(); cv.moveTo(ex + 34, ey - 6); cv.lineTo(ex - 8, ey - 40); cv.lineTo(ex - 14, ey + 18); cv.closePath(); cv.fill(); cv.restore();
+      txt('شروع دوباره', CX, HY + 200, { size: 40, weight: 800, alpha: bk }); }
+    return;
+  }
+  // the logo forms out of the shards
+  const k = k01(t, logoT - 0.05, 0.6); cv.fillStyle = '#05040F'; cv.fillRect(0, 0, W, H); glow(CX, HY - 60, 800, 600, VIO, 0.45 * E.out(k)); nightSky(t, { stars: 0.4, glowA: 0.2 });
+  const r = rng(91); cv.save(); cv.globalCompositeOperation = 'lighter'; for (let i = 0; i < 70; i++) { const a0 = r() * 6.283, d0 = 500 + r() * 600, u = E.inOut(clamp(k * 1.4 - r() * 0.4)); const d = d0 * (1 - u), x = CX + Math.cos(a0) * d, y = HY - 60 + Math.sin(a0) * d * 0.7;
+    cv.globalAlpha = (1 - u) * 0.9; cv.fillStyle = r() < 0.5 ? LIL : '#fff'; cv.save(); cv.translate(x, y); cv.rotate(a0 + u * 6); cv.beginPath(); cv.moveTo(0, -10); cv.lineTo(16, 8); cv.lineTo(-12, 10); cv.closePath(); cv.fill(); cv.restore(); } cv.restore();
+  const lk = E.out(k01(t, logoT + 0.15, 0.45)); if (lk > 0 && IMG.logo) { const w = 820 * (1.12 - 0.12 * lk), h = (w * IMG.logo.height) / IMG.logo.width; cv.save(); cv.globalAlpha = lk; cv.filter = lk < 0.99 ? `blur(${((1 - lk) * 14).toFixed(1)}px)` : 'none'; cv.drawImage(IMG.logo, CX - w / 2, HY - 100 - h / 2, w, h); cv.restore();
+    // light sweep across the logo
+    const sk = k01(t, logoT + 0.35, 0.8); if (sk > 0 && sk < 1) { cv.save(); cv.globalCompositeOperation = 'lighter'; cv.beginPath(); cv.rect(CX - w / 2, HY - 100 - h / 2, w, h); cv.clip(); const gx = CX - w / 2 - 200 + (w + 400) * sk; const g = cv.createLinearGradient(gx - 90, 0, gx + 90, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); cv.fillStyle = g; cv.fillRect(CX - w / 2, HY - 100 - h / 2, w, h); cv.restore(); } }
+  flashW(t, logoT + 0.12, 0.5, 0.35);
+  title('شبیه‌ساز پرواز تریدرها', CX, HY + 90, t, ws(34), { size: 76, weight: 800, color: HUDC, brk: true });
+}
+// ---------- 6 · «بازار واقعی از ۲۰۱۵ تا امروز؛ از فارکس تا کریپتو.» ----------
+const BLIPS = [['یورو / دلار', 0.45, 0.55, 'fx'], ['پوند / دلار', 1.25, 0.82, 'fx'], ['بیت‌کوین', 2.5, 0.7, 'crypto'], ['نزدک ۱۰۰', 3.5, 0.5, 'idx'], ['طلا', 4.35, 0.78, 'metal'], ['نقره', 5.3, 0.62, 'metal']];
+const DOTS = (() => { const r = rng(52), o = []; for (let i = 0; i < 66; i++) o.push([r() * 6.283, 0.15 + r() * 0.82]); return o; })();
+function sF(t) {
+  const l = t - SB.f, RC = HY + 40, R = 360, ap = E.out(k01(t, SB.f, 0.5));
+  nightSky(t, { stars: 0.6, glowA: 0.18 }); cv.fillStyle = 'rgba(2,2,8,0.45)'; cv.fillRect(0, 0, W, H);
+  const sweep = l * 2.6 - 1.571;
+  cv.save(); cv.globalAlpha = ap; cv.translate(CX, RC); cv.scale(0.6 + 0.4 * ap, 0.6 + 0.4 * ap);
+  cv.fillStyle = 'rgba(8,12,20,0.75)'; cv.beginPath(); cv.arc(0, 0, R, 0, 7); cv.fill();
+  cv.strokeStyle = rgba(MINT, 0.35); cv.lineWidth = 2; [1 / 3, 2 / 3, 1].forEach((f) => { cv.beginPath(); cv.arc(0, 0, R * f, 0, 7); cv.stroke(); }); cv.beginPath(); cv.moveTo(-R, 0); cv.lineTo(R, 0); cv.moveTo(0, -R); cv.lineTo(0, R); cv.stroke();
+  for (let i = 0; i < 72; i++) { const an = (i / 72) * 6.283; cv.beginPath(); cv.moveTo(Math.cos(an) * R, Math.sin(an) * R); cv.lineTo(Math.cos(an) * (R - (i % 6 ? 8 : 18)), Math.sin(an) * (R - (i % 6 ? 8 : 18))); cv.stroke(); }
+  const cg = cv.createConicGradient(sweep - 0.9, 0, 0); cg.addColorStop(0, rgba(MINT, 0)); cg.addColorStop(0.14, rgba(MINT, 0.45)); cg.addColorStop(0.145, rgba(MINT, 0)); cv.fillStyle = cg; cv.beginPath(); cv.arc(0, 0, R, 0, 7); cv.fill();
+  cv.strokeStyle = MINT; cv.lineWidth = 3; cv.shadowColor = MINT; cv.shadowBlur = 20; cv.beginPath(); cv.moveTo(0, 0); cv.lineTo(Math.cos(sweep) * R, Math.sin(sweep) * R); cv.stroke(); cv.shadowBlur = 0;
+  const since = (an) => { const d = ((sweep - an) % 6.283 + 6.283) % 6.283; return d / 2.6; };      // seconds since the beam passed
+  DOTS.forEach(([an, rr_]) => { const s = since(an); if (l < 0.3) return; cv.globalAlpha = ap * Math.max(0.18, 1 - s * 0.6); cv.fillStyle = MINT; cv.beginPath(); cv.arc(Math.cos(an) * R * rr_, Math.sin(an) * R * rr_, 4, 0, 7); cv.fill(); });
+  cv.globalAlpha = ap;
+  BLIPS.forEach(([name, an, rr_, cat]) => { const s = since(an), x = Math.cos(an) * R * rr_, y = Math.sin(an) * R * rr_; const hot = (cat === 'fx' && t >= ws(45) - 0.05 && t < ws(46)) || (cat === 'crypto' && t >= ws(47) - 0.05);
+    const a = Math.max(0.3, 1 - s * 0.35); cv.globalAlpha = ap * a; const col = hot ? '#fff' : MINT; cv.fillStyle = col; cv.shadowColor = col; cv.shadowBlur = 20; cv.beginPath(); cv.arc(x, y, hot ? 13 : 9, 0, 7); cv.fill(); cv.shadowBlur = 0;
+    if (s < 0.25) { cv.strokeStyle = rgba(MINT, 1 - s * 4); cv.lineWidth = 2; cv.beginPath(); cv.arc(x, y, 10 + s * 160, 0, 7); cv.stroke(); }
+    cv.globalAlpha = ap * Math.min(1, a + (hot ? 1 : 0)); const lx = x + (x > 0 ? 26 : -26); txt(name, lx, y - 2, { size: hot ? 40 : 30, weight: 800, color: hot ? '#fff' : HUDC, align: x > 0 ? 'left' : 'right', glow: hot ? rgba(MINT, 0.8) : undefined, glowBlur: 20 }); });
+  cv.restore();
+  // the years
+  const yk = k01(t, ws(41) - 0.05, we(43) - ws(41) + 0.1), yr = 2015 + Math.round(11 * E.inOut(yk)); if (t >= ws(40) - 0.1) { const a = E.out(k01(t, ws(40) - 0.1, 0.3)) * (1 - E.in(k01(t, ws(44) - 0.15, 0.2)));
+    txt(yk >= 1 ? 'امروز' : fy(yr), CX, 520, { size: 120, weight: 900, font: yk >= 1 ? 'Vaz' : 'Rdx', color: '#fff', alpha: a, glow: rgba(MINT, 0.6) });
+    cv.save(); cv.globalAlpha = a; rr(CX - 300, 600, 600, 10, 5); cv.fillStyle = rgba('#ffffff', 0.15); cv.fill(); rr(CX - 300, 600, 600 * E.inOut(yk), 10, 5); cv.fillStyle = MINT; cv.fill(); cv.restore();
+    hudText('۲۰۱۵', CX - 300, 640, { size: 24, alpha: a, font: 'Rdx' }); hudText('امروز', CX + 300, 640, { size: 24, alpha: a, font: 'Vaz', dir: 'rtl' }); }
+  title('بازار واقعی', CX, 360, t, ws(38), { size: 130, brk: true, glow: rgba(MINT, 0.5), out: ws(40) - 0.15 });
+  title('از فارکس تا کریپتو', CX, 420, t, ws(44), { size: 100, glow: rgba(MINT, 0.5) });
+  const ck = E.out(k01(t, ws(44) + 0.2, 0.4)); if (ck > 0) pill(CX, RC + R + 90, '۷۲ نماد · ۵ بازار · داده‌ی واقعی', { size: 32, dot: MINT, color: '#fff', alpha: ck, border: rgba(MINT, 0.7), fill: 'rgba(5,10,14,0.8)' });
+}
+// ---------- 7 · «هر طوفانی رو دوباره پرواز کن؛ کندل به کندل، بدون دیدن آینده.» ----------
+let SLO = Infinity, SHI = -Infinity; STB.forEach((b) => { SLO = Math.min(SLO, b[3]); SHI = Math.max(SHI, b[2]); });
+function stormF(t) { // bars shown, as a fraction
+  if (t < ws(54)) return 14 * E.inOut(k01(t, SB.g + 0.2, ws(54) - SB.g - 0.2));
+  if (t < ws(57)) return 14 + 11 * k01(t, ws(54), ws(57) - ws(54));
+  return 25 + 5 * k01(t, ws(57), we(59) - ws(57));
+}
+function plane(x, y, s, ang, col = '#fff', a = 1) { cv.save(); cv.globalAlpha *= a; cv.translate(x, y); cv.rotate(ang); cv.scale(s, s); cv.fillStyle = col;
+  cv.beginPath(); cv.moveTo(1.0, 0); cv.quadraticCurveTo(0.85, -0.09, 0.6, -0.09); cv.lineTo(-0.75, -0.08); cv.lineTo(-0.98, -0.42); cv.lineTo(-1.08, -0.42); cv.lineTo(-0.95, -0.02); cv.lineTo(-0.95, 0.06); cv.lineTo(0.6, 0.09); cv.quadraticCurveTo(0.85, 0.09, 1.0, 0); cv.closePath(); cv.fill();
+  cv.beginPath(); cv.moveTo(0.25, 0.02); cv.lineTo(-0.35, 0.55); cv.lineTo(-0.5, 0.55); cv.lineTo(-0.12, 0.04); cv.closePath(); cv.fill(); cv.restore(); }
+function bolt(x0, y0, len, seed, a) { const r = rng(seed); cv.save(); cv.globalAlpha = a; cv.strokeStyle = '#fff'; cv.shadowColor = LIL; cv.shadowBlur = 30; cv.lineWidth = 4; cv.beginPath(); let x = x0, y = y0; cv.moveTo(x, y);
+  while (y - y0 < len) { x += (r() - 0.5) * 70; y += 30 + r() * 40; cv.lineTo(x, y); } cv.stroke(); cv.restore(); }
+function sG(t) {
+  const l = t - SB.g, R = { x: 90, y: 680, w: 820, h: 660 };
+  // storm sky
+  const g = cv.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#05050C'); g.addColorStop(0.5, '#11102A'); g.addColorStop(1, '#040408'); cv.fillStyle = g; cv.fillRect(0, 0, W, H);
+  const cr = rng(8); for (let i = 0; i < 18; i++) { const x = ((cr() * 1.4 - 0.2) * W + l * (20 + cr() * 40)) % (W + 400) - 200, y = 200 + cr() * 500, r = 180 + cr() * 260; const gg = cv.createRadialGradient(x, y, 0, x, y, r); gg.addColorStop(0, 'rgba(70,64,110,0.35)'); gg.addColorStop(1, 'rgba(70,64,110,0)'); cv.fillStyle = gg; cv.fillRect(x - r, y - r, 2 * r, 2 * r); }
+  // rain
+  cv.save(); cv.strokeStyle = 'rgba(190,190,255,0.18)'; cv.lineWidth = 2; const rr2 = rng(3); for (let i = 0; i < 140; i++) { const x = (rr2() * (W + 300) + l * 260) % (W + 300) - 150, y = (rr2() * H + l * 1600 * (0.8 + rr2() * 0.4)) % H; cv.beginPath(); cv.moveTo(x, y); cv.lineTo(x - 14, y + 46); cv.stroke(); } cv.restore();
+  // lightning on the big falls
+  const f = stormF(t), n = STB.length, cw = R.w / n, X = (i) => R.x + (i + 0.5) * cw, Y = (v) => R.y + (1 - (v - SLO * 0.995) / (SHI * 1.005 - SLO * 0.995)) * R.h;
+  const strikes = [[ws(54) + 0.55, 260, 2], [ws(55) + 0.15, 700, 5], [ws(50) + 0.1, 820, 9]]; strikes.forEach(([t0, x0, sd]) => { const k = t - t0; if (k >= 0 && k < 0.35) { const a = k < 0.06 ? 1 : 1 - (k - 0.06) / 0.29; flashW(t, t0, 0.35, 0.3); bolt(x0, 120, 600, sd, a); } });
+  // the chart
+  cv.save(); cv.fillStyle = 'rgba(6,6,16,0.6)'; rr(R.x - 30, R.y - 40, R.w + 140, R.h + 90, 30); cv.fill(); cv.strokeStyle = rgba(LIL, 0.35); cv.lineWidth = 2; cv.stroke(); cv.restore();
+  for (let v = Math.ceil(SLO / 2000) * 2000; v < SHI; v += 2000) { cv.strokeStyle = 'rgba(255,255,255,0.06)'; cv.beginPath(); cv.moveTo(R.x, Y(v)); cv.lineTo(R.x + R.w, Y(v)); cv.stroke(); txt('$' + (v / 1000) + 'K', R.x + R.w + 50, Y(v), { size: 22, weight: 600, font: 'Rdx', color: 'rgba(255,255,255,0.45)', dir: 'ltr' }); }
+  const full = Math.floor(f); let last = STB[0][1];
+  for (let i = 0; i <= Math.min(full, n - 1); i++) { let [, o, h, lo, c] = STB[i]; const u = f - i; if (u <= 0) break; if (u < 1) { c = o + (c - o) * u; h = Math.max(o, c, o + (h - o) * u); lo = Math.min(o, c, o + (lo - o) * u); }
+    const col = c >= o ? MINT : ALR; cv.strokeStyle = col; cv.fillStyle = col; cv.lineWidth = 2.5; cv.shadowColor = col; cv.shadowBlur = i === full ? 18 : 0; cv.beginPath(); cv.moveTo(X(i), Y(h)); cv.lineTo(X(i), Y(lo)); cv.stroke();
+    cv.fillRect(X(i) - cw * 0.32, Y(Math.max(o, c)), cw * 0.64, Math.max(2, Math.abs(Y(o) - Y(c)))); cv.shadowBlur = 0; last = c; }
+  // the plane riding the price, the fog over the future
+  const px = X(Math.min(f, n - 1)), py = Y(last) - 40; plane(px, py, 30, -0.12 + 0.1 * Math.sin(t * 3), '#fff'); glow(px, py, 70, 40, LIL, 0.5);
+  const fx = px + 30, fogA = E.out(k01(t, SB.g + 0.3, 0.5)); cv.save(); cv.globalAlpha = fogA; const fg = cv.createLinearGradient(fx, 0, fx + 160, 0); fg.addColorStop(0, 'rgba(14,12,30,0)'); fg.addColorStop(1, 'rgba(14,12,30,0.97)'); cv.fillStyle = fg; cv.fillRect(fx, R.y - 40, R.x + R.w + 110 - fx, R.h + 90);
+  const fr = rng(2); for (let i = 0; i < 10; i++) { const x = fx + 60 + fr() * 400, y = R.y + fr() * R.h, r = 80 + fr() * 120, gg = cv.createRadialGradient(x + Math.sin(t + i) * 20, y, 0, x, y, r); gg.addColorStop(0, 'rgba(120,110,170,0.18)'); gg.addColorStop(1, 'rgba(120,110,170,0)'); cv.fillStyle = gg; cv.fillRect(x - r, y - r, 2 * r, 2 * r); }
+  cv.restore();
+  const qk = E.back(k01(t, ws(57) + 0.05, 0.4)); if (qk > 0 && fx < R.x + R.w) { cv.save(); cv.translate(Math.min(R.x + R.w - 40, fx + 170), R.y + R.h / 2); cv.scale(qk, qk); txt('؟', 0, 0, { size: 220, weight: 900, color: rgba(LIL, 0.9), glow: rgba(VIO, 0.9) }); txt('آینده', 0, 150, { size: 40, weight: 800, color: HUDC }); cv.restore(); }
+  txt('بیت‌کوین · ۱۵ مرداد ۱۴۰۳', R.x + R.w - 10, R.y - 4, { size: 30, weight: 800, color: HUDC, align: 'right', alpha: E.out(k01(t, SB.g + 0.2, 0.4)) });
+  if (f > SLOW + 0.5) { const k = E.out(k01(t, ws(55) + 0.2, 0.3)); txt('$' + STB[SLOW][3].toLocaleString('en-US'), X(SLOW) + 20, Y(STB[SLOW][3]) + 40, { size: 30, weight: 800, font: 'Rdx', color: ALR, dir: 'ltr', align: 'left', alpha: k }); }
+  title('هر طوفانی رو دوباره پرواز کن', CX, 380, t, ws(48), { size: 80, out: ws(54) - 0.12, glow: rgba(LIL, 0.6) });
+  title('کندل به کندل', CX, 380, t, ws(54), { size: 120, out: ws(57) - 0.12, brk: true });
+  title('بدون دیدن آینده', CX, 380, t, ws(57), { size: 110, glow: rgba(VIO, 0.8) });
+}
+// ---------- 8 · «و بعد از هر پرواز، جعبه‌سیاهت رو باز کن: وین‌ریت، بدترین روزها، مونت‌کارلو.» ----------
+function boxFaces(cx, cy, s, ry, lid) {
+  const Wd = 1.3, Hd = 1.0, Dd = 0.85, P = (x, y, z) => { const c = Math.cos(ry), sn = Math.sin(ry); const X = x * c - z * sn, Z = x * sn + z * c; const tilt = 0.38; const Y2 = y * Math.cos(tilt) + Z * Math.sin(tilt), Z2 = -y * Math.sin(tilt) + Z * Math.cos(tilt); const d = 6 / (6 + Z2); return [cx + X * s * d, cy - Y2 * s * d, Z2]; };
+  const v = [[-Wd, 0, -Dd], [Wd, 0, -Dd], [Wd, 0, Dd], [-Wd, 0, Dd], [-Wd, Hd, -Dd], [Wd, Hd, -Dd], [Wd, Hd, Dd], [-Wd, Hd, Dd]].map((p) => P(...p));
+  // the lid hinges on the back edge (y = H, z = +D) and swings up and over
+  const la = lid * 1.9, lidV = [[-Wd, -Dd], [Wd, -Dd], [Wd, Dd], [-Wd, Dd]].map(([x, z]) => { const dz = z - Dd; return P(x, Hd - dz * Math.sin(la), Dd + dz * Math.cos(la)); });
+  return { v, lidV, P };
+}
+function sH(t) {
+  const l = t - SB.h; cv.fillStyle = '#04040C'; cv.fillRect(0, 0, W, H); glow(CX, 1250, 800, 500, AMB, 0.12); nightSky(t, { stars: 0.3, glowA: 0.1 });
+  const inK = E.out(k01(t, ws(65) - 0.25, 0.6)), lid = E.inOut(k01(t, ws(68) - 0.05, 0.5)), cx = CX, cy = 1400 + (1 - inK) * 600, s = 170, ry = -0.5 + 0.12 * Math.sin(l * 0.7);
+  if (inK > 0) {
+    const { v, lidV, P } = boxFaces(cx, cy, s, ry, lid);
+    const face = (idx, col, pts = v) => { cv.beginPath(); idx.forEach((i, j) => (j ? cv.lineTo(pts[i][0], pts[i][1]) : cv.moveTo(pts[i][0], pts[i][1]))); cv.closePath(); cv.fillStyle = col; cv.fill(); cv.strokeStyle = 'rgba(0,0,0,0.35)'; cv.lineWidth = 2; cv.stroke(); };
+    // light from inside once the lid lifts
+    if (lid > 0.05) { cv.save(); cv.globalCompositeOperation = 'lighter'; const top = [v[4], v[5], v[6], v[7]], mx = top.reduce((a, p) => a + p[0], 0) / 4, my = top.reduce((a, p) => a + p[1], 0) / 4; for (let i = 0; i < 9; i++) { const a = -1.57 + (i - 4) * 0.14 + 0.03 * Math.sin(t * 2 + i); cv.fillStyle = rgba('#FFE2B8', 0.07 * lid); cv.beginPath(); cv.moveTo(mx - 120, my); cv.lineTo(mx + Math.cos(a - 0.05) * 1300, my + Math.sin(a - 0.05) * 1300); cv.lineTo(mx + Math.cos(a + 0.05) * 1300, my + Math.sin(a + 0.05) * 1300); cv.lineTo(mx + 120, my); cv.closePath(); cv.fill(); } glow(mx, my, 300, 140, '#FFD9A0', 0.6 * lid); cv.restore(); }
+    face([0, 3, 7, 4], '#B44A08'); face([1, 2, 6, 5], '#C9520A'); face([0, 1, 5, 4], '#E8650F');      // far side, near side, front
+    if (lid > 0.05) face([4, 5, 6, 7], '#1A1208');                                   // the dark inside
+    // reflective stripes on the front
+    const st = (y0, y1) => { const a = P(-1.3, y0, -0.85), b = P(1.3, y0, -0.85), c2 = P(1.3, y1, -0.85), d = P(-1.3, y1, -0.85); cv.beginPath(); cv.moveTo(...a.slice(0, 2)); cv.lineTo(...b.slice(0, 2)); cv.lineTo(...c2.slice(0, 2)); cv.lineTo(...d.slice(0, 2)); cv.closePath(); cv.fillStyle = 'rgba(255,255,255,0.85)'; cv.fill(); };
+    st(0.12, 0.2); st(0.8, 0.88);
+    const fc = P(0, 0.5, -0.85); txt('جعبه‌سیاه', fc[0], fc[1] - 6, { size: 44, weight: 900, color: '#2A1404' }); txt('FLIGHT RECORDER', fc[0], fc[1] + 34, { size: 20, weight: 700, font: 'Rdx', color: '#2A1404', dir: 'ltr' });
+    // the lid
+    face([0, 1, 2, 3], lid > 0.05 ? '#F07A24' : '#F58A34', lidV);
+  }
+  // the three cards fly out
+  const card3 = (t0, x, y, w, h, draw) => { const k = E.back(k01(t, t0 - 0.05, 0.45)); if (k <= 0) return; const sx = lerp(cx, x, E.out(k01(t, t0 - 0.05, 0.45))), sy = lerp(cy - 150, y, E.out(k01(t, t0 - 0.05, 0.45)));
+    cv.save(); cv.translate(sx, sy); cv.scale(0.3 + 0.7 * clamp(k), 0.3 + 0.7 * clamp(k)); cv.globalAlpha = clamp(k * 2); card(-w / 2, -h / 2, w, h, { r: 30, fill: 'rgba(16,13,30,0.94)', border: rgba(LIL, 0.55), glow: rgba(VIO, 0.35) }); draw(w, h, t - t0); cv.restore(); };
+  card3(ws(70), 290, 760, 420, 330, (w, h, u) => { txt('وین‌ریت', 0, -h / 2 + 50, { size: 40, weight: 900 }); const a = clamp(u / 0.9); cv.lineCap = 'round'; cv.lineWidth = 22; cv.strokeStyle = 'rgba(255,255,255,0.08)'; cv.beginPath(); cv.arc(0, 40, 95, Math.PI * 0.8, Math.PI * 2.2); cv.stroke();
+    cv.strokeStyle = MINT; cv.shadowColor = MINT; cv.shadowBlur = 20; cv.beginPath(); cv.arc(0, 40, 95, Math.PI * 0.8, Math.PI * (0.8 + 1.4 * 0.62 * E.out(a))); cv.stroke(); cv.shadowBlur = 0; txt('٪', 0, 52, { size: 60, weight: 900, color: rgba('#ffffff', 0.85) }); });
+  card3(ws(72), 790, 760, 420, 330, (w, h, u) => { txt('بدترین روزها', 0, -h / 2 + 50, { size: 40, weight: 900 }); const r = rng(5); for (let j = 0; j < 4; j++) for (let i = 0; i < 7; i++) { const v = r(), bad = v > 0.82, a = clamp(u * 3 - (i + j * 7) * 0.03); cv.globalAlpha = a; rr(-150 + i * 44, -40 + j * 44, 36, 36, 8); cv.fillStyle = bad ? ALR : rgba(MINT, 0.15 + 0.5 * v); cv.fill(); if (bad) { cv.shadowColor = ALR; cv.shadowBlur = 16; cv.fill(); cv.shadowBlur = 0; } } cv.globalAlpha = 1; });
+  card3(ws(74), CX, 1060, 900, 300, (w, h, u) => { txt('مونت‌کارلو', w / 2 - 40, -h / 2 + 46, { size: 40, weight: 900, align: 'right' }); const r = rng(19), n = 46, steps = 60, prog = clamp(u / 1.2); cv.save(); cv.beginPath(); cv.rect(-w / 2 + 30, -h / 2 + 80, w - 60, h - 100); cv.clip(); cv.globalCompositeOperation = 'lighter';
+    for (let p = 0; p < n; p++) { let v = 0; cv.strokeStyle = rgba(p === 0 ? '#ffffff' : LIL, p === 0 ? 0.9 : 0.16); cv.lineWidth = p === 0 ? 3 : 1.5; cv.beginPath(); for (let i = 0; i <= steps * prog; i++) { v += (r() - 0.46) * 16; const x = -w / 2 + 40 + (i / steps) * (w - 80), y = h / 2 - 60 - v * 1.1 - i * 0.9; i ? cv.lineTo(x, y) : cv.moveTo(x, y); } cv.stroke(); } cv.restore(); });
+  title('جعبه‌سیاهت رو باز کن', CX, 380, t, ws(65), { size: 92, glow: rgba(AMB, 0.55), brk: true, brkCol: AMB });
+}
+// ---------- 9 · «این‌جا هزار بار سقوط کن… تا اون بیرون، حتی یه بار هم نه.» ----------
+function sI(t) {
+  const l = t - SB.i; cv.fillStyle = '#05040F'; cv.fillRect(0, 0, W, H); nightSky(t, { stars: 0.4, glowA: 0.15 });
+  const cols = 6, rows = 8, gx = 100, gy = 660, cw2 = (W - 2 * gx) / cols, ch = 110, ap = E.out(k01(t, SB.i, 0.4));
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const ph = ((i * 7 + j * 13) % 17) / 17, per = 0.9 + ((i + j) % 4) * 0.12, u = ((l / per + ph) % 1), x0 = gx + i * cw2, y0 = gy + j * ch;
+    const x = x0 + 20 + u * (cw2 - 40), dive = Math.max(0, u - 0.62) / 0.38, y = y0 + 30 + dive * dive * 55, ang = dive * 0.9;
+    cv.globalAlpha = ap * (dive >= 0.98 ? 0 : 0.9); plane(x, y, 21, ang, dive > 0.3 ? ALR : HUDC); if (dive > 0.9) { cv.globalAlpha = ap * (1 - dive) * 8; glow(x, y + 6, 26, 26, ALR, 0.9); } }
+  cv.globalAlpha = 1;
+  const ck = k01(t, ws(77) - 0.1, we(79) - ws(77) + 0.3), n = Math.max(1, Math.round(1000 * E.inOut(ck) ** 1.4));
+  txt('×' + fa(n).replace(/٬/g, ','), CX, 540, { size: 150, weight: 900, font: 'Rdx', color: '#fff', dir: 'ltr', alpha: E.out(k01(t, ws(77) - 0.15, 0.3)), glow: rgba(ALR, 0.6) });
+  title('این‌جا هزار بار سقوط کن', CX, 360, t, ws(76), { size: 90, glow: rgba(ALR, 0.5) });
+  cv.save(); cv.fillStyle = 'rgba(5,4,15,0.6)'; cv.fillRect(0, 1560, W, 200); cv.restore();
+}
+function daySky(t, dusk = 0) {
+  const g = cv.createLinearGradient(0, 0, 0, H); const mix = (a, b) => { const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16); const c = [16, 8, 0].map((s) => Math.round(((pa >> s) & 255) * (1 - dusk) + ((pb >> s) & 255) * dusk)); return `rgb(${c[0]},${c[1]},${c[2]})`; };
+  g.addColorStop(0, mix('#3A5BD9', '#120A3A')); g.addColorStop(0.45, mix('#8FA8FF', '#3A1E8C')); g.addColorStop(0.62, mix('#FFC9A6', '#B24CC4')); g.addColorStop(0.75, mix('#FFE9D2', '#F08A6A')); g.addColorStop(1, mix('#FFFFFF', '#2A1458'));
+  cv.fillStyle = g; cv.fillRect(0, 0, W, H); glow(800, 1180, 520, 520, '#FFF2D6', 0.85 - 0.4 * dusk); glow(800, 1180, 160, 160, '#ffffff', 0.9 - 0.5 * dusk);
+}
+function cloudSea(t, dusk = 0) { const r = rng(44); for (let layer = 0; layer < 3; layer++) for (let i = 0; i < 16; i++) { const sp = 12 + layer * 18, x = ((r() * (W + 600) - t * sp) % (W + 600) + W + 600) % (W + 600) - 300, y = 1260 + layer * 120 + r() * 60, rx = 220 + r() * 200 + layer * 60, ry = rx * 0.38;
+  cv.save(); cv.translate(x, y); cv.scale(1, ry / rx); const g = cv.createRadialGradient(0, -rx * 0.2, 0, 0, 0, rx); const c = layer === 2 ? '#ffffff' : layer === 1 ? '#FFEFE6' : '#FFE0D4'; g.addColorStop(0, rgba(c, 0.9 - dusk * 0.4)); g.addColorStop(0.7, rgba(c, 0.5 - dusk * 0.25)); g.addColorStop(1, rgba(c, 0)); cv.fillStyle = g; cv.fillRect(-rx, -rx, 2 * rx, 2 * rx); cv.restore(); } }
+function sJ(t) {
+  const l = t - SB.j, dusk = E.inOut(k01(t, SB.k - 0.3, 0.9)); daySky(t, dusk); cloudSea(t, dusk);
+  // one calm flight, a contrail behind it
+  const x = lerp(80, 1200, E.inOut(clamp(l / 7.5))), y = lerp(1080, 760, E.inOut(clamp(l / 7.5))) + 6 * Math.sin(l * 1.5);
+  cv.save(); const tg = cv.createLinearGradient(x - 700, y + 60, x, y); tg.addColorStop(0, 'rgba(255,255,255,0)'); tg.addColorStop(1, 'rgba(255,255,255,0.75)'); cv.strokeStyle = tg; cv.lineWidth = 8; cv.lineCap = 'round'; cv.beginPath(); cv.moveTo(x - 700, y + 160); cv.quadraticCurveTo(x - 300, y + 60, x - 60, y + 4); cv.stroke(); cv.restore();
+  plane(x, y, 64, -0.24, dusk > 0.5 ? '#ffffff' : '#2A2450');
+  flashW(t, SB.j, 1, 0.6);
+  if (t < SB.k) { title('تا اون بیرون…', CX, 420, t, ws(81), { size: 100, color: '#1E1446', glow: 'rgba(255,255,255,0.8)', out: ws(84) - 0.1, sweep: false });
+    title('حتی یه بار هم نه.', CX, 420, t, ws(84), { size: 120, color: '#1E1446', glow: 'rgba(255,255,255,0.9)', out: SB.k - 0.05, sweep: false }); return; }
+  // CTA
+  const lk = E.out(k01(t, ws(88) - 0.1, 0.5)); if (lk > 0 && IMG.logo) { const w = 760, h = (w * IMG.logo.height) / IMG.logo.width; cv.save(); cv.globalAlpha = lk; cv.drawImage(IMG.logo, CX - w / 2, 560 - h / 2 - (1 - lk) * 30, w, h); cv.restore(); }
+  const bk = pop(t, ws(90) + 0.05); if (bk > 0) { const bob = Math.sin((t - ws(90)) * 6) * 8; cv.save(); cv.translate(CX, 820); cv.scale(bk, bk); button(0, 0, 'لینک توی بیو', { size: 50 }); cv.restore(); cv.save(); cv.globalAlpha = clamp(bk); cv.fillStyle = '#fff'; cv.translate(CX, 700 + bob); cv.beginPath(); cv.moveTo(0, -34); cv.lineTo(30, 4); cv.lineTo(10, 4); cv.lineTo(10, 34); cv.lineTo(-10, 34); cv.lineTo(-10, 4); cv.lineTo(-30, 4); cv.closePath(); cv.fill(); cv.restore(); }
+  const fk = pop(t, ws(93)); if (fk > 0) { cv.save(); cv.translate(CX, 1040); cv.scale(fk, fk); cv.globalAlpha = clamp(fk); card(-340, -110, 680, 220, { r: 44, fill: 'rgba(16,10,40,0.82)', border: rgba(MINT, 0.8), glow: rgba(MINT, 0.4) });
+    txt('۷ روز رایگان', 0, 4, { size: 96, weight: 900, color: MINT, glow: rgba(MINT, 0.7) }); cv.restore(); }
+  title('شبیه‌ساز پرواز تریدرها', CX, 1210, t, ws(94) + 0.3, { size: 46, weight: 700, color: '#fff', sweep: false });
+}
+
+// ---------- the film ----------
+let COVER = false;
+const SCENES = [['a', sA], ['b', sB], ['c', sCD], ['e', sE], ['f', sF], ['g', sG], ['h', sH], ['i', sI], ['j', sJ]];
+const PUNCH = [ws(0), ws(13), ws(19), IMPACT(), ws(32), ws(38), ws(48), ws(54), ws(65), ws(68), ws(70), ws(72), ws(74), ws(76), ws(88)];
+// post effects
+const OFF = [0, 1, 2, 3].map(() => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; });
+const SMALL = (() => { const c = document.createElement('canvas'); c.width = W / 4; c.height = H / 4; return c; })();
+function bloom(a) { const sx = SMALL.getContext('2d'); sx.clearRect(0, 0, SMALL.width, SMALL.height); sx.filter = 'blur(6px)'; sx.drawImage(cv.canvas, 0, 0, SMALL.width, SMALL.height); sx.filter = 'none';
+  cv.save(); cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalCompositeOperation = 'screen'; cv.globalAlpha = a; cv.drawImage(SMALL, 0, 0, W, H); cv.restore(); }
+function rgbSplit(d) { if (d < 0.5) return; const src = OFF[0], sx = src.getContext('2d'); sx.globalCompositeOperation = 'source-over'; sx.clearRect(0, 0, W, H); sx.drawImage(cv.canvas, 0, 0);
+  ['#ff0000', '#00ff00', '#0000ff'].forEach((col, i) => { const c = OFF[i + 1].getContext('2d'); c.globalCompositeOperation = 'source-over'; c.clearRect(0, 0, W, H); c.drawImage(src, 0, 0); c.globalCompositeOperation = 'multiply'; c.fillStyle = col; c.fillRect(0, 0, W, H); });
+  cv.save(); cv.setTransform(1, 0, 0, 1, 0, 0); cv.fillStyle = '#000'; cv.fillRect(0, 0, W, H); cv.globalCompositeOperation = 'lighter'; cv.drawImage(OFF[1], d, 0); cv.drawImage(OFF[2], 0, 0); cv.drawImage(OFF[3], -d, 0); cv.restore(); }
+function motionBlur(dx, dy) { if (Math.hypot(dx, dy) < 2) return; const src = OFF[0], sx = src.getContext('2d'); sx.globalCompositeOperation = 'source-over'; sx.clearRect(0, 0, W, H); sx.drawImage(cv.canvas, 0, 0);
+  cv.save(); cv.setTransform(1, 0, 0, 1, 0, 0); const n = 12; cv.globalAlpha = 1 / n * 1.5; for (let i = 0; i < n; i++) { const u = i / (n - 1) - 0.5; cv.drawImage(src, dx * u, dy * u); } cv.restore(); }
+function render(t) {
+  cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none'; cv.globalCompositeOperation = 'source-over';
+  const cover = t < 0; COVER = cover; if (cover) t = ws(9) + 0.6;     // the cover: the display in simulator mode, with the concept line
+  let k = 0; SCENES.forEach(([n], i) => { if (t >= SB[n]) k = i; });
+  // camera: drift, a push on the big beats, shake in the dive
+  let pk = 0; if (!cover) PUNCH.forEach((p) => { const d = t - p; if (d >= 0 && d < 0.6) pk = Math.max(pk, Math.exp(-d * 6)); });
+  const dive = t >= SB.c && t < SB.e ? diveK(t) : 0, imp = Math.max(0, 1 - Math.abs(t - IMPACT()) / 0.4) * (t >= IMPACT() ? 1 : 0);
+  const sh = (dive * 8 + imp * 26) * (cover ? 0 : 1), dx = (cover ? 0 : 3 * Math.sin(t * 0.8)) + sh * Math.sin(t * 91), dy = (cover ? 0 : 3 * Math.sin(t * 0.6 + 1)) + sh * Math.cos(t * 77);
+  cv.translate(CX + dx, HY + dy); cv.scale(1 + 0.03 * pk, 1 + 0.03 * pk); cv.translate(-CX, -HY);
+  SCENES[k][1](t);
+  cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none'; cv.globalCompositeOperation = 'source-over';
+  // transitions: a whip on the storm and the radar, a glitch on the impact and the reset
+  const whip = [[SB.f, 1], [SB.g, 1], [SB.h, -1], [SB.i, 1]].reduce((m, [t0, s]) => { const d = t - t0; return Math.abs(d) < 0.14 ? [0, s * 160 * Math.cos((d / 0.14) * Math.PI / 2)] : m; }, [0, 0]);
+  motionBlur(whip[0], whip[1]);
+  const gl = Math.max(imp * 22, t >= SB.e && t < ws(32) ? 10 * Math.sin(Math.PI * k01(t, REW()[0], REW()[1] - REW()[0])) : 0, Math.max(0, 1 - Math.abs(t - SB.c) / 0.12) * 14);
+  rgbSplit(gl);
+  bloom(t >= SB.j ? lerp(0.1, 0.3, k01(t, SB.k - 0.3, 0.9)) : 0.35);
+  finish(t);
+}
+boot(render, [document.fonts.load('900 60px Vaz', 'آبپ۱'), document.fonts.load('800 60px Rdx', 'A1$')]);
+
+</script></body></html>
