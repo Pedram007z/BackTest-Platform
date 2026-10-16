@@ -27,6 +27,17 @@ of the one before it. The last frame is the first frame, so the film loops.
 | 12 | 22–24 | Strongest moment | The white splits into four markets that replay in sync. Each resolves a sixteenth note apart and floods its panel with its real result. |
 | End | 24–25 | End title | The four results fold into one violet bar. «بک‌تست‌لب» rises out of it and sinks back, and the bar folds into the opening candle. |
 
+**The Instagram cut** (`reel.html`, `--reel`) is 1080×1920, 28 s and 30 fps. It is the same film, built from the
+same code. Every scene is laid out again for portrait inside the app's safe area (y 220–1500):
+- the hook sets in three lines, and the camera also tracks down;
+- «کندل / به / کندل» stacks;
+- the markets carousel is narrower;
+- the four replays sit in one column.
+
+After the title comes a call to action: the bar lets go of a button «۷ روز رایگان» and «لینک توی بیو» rises
+under it. The button is pressed, and its label rolls to «همین حالا شروع کن». On the last half bar everything folds
+back into the candle, so the reel loops too. Caption and cover: `caption.md`.
+
 **Data.** All market data is real, from the platform's own 1-minute store (`data.py`), using a 20-hour breakout with a
 1-ATR stop and a 2-ATR target. The losing record (−31R over 100 trades) is shown as it is. That is the point of the
 film: see it before risking real money.

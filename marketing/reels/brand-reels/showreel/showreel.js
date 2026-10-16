@@ -5,7 +5,10 @@
 // that detail is the next scene. Bars: 1 hook (type) · 2 morph · 3 2D→3D · 4 UI · 5 type · 6 morph · 7 2D→3D ·
 // 8 data · 9 type · 10 morph · 11 2D→3D city (riser) · 12 four synchronised replays (the strongest moment) ·
 // ½ end title, which folds back into the opening candle, so the last frame meets the first.
-const W = 1920, H = 1080, CX = 960, CY = 540, DUR = 25;
+// FORMAT 'reel' (window.FORMAT, set by build.py) is the Instagram cut: 1080×1920, every scene laid out again for
+// portrait inside the app's safe area, and 28 s: after the title, a call to action, then the fold back into the candle.
+const REEL = window.FORMAT === 'reel';
+const W = REEL ? 1080 : 1920, H = REEL ? 1920 : 1080, CX = W / 2, CY = H / 2, DUR = REEL ? 28 : 25, SY = H / 1080;
 const V = '#7C5CFF', G = '#26C281', R = '#F25466', K = '#09080D', WH = '#F5F3FA';
 const cv = document.getElementById('c').getContext('2d');
 const D = window.DATA;
@@ -92,38 +95,49 @@ function drawFaces(F) { F.sort((a, b) => b[3] - a[3]).forEach(([q, col, st]) => 
 // ===================================================================================================================
 // BAR 1 · 0–2 s · HOOK (kinetic type): «بازار رو دوباره بازی کن.» The candle collapses into an underline and the
 // first word rises out of it; the camera tracks right to left, a word per beat, until the whole line sits underlined.
-const HOOK = { words: ['بازار', 'رو', 'دوباره', 'بازی کن'], cols: [WH, V, WH, WH], barY: CY + 150, barH: 22, textY: CY - 40 };
+const HOOK = { words: ['بازار', 'رو', 'دوباره', 'بازی کن'], barH: 22 };
+/** Word centres (x, y) relative to the block, the underline's last place and the full stop. Film: one line. Reel: three
+ *  lines («بازار رو» / «دوباره» / «بازی کن.»), so the camera tracks down as well as right to left. */
 function hookLayout() {
-  let S = 230; const w0 = HOOK.words.reduce((s, w) => s + measure(w, S), 0) + 0.3 * S * 3 + 0.3 * S; if (w0 > 1640) S = Math.floor((S * 1640) / w0);
-  const ws = HOOK.words.map((w) => measure(w, S)), gap = 0.3 * S; let xr = 0; const c = []; ws.forEach((w) => { c.push(xr - w / 2); xr -= w + gap; });
-  const dotR = S * 0.085, dotX = c[3] - ws[3] / 2 - S * 0.07 - dotR, left = dotX - dotR, lc = left / 2;
-  return { S, ws, c, gap, dotR, dotX, left, lc, tot: -left };
+  if (!REEL) {
+    let S = 230; const w0 = HOOK.words.reduce((s, w) => s + measure(w, S), 0) + 0.3 * S * 3 + 0.3 * S; if (w0 > 1640) S = Math.floor((S * 1640) / w0);
+    const ws = HOOK.words.map((w) => measure(w, S)), gap = 0.3 * S; let xr = 0; const c = []; ws.forEach((w) => { c.push(xr - w / 2); xr -= w + gap; });
+    const dotR = S * 0.085, dotX = c[3] - ws[3] / 2 - S * 0.07 - dotR, left = dotX - dotR, lc = left / 2;
+    return { S, ws, pos: c.map((x) => [x, 0]), dotR, dot: [dotX, 0], end: [lc, 0, -left], textOff: -40, barOff: 150 };
+  }
+  const lines = [[0, 1], [2], [3]], lineW = (S) => lines.map((ln) => ln.reduce((a, i) => a + measure(HOOK.words[i], S), 0) + 0.3 * S * (ln.length - 1) + (ln.includes(3) ? 0.24 * S : 0));
+  let S = 250; const mx = Math.max(...lineW(S)); if (mx > 900) S = Math.floor((S * 900) / mx);
+  const ws = HOOK.words.map((w) => measure(w, S)), LW = lineW(S), pos = [], LS = 1.22 * S; let dot = null;
+  lines.forEach((ln, li) => { let xr = LW[li] / 2; const y = (li - 1) * LS; ln.forEach((i) => { pos[i] = [xr - ws[i] / 2, y]; xr -= ws[i] + 0.3 * S; }); if (ln.includes(3)) dot = [pos[3][0] - ws[3] / 2 - 0.07 * S - 0.085 * S, y]; });
+  return { S, ws, pos, dotR: 0.085 * S, dot, end: [0, 0, Math.max(...LW)], textOff: -40 * (S / 230), barOff: 150 * (S / 230) };
 }
 function bar1(t) {
-  bg(K); const L = hookLayout(), S = L.S, ty = HOOK.textY;
-  const pan = (tt) => track(tt, [[0, -L.c[0]], [0.5, -lerp(L.c[1], L.lc, 1 / 3)], [1.0, -lerp(L.c[2], L.lc, 2 / 3)], [1.5, -L.lc]], 15);
+  bg(K); const L = hookLayout(), S = L.S, P = L.pos, E = L.end;
+  const panK = (j) => (tt) => track(tt, [[0, -P[0][j]], [0.5, -lerp(P[1][j], E[j], 1 / 3)], [1.0, -lerp(P[2][j], E[j], 2 / 3)], [1.5, -E[j]]], 15);
+  const pan = panK(0), panY = panK(1), py = REEL ? panY(t) : 0, vyCam = REEL ? vel(panY, t) : 0;
   const exitX = (tt) => 2200 * exIn(k01(tt, 1.78, 0.22));
-  const base = (tt) => CX + pan(tt) + exitX(tt), sx = (x) => base(t) + x, vx = vel(base, t);
+  const base = (tt) => CX + pan(tt) + exitX(tt), sx = (x) => base(t) + x, vx = vel(base, t), ty = (i) => CY + py + P[i][1] + L.textOff;
   // the underline: the candle collapses into it, then it slides under each new word and finally under the whole line
-  const k = spr(t, 15), barL = track(t, [[0, L.c[0]], [0.5, L.c[1]], [1.0, L.c[2]], [1.5, L.lc]], 16), barW = track(t, [[0, 56], [0, L.ws[0]], [0.5, L.ws[1]], [1.0, L.ws[2]], [1.5, L.tot]], 16);
-  const by = lerp(CY, HOOK.barY, k), bh = lerp(220, HOOK.barH, k), wick = 360 * (1 - spr(t, 24)), barTop = by - bh / 2;
+  const k = spr(t, 15), barL = track(t, [[0, P[0][0]], [0.5, P[1][0]], [1.0, P[2][0]], [1.5, E[0]]], 16), barW = track(t, [[0, 56], [0, L.ws[0]], [0.5, L.ws[1]], [1.0, L.ws[2]], [1.5, E[2]]], 16);
+  const barLY = REEL ? track(t, [[0, P[0][1]], [0.5, P[1][1]], [1.0, P[2][1]], [1.5, P[3][1]]], 16) : 0;
+  const by = CY + (REEL ? py + barLY : 0) + lerp(0, L.barOff, k), bh = lerp(220, HOOK.barH, k), wick = 360 * (1 - spr(t, 24)), barTop = by - bh / 2;
   // 1 · «بازار» rises out of the bar
-  { const fy = (tt) => S * 1.25 * (1 - spr(tt - 0.04, 14)); cv.save(); clip(0, -50, W, barTop + 50); blurred(vx, vel(fy, t), () => txt(HOOK.words[0], sx(L.c[0]), ty + fy(t), S, WH)); cv.restore(); }
+  { const fy = (tt) => S * 1.25 * (1 - spr(tt - 0.04, 14)); cv.save(); clip(0, -50, W, barTop + 50); blurred(vx, vel(fy, t) + vyCam, () => txt(HOOK.words[0], sx(P[0][0]), ty(0) + fy(t), S, WH)); cv.restore(); }
   // 2 · «رو» drops in, violet
-  if (t >= 0.5) { const fy = (tt) => -760 * (1 - spr(tt - 0.5, 16)); blurred(vx, vel(fy, t), () => txt(HOOK.words[1], sx(L.c[1]), ty + fy(t), S, V)); }
+  if (t >= 0.5) { const fy = (tt) => (REEL ? -1150 : -760) * (1 - spr(tt - 0.5, 16)); blurred(vx, vel(fy, t) + vyCam, () => txt(HOOK.words[1], sx(P[1][0]), ty(1) + fy(t), S, V)); }
   // 3 · «دوباره» is wiped on from the right
-  if (t >= 1.0) { const kk = ex(k01(t, 1.0, 0.3)), x = sx(L.c[2]), w = L.ws[2]; cv.save(); clip(x + w / 2 + 8 - (w + 16) * kk, 0, (w + 16) * kk, H); blurred(vx, 0, () => txt(HOOK.words[2], x, ty, S, WH)); cv.restore(); }
+  if (t >= 1.0) { const kk = ex(k01(t, 1.0, 0.3)), x = sx(P[2][0]), w = L.ws[2]; cv.save(); clip(x + w / 2 + 8 - (w + 16) * kk, 0, (w + 16) * kk, H); blurred(vx, vyCam, () => txt(HOOK.words[2], x, ty(2), S, WH)); cv.restore(); }
   // 4 · «بازی کن» slides in from the left
-  if (t >= 1.5) { const fx = (tt) => -1200 * (1 - spr(tt - 1.5, 21)); blurred(vx + vel(fx, t), 0, () => txt(HOOK.words[3], sx(L.c[3]) + fx(t), ty, S, WH)); }
-  blurred(vx, 0, () => candleIcon(sx(barL), by, barW, bh, wick));
+  if (t >= 1.5) { const fx = (tt) => -1200 * (1 - spr(tt - 1.5, 21)); blurred(vx + vel(fx, t), vyCam, () => txt(HOOK.words[3], sx(P[3][0]) + fx(t), ty(3), S, WH)); }
+  blurred(vx, vyCam, () => candleIcon(sx(barL), by, barW, bh, wick));
   // the full stop pops on the and-of-four, then rides to the centre and grows into the next bar's dot
-  const dk = spr(t - 1.72, 26); if (dk > 0) { const m = exIO(k01(t, 1.8, 0.2)), x0 = CX + pan(t) + L.dotX, y0 = ty + S * 0.2;
+  const dk = spr(t - 1.72, 26); if (dk > 0) { const m = exIO(k01(t, 1.8, 0.2)), x0 = CX + pan(t) + L.dot[0], y0 = CY + py + L.dot[1] + L.textOff + S * 0.2;
     dot(lerp(x0, CX, m), lerp(y0, CY, m), lerp(L.dotR, 70, m) * dk, WH); }
 }
 // BAR 2 · 2–4 s · SHAPE MORPHING: dot → ▶ → ◀◀ → a red and a green candle → a chart of nine
 const UIB = D.ui.bars, NINE = UIB.slice(D.ui.entry - 8, D.ui.entry + 1);
 /** The nine-candle chart, right to left (the reading direction): NG[8], the entry candle, is the leftmost. */
-const nineGeo = () => { let lo = 1e9, hi = -1e9; NINE.forEach((b) => { lo = Math.min(lo, b[2]); hi = Math.max(hi, b[1]); }); const Y = (v) => 760 - ((v - lo) / (hi - lo)) * 440; return NINE.map((b, i) => ({ x: CX + (4 - i) * 104, top: Y(b[1]), bt: Y(Math.max(b[0], b[3])), bb: Y(Math.min(b[0], b[3])), bot: Y(b[2]), up: b[3] >= b[0] })); };
+const nineGeo = () => { let lo = 1e9, hi = -1e9; NINE.forEach((b) => { lo = Math.min(lo, b[2]); hi = Math.max(hi, b[1]); }); const Y = (v) => CY + 220 - ((v - lo) / (hi - lo)) * 440; return NINE.map((b, i) => ({ x: CX + (4 - i) * 104, top: Y(b[1]), bt: Y(Math.max(b[0], b[3])), bb: Y(Math.min(b[0], b[3])), bot: Y(b[2]), up: b[3] >= b[0] })); };
 function bar2(t) {
   bg(K); const u = t - 2;
   const dotS = circleS(CX, CY, 70), play = triS(CX + 10, CY, 230, 1);
@@ -144,7 +158,7 @@ function bar2(t) {
 // BAR 3 · 4–6 s · 2D → 3D: the chart tips back onto the floor, its bodies rise into columns, the camera tracks along
 // the row and dives into the white top of the last column, the entry candle
 function bar3(t) {
-  const u = t - 4, NG = nineGeo(), y0 = CY - 760, a = spr(u, 10) * 1.5708, grow = spr(u - 0.5, 12);
+  const u = t - 4, NG = nineGeo(), y0 = -220, a = spr(u, 10) * 1.5708, grow = spr(u - 0.5, 12);
   const T = (x, y) => [x, y0 + (y - y0) * Math.cos(a), (y - y0) * Math.sin(a)];            // the chart plane, tipped about its bottom edge
   const geo = NG.map((c) => { const X = c.x - CX, yt = CY - c.bt, yb = CY - c.bb, hi = CY - c.top, lo = CY - c.bot; return { X, yt, yb, hi, lo, h: 70 + (yt - yb) * 2.4, col: c.up ? G : R }; });
   const L8 = geo[8], z8 = ((L8.yt + L8.yb) / 2) - y0, top8 = y0 + L8.h;
@@ -171,7 +185,7 @@ function bar3(t) {
   if (u > 1.97) bg(WH);
 }
 // BAR 4 · 6–8 s · DATA/UI: the white top becomes a replay panel; real EUR/USD hourly candles, the position, the target
-const PNL = { x: 210, y: 150, w: 1500, h: 780 };
+const PNL = REEL ? { x: 60, y: 440, w: 960, h: 1000 } : { x: 210, y: 150, w: 1500, h: 780 };
 function uiChart(t) {
   const B = UIB, ent = D.ui.entry, exi = D.ui.exit, n = B.length; let lo = 1e9, hi = -1e9; B.forEach((b) => { lo = Math.min(lo, b[2]); hi = Math.max(hi, b[1]); }); lo = Math.min(lo, D.ui.tp); hi = Math.max(hi, D.ui.sl);
   const A = { x: PNL.x + 60, y: PNL.y + 170, w: PNL.w - 120, h: PNL.h - 230 }, X = (i) => A.x + ((i + 0.5) / n) * A.w, Y = (v) => A.y + (1 - (v - lo) / (hi - lo)) * A.h, cw = A.w / n;
@@ -203,19 +217,23 @@ function bar4(t) {
 }
 // BAR 5 · 8–10 s · KINETIC TYPE on green: «کندل به کندل / بدون دیدن آینده.» — the future gets redacted
 const T5 = { s1: 250, s2: 150 };
-function lay5() { const a = measure('کندل', T5.s1), b = measure('به', T5.s1), g = 70, total = a * 2 + b + g * 2; const r = CX + total / 2; return { a, b, g, c1: r - a / 2, c2: r - a - g - b / 2, c3: r - a - g - b - g - a / 2 }; }
+function lay5() {
+  if (REEL) return { s1: 280, s2: 116, p: [[CX, CY - 400], [CX, CY - 130], [CX, CY + 140]], y2: CY + 410 };
+  const a = measure('کندل', T5.s1), b = measure('به', T5.s1), g = 70, total = a * 2 + b + g * 2, r = CX + total / 2, y1 = CY - 120;
+  return { s1: T5.s1, s2: T5.s2, p: [[r - a / 2, y1], [r - a - g - b / 2, y1], [r - a - g - b - g - a / 2, y1]], y2: CY + 150 };
+}
 function bar5(t) {
-  const u = t - 8; bg(G); const L = lay5(), y1 = CY - 120, y2 = CY + 150;
-  const outY = (tt) => -1100 * exIn(k01(tt, 1.82, 0.18)), outX = (tt) => 2100 * exIn(k01(tt, 1.82, 0.18)), oy = outY(u), vy = vel(outY, u);
-  const w1 = (tt) => -700 * (1 - spr(tt, 16)), w2 = (tt) => 700 * (1 - spr(tt - 0.5, 16)), w3 = (tt) => -1600 * (1 - spr(tt - 1.0, 15));
-  blurred(0, vel(w1, u) + vy, () => txt('کندل', L.c1, y1 + w1(u) + oy, T5.s1, K));
-  if (u >= 0.5) blurred(0, vel(w2, u) + vy, () => txt('به', L.c2, y1 + w2(u) + oy, T5.s1, WH));
-  if (u >= 1.0) blurred(vel(w3, u), vy, () => txt('کندل', L.c3 + w3(u), y1 + oy, T5.s1, K));
-  if (u >= 1.5) { const s = 'بدون دیدن آینده', w = measure(s, T5.s2), k = ex(k01(u, 1.5, 0.28)), right = CX + w / 2 + outX(u);
-    cv.save(); clip(right - w * k - 8, y2 - 120, w * k + 16, 240); blurred(vel(outX, u), 0, () => txt(s, right, y2, T5.s2, WH, { align: 'right' })); cv.restore();
+  const u = t - 8; bg(G); const L = lay5(), P = L.p, y2 = L.y2, s1 = L.s1, s2 = L.s2;
+  const outY = (tt) => -1100 * SY * exIn(k01(tt, 1.82, 0.18)), outX = (tt) => 2100 * (W / 1920) * exIn(k01(tt, 1.82, 0.18)), oy = outY(u), vy = vel(outY, u);
+  const w1 = (tt) => -700 * SY * (1 - spr(tt, 16)), w2 = (tt) => 700 * SY * (1 - spr(tt - 0.5, 16)), w3 = (tt) => -1600 * (1 - spr(tt - 1.0, 15));
+  blurred(0, vel(w1, u) + vy, () => txt('کندل', P[0][0], P[0][1] + w1(u) + oy, s1, K));
+  if (u >= 0.5) blurred(0, vel(w2, u) + vy, () => txt('به', P[1][0], P[1][1] + w2(u) + oy, s1, WH));
+  if (u >= 1.0) blurred(vel(w3, u), vy, () => txt('کندل', P[2][0] + w3(u), P[2][1] + oy, s1, K));
+  if (u >= 1.5) { const s = 'بدون دیدن آینده', w = measure(s, s2), k = ex(k01(u, 1.5, 0.28)), right = CX + w / 2 + outX(u);
+    cv.save(); clip(right - w * k - 8, y2 - 120, w * k + 16, 240); blurred(vel(outX, u), 0, () => txt(s, right, y2, s2, WH, { align: 'right' })); cv.restore();
     // the redaction bar slides over «آینده» from the left, then carries on to the centre: the next bar's rectangle
-    const fw = measure('آینده', T5.s2), fx = CX + w / 2 - w + fw / 2; const bx = (tt) => lerp(-300, fx, spr(tt - 1.7, 20));
-    if (u >= 1.7) { const toC = exIO(k01(u, 1.84, 0.16)); const x = lerp(bx(u), CX, toC), y = lerp(y2 + 4, CY, toC); blurred(vel(bx, u), 0, () => crect(x, y, lerp(fw + 40, 420, toC), lerp(150, 150, toC), K)); }
+    const fw = measure('آینده', s2), fx = CX + w / 2 - w + fw / 2; const bx = (tt) => lerp(-300, fx, spr(tt - 1.7, 20));
+    if (u >= 1.7) { const toC = exIO(k01(u, 1.84, 0.16)); const x = lerp(bx(u), CX, toC), y = lerp(y2 + 4, CY, toC); blurred(vel(bx, u), 0, () => crect(x, y, lerp(fw + 40, 420, toC), lerp(s2, 150, toC), K)); }
   }
 }
 // BAR 6 · 10–12 s · MORPH on green: the redaction bar → hourglass → it flips → a clock whose hand winds back → black floods out
@@ -241,14 +259,14 @@ function bar6(t) {
 const SYMS = ['XAU/USD', 'EUR/USD', 'BTC/USD', 'NAS100', 'GBP/USD'];
 function bar7(t) {
   const u = t - 12; bg(K);
-  const th = lerp(Math.PI / 2, 0.34, spr(u, 11)), Rr = lerp(300, 560, spr(u, 11)), dy = 40 * spr(u, 11);
+  const th = lerp(Math.PI / 2, 0.34, spr(u, 11)), Rr = lerp(REEL ? 428 : 300, REEL ? 440 : 560, spr(u, 11)), dy = 40 * spr(u, 11);
   const ring = (ph) => [Rr * Math.cos(ph), dy + Rr * Math.sin(ph) * Math.sin(th), Rr * Math.sin(ph) * Math.cos(th)];
-  const spin = (2 * Math.PI) / 5 * (1 - spr(u - 1.0, 13)), cw = 300, chh = 170;
+  const spin = (2 * Math.PI) / 5 * (1 - spr(u - 1.0, 13)), cw = REEL ? 330 : 300, chh = REEL ? 190 : 170, F7 = REEL ? 1050 : 1500;
   // the front card's aim point: low on its face, so the camera ends inside the violet, under the label
   // the push: constant zoom rate (the distance shrinks in log space) from where the camera stands to 82 in front of it
   const f0 = ring(-Math.PI / 2), aim = [f0[0], f0[1] + 34, f0[2]], pk = Math.pow(k01(u, 1.5, 0.5), 1.5), lk = ex(k01(u, 1.5, 0.2));
-  const O0 = [0 - aim[0], 0 - aim[1], -1500 - aim[2]], d0 = Math.hypot(...O0), od = [lerp(O0[0] / d0, 0, pk), lerp(O0[1] / d0, 0, pk), lerp(O0[2] / d0, -1, pk)], on = Math.hypot(...od), dist = d0 * Math.pow(82 / d0, pk);
-  const P = u < 1.5 ? [0, 0, -1500] : aim.map((v, i) => v + (od[i] / on) * dist), cam = camAt(P, [lerp(0, aim[0], lk), lerp(0, aim[1], lk), lerp(0, aim[2], lk)], 1500);
+  const O0 = [0 - aim[0], 0 - aim[1], -1500 - aim[2]], d0 = Math.hypot(...O0), od = [lerp(O0[0] / d0, 0, pk), lerp(O0[1] / d0, 0, pk), lerp(O0[2] / d0, -1, pk)], on = Math.hypot(...od), dist = d0 * Math.pow((REEL ? (30 * F7) / CY : 82) / d0, pk);
+  const P = u < 1.5 ? [0, 0, -1500] : aim.map((v, i) => v + (od[i] / on) * dist), cam = camAt(P, [lerp(0, aim[0], lk), lerp(0, aim[1], lk), lerp(0, aim[2], lk)], F7);
   // the ring
   cv.strokeStyle = WH; cv.lineWidth = 6; cv.beginPath(); for (let i = 0; i <= 160; i++) { const p = proj(ring((i / 160) * 6.2832), cam); i ? cv.lineTo(p[0], p[1]) : cv.moveTo(p[0], p[1]); } cv.stroke();
   // the cards stand up around their bottom edge, facing the camera, staggered right to left
@@ -259,16 +277,16 @@ function bar7(t) {
     poly(Q, sel ? V : K); cv.strokeStyle = sel ? V : WH; cv.lineWidth = 4; cv.lineJoin = 'round'; cv.beginPath(); Q.forEach((p, j) => (j ? cv.lineTo(p[0], p[1]) : cv.moveTo(p[0], p[1]))); cv.closePath(); cv.stroke();
     // the label, laid on the card's face with the affine map of its corners (local y runs down the card)
     const [bl, br, tr, tl] = Q; cv.save(); cv.setTransform((tr[0] - tl[0]) / cw, (tr[1] - tl[1]) / cw, (bl[0] - tl[0]) / chh, (bl[1] - tl[1]) / chh, tl[0], tl[1]);
-    txt(s, cw / 2, chh * 0.36, 46, WH, { dir: 'ltr', w: 800 }); cv.restore(); });
+    txt(s, cw / 2, chh * 0.36, REEL ? 56 : 46, WH, { dir: 'ltr', w: 800 }); cv.restore(); });
   if (u > 1.97) bg(V);
 }
 // BAR 8 · 14–16 s · DATA on violet: 100 real trades, the equity, the hole, wins against losses
 const EQ = D.equity, TR = D.trades, NTR = TR.length;
-const AREA = { x: 230, y: 250, w: 1460, h: 560 };
+const AREA = REEL ? { x: 80, y: 520, w: 920, h: 640 } : { x: 230, y: 250, w: 1460, h: 560 };
 function eqGeo() { let lo = 0, hi = 0; EQ.forEach((v) => { lo = Math.min(lo, v); hi = Math.max(hi, v); }); lo -= 1; hi += 1; return { X: (i) => AREA.x + ((i + 0.5) / NTR) * AREA.w, Y: (v) => AREA.y + (1 - (v - lo) / (hi - lo)) * AREA.h, lo, hi }; }
 function bar8(t) {
   const u = t - 14; bg(V); const { X, Y } = eqGeo(), y0 = Y(0), bw = AREA.w / NTR;
-  const lk = ex(k01(u, 0.04, 0.4)); cv.save(); clip(AREA.x + AREA.w - 1000 * lk, 120, 1000 * lk, 100); row([['بک‌تست', WH, 'rtl', 600], ['EUR/USD', WH, 'ltr', 900], ['۱۰۰ معامله‌ی آخر', WH, 'rtl', 600]], AREA.x + AREA.w, 168, 42, 0.35); cv.restore();
+  const lk = ex(k01(u, 0.04, 0.4)); cv.save(); clip(AREA.x + AREA.w - 1000 * lk, AREA.y - 130, 1000 * lk, 100); row([['بک‌تست', WH, 'rtl', 600], ['EUR/USD', WH, 'ltr', 900], ['۱۰۰ معامله‌ی آخر', WH, 'rtl', 600]], AREA.x + AREA.w, AREA.y - 82, 42, 0.35); cv.restore();
   const fold = exIO(k01(u, 1.8, 0.2)), one = lay9().one;
   if (u < 1.0) {
     rect(AREA.x, y0 - 1, AREA.w * ex(k01(u, 0, 0.3)), 2, WH);
@@ -293,7 +311,7 @@ function bar8(t) {
 }
 // BAR 9 · 16–18 s · TYPE on violet: «۱۰۰ معامله / قبل از اولین / ریالِ واقعی.»
 function lay9() {
-  const sN = 300, sW = 170, s2 = 150, nW = measure('۱۰۰', sN), w1 = measure('۱', sN), mW = measure('معامله', sW), g1 = 0.13 * sN, R1 = CX + (nW + g1 + mW) / 2;
+  const sN = REEL ? 270 : 300, sW = REEL ? 152 : 170, s2 = REEL ? 140 : 150, nW = measure('۱۰۰', sN), w1 = measure('۱', sN), mW = measure('معامله', sW), g1 = 0.13 * sN, R1 = CX + (nW + g1 + mW) / 2;
   const ib = inkBox('۱', sN), nx = R1 - nW;
   const a2 = measure('قبل از', s2), b2 = measure('اولین', s2), g2 = 0.28 * s2, R2 = CX + (a2 + g2 + b2) / 2;
   const w3 = measure('ریالِ واقعی', s2), r3 = 16, R3 = CX + (w3 + 26 + 2 * r3) / 2;
@@ -301,7 +319,7 @@ function lay9() {
 }
 function bar9(t) {
   const u = t - 16; bg(V); const L = lay9();
-  const exitY = (tt) => -1300 * exIn(k01(tt, 1.82, 0.18)), ey = exitY(u), vy = vel(exitY, u);
+  const exitY = (tt) => -1300 * SY * exIn(k01(tt, 1.82, 0.18)), ey = exitY(u), vy = vel(exitY, u);
   const y1 = track(u, [[0, CY], [0.5, CY - 150], [1.5, CY - 250]], 16) + ey, y2 = track(u, [[0, CY + 110], [1.5, CY + 15]], 16) + ey, y3 = CY + 240 + ey;
   // «۱» is the folded bar; «۰۰» slides out from behind it; «معامله» is wiped on right to left
   blurred(0, vy, () => txt('۱', L.nx, y1, L.sN, WH, { align: 'left', dir: 'ltr' }));
@@ -316,18 +334,18 @@ function bar9(t) {
     dot(lerp(dx, CX, m), lerp(dy - (1 - dk) * 120, CY, m), lerp(L.r3, 36, m) * cl(dk * 4), WH); }
 }
 // BAR 10 · 18–20 s · MORPH: the dot → V → W → staircase → the horizon; black ground rises to meet it
-const NPL = 96;
+const NPL = 96, HZ = REEL ? 1180 : 620;
 const pl = (pts) => resample(pts, NPL, false);
 function bar10(t) {
-  const u = t - 18; bg(V);
-  const d0 = pl([[CX, CY], [CX + 0.01, CY]]), vS = pl([[CX - 380, CY - 200], [CX, CY + 200], [CX + 380, CY - 200]]);
-  const wS = pl([[CX - 460, CY - 200], [CX - 230, CY + 200], [CX, CY - 60], [CX + 230, CY + 200], [CX + 460, CY - 200]]);
-  const st = pl([[CX - 520, CY + 220], [CX - 300, CY + 220], [CX - 300, CY + 60], [CX - 80, CY + 60], [CX - 80, CY - 100], [CX + 140, CY - 100], [CX + 140, CY - 260], [CX + 520, CY - 260]]);
-  const hz = pl([[-40, 620], [W + 40, 620]]);
+  const u = t - 18; bg(V); const XS = REEL ? 0.82 : 1;
+  const d0 = pl([[CX, CY], [CX + 0.01, CY]]), vS = pl([[CX - 380 * XS, CY - 200], [CX, CY + 200], [CX + 380 * XS, CY - 200]]);
+  const wS = pl([[CX - 460 * XS, CY - 200], [CX - 230 * XS, CY + 200], [CX, CY - 60], [CX + 230 * XS, CY + 200], [CX + 460 * XS, CY - 200]]);
+  const st = pl([[CX - 520 * XS, CY + 220], [CX - 300 * XS, CY + 220], [CX - 300 * XS, CY + 60], [CX - 80 * XS, CY + 60], [CX - 80 * XS, CY - 100], [CX + 140 * XS, CY - 100], [CX + 140 * XS, CY - 260], [CX + 520 * XS, CY - 260]]);
+  const hz = pl([[-40, HZ], [W + 40, HZ]]);
   const k1 = spr(u, 14), k2 = spr(u - 0.5, 14), k3 = spr(u - 1.0, 14), k4 = spr(u - 1.5, 13);
   let pts = mix(d0, vS, k1); if (u >= 0.5) pts = mix(vS, wS, k2); if (u >= 1.0) pts = mix(wS, st, k3); if (u >= 1.5) pts = mix(st, hz, k4);
   const lw = lerp(72, 22, k1) - (u >= 1.5 ? 18 * k4 : 0);
-  const gk = exIO(k01(u, 1.6, 0.4)); if (gk > 0) rect(0, lerp(H, 620, gk), W, H, K);
+  const gk = exIO(k01(u, 1.6, 0.4)); if (gk > 0) rect(0, lerp(H, HZ, gk), W, H, K);
   line(pts, WH, Math.max(4, lw));
 }
 // BAR 11 · 20–22 s · 2D → 3D: the ground becomes a grid, a city of real weekly EUR/USD moves rises, the camera flies
@@ -340,10 +358,10 @@ function bar11(t) {
   const P0 = track3(u, [[0, [0, 200, -200]], [1.0, [-40, 470, 120]]], 8), T0 = track3(u, [[0, [0, 200, 3000]], [1.0, [60, 330, 1500]]], 8);
   const dv = Math.pow(k01(u, 1.5, 0.5), 1.7), lk = ex(k01(u, 1.5, 0.3)), O0 = P0.map((v, i) => v - roof[i]), d0 = Math.hypot(...O0);
   const dir = [lerp(O0[0] / d0, 0, dv), lerp(O0[1] / d0, 1, dv), lerp(O0[2] / d0, -0.05, dv)], dn = Math.hypot(...dir), dist = d0 * Math.pow(6 / d0, dv);
-  const cam = camAt(u < 1.5 ? P0 : roof.map((v, i) => v + (dir[i] / dn) * dist), T0.map((v, i) => lerp(v, roof[i], lk)), 1100, 620);
+  const cam = camAt(u < 1.5 ? P0 : roof.map((v, i) => v + (dir[i] / dn) * dist), T0.map((v, i) => lerp(v, roof[i], lk)), 1100, HZ);
   const hy = cam.cy + cam.f * Math.tan(cam.pitch); rect(0, 0, W, cl(hy, -10, H + 10), V); rect(0, cl(hy, -10, H + 10), W, H, K);
   // the horizon line from bar 10 draws in to the vanishing point
-  const hk = ex(k01(u, 0, 0.4)); if (hk < 1) rect(lerp(-40, CX, hk), 618, lerp(W + 80, 0, hk), 4, WH);
+  const hk = ex(k01(u, 0, 0.4)); if (hk < 1) rect(lerp(-40, CX, hk), HZ - 2, lerp(W + 80, 0, hk), 4, WH);
   const gk = ex(k01(u, 0, 0.45)); cv.save(); cv.lineCap = 'butt';
   for (let gx = -1600; gx <= 1600; gx += 160) line3([gx, 0, 4000], [gx, 0, lerp(4000, -200, gk)], cam, 'rgba(245,243,250,0.5)', 2);
   for (let gz = 0; gz <= 4000; gz += 200) { if (gz > lerp(4000, 0, gk)) continue; line3([-1600, 0, gz], [1600, 0, gz], cam, 'rgba(245,243,250,0.5)', 2); } cv.restore();
@@ -359,11 +377,13 @@ function bar11(t) {
 // resolve a sixteenth apart, each panel flooding with its real result
 const PSY = ['EURUSD', 'XAUUSD', 'BTCUSD', 'NAS100'], PLAB = ['EUR/USD', 'XAU/USD', 'BTC/USD', 'NAS100'];
 const resT = (i) => 23.5 + i * 0.125;
-function panelRect(i, gut, mar) { const cw = (W - 2 * mar - gut) / 2, ch = (H - 2 * mar - gut) / 2; const col = i % 2, rw = Math.floor(i / 2); return { x: W - mar - (col + 1) * cw - col * gut, y: mar + rw * (ch + gut), w: cw, h: ch }; }
+function panelRect(i, gut, mar) {
+  if (REEL) { const k = mar / 40, by = lerp(0, 230, k), bh = lerp(H, 1290, k), ch = (bh - 3 * gut) / 4; return { x: mar, y: by + i * (ch + gut), w: W - 2 * mar, h: ch }; }
+  const cw = (W - 2 * mar - gut) / 2, ch = (H - 2 * mar - gut) / 2; const col = i % 2, rw = Math.floor(i / 2); return { x: W - mar - (col + 1) * cw - col * gut, y: mar + rw * (ch + gut), w: cw, h: ch }; }
 const rLabel = (r) => (r > 0 ? '+' : '−') + fa(Math.abs(r)) + 'R';
 function miniChart(p, P, t, i) {
   const B = P.bars, n = B.length; let lo = 1e9, hi = -1e9; B.forEach((b) => { lo = Math.min(lo, b[2]); hi = Math.max(hi, b[1]); }); lo = Math.min(lo, P.tp, P.sl); hi = Math.max(hi, P.tp, P.sl);
-  const A = { x: p.x + 40, y: p.y + 100, w: p.w - 80, h: p.h - 140 }, X = (k) => A.x + ((k + 0.5) / n) * A.w, Y = (v) => A.y + (1 - (v - lo) / (hi - lo)) * A.h, cw = A.w / n;
+  const A = REEL ? { x: p.x + 30, y: p.y + 74, w: p.w - 60, h: p.h - 94 } : { x: p.x + 40, y: p.y + 100, w: p.w - 80, h: p.h - 140 }, X = (k) => A.x + ((k + 0.5) / n) * A.w, Y = (v) => A.y + (1 - (v - lo) / (hi - lo)) * A.h, cw = A.w / n;
   const shown = t < 22.5 ? 0 : t < 23.5 ? (P.entry + 1) * ex(k01(t, 22.5, 0.45)) : P.entry + 1 + (P.exit - P.entry) * ex(k01(t, 23.5, 0.04 + i * 0.125));
   if (t >= 23.0) { const zx = (tt) => 1100 * (1 - spr(tt - 23.0 - i * 0.03, 15)), z = zx(t), xa = X(P.entry) + z, xb = A.x + A.w + 40 + z, eY = Y(P.e), sY = Y(P.sl), tY = Y(P.tp);
     blurred(vel(zx, t), 0, () => { rect(xa, Math.min(eY, sY), xb - xa, Math.abs(sY - eY), R); rect(xa, Math.min(eY, tY), xb - xa, Math.abs(tY - eY), G); rect(xa, eY - 2, xb - xa, 4, K); }); }
@@ -373,12 +393,12 @@ function miniChart(p, P, t, i) {
   // the result: the winning or losing zone floods the whole panel, and the R lands in it
   if (t >= resT(i)) { const win = P.r > 0, eY = Y(P.e), zy = win ? Math.min(eY, Y(P.tp)) : Math.min(eY, Y(P.sl)), zh = Math.abs((win ? Y(P.tp) : Y(P.sl)) - eY), k = spr(t - resT(i), 20), xa = X(P.entry);
     rect(lerp(xa, p.x, k), lerp(zy, p.y, k), lerp(A.x + A.w + 40 - xa, p.w, k), lerp(zh, p.h, k), win ? G : R);
-    cv.save(); clip(p.x, p.y, p.w, p.h); txt(rLabel(P.r), p.x + p.w / 2, p.y + p.h / 2 + (1 - spr(t - resT(i) - 0.02, 18)) * p.h * 0.6, 190, WH, { dir: 'ltr' }); cv.restore(); }
+    cv.save(); clip(p.x, p.y, p.w, p.h); txt(rLabel(P.r), p.x + p.w / 2, p.y + p.h / 2 + (1 - spr(t - resT(i) - 0.02, 18)) * p.h * 0.6, REEL ? 160 : 190, WH, { dir: 'ltr' }); cv.restore(); }
 }
 function bar12(t) {
   const u = t - 22; bg(K); const gut = 28 * spr(u, 16), mar = 40 * spr(u, 16);
   PSY.forEach((s, i) => { const p = panelRect(i, gut, mar); rect(p.x, p.y, p.w, p.h, WH); cv.save(); clip(p.x, p.y, p.w, p.h);
-    const lk = ex(k01(u, 0.1 + i * 0.03, 0.3)); cv.save(); clip(p.x + p.w - 40 - 340 * lk, p.y + 20, 340 * lk, 70); txt(PLAB[i], p.x + p.w - 40, p.y + 56, 42, K, { align: 'right', dir: 'ltr', w: 900 }); cv.restore();
+    const lk = ex(k01(u, 0.1 + i * 0.03, 0.3)); cv.save(); clip(p.x + p.w - 40 - 340 * lk, p.y + (REEL ? 12 : 20), 340 * lk, REEL ? 56 : 70); txt(PLAB[i], p.x + p.w - 40, p.y + (REEL ? 42 : 56), REEL ? 36 : 42, K, { align: 'right', dir: 'ltr', w: 900 }); cv.restore();
     miniChart(p, D.panels[s], t, i); cv.restore(); });
 }
 // END · 24–25 s · the four results fold into one violet bar, «بک‌تست‌لب» rises out of it, and the bar folds back into the candle
@@ -399,11 +419,46 @@ function barEnd(t) {
     const sk = ex(k01(u, 0.2, 0.2)) * (1 - ex(k01(u, 0.58, 0.1))); if (sk > 0) { cv.save(); clip(CX - 320 * sk, barY + 30, 640 * sk, 90); txt('backtestlab.ir', CX, barY + 75, 48, WH, { dir: 'ltr', w: 600 }); cv.restore(); } }
 }
 
+// END (reel) · 24–28 s · the four results fold into one violet bar and «بک‌تست‌لب» rises out of it; on beat three the
+// block lifts and the bar lets go of a button, the call to action: «۷ روز رایگان», «لینک توی بیو», a press, the label
+// rolls to «همین حالا شروع کن»; on the last half bar the button goes back into the bar and the bar folds into the candle
+const CTA = { name: 'بک‌تست‌لب', size: 190, btn: ['۷ روز رایگان', 'همین حالا شروع کن'], link: 'لینک توی بیو' };
+function barEndReel(t) {
+  const u = t - 24; bg(K);
+  const nw = measure(CTA.name, CTA.size), bh = 22, lift = (tt) => track(tt, [[0, 0], [25.0, -270]], 15), ly = lift(t), vyL = vel(lift, t);
+  const barY0 = CY + 150, barY = barY0 + ly;
+  // the panels collapse into four segments of the underline
+  const ck = exIO(k01(u, 0, 0.24));
+  if (ck < 1) PSY.forEach((s, i) => { const p = panelRect(i, 28, 40), r = D.panels[s].r, sx = CX + nw / 2 - ((i + 1) * nw) / 4;
+    const x = lerp(p.x, sx, ck), y = lerp(p.y, barY0 - bh / 2, ck), w = lerp(p.w, nw / 4, ck), h = lerp(p.h, bh, ck); rect(x, y, w, h, r > 0 ? G : R);
+    const sc = h / p.h; if (sc > 0.05) { cv.save(); cv.translate(x + w / 2, y + h / 2); cv.scale(w / p.w, sc); txt(rLabel(r), 0, 0, 160, WH, { dir: 'ltr' }); cv.restore(); } });
+  // the bar: violet wipes through it right to left; at the end it folds into the candle
+  const vw = ex(k01(u, 0.16, 0.16)), fold = exIO(k01(t, 27.66, 0.32));
+  const bw = lerp(nw, 56, fold), bhh = lerp(bh, 220, fold), by = lerp(barY, CY, fold), wick = 360 * fold * ex(k01(t, 27.7, 0.24));
+  if (ck >= 1) candleIcon(CX, by, bw, bhh, wick);
+  if (ck >= 1 && vw < 1) { cv.save(); clip(CX - nw / 2, 0, nw * (1 - vw), H); PSY.forEach((s, i) => rect(CX + nw / 2 - ((i + 1) * nw) / 4, barY0 - bh / 2, nw / 4, bh, D.panels[s].r > 0 ? G : R)); cv.restore(); }
+  // the button: born from the underline at 25.0, pressed at 26.5, taken back into the bar at 27.5
+  const bk = spr(t - 25.0, 14) * (1 - exIO(k01(t, 27.5, 0.18)));
+  if (t >= 25.0 && bk > 0.002) { const bx = CX, byy = lerp(barY, CY + 130, bk), w = lerp(nw, 720, bk), h = lerp(bh, 150, bk), rr = (h / 2) * bk;
+    const press = 1 - 0.06 * spr(t - 26.5, 30) * (1 - spr(t - 26.62, 18)), path = () => { cv.beginPath(); cv.roundRect(-w / 2, -h / 2, w, h, rr); };
+    cv.save(); cv.translate(bx, byy); cv.scale(press, press); cv.fillStyle = V; path(); cv.fill();
+    if (h > 90) { path(); cv.clip(); const lk = ex(k01(t, 25.5, 0.28)), roll = exIO(k01(t, 27.0, 0.25)), w1 = measure(CTA.btn[0], 74);
+      cv.save(); clip(w1 / 2 + 8 - (w1 + 16) * lk, -h, (w1 + 16) * lk, 2 * h); txt(CTA.btn[0], 0, -roll * h, 74, WH); cv.restore();
+      if (roll > 0) txt(CTA.btn[1], 0, (1 - roll) * h, 62, WH); }
+    cv.restore(); }
+  // the title rises out of the bar (as «بازار» did), rides up with it, and sinks back into it at the end
+  const rise = (tt) => track(tt, [[0, 280], [24.12, 0], [27.5, 440]], 18), dy = rise(t);
+  if (u >= 0.12) { cv.save(); clip(0, -50, W, barY - bh / 2 + 50); blurred(0, vel(rise, t) + vyL, () => txt(CTA.name, CX, CY - 40 + ly + dy, CTA.size, WH)); cv.restore(); }
+  const sk = ex(k01(t, 24.5, 0.22)) * (1 - ex(k01(t, 27.5, 0.12))); if (sk > 0) { cv.save(); clip(CX - 320 * sk, barY + 30, 640 * sk, 90); txt('backtestlab.ir', CX, barY + 75, 48, WH, { dir: 'ltr', w: 600 }); cv.restore(); }
+  // «لینک توی بیو» rises out of its own baseline under the button, and drops back at the end
+  if (t >= 26.0) { const ly2 = CY + 300, ry = 90 * (1 - spr(t - 26.0, 16)) + 130 * exIn(k01(t, 27.5, 0.12)); cv.save(); clip(0, 0, W, ly2 + 44); txt(CTA.link, CX, ly2 + ry, 56, WH, { w: 700 }); cv.restore(); }
+}
+
 const SCENES = [bar1, bar2, bar3, bar4, bar5, bar6, bar7, bar8, bar9, bar10, bar11, bar12, barEnd];
 window.seek = (t) => {
   t = ((t % DUR) + DUR) % DUR;
   cv.setTransform(1, 0, 0, 1, 0, 0); cv.filter = 'none'; cv.globalAlpha = 1; cv.globalCompositeOperation = 'source-over';
-  SCENES[Math.min(12, Math.floor(t / 2))](t);
+  if (REEL && t >= 24) barEndReel(t); else SCENES[Math.min(12, Math.floor(t / 2))](t);
 };
-window.DURATION = DUR;
+window.DURATION = DUR; window.FRAME = [W, H];
 (async () => { await Promise.all(['500', '600', '700', '800', '900'].map((w) => document.fonts.load(`${w} 100px Vazirmatn`, 'آبپ۱A'))); window.seek(0); window.ready = true; })();

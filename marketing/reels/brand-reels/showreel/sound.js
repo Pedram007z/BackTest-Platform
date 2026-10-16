@@ -3,7 +3,7 @@
 // whoosh under each exit move; a riser through bar 11 into the last full bar; a bell under the end title. Anything
 // that rings past 25 s is folded back onto the start, so the track loops like the picture. Noise is seeded.
 window.renderAudio = async () => {
-  const SR = 48000, LOOP = 25, TAIL = 2.5, O = 0.5, ctx = new OfflineAudioContext(2, SR * (O + LOOP + TAIL), SR);
+  const REEL = window.FORMAT === 'reel', SR = 48000, LOOP = REEL ? 28 : 25, TAIL = 2.5, O = 0.5, ctx = new OfflineAudioContext(2, SR * (O + LOOP + TAIL), SR);
   let seed = 7; const rnd = () => { seed = (seed + 0x6d2b79f5) | 0; let x = Math.imul(seed ^ (seed >>> 15), 1 | seed); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
   const NOISE = ctx.createBuffer(1, SR * 3, SR); NOISE.getChannelData(0).forEach((_, i, d) => { d[i] = rnd() * 2 - 1; });
   const B = 0.5, BAR = 2;
@@ -39,8 +39,9 @@ window.renderAudio = async () => {
   const N = { A1: 55, B1: 61.74, C2: 65.41, D2: 73.42, E1: 41.2, F1: 43.65, G1: 49, A2: 110 };
   const CH = { Am: [220, 261.63, 329.63, 440], F: [174.61, 220, 261.63, 329.63], C: [196, 261.63, 329.63, 392], G: [196, 246.94, 293.66, 392], Fmaj9: [174.61, 220, 261.63, 329.63, 392] };
   const ROOT = { Am: N.A1, F: N.F1, C: N.C2, G: N.G1, Fmaj9: N.F1 };
-  // bars 1–4 and 5–8: Am F C G; 9 Am, 10 F, 11 G (the riser), 12 Am (the strongest bar), end title: Fmaj9, which loops into Am
-  const PROG = ['Am', 'F', 'C', 'G', 'Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'Am', 'Fmaj9'];
+  // bars 1–4 and 5–8: Am F C G; 9 Am, 10 F, 11 G (the riser), 12 Am (the strongest bar), end title: Fmaj9, which loops
+  // into Am. The reel's two closing bars: Fmaj9 under the title and the button, G under the call to action
+  const PROG = ['Am', 'F', 'C', 'G', 'Am', 'F', 'C', 'G', 'Am', 'F', 'G', 'Am', 'Fmaj9', 'G'];
   function bass(t, f, dur = 0.22, amp = 0.34, cut = 700) {
     const g = ctx.createGain(), lp = filt('lowpass', cut, 3); lp.frequency.setValueAtTime(cut * 2.6, t); lp.frequency.exponentialRampToValueAtTime(cut * 0.55, t + dur);
     [0, 9].forEach((d) => osc('sawtooth', f, t, dur + 0.05, d).connect(lp)); osc('sine', f, t, dur + 0.05).connect(g);
@@ -78,11 +79,17 @@ window.renderAudio = async () => {
     for (let k = 0; k < 16; k++) snare(t0 + k * 0.125, 0.04 + 0.22 * (k / 15)); for (let k = 0; k < 8; k++) snare(t0 + 1 + k * 0.0625, 0.15 + 0.15 * (k / 7)); for (let k = 0; k < 8; k++) snare(t0 + 1.5 + k * 0.0625, 0.3 + 0.12 * (k / 7));
   }
   // ---- the score (everything sits O seconds into the render: a pre-roll, so the first downbeat starts from a settled graph)
-  for (let i = 0; i < LOOP / B; i++) { const t = i * B; kick(O + t, t >= 24 ? (t === 24 ? 1 : 0.55) : 1); }
-  for (let bar = 0; bar < 13; bar++) {
-    const t0 = O + bar * BAR, ch = PROG[bar], root = ROOT[ch], last = bar === 12, rise = bar === 10, peak = bar === 11;
-    hit(t0, ch, peak ? 1 : last ? 0.6 : 0);
+  for (let i = 0; i < LOOP / B; i++) { const t = i * B; kick(O + t, !REEL && t >= 24 ? (t === 24 ? 1 : 0.55) : REEL && t >= 24 && t < 26 ? 0.8 : 1); }
+  for (let bar = 0; bar < (REEL ? 14 : 13); bar++) {
+    const t0 = O + bar * BAR, ch = PROG[bar], root = ROOT[ch], last = !REEL && bar === 12, rise = bar === 10, peak = bar === 11;
+    hit(t0, ch, peak ? 1 : bar === 12 ? 0.6 : 0);
     if (last) { bell(t0, 440); bell(t0 + 0.25, 659.25, 0.07); pad(t0, CH.Fmaj9, 0.95, 0.05, 1600); hat(t0 + 0.25, 0.1); hat(t0 + 0.75, 0.1); continue; }
+    if (REEL && bar >= 12) {     // the reel's ending: title and button (Fmaj9), then the call to action (G) and the fold
+      if (bar === 12) { bell(t0, 440); bell(t0 + 0.25, 659.25, 0.07); stab(t0 + 1, CH.Fmaj9, 0.12, 0.3, 4200); pluck(t0 + 1.5, 880, 0.07); }
+      else { pop(t0 + 0.5, 1046.5, 0.15); stab(t0 + 1, CH.G, 0.1, 0.25, 3800); whoosh(t0 + 1.5, t0 + 2.0, 0.12, 400, 6000); }
+      pad(t0, CH[ch], BAR, 0.04, 1300); clap(t0 + 0.5, 0.35); clap(t0 + 1.5, 0.35);
+      for (let k = 0; k < 4; k++) { hat(t0 + k * B + 0.25, 0.16); bass(t0 + k * B + 0.25, root, 0.2, 0.28, 650); }
+      continue; }
     if (bar >= 1 && !rise) { clap(t0 + 0.5, 0.45); clap(t0 + 1.5, 0.45); }
     for (let k = 0; k < 4; k++) { hat(t0 + k * B + 0.25, 0.2); if (bar >= 4) { hat(t0 + k * B + 0.125, 0.06, 0.02, -0.3); hat(t0 + k * B + 0.375, 0.06, 0.02, -0.3); } }
     if (!rise && bar >= 1) for (let k = 0; k < 4; k++) { bass(t0 + k * B + 0.25, root * (k === 3 && bar % 2 ? 2 : 1), 0.2, peak ? 0.4 : 0.32, peak ? 900 : bar >= 8 ? 600 : 750); }
