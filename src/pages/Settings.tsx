@@ -1,3 +1,4 @@
+import { usePlan } from '../hooks/usePlan';
 import clsx from 'clsx';
 import { Crown, LogOut, Moon, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -43,6 +44,8 @@ function readAvatar(file: File): Promise<string> {
 
 export default function Settings() {
   const { user, updateUser, theme, setTheme, clearAll, restoreDemo, hasDemoData } = useStore();
+  // the sample data has several sessions; the free plan has one
+  const { free } = usePlan();
   const [name, setName] = useState(user.name);
   const [confirm, setConfirm] = useState<'clear' | 'restore' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -197,9 +200,11 @@ export default function Settings() {
           <button type="button" className="btn-soft text-loss" onClick={() => setConfirm('clear')}>
             <Trash2 size={15} /> پاک کردن همه‌ی داده‌ها
           </button>
-          <button type="button" className="btn-soft" onClick={() => setConfirm('restore')}>
-            <RotateCcw size={15} /> بازگردانی داده‌ی نمونه
-          </button>
+          {!free && (
+            <button type="button" className="btn-soft" onClick={() => setConfirm('restore')}>
+              <RotateCcw size={15} /> بازگردانی داده‌ی نمونه
+            </button>
+          )}
         </div>
       </section>
 

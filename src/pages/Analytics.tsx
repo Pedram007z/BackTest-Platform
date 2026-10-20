@@ -1,3 +1,5 @@
+import { LockedPage } from '../components/plan/Locked';
+import { usePlan } from '../hooks/usePlan';
 import clsx from 'clsx';
 import { ChartColumn, Dices, RotateCcw, Trash2, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -70,7 +72,7 @@ const fmtDur = (ms: number) => {
   return h ? `${fmtNum(h)} ساعت ${m ? `${fmtNum(m)} دقیقه` : ''}` : `${fmtNum(m)} دقیقه`;
 };
 
-export default function Analytics() {
+function AnalyticsPage() {
   const trades = useStore((s) => s.trades);
   const sessions = useStore((s) => s.sessions);
   const strategies = useStore((s) => s.strategies);
@@ -556,4 +558,10 @@ export default function Analytics() {
       )}
     </div>
   );
+}
+
+/** The free plan does not include the analytics (services/plan.ts). */
+export default function Analytics() {
+  const { free } = usePlan();
+  return free ? <LockedPage feature="analytics" /> : <AnalyticsPage />;
 }

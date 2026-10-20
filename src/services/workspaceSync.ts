@@ -104,6 +104,18 @@ function dataChanged(s: ReturnType<typeof useStore.getState>, p: ReturnType<type
   );
 }
 
+/** Removes the sessions (and their trades) made here that the server does not have. */
+function dropRefusedSessions() {
+  const known = useStore.getState().sync?.base?.items.sessions;
+  if (!known) return;
+  useStore.setState((s) => {
+    const sessions = s.sessions.filter((x) => x.id in known);
+    if (sessions.length === s.sessions.length) return {};
+    const ids = new Set(sessions.map((x) => x.id));
+    return { sessions, trades: s.trades.filter((t) => ids.has(t.sessionId)) };
+  });
+}
+
 /** Takes the server's copy, keeping the changes made here that it does not have yet. */
 async function pull() {
   const meta = useStore.getState().sync;
@@ -180,6 +192,13 @@ async function run(pullFirst = false) {
     }
     // try again later; a change in flight is checked first (it may have arrived)
     pulled = 0;
+    if (code === 'plan_limit') {
+      // the free plan has one session and another device added one first: the one made here is taken back
+      dropRefusedSessions();
+      status({ state: 'error', message: e instanceof Error ? e.message : undefined });
+      schedule(2_000);
+      return;
+    }
     retryMs = Math.min(code === 'too_large' ? 300_000 : 60_000, Math.max(5_000, retryMs * 2));
     status(code === 'network' ? { state: 'offline' } : { state: 'error', message: e instanceof Error ? e.message : undefined });
     schedule(retryMs);

@@ -1,3 +1,5 @@
+import { usePlan } from '../../hooks/usePlan';
+import { UpgradeModal } from '../plan/Locked';
 import { DollarSign, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { DAY_MS, addDays, addMonths, fmtDayLong, keyToMs } from '../../lib/calendar';
@@ -25,6 +27,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
   const strategies = useStore((s) => s.strategies);
   const checklists = useStore((s) => s.checklists);
   const addSession = useStore((s) => s.addSession);
+  const { canAddSession } = usePlan();
   const updateSession = useStore((s) => s.updateSession);
   const addStrategy = useStore((s) => s.addStrategy);
   const enabledSymbols = useEnabledSymbols();
@@ -87,6 +90,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
   };
 
   const submit = () => {
+    if (!session && !canAddSession) return;
     setTouched(true);
     if (!valid) return;
     const payload = {
@@ -126,6 +130,9 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
   }));
   const strategyOptions = [{ value: NONE, label: 'بدون استراتژی' }, ...strategies.map((s) => ({ value: s.id, label: s.name, hint: s.description.slice(0, 60) }))];
   const checklistOptions = [{ value: NONE, label: 'بدون چک‌لیست' }, ...checklists.map((c) => ({ value: c.id, label: c.name, hint: `${fmtNum(c.items.length)} آیتم` }))];
+
+  // the free plan has one session: asks to upgrade instead
+  if (!session && !canAddSession) return <UpgradeModal open={open} onClose={onClose} />;
 
   return (
     <Modal

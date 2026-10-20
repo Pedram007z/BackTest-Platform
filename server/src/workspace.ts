@@ -7,6 +7,8 @@ import { FileReply, HttpError, badRequest, notFound, type Ctx } from './http';
 import type { AccountUser } from './shared';
 import { storeBacktestCopy } from './backtests';
 import { cleanSnapshot } from '../../src/services/backtests';
+import { FREE_SESSION_MESSAGE, freeSessionsAllowed, onFreePlan } from '../../src/services/plan';
+import { todayKey } from './util';
 import {
   WS_COLLECTIONS,
   applyPatch,
@@ -135,11 +137,21 @@ export function getWorkspace(user: AccountUser, knownRev: string | null): Worksp
   return { rev: doc.rev, data: doc.data, pids: doc.pids };
 }
 
-function apply(userId: string, doc: WorkspaceDoc, patch: WorkspacePatch, baseRev: number, meta: { pid?: string; ip?: string; userAgent?: string }): WorkspaceDoc {
+function apply(
+  userId: string,
+  doc: WorkspaceDoc,
+  patch: WorkspacePatch,
+  baseRev: number,
+  meta: { pid?: string; ip?: string; userAgent?: string; freePlan?: boolean },
+): WorkspaceDoc {
   const removedAt = (c: WsCollection, id: string | undefined) => (id ? (doc.removed[c]?.[id] ?? 0) : 0);
   // an item deleted after the revision the sender knew is not brought back by its change
   const skip = (c: WsCollection, item: { id: string; sessionId?: string }) => removedAt(c, item.id) > baseRev || (c === 'trades' && removedAt('sessions', item.sessionId) > baseRev);
   const data = applyPatch(doc.data, patch, { skip });
+  // the free plan has one session (an account that already had more keeps them, but adds no new one)
+  if (meta.freePlan && !freeSessionsAllowed(new Set(doc.data.sessions.map((x) => x.id)), data.sessions)) {
+    throw new HttpError(403, 'plan_limit', FREE_SESSION_MESSAGE);
+  }
   const tooBig = workspaceTooBig(data);
   if (tooBig) throw new HttpError(413, 'too_large', 'حجم داده‌های حساب از حد مجاز بیشتر شده است. چند جلسه‌ی قدیمی را حذف کنید.');
   const rev = doc.rev + 1;
@@ -178,6 +190,7 @@ const newDoc = (): WorkspaceDoc => ({ v: 1, rev: 0, updatedAt: 0, data: emptyWor
  * back when it had changed since `baseRev` (another device), so the browser can put its changes on top.
  */
 export function patchWorkspace(ctx: Ctx, user: AccountUser): WorkspaceReply {
+  const freePlan = onFreePlan(user, todayKey());
   const baseRev = REV(ctx.body?.baseRev);
   if (baseRev < 0) throw badRequest('invalid', 'نسخه‌ی داده‌ها معتبر نیست.');
   const pid = String(ctx.body?.pid ?? '');
@@ -187,7 +200,7 @@ export function patchWorkspace(ctx: Ctx, user: AccountUser): WorkspaceReply {
   if (doc.pids.includes(pid)) return { rev: doc.rev, data: doc.data, pids: doc.pids };
   const patch = cleanPatch(ctx.body?.patch);
   if (isEmptyPatch(patch)) return doc.rev === baseRev ? { rev: doc.rev, pids: doc.pids } : { rev: doc.rev, data: doc.data, pids: doc.pids };
-  const next = apply(user.id, doc, patch, baseRev, { pid, ip: ctx.ip, userAgent: ctx.userAgent });
+  const next = apply(user.id, doc, patch, baseRev, { pid, ip: ctx.ip, userAgent: ctx.userAgent, freePlan });
   return doc.rev === baseRev ? { rev: next.rev, pids: next.pids } : { rev: next.rev, data: next.data, pids: next.pids };
 }
 

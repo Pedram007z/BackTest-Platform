@@ -1,3 +1,5 @@
+import { LockedPage } from '../components/plan/Locked';
+import { usePlan } from '../hooks/usePlan';
 import clsx from 'clsx';
 import { Camera, ChevronLeft, ChevronRight, FolderOpen, NotebookPen, Star, StickyNote, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -15,7 +17,7 @@ import { toast, useStore } from '../store/useStore';
 
 const PAGE = 15;
 
-export default function Journal() {
+function JournalPage() {
   const [params, setParams] = useSearchParams();
   const trades = useStore((s) => s.trades);
   const sessions = useStore((s) => s.sessions);
@@ -260,4 +262,10 @@ export default function Journal() {
       />
     </div>
   );
+}
+
+/** The free plan does not include the journal (services/plan.ts). */
+export default function Journal() {
+  const { free } = usePlan();
+  return free ? <LockedPage feature="journal" /> : <JournalPage />;
 }

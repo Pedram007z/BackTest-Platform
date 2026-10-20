@@ -4,6 +4,7 @@ import { api, hasServer } from '../services/api';
 
 const WEEK = 7 * 86_400_000;
 const cache = new Map<string, NewsEvent[]>();
+const OFF: { events: NewsEvent[]; source: NewsSource; loading: boolean } = { events: [], source: 'sample', loading: false };
 
 /** schedule: only the server's official release schedule (times of USD, EUR and GBP news, no values) */
 export type NewsSource = 'forexfactory' | 'schedule' | 'sample';
@@ -13,7 +14,7 @@ export type NewsSource = 'forexfactory' | 'schedule' | 'sample';
  * events come from ForexFactory (weeks it cannot provide come from the server's official release
  * schedule, and weeks outside that from the sample calendar); otherwise from the built-in sample calendar.
  */
-export function useNews(cursor: number): { events: NewsEvent[]; source: NewsSource; loading: boolean } {
+export function useNews(cursor: number, enabled = true): { events: NewsEvent[]; source: NewsSource; loading: boolean } {
   const start = Math.floor(cursor / WEEK) * WEEK - 3 * WEEK;
   const end = start + 7 * WEEK;
   const key = `${start}`;
@@ -25,6 +26,8 @@ export function useNews(cursor: number): { events: NewsEvent[]; source: NewsSour
   }));
 
   useEffect(() => {
+    // locked (the free plan): nothing is fetched
+    if (!enabled) return;
     if (!hasServer) {
       setState({ key, events: sampleNews(start, end), source: 'sample', loading: false });
       return;
@@ -53,7 +56,7 @@ export function useNews(cursor: number): { events: NewsEvent[]; source: NewsSour
     return () => {
       alive = false;
     };
-  }, [key, start, end]);
+  }, [key, start, end, enabled]);
 
-  return state;
+  return enabled ? state : OFF;
 }
