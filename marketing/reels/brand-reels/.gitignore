@@ -30,3 +30,8 @@ m[0-9]/*.wav
 m[0-9]/*.mp4
 m[0-9]/*.png
 m[0-9]/voice/*.wav
+# d1 «۳ اشتباه»: cut lines, mixes, renders and the cover are rebuilt from t1.mp3 (see d1/build.py)
+d[0-9]/*.wav
+d[0-9]/*.mp4
+d[0-9]/*.png
+d[0-9]/voice/

@@ -1,0 +1,373 @@
+// d1 · «۳ اشتباه»: the post-launch reel with 20% off the first purchase, in the launch reel's format (the format that
+// drew the most attention): kinetic type on changing backgrounds and the real site on a desktop, with a big cursor and
+// camera moves into the UI, on the user's take. Three mistakes, each a red card, each answered by the platform: a
+// position with its stop, target and risk-based size; the economic calendar with the coming releases on the chart;
+// a candle-by-candle replay and the analytics. Then: make the mistakes here, not in your real account; the launch and
+// a 20% coupon; the end card points to the code in the caption.
+// Screens: ../launch/shots (gold, April 2025, real prices; the sample account's journal and analytics).
+// Scenes are written in base times (TB); build.py sets each scene's start (DATA.t) and warp knots (DATA.warp) from the
+// spoken words, and render() maps the cut's time into TB, as in the launch reel's voiced cut.
+const TB = { hook: 0.0, m1: 5.4, pos: 7.8, m2: 12.3, news: 14.9, m3: 18.5, replay: 22.1, journal: 26.6, practice: 29.6, offer: 32.8, end: 36.8 };
+const T = { ...TB, ...(DATA.inner ?? {}) };
+const NEXT = { m1: 'pos', m2: 'news', m3: 'replay' };
+const SHOTS_DIR = DATA.shots ?? 'shots/';
+const PW = 1440, PH = 900;
+const SEQ1 = 17, SEQ2 = 10;
+
+// ---------- small helpers ----------
+const hex = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+const mixc = (a, b, k) => { const x = hex(a), y = hex(b); return `rgb(${x.map((v, i) => Math.round(lerp(v, y[i], clamp(k)))).join(',')})`; };
+/** Keyframed value: keys [[t, v], …] with v a number or an object of numbers, eased between keys. */
+function track(t, keys, fn = E.inOut) {
+  if (t <= keys[0][0]) return keys[0][1];
+  for (let i = 1; i < keys.length; i++) if (t <= keys[i][0]) {
+    const [t0, a] = keys[i - 1], [t1, b] = keys[i], k = fn((t - t0) / (t1 - t0));
+    return typeof a === 'number' ? lerp(a, b, k) : Object.fromEntries(Object.keys(a).map((q) => [q, lerp(a[q], b[q] ?? a[q], k)]));
+  }
+  return keys[keys.length - 1][1];
+}
+const press = (t, tc) => Math.sin(Math.PI * P(t, tc - 0.08, 0.22));
+const lt = (t, k) => t - T[k];
+
+/** Words that land one by one (right to left), each blurring in and rising. words: [[text, colour?], …]. */
+function kwords(words, x, y, t, t0, o = {}) {
+  const size = o.size ?? 110, font = o.font ?? 'Rdx', wt = o.weight ?? 700, gap = size * 0.3, st = o.stagger ?? 0.13;
+  const ws = words.map(([s]) => measure(s, size, wt, font));
+  const total = ws.reduce((a, b) => a + b, 0) + gap * (words.length - 1);
+  let right = x + total / 2;
+  const out = o.out !== undefined ? 1 - E.in(P(t, o.out, 0.25)) : 1;
+  words.forEach(([s, col], i) => {
+    const k = E.out(P(t, t0 + i * st, o.d ?? 0.42)) * out;
+    if (k > 0) {
+      cv.save(); cv.filter = k < 0.995 ? `blur(${((1 - k) * 18).toFixed(1)}px)` : 'none';
+      txt(s, right, y + (1 - k) * 46, { size, font, weight: wt, color: col ?? o.color ?? C.ink, align: 'right', alpha: k * (o.alpha ?? 1), dir: /^[\x20-\x7E]+$/.test(s) ? 'ltr' : 'rtl', glow: col && o.glowCol ? rgba(col, 0.7) : o.glow, glowBlur: o.glowBlur });
+      cv.restore();
+    }
+    right -= ws[i] + gap;
+  });
+  return total;
+}
+/** One line that blurs in at a and out at b. */
+function bline(s, x, y, t, a, b, o = {}) {
+  const k = Math.min(E.out(P(t, a, o.fi ?? 0.35)), 1 - E.in(P(t, b - (o.fo ?? 0.25), o.fo ?? 0.25)));
+  if (k <= 0) return; cv.save(); cv.filter = k < 0.995 ? `blur(${((1 - k) * 16).toFixed(1)}px)` : 'none';
+  txt(s, x, y + (1 - k) * 30 * (t < b - 0.3 ? 1 : -1), { size: o.size ?? 90, font: o.font ?? 'Rdx', weight: o.weight ?? 700, color: o.color ?? C.ink, alpha: k, glow: o.glow, glowBlur: o.glowBlur, dir: o.dir });
+  cv.restore();
+}
+
+// ---------- the desktop: a browser window with the site, seen through a camera ----------
+// cam: {x, y, z, sy}: the page point (css px of the 1440x900 page) shown at screen (540, sy), z screen px per css px.
+const toS = (c, px, py) => [540 + (px - c.x) * c.z, (c.sy ?? 960) + (py - c.y) * c.z];
+let DESK_I = 0;   // the motion-blur sample being drawn: only the first one casts the window's shadow
+function windowFrame() {
+  cv.save(); if (DESK_I === 0) { cv.shadowColor = 'rgba(0,0,0,0.6)'; cv.shadowBlur = 90; cv.shadowOffsetY = 34; }
+  rr(-1, -40, PW + 2, PH + 41, 16); cv.fillStyle = '#17141F'; cv.fill(); cv.restore();
+  cv.save(); rr(-1, -40, PW + 2, PH + 41, 16); cv.lineWidth = 1.5; cv.strokeStyle = 'rgba(255,255,255,0.10)'; cv.stroke();
+  [['#FF5F57', 22], ['#FEBC2E', 44], ['#28C840', 66]].forEach(([c, x]) => { cv.fillStyle = c; cv.beginPath(); cv.arc(x, -20, 6.5, 0, 7); cv.fill(); });
+  rr(560, -32, 320, 24, 12); cv.fillStyle = 'rgba(255,255,255,0.07)'; cv.fill();
+  cv.restore();
+  txt('backtestlab.ir', 720, -19.5, { size: 13, weight: 500, color: '#B9B3CC', dir: 'ltr', font: 'Vaz' });
+  cv.save(); cv.strokeStyle = '#8C86A0'; cv.lineWidth = 1.4; rr(655, -24, 8, 7, 1.5); cv.stroke(); cv.beginPath(); cv.arc(659, -24, 3, Math.PI, 0); cv.stroke(); cv.restore();
+}
+/** The page: a screenshot (2x), or a scroll window into a full-page one; img2 at mix crossfades over it. */
+function pageImg(img, o = {}) {
+  cv.save(); rr(0, 0, PW, PH, [0, 0, 14, 14]); cv.clip(); cv.fillStyle = '#0D0B14'; cv.fillRect(0, 0, PW, PH);
+  if (img) { if (o.scroll !== undefined) cv.drawImage(img, 0, o.scroll * 2, PW * 2, PH * 2, 0, 0, PW, PH); else cv.drawImage(img, 0, 0, PW, PH); }
+  if (o.img2 && o.mix > 0) { cv.globalAlpha = o.mix; cv.drawImage(o.img2, 0, 0, PW, PH); }
+  cv.restore();
+}
+function desk(cam, paint) { cv.save(); cv.translate(540 - cam.x * cam.z, (cam.sy ?? 960) - cam.y * cam.z); cv.scale(cam.z, cam.z); paint(); cv.restore(); }
+/** The desktop layer with camera motion blur: camAt(t) gives the camera, paint(t) draws the window in page coordinates. */
+let SLOPE = 1;   // music-only seconds per second of the cut being rendered (set by render), so the blur follows real motion
+function deskBlur(t, camAt, paint, t0 = -1) {
+  const dt = SLOPE / 30, c0 = camAt(t), c1 = camAt(Math.max(t0, t - dt));
+  const move = Math.hypot((c0.x - c1.x) * c0.z, (c0.y - c1.y) * c0.z, (c0.sy ?? 960) - (c1.sy ?? 960)) + Math.abs(c0.z - c1.z) * 700;
+  const n = move > 5 ? Math.min(9, 2 + Math.round(move / 10)) : 1;
+  for (let i = 0; i < n; i++) { const ti = Math.max(t0, t - (i / n) * 1.3 * dt); DESK_I = i; cv.save(); cv.globalAlpha *= 1 / (i + 1); desk(camAt(ti), () => paint(ti)); cv.restore(); }
+  DESK_I = 0; return c0;
+}
+function bgDesk(t, o = {}) {
+  const g = cv.createLinearGradient(0, 0, 0, H); g.addColorStop(0, o.top ?? '#33208C'); g.addColorStop(0.5, o.mid ?? '#1C1350'); g.addColorStop(1, '#0B0918');
+  cv.fillStyle = g; cv.fillRect(0, 0, W, H);
+  glow(800 + 80 * Math.sin(t * 0.4), 260, 900, 600, o.glowCol ?? C.accent, 0.35);
+  glow(200, 1500 + 60 * Math.cos(t * 0.3), 800, 600, C.pink, 0.12);
+}
+/** The macOS pointer, its tip at (x, y). */
+function pointer(x, y, o = {}) {
+  if ((o.alpha ?? 1) <= 0) return;
+  const s = ((o.size ?? 74) / 22) * (1 - 0.14 * (o.press ?? 0));
+  cv.save(); cv.globalAlpha *= o.alpha ?? 1; cv.translate(x, y); cv.scale(s, s);
+  cv.beginPath(); cv.moveTo(0, 0); cv.lineTo(0, 19); cv.lineTo(4.6, 14.8); cv.lineTo(7.6, 21.6); cv.lineTo(10.7, 20.3); cv.lineTo(7.8, 13.7); cv.lineTo(13.8, 13.7); cv.closePath();
+  cv.shadowColor = 'rgba(0,0,0,0.45)'; cv.shadowBlur = 16; cv.shadowOffsetY = 5; cv.fillStyle = '#fff'; cv.fill();
+  cv.shadowColor = 'transparent'; cv.lineJoin = 'round'; cv.lineWidth = 1.4; cv.strokeStyle = '#121016'; cv.stroke(); cv.restore();
+}
+function ring(x, y, k, col = '#fff', r0 = 14) { if (k <= 0 || k >= 1) return; cv.save(); cv.globalAlpha *= (1 - k) * 0.95; cv.strokeStyle = col; cv.lineWidth = 5; cv.beginPath(); cv.arc(x, y, r0 + 52 * E.out(k), 0, 7); cv.stroke(); cv.restore(); }
+/** A cursor that follows page-point keys [[t, x, y], …] through the camera; clicks at the given times. */
+function cursorOn(t, cam, keys, clicks = [], o = {}) {
+  const p = track(t, keys.map(([tk, x, y]) => [tk, { x, y }]), E.inOut);
+  const [sx, sy] = toS(cam, p.x, p.y);
+  const pr = Math.max(0, ...clicks.map((c) => press(t, c)));
+  clicks.forEach((c) => ring(sx, sy, P(t, c, 0.5), o.ringCol ?? '#fff'));
+  const a = Math.min(E.out(P(t, keys[0][0] - 0.25, 0.25)), o.out !== undefined ? 1 - P(t, o.out, 0.2) : 1);
+  pointer(sx, sy, { press: pr, alpha: a, size: o.size });
+}
+/** A caption chip in screen space (the site's pill, larger). */
+function chip(x, y, s, k, o = {}) {
+  if (k <= 0) return; const sc = E.back(clamp(k));
+  cv.save(); cv.translate(x, y); cv.scale(sc, sc); pill(0, 0, s, { size: o.size ?? 38, dot: o.dot ?? C.gain, alpha: clamp(k * 1.6), color: o.color ?? C.ink, fill: o.fill ?? rgba('#120F1C', 0.9), border: o.border ?? rgba(C.accent, 0.7) }); cv.restore();
+}
+/** A highlight box around a page rect, drawn in screen space. */
+function hiRect(cam, x, y, w, h, k, col = C.accent) {
+  if (k <= 0) return; const [x0, y0] = toS(cam, x, y), [x1, y1] = toS(cam, x + w, y + h);
+  cv.save(); cv.globalAlpha *= clamp(k); cv.shadowColor = col; cv.shadowBlur = 30; cv.strokeStyle = col; cv.lineWidth = 5; rr(x0 - 10, y0 - 10, x1 - x0 + 20, y1 - y0 + 20, 18); cv.stroke(); cv.restore();
+}
+/** Top caption for the desktop scenes: big kinetic words over a soft dark band. */
+function topCap(words, t, t0, t1, o = {}) {
+  const k = Math.min(E.out(P(t, t0, 0.3)), 1 - E.in(P(t, t1 - 0.2, 0.2))); if (k <= 0) return;
+  cv.save(); cv.globalAlpha = k; const g = cv.createLinearGradient(0, 120, 0, 520); g.addColorStop(0, 'rgba(8,6,16,0.0)'); g.addColorStop(0.35, 'rgba(8,6,16,0.55)'); g.addColorStop(1, 'rgba(8,6,16,0)'); cv.fillStyle = g; cv.fillRect(0, 120, W, 400); cv.restore();
+  kwords(words, 540, o.y ?? 330, t, t0, { size: o.size ?? 92, out: t1 - 0.25, glowCol: true, glowBlur: 30 });
+}
+// ---------- 5 · the replay on the desktop: click play, real gold candles come in one by one ----------
+const R5 = { play: [731, 808] };
+function camReplay(tt) {
+  const l = tt - T.replay;
+  const c = track(l, [[0, { x: 720, y: 470, z: 0.6, sy: 1300 }], [0.6, { x: 720, y: 470, z: 0.69, sy: 1000 }], [1.0, { x: 720, y: 470, z: 0.69, sy: 1000 }], [1.55, { x: 760, y: 780, z: 1.85, sy: 1020 }], [2.05, { x: 760, y: 780, z: 1.85, sy: 1020 }], [2.7, { x: 930, y: 520, z: 1.22, sy: 1000 }], [4.6, { x: 1000, y: 480, z: 1.42, sy: 1000 }]]);
+  return c;
+}
+function sReplay(t) {
+  const l = lt(t, 'replay'), click = 1.75;
+  bgDesk(t);
+  const fi = l < click + 0.2 ? 0 : Math.min(SEQ1 - 1, Math.floor((l - click - 0.2) * 6.5));
+  const enter = E.out(P(l, 0, 0.6));
+  cv.save(); cv.globalAlpha = clamp(enter * 1.4);
+  const cam = deskBlur(t, camReplay, () => { windowFrame(); pageImg(IMG['s1_' + fi]); }, T.replay);
+  cv.restore();
+  cursorOn(l, cam, [[0.7, 1100, 900], [1.6, R5.play[0] + 6, R5.play[1] + 6], [2.3, R5.play[0] + 6, R5.play[1] + 6], [2.9, 1300, 980]], [click], { out: 2.8 });
+  chip(540, 300, 'داده‌ی واقعی · طلا · آوریل ۲۰۲۵', P(l, 2.4, 0.4), { size: 36, dot: C.amber });
+  // the hidden future, to the right of the last candle
+  const fk = E.out(P(l, 3.0, 0.4)); if (fk > 0) { const [x, y] = toS(cam, 1065, 560); cv.save(); cv.globalAlpha = fk; card(x - 150, y - 50, 300, 100, { r: 50, fill: rgba('#120F1C', 0.92), border: rgba(C.lilac, 0.7) }); cv.restore();
+    txt('آینده قفله', x + 30, y + 3, { size: 38, weight: 700, color: C.ink, alpha: fk, font: 'Vaz' });
+    cv.save(); cv.globalAlpha = fk; cv.strokeStyle = C.lilac; cv.lineWidth = 5; rr(x - 112, y - 6, 34, 28, 5); cv.stroke(); cv.beginPath(); cv.arc(x - 95, y - 6, 11, Math.PI, 0); cv.stroke(); cv.restore(); }
+}
+// ---------- 7 · a position: buy, stop and target, size from the risk; then the target is hit ----------
+const BUY = [403, 875], POS = { x: 814, y: 517, w: 303, h: 104 }, RISK = { x: 290, y: 808, w: 270, h: 28 };
+function imgPos(l) { if (l < 1.0) return IMG.tools; if (l < 2.45) return IMG.buy; const f = Math.min(SEQ2 - 1, Math.max(0, Math.floor((l - 2.45) * 6))); return IMG['s2_' + f]; }
+function camPos(tt) {
+  const l = tt - T.pos;
+  if (l < 1.0) return track(l, [[0, { x: 520, y: 760, z: 1.3, sy: 1000 }], [0.55, { x: 430, y: 850, z: 1.9, sy: 1000 }]]);
+  return track(l, [[1.0, { x: 430, y: 850, z: 1.9, sy: 1000 }], [1.45, { x: 900, y: 590, z: 1.55, sy: 980 }], [1.95, { x: 900, y: 590, z: 1.55, sy: 980 }], [2.3, { x: 470, y: 800, z: 1.75, sy: 980 }], [2.45, { x: 470, y: 800, z: 1.75, sy: 980 }], [2.8, { x: 860, y: 560, z: 1.2, sy: 1000 }], [4.5, { x: 860, y: 560, z: 1.3, sy: 1000 }]]);
+}
+function sPos(t) {
+  const l = lt(t, 'pos');
+  bgDesk(t);
+  const cam = deskBlur(t, camPos, (tt) => { windowFrame(); pageImg(imgPos(tt - T.pos)); }, l < 1.0 ? T.pos : T.pos + 1.0);
+  if (l < 1.0) cursorOn(l, cam, [[0, 600, 700], [0.55, BUY[0] + 4, BUY[1] + 4], [1.0, BUY[0] + 4, BUY[1] + 4]], [0.68], { ringCol: C.gain });
+  hiRect(cam, POS.x, POS.y, POS.w, POS.h, P(l, 1.45, 0.25) * (1 - P(l, 2.0, 0.15)), C.lilac);
+  hiRect(cam, RISK.x, RISK.y, RISK.w, RISK.h, P(l, 2.3, 0.15) * (1 - P(l, 2.45, 0.05)), C.amber);
+  topCap([['پوزیشن'], ['بگیر', C.gain]], t, T.pos + 0.1, T.pos + 1.05);
+  topCap([['حد'], ['سود', C.gain], ['و'], ['ضرر', C.loss]], t, T.pos + 1.1, T.pos + 2.05);
+  topCap([['حجم'], ['از'], ['درصد'], ['ریسکت', C.amber]], t, T.pos + 2.1, T.pos + 2.75, { size: 84 });
+  // the target is hit
+  const hit = 2.45 + 6 / 6, hk = P(l, hit, 0.35);
+  if (hk > 0 && hk < 1) { cv.save(); cv.globalAlpha = (1 - hk) * 0.35; cv.fillStyle = C.gain; cv.fillRect(0, 0, W, H); cv.restore(); }
+  const sk = E.back(P(l, hit + 0.05, 0.45)); if (sk > 0) { cv.save(); cv.translate(540, 1420); cv.scale(sk, sk); card(-300, -95, 600, 190, { r: 95, fill: rgba('#0F1A16', 0.94), border: rgba(C.gain, 0.8), glow: rgba(C.gain, 0.5) });
+    txt('+$۱۹۳', 120, 2, { size: 70, font: 'Rdx', weight: 700, color: C.gain, dir: 'ltr', glow: rgba(C.gain, 0.6) }); txt('حد سود خورد', -110, 4, { size: 44, weight: 700, color: C.ink, font: 'Vaz' }); cv.restore(); }
+  topCap([['+2R', C.gain]], t, T.pos + hit + 0.05, T.journal + 0.05, { size: 120 });
+}
+// ---------- 8 · journal, then the analytics page scrolled ----------
+function camJournal(tt) {
+  const l = tt - T.journal;
+  if (l < 1.25) return track(l, [[0, { x: 640, y: 420, z: 0.95, sy: 1000 }], [1.25, { x: 640, y: 440, z: 1.12, sy: 1000 }]]);
+  return { x: 700, y: 450, z: 1.0, sy: 1010 };
+}
+function sJournal(t) {
+  const l = lt(t, 'journal'), an = l >= 1.25;
+  bgDesk(t, { top: '#24186A' });
+  const scrollAt = (tt) => track(tt - T.journal, [[1.35, 0], [1.55, 0], [1.85, 860], [2.15, 860], [2.45, 3852], [9, 3852]]);
+  const cam = deskBlur(t, camJournal, (tt) => { windowFrame(); if (an) pageImg(IMG.analytics, { scroll: scrollAt(tt) }); else pageImg(IMG.journal); }, an ? T.journal + 1.25 : T.journal);
+  if (an) { // scroll blur
+    const v = scrollAt(t) - scrollAt(t - SLOPE / 30); if (v > 8) for (let i = 1; i < 6; i++) { cv.save(); cv.globalAlpha = 1 / (i + 1); desk(cam, () => pageImg(IMG.analytics, { scroll: scrollAt(t) - (v * i) / 6 })); cv.restore(); }
+  }
+  if (!an) hiRect(cam, 22, 428, 1140, 36, P(l, 0.35, 0.3) * (1 - P(l, 1.1, 0.15)), C.gain);
+  topCap([['ژورنال', C.lilac], ['خودکار']], t, T.journal + 0.1, T.journal + 1.25);
+  topCap([['آنالیز', C.lilac], ['کامل']], t, T.journal + 1.3, T.practice);
+  [['سود و زیان و وین‌ریت', 1.4, 1.8], ['برنده‌ها و بازنده‌ها', 1.88, 2.4], ['شبیه‌سازی مونت‌کارلو', 2.5, 3.0]].forEach(([s, a, b], i) => chip(540, 1480, s, P(l, a, 0.25) * (1 - P(l, b - 0.06, 0.06)), { size: 44, dot: [C.gain, C.loss, C.lilac][i] }));
+}
+function streak(t, k) {
+  const ang = -1.05 + 0.08 * Math.sin(t * 0.9);
+  cv.save(); cv.globalCompositeOperation = 'lighter'; cv.translate(540 + 30 * Math.sin(t * 0.7), 930); cv.rotate(ang);
+  [[C.accent, 760, 0.16, 0.55], [C.gain, 520, 0.07, 0.45], ['#FFFFFF', 300, 0.035, 0.6]].forEach(([col, r, sy, a]) => { cv.save(); cv.scale(1, sy); const g = cv.createRadialGradient(0, 0, 0, 0, 0, r); g.addColorStop(0, rgba(col, a * k)); g.addColorStop(0.5, rgba(col, a * 0.35 * k)); g.addColorStop(1, rgba(col, 0)); cv.fillStyle = g; cv.fillRect(-r, -r, 2 * r, 2 * r); cv.restore(); });
+  cv.restore();
+}
+
+// ---------- a red cross badge ----------
+function crossBadge(x, y, r, k) { if (k <= 0) return; cv.save(); cv.translate(x, y); cv.scale(k, k); cv.rotate((1 - clamp(k)) * 0.7);
+  cv.shadowColor = rgba(C.loss, 0.6); cv.shadowBlur = 30; cv.fillStyle = C.loss; cv.beginPath(); cv.arc(0, 0, r, 0, 7); cv.fill(); cv.shadowBlur = 0;
+  cv.strokeStyle = '#fff'; cv.lineWidth = r * 0.2; cv.lineCap = 'round'; cv.beginPath(); cv.moveTo(-r * 0.36, -r * 0.36); cv.lineTo(r * 0.36, r * 0.36); cv.moveTo(r * 0.36, -r * 0.36); cv.lineTo(-r * 0.36, r * 0.36); cv.stroke(); cv.restore(); }
+function checkBadge(x, y, r, k) { if (k <= 0) return; cv.save(); cv.translate(x, y); cv.scale(k, k);
+  cv.shadowColor = rgba(C.gain, 0.6); cv.shadowBlur = 26; cv.fillStyle = C.gain; cv.beginPath(); cv.arc(0, 0, r, 0, 7); cv.fill(); cv.shadowBlur = 0;
+  cv.strokeStyle = '#fff'; cv.lineWidth = r * 0.2; cv.lineCap = 'round'; cv.lineJoin = 'round'; cv.beginPath(); cv.moveTo(-r * 0.4, 0); cv.lineTo(-r * 0.1, r * 0.3); cv.lineTo(r * 0.42, -r * 0.3); cv.stroke(); cv.restore(); }
+
+// ---------- 1 · the hook, on white: «۳ اشتباه» is readable on the very first frame ----------
+const INK = '#15121F';
+function sHook(t) {
+  const l = lt(t, 'hook');
+  cv.fillStyle = '#F7F6FB'; cv.fillRect(0, 0, W, H);
+  const s0 = lerp(1.08, 1, E.out(P(l, 0, 0.7)));
+  cv.save(); cv.translate(540, 610); cv.scale(s0, s0); runs([['۳', C.loss], ['اشتباه', INK]], 0, 0, { size: 230, font: 'Rdx', weight: 700 }); cv.restore();
+  [0, 1, 2].forEach((i) => crossBadge(540 + (1 - i) * 150, 830, 52, E.back(P(l, 0.12 + i * 0.16, 0.35))));
+  kwords([['که'], ['خیلی'], ['از'], ['تریدرها']], 540, 1010, t, T.hook + 1.0, { size: 78, color: INK });
+  kwords([['با'], ['پول', C.loss], ['واقعی', C.loss]], 540, 1125, t, T.hook + 1.75, { size: 100, color: INK });
+  kwords([['یاد'], ['می‌گیرن…']], 540, 1245, t, T.hook + 2.45, { size: 78, color: INK });
+  const k = P(l, 2.0, 1.0); if (k > 0) { const pts = curve([[0, 0.1], [0.3, 0.25], [0.45, 0.18], [0.7, 0.6], [1, 0.95]], 60, 9, 0.05);
+    series({ x: 220, y: 1330, w: 640, h: 170 }, pts.map((v) => -v), { upto: 60 * E.out(k), color: C.loss, lw: 9, glow: true, lo: -1.05, hi: 0 }); }
+  // «ولی»: a violet disc floods up from the bottom, «تو مجبور نیستی.»
+  const fk = E.inOut(P(l, 3.45, 0.5)); if (fk > 0) { cv.save(); cv.fillStyle = '#140B33'; cv.beginPath(); cv.arc(540, 2050, 2300 * fk, 0, 7); cv.fill(); cv.restore(); glow(540, 960, 800, 700, C.accent, 0.3 * fk); }
+  kwords([['ولی'], ['تو']], 540, 860, t, T.hook + 3.75, { size: 110 });
+  kwords([['مجبور', C.gain], ['نیستی.', C.gain]], 540, 1020, t, T.hook + 4.1, { size: 140, glowCol: true, glowBlur: 34 });
+}
+
+// ---------- 2 · a mistake card: the number, the mistake, a small proof of what it costs ----------
+const MIST = {
+  m1: { n: '۱', ord: 'اشتباه اول', rows: [[['ورود'], ['بدون'], ['حد', C.loss], ['ضرر', C.loss]]] },
+  m2: { n: '۲', ord: 'اشتباه دوم', rows: [[['معامله'], ['وسط'], ['خبر', C.amber]]] },
+  m3: { n: '۳', ord: 'اشتباه سوم', rows: [[['اعتماد'], ['به'], ['استراتژی‌ای']], [['که'], ['فقط'], ['۵', C.loss], ['بار'], ['جواب'], ['داده']]] },
+};
+function sMistake(t, key) {
+  const l = lt(t, key), m = MIST[key], d = (T[NEXT[key]] ?? T[key] + 3) - T[key];
+  cv.fillStyle = '#0A0814'; cv.fillRect(0, 0, W, H); glow(540, 700, 900, 700, C.loss, 0.16); glow(540, 1600, 900, 500, C.accent, 0.12);
+  const out = E.in(P(l, d - 0.3, 0.3));
+  cv.save(); cv.translate(540, 960); cv.scale(1 + 0.6 * out, 1 + 0.6 * out); cv.translate(-540, -960); cv.globalAlpha = 1 - out;
+  chip(540, 380, m.ord, P(l, 0, 0.3), { size: 40, dot: C.loss });
+  const nk = E.back(P(l, 0.02, 0.45)); if (nk > 0) txt(m.n, 540, 640, { size: 330, font: 'Rdx', weight: 700, color: C.loss, scale: nk, glow: rgba(C.loss, 0.7), glowBlur: 60 });
+  m.rows.forEach((row, i) => kwords(row, 540, 900 + i * 125, t, T[key] + 0.25 + i * 0.5, { size: m.rows.length > 1 ? 92 : 110 }));
+  // the proof under the words
+  const pk = P(l, 0.6, 1.2);
+  if (key === 'm1' && pk > 0) {                                   // in, no stop, and down it goes
+    const pts = curve([[0, 0.55], [0.25, 0.45], [0.35, 0.5], [0.55, 0.62], [1, 1.0]], 70, 4, 0.04).map((v) => -v);
+    dashLine(200, 1185, 880, 1185, rgba(C.muted, 0.5 * (1 - E.out(P(l, 0.9, 0.3)))), 3, [14, 12]);
+    txt('حد ضرر؟', 880, 1150, { size: 34, weight: 600, color: C.muted, align: 'right', alpha: 1 - E.out(P(l, 0.9, 0.3)) });
+    series({ x: 200, y: 1130, w: 680, h: 360 }, pts, { upto: 70 * E.out(pk), color: C.loss, lw: 9, glow: true, lo: -1.05, hi: 0 });
+    dot(200 + 680 * 0.27, 1130 + 360 * 0.47, '#fff', 11);
+  }
+  if (key === 'm2' && pk > 0) {                                   // the release: a candle with a wick both ways
+    const bk = E.back(P(l, 0.7, 0.4)); cv.save(); cv.translate(540, 1300); cv.scale(bk, bk);
+    rr(-140, -260, 280, 70, 35); cv.fillStyle = rgba(C.amber, 0.18); cv.fill(); cv.strokeStyle = C.amber; cv.lineWidth = 3; cv.stroke();
+    txt('خبر NFP', 0, -224, { size: 38, weight: 700, color: C.amber }); cv.restore();
+    const ck = E.out(P(l, 0.95, 0.35)); if (ck > 0) { cv.fillStyle = C.loss; cv.fillRect(536, 1300 - 140 * ck, 8, 340 * ck); cv.fillRect(500, 1300 - 40 * ck, 80, 170 * ck); }
+  }
+  if (key === 'm3') [0, 1, 2, 3, 4].forEach((i) => checkBadge(540 + (2 - i) * 120, 1290, 44, E.back(P(l, (T.panj ?? 1.4) + i * 0.09, 0.3))));
+  if (key === 'm3') { const qk = E.back(P(l, (T.panj ?? 1.4) + 0.7, 0.4)); if (qk > 0) txt('کافیه؟', 540, 1430, { size: 64, weight: 800, color: C.ink, scale: qk }); }
+  cv.restore();
+}
+
+// ---------- 4 · news: the economic calendar on the chart, the coming releases drawn into the future ----------
+const NEWS = [[884, 718], [1021, 718]];
+function camNews(tt) { const l = tt - T.news; return track(l, [[0, { x: 720, y: 450, z: 0.68, sy: 1060 }], [0.5, { x: 720, y: 450, z: 0.74, sy: 1050 }], [1.2, { x: 930, y: 470, z: 1.5, sy: 1010 }], [3.4, { x: 940, y: 480, z: 1.62, sy: 1010 }]]); }
+function sNews(t) {
+  const l = lt(t, 'news');
+  bgDesk(t, { top: '#2A1F70' });
+  const cam = deskBlur(t, camNews, () => { windowFrame(); pageImg(IMG.news); }, T.news);
+  hiRect(cam, 170, 78, 220, 46, P(l, 0.25, 0.25) * (1 - P(l, 1.0, 0.15)), C.lilac);
+  NEWS.forEach(([x, y], i) => { const k = P(l, 1.35 + i * 0.15, 0.25); hiRect(cam, x - 16, y - 16, 32, 32, k, C.amber); const [sx, sy] = toS(cam, x, y); ring(sx, sy, P(l, 1.4 + i * 0.15, 0.6), C.amber, 26); });
+  topCap([['تقویم'], ['اقتصادی', C.gain]], t, T.news + 0.1, T.news + 1.55);
+  topCap([['قبل'], ['از'], ['اینکه'], ['خبر', C.amber], ['بزنه']], t, T.news + 1.6, T.m3, { size: 84 });
+  chip(540, 1500, 'خبرهای پیش‌رو، همین الان روی چارت', P(l, 1.9, 0.3), { size: 40, dot: C.amber });
+}
+
+// ---------- 8 · practice: make the mistakes here, not in your real account ----------
+function sPractice(t) {
+  const l = lt(t, 'practice'), d = T.offer - T.practice, nk = T.na_ ?? 1.4;
+  cv.fillStyle = '#050409'; cv.fillRect(0, 0, W, H); streak(t, E.out(P(l, 0, 0.5)));
+  bline('این اشتباه‌ها رو', 540, 860, t, T.practice + 0.05, T.practice + nk - 0.05, { size: 92 });
+  bline('اینجا بکن…', 540, 1000, t, T.practice + 0.35, T.practice + nk - 0.05, { size: 130, color: C.gain, glow: rgba(C.gain, 0.6), glowBlur: 30 });
+  bline('نه توی', 540, 860, t, T.practice + nk, T.offer + 0.05, { size: 92 });
+  bline('حساب واقعیت.', 540, 1000, t, T.practice + nk + 0.25, T.offer + 0.05, { size: 130, color: C.loss, glow: rgba(C.loss, 0.5), glowBlur: 30 });
+  const sk = E.out(P(l, nk + 0.75, 0.35)) * (1 - E.in(P(l, d - 0.25, 0.25))); if (sk > 0) { const w = measure('حساب واقعیت.', 130, 700, 'Rdx'); cv.save(); cv.strokeStyle = '#fff'; cv.lineWidth = 12; cv.lineCap = 'round'; cv.shadowColor = rgba(C.loss, 0.8); cv.shadowBlur = 20; cv.beginPath(); cv.moveTo(540 + w / 2 + 20, 1000); cv.lineTo(540 + w / 2 + 20 - (w + 40) * sk, 1000); cv.stroke(); cv.restore(); }
+}
+
+// ---------- 9 · the offer: launch, and 20% off the first purchase on a coupon ----------
+function ticket(cx, cy, w, h, k, l) {
+  cv.save(); cv.translate(cx, cy); cv.rotate((1 - clamp(k)) * -0.25); cv.scale(k, k);
+  cv.shadowColor = 'rgba(20,6,60,0.55)'; cv.shadowBlur = 70; cv.shadowOffsetY = 26;
+  const notch = 38, sx = w / 2 - (w > 800 ? 230 : 200);
+  cv.beginPath(); cv.moveTo(-w / 2 + 30, -h / 2); cv.lineTo(w / 2 - 30, -h / 2); cv.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + 30); cv.lineTo(w / 2, -notch); cv.arc(w / 2, 0, notch, -Math.PI / 2, Math.PI / 2, true);
+  cv.lineTo(w / 2, h / 2 - 30); cv.quadraticCurveTo(w / 2, h / 2, w / 2 - 30, h / 2); cv.lineTo(-w / 2 + 30, h / 2); cv.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - 30); cv.lineTo(-w / 2, notch); cv.arc(-w / 2, 0, notch, Math.PI / 2, -Math.PI / 2, true); cv.lineTo(-w / 2, -h / 2 + 30); cv.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + 30, -h / 2); cv.closePath();
+  cv.fillStyle = '#FFFFFF'; cv.fill(); cv.shadowColor = 'transparent';
+  cv.save(); cv.clip(); const sh = ((l * 0.9) % 2.2) - 0.6; const g = cv.createLinearGradient(-w / 2 + sh * w, 0, -w / 2 + sh * w + 220, 0); g.addColorStop(0, 'rgba(124,92,255,0)'); g.addColorStop(0.5, 'rgba(124,92,255,0.10)'); g.addColorStop(1, 'rgba(124,92,255,0)'); cv.fillStyle = g; cv.fillRect(-w / 2, -h / 2, w, h); cv.restore();
+  cv.setLineDash([14, 12]); cv.strokeStyle = '#C9C1E6'; cv.lineWidth = 4; cv.beginPath(); cv.moveTo(sx, -h / 2 + 30); cv.lineTo(sx, h / 2 - 30); cv.stroke(); cv.setLineDash([]);   // the stub on the right
+  cv.restore();
+}
+function sOffer(t) {
+  const l = lt(t, 'offer'), d = T.end - T.offer, ak = T.avalin_ ?? 1.4, bk = T.bist_ ?? 2.3;
+  const g = cv.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#8A6CFF'); g.addColorStop(1, '#4A26D9'); cv.fillStyle = g; cv.fillRect(0, 0, W, H);
+  glow(540, 1000, 800, 700, '#FFFFFF', 0.14);
+  const lk = E.out(P(l, 0, 0.45)); if (lk > 0 && IMG.logoW) { const w = 430, h = (w * IMG.logoW.height) / IMG.logoW.width; cv.save(); cv.globalAlpha = lk; if (lk < 0.99) cv.filter = `blur(${((1 - lk) * 14).toFixed(1)}px)`; cv.drawImage(IMG.logoW, 540 - w / 2, 470 - h / 2, w, h); cv.restore(); }
+  chip(540, 620, 'لانچ شد · از امروز در دسترس', P(l, 0.35, 0.35), { size: 38, dot: C.gain, fill: rgba('#1A0F4A', 0.75), border: rgba('#FFFFFF', 0.35), color: '#fff' });
+  const tk = E.back(P(l, ak - 0.15, 0.5)); if (tk > 0) {
+    const cx = 540, cy = 1000, w = 880, h = 400; ticket(cx, cy, w, h, tk, l);
+    cv.save(); cv.translate(cx, cy); cv.rotate((1 - clamp(tk)) * -0.25); cv.scale(tk, tk);
+    const n = Math.round(20 * E.out(P(l, bk - 0.05, 0.55)));
+    txt(fa(n) + '٪', -115, -22, { size: 200, font: 'Rdx', weight: 700, color: '#5430E6', dir: 'ltr' });
+    txt('تخفیف', -115, 118, { size: 64, font: 'Rdx', weight: 700, color: INK });
+    txt('اولین', 330, -40, { size: 52, font: 'Rdx', weight: 700, color: INK }); txt('خرید', 330, 40, { size: 52, font: 'Rdx', weight: 700, color: INK });
+    cv.restore();
+  }
+  const ck = P(l, bk + 0.6, 0.35); if (ck > 0) chip(540, 1320, 'کد تخفیف توی کپشن', ck, { size: 44, dot: C.amber, fill: rgba('#1A0F4A', 0.8), border: rgba(C.amber, 0.7), color: '#fff' });
+  const out = E.in(P(l, d - 0.25, 0.25)); if (out > 0) { cv.fillStyle = rgba('#0D0B14', out); cv.fillRect(0, 0, W, H); }
+}
+
+// ---------- 10 · the end card ----------
+function sEnd(t) {
+  const l = lt(t, 'end'), sk = T.strat_ ?? 1.6;
+  background(t, { intensity: 1.2 }); streak(t, 0.5);
+  const ik = E.back(P(l, 0.05, 0.5)); if (ik > 0 && IMG.icon) { cv.save(); cv.translate(540, 600); cv.scale(ik, ik); cv.shadowColor = rgba(C.accent, 0.8); cv.shadowBlur = 80; cv.drawImage(IMG.icon, -120, -120, 240, 240); cv.restore(); }
+  const wk = E.out(P(l, 0.25, 0.5)), wm = IMG.wordmark; if (wk > 0 && wm) { const w = 600, h = (w * wm.height) / wm.width; cv.save(); cv.globalAlpha = wk; if (wk < 0.99) cv.filter = `blur(${((1 - wk) * 14).toFixed(1)}px)`; cv.drawImage(wm, 540 - w / 2, 840 - h / 2, w, h); cv.restore(); }
+  chip(540, 975, '۲۰٪ تخفیف اولین خرید', P(l, 0.45, 0.35), { size: 42, dot: C.amber });
+  const bk = E.back(P(l, 0.3, 0.45)); if (bk > 0) { const bob = Math.sin((l - 0.3) * 6) * 8; cv.save(); cv.translate(540, 1180); cv.scale(bk, bk); button(0, 0, 'لینک در بیو', { size: 54 }); cv.restore();
+    cv.save(); cv.globalAlpha = clamp(bk); cv.translate(540, 1050 + bob + 22); cv.fillStyle = C.lilac; cv.beginPath(); cv.moveTo(0, -30); cv.lineTo(28, 4); cv.lineTo(10, 4); cv.lineTo(10, 32); cv.lineTo(-10, 32); cv.lineTo(-10, 4); cv.lineTo(-28, 4); cv.closePath(); cv.fill(); cv.restore(); }
+  bline('کد تخفیف توی کپشن', 540, 1330, t, T.end + 0.9, 999, { size: 50, color: C.amber, weight: 700, font: 'Vaz' });
+  bline('استراتژی بعدیتو، اول اینجا تست کن', 540, 1430, t, T.end + sk, 999, { size: 42, color: C.muted, weight: 600, font: 'Vaz' });
+}
+
+const SCENES = { hook: sHook, m1: (t) => sMistake(t, 'm1'), pos: sPos, m2: (t) => sMistake(t, 'm2'), news: sNews, m3: (t) => sMistake(t, 'm3'), replay: sReplay, journal: sJournal, practice: sPractice, offer: sOffer, end: sEnd };
+const ACT = DATA.t, ORDER = Object.keys(SCENES).filter((k) => ACT[k] !== undefined).sort((a, b) => ACT[a] - ACT[b]);
+/** Actual time → the scene and its time in TB. Without knots a scene keeps its base pace. */
+function toBase(t) {
+  let k = ORDER[0]; for (const s of ORDER) if (t >= ACT[s]) k = s;
+  const la = t - ACT[k], kn = DATA.warp?.[k]; let lb = la;
+  if (kn && kn.length) {
+    if (la <= kn[0][0]) lb = kn[0][1] + (la - kn[0][0]);
+    else if (la >= kn[kn.length - 1][0]) lb = kn[kn.length - 1][1] + (la - kn[kn.length - 1][0]);
+    else for (let i = 1; i < kn.length; i++) if (la <= kn[i][0]) { const [a0, b0] = kn[i - 1], [a1, b1] = kn[i]; lb = b0 + ((la - a0) / (a1 - a0)) * (b1 - b0); break; }
+  }
+  return [k, TB[k] + lb];
+}
+function sCover() {
+  cv.fillStyle = '#F7F6FB'; cv.fillRect(0, 0, W, H); glow(540, 1500, 900, 600, C.accent, 0.10);
+  runs([['۳', C.loss], ['اشتباه', INK]], 540, 600, { size: 250, font: 'Rdx', weight: 700 });
+  [0, 1, 2].forEach((i) => crossBadge(540 + (1 - i) * 160, 830, 58, 1));
+  runs([['که'], ['با'], ['پول', C.loss], ['واقعی', C.loss], ['یاد'], ['می‌گیری']].map(([w, c]) => [w, c ?? INK]), 540, 1010, { size: 74, font: 'Rdx', weight: 700 });
+  const cx = 540, cy = 1270, w = 760, h = 300; cv.save(); ticket(cx, cy, w, h, 1, 0.9); cv.restore();
+  cv.save(); cv.translate(cx, cy); const sx = w / 2 - 200;
+  txt('۲۰٪', -90, -14, { size: 150, font: 'Rdx', weight: 700, color: '#5430E6', dir: 'ltr' }); txt('تخفیف', -90, 92, { size: 50, font: 'Rdx', weight: 700, color: INK });
+  txt('اولین', sx + 100, -30, { size: 46, font: 'Rdx', weight: 700, color: INK }); txt('خرید', sx + 100, 34, { size: 46, font: 'Rdx', weight: 700, color: INK }); cv.restore();
+}
+function render(t) {
+  if (t < 0) { cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none'; sCover(); return; }
+  cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none'; cv.globalCompositeOperation = 'source-over';
+  const [k, tb] = toBase(t), [k2, tb2] = toBase(t + 0.01);
+  SLOPE = k2 === k ? clamp((tb2 - tb) / 0.01, 0.05, 4) : 1;
+  SCENES[k](tb);
+  cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; cv.filter = 'none';
+  const light = k === 'hook' ? 1 - E.inOut(P(tb - T.hook, 3.45, 0.5)) : 0;
+  const f = Math.floor(t * 24); for (let y = 0; y < H; y += 256) for (let x = 0; x < W; x += 256) cv.drawImage(GRAIN[f % 3], x, y);
+  if (light < 1) { const v = cv.createRadialGradient(540, 960, 520, 540, 960, 1250); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,0,${0.5 * (1 - light)})`); cv.fillStyle = v; cv.fillRect(0, 0, W, H); }
+}
+const SHOTS = [['tools', 'r-tools'], ['buy', 'r-buy'], ['news', 'r-news'], ['journal', 'p-journal'], ['analytics', 'p-analytics-full']];
+boot(render, [
+  loadImg('logoW', window.ASSET + 'brand/svg/logo-fa-white.svg'), loadImg('wordmark', window.ASSET + 'brand/svg/wordmark-fa-dark.svg'),
+  ...SHOTS.map(([k, f]) => loadImg(k, `${SHOTS_DIR}${f}.jpg`)),
+  ...Array.from({ length: SEQ1 }, (_, i) => loadImg('s1_' + i, `${SHOTS_DIR}seq1/${String(i).padStart(3, '0')}.jpg`)),
+  ...Array.from({ length: SEQ2 }, (_, i) => loadImg('s2_' + i, `${SHOTS_DIR}seq2/${String(i).padStart(3, '0')}.jpg`)),
+]);
