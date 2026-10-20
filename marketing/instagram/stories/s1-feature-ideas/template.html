@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<title>Story · feature ideas</title>
+<style>
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0D0B14; font-family: Vaz; color: #EEEBF6; }
+.a { position: absolute; will-change: transform, opacity, filter; }
+#bg { inset: 0; }
+#logo { left: 390px; top: 262px; width: 300px; }
+#h1 { left: 0; width: 1080px; top: 420px; text-align: center; font-size: 56px; font-weight: 700; color: #A39CBA; }
+#h2 { left: 0; width: 1080px; top: 492px; text-align: center; font-size: 118px; font-weight: 900; line-height: 1.2; letter-spacing: -1px; }
+#you { position: relative; display: inline-block; color: #B5A2FF; }
+#u { position: absolute; left: -6px; right: -6px; bottom: 6px; height: 16px; border-radius: 8px; background: #7C5CFF; opacity: .55; transform-origin: right center; z-index: -1; }
+#bar { left: 110px; top: 726px; width: 860px; height: 156px; border-radius: 46px; background: #181424; border: 2px solid #302A44;
+  display: flex; align-items: center; justify-content: space-around; padding: 0 14px; box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+.slot { width: 108px; height: 108px; border-radius: 30px; background: #221D32; display: grid; place-items: center; position: relative; }
+.slot svg.i { width: 54px; height: 54px; stroke: #EEEBF6; stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+#empty { background: rgba(124, 92, 255, .14); }
+#empty svg.i { stroke: #C9B9FF; width: 60px; height: 60px; stroke-width: 2.4; }
+#dash { position: absolute; inset: 0; width: 108px; height: 108px; overflow: visible; }
+#ring { position: absolute; inset: 0; border-radius: 30px; border: 3px solid #9B82FF; }
+#arrow { left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+#cur { left: 0; top: 0; width: 70px; height: 70px; }
+#cur svg { width: 70px; height: 70px; fill: #FFFFFF; stroke: #0D0B14; stroke-width: 1.4; stroke-linejoin: round; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+#ex { left: 0; width: 1080px; top: 1342px; text-align: center; font-size: 38px; font-weight: 600; color: #706988; }
+#chips { left: 70px; width: 940px; top: 1400px; display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 16px; }
+.chip { font-size: 36px; font-weight: 600; padding: 14px 30px 16px; border-radius: 999px; background: #1E1833;
+  border: 2px solid rgba(155, 130, 255, .45); color: #DCD3FF; white-space: nowrap; }
+#foot { left: 0; width: 1080px; top: 1630px; text-align: center; font-size: 36px; font-weight: 600; color: #A39CBA; }
+#foot svg { width: 36px; height: 36px; vertical-align: -6px; margin-left: 10px; fill: #7C5CFF; stroke: #7C5CFF; stroke-width: 2; }
+</style></head><body>
+<canvas id="bg" class="a" width="1080" height="1920"></canvas>
+<img id="logo" class="a" src="../../../../brand/svg/logo-fa-white.svg" alt="">
+<div id="h1" class="a">امکان بعدی بک‌تست‌لب</div>
+<div id="h2" class="a">رو <span id="you">تو<i id="u"></i></span> انتخاب کن</div>
+<div id="bar" class="a"></div>
+<svg id="arrow" class="a" viewBox="0 0 1080 1920"><path id="ap" pathLength="1" fill="none" stroke="#9B82FF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div id="ex" class="a">مثلاً</div>
+<div id="chips" class="a"></div>
+<div id="foot" class="a"></div>
+<div id="cur" class="a"></div>
+<script>
+const ICONS = /*ICONS*/, CANDLES = /*CANDLES*/;
+const svg = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 24 24">${ICONS[n]}</svg>`;
+const TOOLS = ['candlestick-chart', 'trending-up', 'pencil-ruler', 'activity', 'calendar'];
+const IDEAS = ['اندیکاتور جدید', 'بازار جدید', 'ابزار رسم', 'گزارش بیشتر', 'چالش و رقابت', 'آموزش'];
+const $ = (id) => document.getElementById(id);
+$('bar').innerHTML = TOOLS.map((n) => `<div class="slot">${svg(n)}</div>`).join('') +
+  `<div class="slot" id="empty"><svg id="dash" viewBox="0 0 108 108"><rect x="1.5" y="1.5" width="105" height="105" rx="29" fill="none" stroke="#7C5CFF" stroke-width="3" stroke-dasharray="12 9"/></svg><i id="ring"></i>${svg('plus')}</div>`;
+$('chips').innerHTML = IDEAS.map((s) => `<div class="chip">${s}</div>`).join('');
+$('foot').innerHTML = `${svg('heart', 'h')}همه‌ی پیشنهادها رو می‌خونیم`;
+$('cur').innerHTML = svg('mouse-pointer-2', 'c');
+const slots = [...document.querySelectorAll('.slot')], chips = [...document.querySelectorAll('.chip')];
+
+const cl = (x) => Math.max(0, Math.min(1, x)), P = (t, a, b) => cl((t - a) / (b - a));
+const out = (x) => 1 - Math.pow(1 - x, 3), io = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const back = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : 1 + 2.4 * Math.pow(x - 1, 3) + 1.4 * Math.pow(x - 1, 2));
+function rise(el, k, dy = 46) {   // fade up with a little blur
+  el.style.opacity = k; el.style.transform = `translateY(${((1 - k) * dy).toFixed(1)}px)`;
+  el.style.filter = k > 0 && k < 0.99 ? `blur(${((1 - k) * 12).toFixed(1)}px)` : 'none';
+}
+function pop(el, k, extra = '') { el.style.opacity = cl(k * 1.6); el.style.transform = `scale(${Math.max(0, k).toFixed(3)}) ${extra}`; }
+
+// the empty slot's centre on the page, and the arrow from it down to where the question sticker goes
+let EC = [0, 0];
+function layout() { const r = $('empty').getBoundingClientRect(); EC = [r.left + r.width / 2, r.top + r.height / 2]; }
+function arrowPath() {
+  const [x, y] = EC, y0 = y + 92;
+  const ex = x + 112, ey = y0 + 62;
+  return { d: `M ${x} ${y0} C ${x - 6} ${y0 + 44}, ${x + 34} ${y0 + 68}, ${ex} ${ey}`, tip: [ex, ey] };
+}
+
+// faint real BTC/USD 12-hour candles behind the sticker area, drifting slowly
+const cv = $('bg').getContext('2d');
+function bg(t) {
+  cv.clearRect(0, 0, 1080, 1920);
+  const k = out(P(t, 0, 0.6));
+  const glow = (x, y, rx, ry, c, a) => { cv.save(); cv.translate(x, y); cv.scale(1, ry / rx); const g = cv.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, `rgba(${c},${a})`); g.addColorStop(1, `rgba(${c},0)`); cv.fillStyle = g; cv.fillRect(-rx, -rx, 2 * rx, 2 * rx); cv.restore(); };
+  glow(820 + 50 * Math.sin(t * 0.4), 260 + 30 * Math.cos(t * 0.3), 900, 700, '124,92,255', 0.22 * k);
+  glow(200, 1250 + 40 * Math.sin(t * 0.35), 760, 520, '106,70,255', 0.16 * k);
+  glow(540, 1150, 620, 300, '124,92,255', 0.10 * k);
+  cv.save(); cv.globalAlpha = 0.5 * k; cv.fillStyle = '#302A44';            // dot grid
+  for (let y = 40; y < 1920; y += 60) for (let x = 30; x < 1080; x += 60) cv.fillRect(x, y, 3, 3);
+  cv.restore();
+  const C = CANDLES, lo = Math.min(...C.map((c) => c[2])), hi = Math.max(...C.map((c) => c[1]));
+  const top = 1000, h = 600, step = 1180 / C.length, w = step * 0.56, drift = -t * 7;
+  const Y = (v) => top + h - ((v - lo) / (hi - lo)) * h;
+  cv.save(); cv.globalAlpha = 0.16 * k;
+  C.forEach(([o, hh, l, c], i) => {
+    const x = -40 + i * step + drift; if (x < -20 || x > 1100) return;
+    cv.fillStyle = cv.strokeStyle = c >= o ? '#26C281' : '#F25466'; cv.lineWidth = 2;
+    cv.beginPath(); cv.moveTo(x, Y(hh)); cv.lineTo(x, Y(l)); cv.stroke();
+    const y1 = Y(Math.max(o, c)), y2 = Y(Math.min(o, c)); cv.fillRect(x - w / 2, y1, w, Math.max(2, y2 - y1));
+  });
+  cv.restore();
+  const fade = cv.createLinearGradient(0, 0, 0, 1920);     // keep the top and the reply bar clean
+  fade.addColorStop(0, 'rgba(13,11,20,0.6)'); fade.addColorStop(0.12, 'rgba(13,11,20,0)'); fade.addColorStop(0.86, 'rgba(13,11,20,0)'); fade.addColorStop(1, 'rgba(13,11,20,0.9)');
+  cv.fillStyle = fade; cv.fillRect(0, 0, 1080, 1920);
+}
+
+window.DURATION = 12;
+window.render = function (t) {
+  bg(t);
+  rise($('logo'), out(P(t, 0.15, 0.7)), 30);
+  rise($('h1'), out(P(t, 0.35, 0.95)));
+  rise($('h2'), out(P(t, 0.5, 1.1)), 60);
+  $('u').style.transform = `scaleX(${io(P(t, 1.0, 1.45)).toFixed(3)})`;
+  rise($('bar'), out(P(t, 0.95, 1.5)), 70);
+  slots.forEach((s, i) => { if (s.id !== 'empty') pop(s, back(P(t, 1.1 + i * 0.07, 1.5 + i * 0.07))); });
+  // the empty slot: pops in, gets clicked, then keeps waiting (dashes march, a soft pulse)
+  const e = $('empty'), ek = back(P(t, 1.55, 1.95)), press = Math.sin(Math.PI * P(t, 2.3, 2.52)) * 0.09;
+  const pulse = t > 2.6 ? 0.035 * Math.sin((t - 2.6) * 3.2) : 0;
+  pop(e, ek * (1 - press + pulse));
+  e.style.boxShadow = `0 0 ${(30 + 30 * Math.max(0, pulse / 0.035)).toFixed(0)}px rgba(124,92,255,${(0.35 * ek).toFixed(2)})`;
+  document.querySelector('#dash rect').style.strokeDashoffset = (-t * 14).toFixed(1);
+  const rk = P(t, 2.38, 3.1), ring = $('ring');
+  ring.style.opacity = rk > 0 && rk < 1 ? (1 - rk).toFixed(3) : 0; ring.style.transform = `scale(${(1 + rk * 0.7).toFixed(3)})`;
+  // the pointer flies in from the lower right, clicks the slot and leaves
+  layout();
+  const mk = io(P(t, 1.7, 2.3)), lv = io(P(t, 2.6, 3.0));
+  const sx = 900, sy = 1240, tx = EC[0] + 6, ty = EC[1] + 4;
+  const cx = sx + (tx - sx) * mk + lv * 120, cy = sy + (ty - sy) * mk - 60 * Math.sin(Math.PI * mk) + lv * 160;
+  const cur = $('cur'); cur.style.opacity = (cl((t - 1.7) / 0.2) * (1 - lv)).toFixed(3);
+  cur.style.transform = `translate(${(cx - 8).toFixed(1)}px, ${(cy - 6).toFixed(1)}px) scale(${(1 - press * 1.2).toFixed(3)})`;
+  // arrow from the slot down to the sticker
+  const A = arrowPath(), ak = io(P(t, 2.55, 3.15)), ap = $('ap');
+  ap.setAttribute('d', A.d + (ak > 0.97 ? ` M ${A.tip[0] - 26} ${A.tip[1] - 22} L ${A.tip[0]} ${A.tip[1]} L ${A.tip[0] - 24} ${A.tip[1] + 22}` : ''));
+  ap.style.strokeDasharray = ak > 0.97 ? 'none' : `${ak} 1`; ap.style.opacity = ak > 0 ? 1 : 0;
+  rise($('ex'), out(P(t, 2.9, 3.3)), 30);
+  chips.forEach((c, i) => { const k = back(P(t, 3.0 + i * 0.08, 3.45 + i * 0.08)); const f = t > 3.8 ? 5 * Math.sin(t * 1.6 + i * 1.1) : 0; pop(c, k, `translateY(${f.toFixed(1)}px)`); });
+  rise($('foot'), out(P(t, 3.6, 4.1)), 24);
+};
+window.ready = false;
+document.fonts.ready.then(() => Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))))).then(() => { window.render(0); window.ready = true; });
+</script></body></html>
