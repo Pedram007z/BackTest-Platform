@@ -1,3 +1,5 @@
+import { LockMark } from '../components/plan/Locked';
+import { usePlan } from '../hooks/usePlan';
 import clsx from 'clsx';
 import { BarChart3, ChevronLeft, ChevronRight, ListTree, NotebookPen, Pencil, Play, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -125,6 +127,7 @@ function NotesBox({ session }: { session: Session }) {
 
 function SessionDetail({ session, all, onSwitch }: { session: Session; all: Session[]; onSwitch: (id: string) => void }) {
   const go = useGo();
+  const { free } = usePlan();
   const allTrades = useStore((s) => s.trades);
   const strategy = useStore((s) => s.strategies.find((x) => x.id === session.strategyId));
   const deleteSession = useStore((s) => s.deleteSession);
@@ -170,7 +173,7 @@ function SessionDetail({ session, all, onSwitch }: { session: Session; all: Sess
         </button>
         <div className="ms-auto flex flex-wrap gap-2">
           <Link to={`/analytics?session=${session.id}`} className="btn-soft py-1.5">
-            <BarChart3 size={15} /> آنالیز جلسه
+            <BarChart3 size={15} /> آنالیز جلسه {free && <LockMark />}
           </Link>
           <button type="button" className="btn-soft py-1.5" onClick={() => setEditing(true)}>
             <Pencil size={15} /> تنظیمات جلسه
@@ -264,7 +267,7 @@ function SessionDetail({ session, all, onSwitch }: { session: Session; all: Sess
       <div className="mb-3 mt-8 flex items-center justify-between">
         <h2 className="font-display text-base font-bold">معاملات اخیر</h2>
         <Link to={`/journal?session=${session.id}`} className="btn-soft py-1.5">
-          <NotebookPen size={15} /> ژورنال
+          <NotebookPen size={15} /> ژورنال {free && <LockMark />}
         </Link>
       </div>
       <div className="card overflow-hidden">

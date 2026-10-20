@@ -34,6 +34,9 @@ import { Modal } from '../components/ui/Modal';
 import { Meter } from '../components/ui/controls';
 import { Popover } from '../components/ui/Popover';
 import { useNews } from '../hooks/useNews';
+import { usePlan } from '../hooks/usePlan';
+import { LockMark, UpgradeModal } from '../components/plan/Locked';
+import type { PlanFeature } from '../services/plan';
 import { DAY_MS, fmtDay, fmtDayLong, fmtMarketTime, msToKey } from '../lib/calendar';
 import { faDigits, fmtNum, fmtUsd, toLatinDigits } from '../lib/format';
 import { BAR_MS, HOUR_MS, MIN_MS, SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
@@ -314,7 +317,11 @@ export default function Replay() {
   const [positionsOpen, setPositionsOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
 
-  const news = useNews(session?.cursor ?? 0);
+  // the free plan: no journal, analytics or economic calendar (a click asks to upgrade)
+  const { free } = usePlan();
+  const [upgrade, setUpgrade] = useState<PlanFeature | null>(null);
+  const openJournal = (id: 'draft' | string) => (free ? setUpgrade('journal') : setJournalFor(id));
+  const news = useNews(session?.cursor ?? 0, !free);
 
   if (!session || !active) {
     return (
@@ -370,7 +377,8 @@ export default function Replay() {
   };
 
   const sessionChecklist = checklists.find((c) => c.id === (draftJournal?.checklistId ?? (draftJournal ? undefined : session.checklistId)));
-  const missingRequired = sessionChecklist?.items.filter((i) => i.required && !(draftJournal?.checked ?? []).includes(i.id)) ?? [];
+  // required checklist items are ticked in the journal, which the free plan does not include
+  const missingRequired = free ? [] : (sessionChecklist?.items.filter((i) => i.required && !(draftJournal?.checked ?? []).includes(i.id)) ?? []);
 
   const place = () => {
     if (!draft || !preview) return;
@@ -504,12 +512,25 @@ export default function Replay() {
               داده‌ی نمونه
             </span>
           )}
-          <Link to={`/journal?session=${session.id}`} className="btn-ghost py-1.5">
-            <NotebookPen size={15} /> ژورنال
-          </Link>
-          <Link to={`/analytics?session=${session.id}`} className="btn-ghost hidden py-1.5 sm:inline-flex">
-            <BarChart3 size={15} /> آنالیز
-          </Link>
+          {free ? (
+            <>
+              <button type="button" className="btn-ghost py-1.5" onClick={() => setUpgrade('journal')}>
+                <NotebookPen size={15} /> ژورنال <LockMark />
+              </button>
+              <button type="button" className="btn-ghost hidden py-1.5 sm:inline-flex" onClick={() => setUpgrade('analytics')}>
+                <BarChart3 size={15} /> آنالیز <LockMark />
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to={`/journal?session=${session.id}`} className="btn-ghost py-1.5">
+                <NotebookPen size={15} /> ژورنال
+              </Link>
+              <Link to={`/analytics?session=${session.id}`} className="btn-ghost hidden py-1.5 sm:inline-flex">
+                <BarChart3 size={15} /> آنالیز
+              </Link>
+            </>
+          )}
           <button
             type="button"
             className="icon-btn"
@@ -544,11 +565,11 @@ export default function Replay() {
             />
             <button
               type="button"
-              onClick={() => setNewsOpen((v) => !v)}
-              aria-pressed={newsOpen}
-              className={clsx('btn-soft py-1.5', newsOpen && 'border-accent/60 text-accent-ink')}
+              onClick={() => (free ? setUpgrade('calendar') : setNewsOpen((v) => !v))}
+              aria-pressed={newsOpen && !free}
+              className={clsx('btn-soft py-1.5', newsOpen && !free && 'border-accent/60 text-accent-ink')}
             >
-              <CalendarDays size={15} /> تقویم اقتصادی
+              <CalendarDays size={15} /> تقویم اقتصادی {free && <LockMark />}
             </button>
             <Popover
               align="end"
@@ -665,7 +686,7 @@ export default function Replay() {
             disabled={ended}
           />
         </div>
-        {newsOpen && (
+        {newsOpen && !free && (
           <div className="fixed inset-x-0 bottom-0 top-1/3 z-40 lg:static lg:z-auto">
             <NewsPanel
               events={news.events}
@@ -707,8 +728,8 @@ export default function Replay() {
             R:R <b className="text-ink">{preview.rr.toFixed(2)}</b> · ریسک <b className="text-loss">{fmtUsd(preview.riskUsd)}</b> ·{' '}
             <b className="text-ink">{fmtLots(preview.lots, draft.symbol)}</b> لات
           </span>
-          <button type="button" className="btn-soft py-1.5" onClick={() => setJournalFor('draft')}>
-            <NotebookPen size={15} /> ذخیره ژورنال {draftJournal && <span className="h-1.5 w-1.5 rounded-full bg-gain" />}
+          <button type="button" className="btn-soft py-1.5" onClick={() => openJournal('draft')}>
+            <NotebookPen size={15} /> ذخیره ژورنال {free ? <LockMark /> : draftJournal && <span className="h-1.5 w-1.5 rounded-full bg-gain" />}
           </button>
           <button type="button" className="btn-primary py-1.5" onClick={place} disabled={!!preview.problem || !market.ready}>
             <Send size={15} className="-scale-x-100" /> ثبت معامله
@@ -814,7 +835,7 @@ export default function Replay() {
               useStore.getState().cancelOrder(t.id);
               toast('سفارش لغو شد', 'info');
             }}
-            onJournal={(t) => setJournalFor(t.id)}
+            onJournal={(t) => openJournal(t.id)}
           />
         </div>
       )}
@@ -859,6 +880,7 @@ export default function Replay() {
         }
       />
 
+      <UpgradeModal open={!!upgrade} onClose={() => setUpgrade(null)} feature={upgrade ?? undefined} />
       {shot && (
         <Modal
           open
@@ -870,7 +892,7 @@ export default function Replay() {
               <a href={shot} download={`${active.symbol}-${fmtDay(msToKey(cursor)).replace(/\//g, '-')}.jpg`} className="btn-soft">
                 دانلود تصویر
               </a>
-              {draft && (
+              {draft && !free && (
                 <button
                   type="button"
                   className="btn-primary"

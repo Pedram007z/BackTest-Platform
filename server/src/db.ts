@@ -111,7 +111,7 @@ export const DEFAULT_PLANS: Plan[] = [
     description: 'برای شروع و آشنایی با بک‌تست',
     priceToman: 0,
     durationDays: 3650,
-    features: ['۱ جلسه‌ی فعال', '۵ نماد فارکس', 'تایم‌فریم ۱۵ دقیقه به بالا', 'ژورنال و چک‌لیست'],
+    features: ['۱ جلسه‌ی بک‌تست', '۵ نماد فارکس', 'تایم‌فریم ۱۵ دقیقه به بالا', 'چک‌لیست معامله'],
     active: true,
     sort: 0,
   },
@@ -121,7 +121,14 @@ export const DEFAULT_PLANS: Plan[] = [
     description: 'همه‌ی امکانات، پرداخت ماه به ماه',
     priceToman: 690_000,
     durationDays: 30,
-    features: ['جلسه‌ی نامحدود', 'بیش از ۷۰ نماد فارکس، شاخص و کریپتو', 'چارت TradingView و ۴ چارت هم‌زمان', 'تقویم اقتصادی ForexFactory', 'آنالیز کامل و مونت‌کارلو'],
+    features: [
+      'جلسه‌ی نامحدود',
+      'بیش از ۷۰ نماد فارکس، شاخص و کریپتو',
+      'چارت TradingView و ۴ چارت هم‌زمان',
+      'ژورنال معاملات',
+      'تقویم اقتصادی ForexFactory',
+      'آنالیز کامل و مونت‌کارلو',
+    ],
     active: true,
     sort: 1,
   },
@@ -214,6 +221,9 @@ function fresh(): Db {
   };
 }
 
+/** The free plan card's old wording, for plans saved before the journal left the free plan. */
+const FREE_FEATURE_FIXES: Record<string, string> = { '۱ جلسه‌ی فعال': '۱ جلسه‌ی بک‌تست', 'ژورنال و چک‌لیست': 'چک‌لیست معامله' };
+
 /** Fill keys added in later versions so older files keep working. */
 function upgrade(d: Partial<Db>): Db {
   const base = fresh();
@@ -234,6 +244,9 @@ function upgrade(d: Partial<Db>): Db {
   out.sms = { ...sms, providers: base.sms.providers.map((p) => sms.providers.find((x) => x.id === p.id) ?? p) };
   out.otps = d.otps ?? {};
   out.sessions = d.sessions ?? {};
+  // the free plan no longer includes the journal: its card stops saying so (a text the admin changed is kept)
+  const free = out.plans.find((p) => p.id === 'free');
+  if (free) free.features = free.features.map((f) => FREE_FEATURE_FIXES[f] ?? f);
   return out;
 }
 

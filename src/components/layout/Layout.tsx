@@ -23,6 +23,8 @@ import { useGo } from '../../lib/nav';
 import { Link, NavLink } from '../ui/AppLink';
 import { Logo } from '../brand/Brand';
 import { diffDays } from '../../lib/calendar';
+import { usePlan } from '../../hooks/usePlan';
+import { LockMark } from '../plan/Locked';
 import { fmtNum } from '../../lib/format';
 import { planDaysLeft } from '../../lib/stats';
 import { useAuth } from '../../store/useAuth';
@@ -38,8 +40,8 @@ const NAV = [
   { to: '/sessions', label: 'جلسات', icon: List },
   { to: '/strategies', label: 'استراتژی‌ها', icon: Layers },
   { to: '/checklists', label: 'چک‌لیست‌ها', icon: CheckCheck },
-  { to: '/journal', label: 'ژورنال', icon: NotebookPen },
-  { to: '/analytics', label: 'آنالیز', icon: ChartColumn },
+  { to: '/journal', label: 'ژورنال', icon: NotebookPen, locked: true },
+  { to: '/analytics', label: 'آنالیز', icon: ChartColumn, locked: true },
 ];
 
 const ACCOUNT_NAV = [
@@ -53,6 +55,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   const logout = useAuth((s) => s.logout);
   const isAdmin = useAuth((s) => s.session?.role === 'admin');
   const go = useGo();
+  const { free } = usePlan();
   const left = planDaysLeft(user.plan.endsAt);
   const total = Math.max(1, diffDays(user.plan.startedAt, user.plan.endsAt));
   const remaining = left / total;
@@ -60,7 +63,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   return (
     <div className="flex h-full flex-col">
       <nav className="flex flex-col gap-1 p-3">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {NAV.map(({ to, label, icon: Icon, end, locked }) => (
           <NavLink
             key={to}
             to={to}
@@ -77,6 +80,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           >
             <Icon size={18} strokeWidth={1.9} />
             {!collapsed && <span>{label}</span>}
+            {!collapsed && locked && free && <LockMark className="ms-auto" />}
           </NavLink>
         ))}
       </nav>

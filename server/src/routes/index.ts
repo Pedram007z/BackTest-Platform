@@ -6,7 +6,8 @@ import { eventsBetween } from '../news';
 import { checkDiscount, checkout, enabledGateways, handleCallback, publicPayment, simulatorComplete, simulatorPage } from '../payments';
 import { cancelTransfer, expireTransfers, reportTransfer } from '../payments/card';
 import type { Ticket } from '../shared';
-import { DAY_MS, clone, uid } from '../util';
+import { DAY_MS, clone, todayKey, uid } from '../util';
+import { lockedMessage, onFreePlan } from '../../../src/services/plan';
 import { adminRoutes } from './admin';
 import { countView, serveMedia, visibleAnnouncements } from '../announcements';
 import { syncCheck, syncUpload } from '../backtests';
@@ -189,7 +190,8 @@ export function buildRouter(): Router {
 
   // ---------- replay data ----------
   r.get('/api/news', async (ctx) => {
-    requireUser(ctx);
+    // the economic calendar is not part of the free plan
+    if (onFreePlan(requireUser(ctx), todayKey())) throw new HttpError(403, 'plan_locked', lockedMessage('calendar'));
     const from = Number(ctx.query.get('from'));
     const to = Number(ctx.query.get('to'));
     if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) throw badRequest('range', 'بازه‌ی زمانی معتبر نیست.');
