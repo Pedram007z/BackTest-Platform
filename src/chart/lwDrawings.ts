@@ -1,11 +1,13 @@
 import type { IChartApi, ISeriesApi, Logical, UTCTimestamp } from 'lightweight-charts';
 import type { Candle } from '../lib/market';
-import { DEFAULT_COLOR, FIB_LEVELS, TOOL_POINTS, drawingId, type Drawing, type DrawingType, type Point, type ToolId } from './drawings';
+import { drawDrawing, type View } from './draw';
+import { NS, svgEl } from './draw/kit';
+import { TOOL_SPECS, drawingId, newProps, saveDefault, tfGroupOf, type Drawing, type DrawingType, type Point, type TfGroup, type ToolId } from './drawings';
 
 /**
  * Drawing tools for the built-in chart: an SVG layer over the main pane. Points snap to bars
  * (and to the bar's open, high, low or close with the magnet). Drawings are kept per symbol;
- * the engine saves them with the pane's layout.
+ * the engine saves them with the pane's layout. The renderers live in ./draw.
  */
 
 export interface DrawingHost {
@@ -36,7 +38,16 @@ export interface DrawingUiState {
   count: number;
   selected: Drawing | null;
   canUndo: boolean;
+  canRedo: boolean;
+  /** the drawing whose settings dialog is open */
+  settings: string | null;
+  /** the chart's timeframe group (drawings can be hidden per group) */
+  tfGroup: TfGroup;
+  digits: number;
 }
+
+export type Reorder = 'front' | 'back' | 'forward' | 'backward';
+type Patch = Partial<Omit<Drawing, 'id' | 'type'>>;
 
 export interface DrawingApi {
   ui(): DrawingUiState;
@@ -48,9 +59,27 @@ export interface DrawingApi {
   /** removes this symbol's drawings; returns how many */
   removeAll(): number;
   removeSelected(): void;
-  updateSelected(patch: Partial<Pick<Drawing, 'color' | 'width' | 'text' | 'locked'>>): void;
+  updateSelected(patch: Patch): void;
   undo(): void;
+  redo(): void;
   subscribe(fn: () => void): () => void;
+  /** this symbol's drawings, bottom to top */
+  list(): Drawing[];
+  select(id: string | null): void;
+  update(id: string, patch: Patch): void;
+  remove(id: string): void;
+  /** a copy next to the drawing, selected */
+  clone(id?: string): void;
+  reorder(where: Reorder, id?: string): void;
+  /** the selected drawing's style becomes the default for new drawings of its type */
+  saveAsDefault(id?: string): void;
+  /** the bar time nearest to a time */
+  snapTime(t: number): number;
+  openSettings(id?: string): void;
+  /** the settings dialog: changes show at once; commit keeps them as one undo step, cancel restores */
+  previewEdit(d: Drawing): void;
+  commitEdit(): void;
+  cancelEdit(): void;
 }
 
 export interface DrawingLayer extends DrawingApi {
@@ -61,37 +90,44 @@ export interface DrawingLayer extends DrawingApi {
   destroy(): void;
 }
 
-const NS = 'http://www.w3.org/2000/svg';
-type Attrs = Record<string, string | number>;
-function svgEl<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Attrs = {}, parent?: SVGElement): SVGElementTagNameMap[K] {
-  const e = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
-  parent?.append(e);
-  return e;
-}
-
 /** The layer the keyboard (Delete, Ctrl+Z, Escape) acts on: the pane used last. */
 let activeLayer: object | null = null;
+/** Ctrl+C / Ctrl+V between panes */
+let clipboard: Drawing | null = null;
 
-type Handle = 'p0' | 'p1' | 'p2' | 'c2' | 'c3' | 'entry' | 'stop' | 'target' | 'end';
+type Handle = string;
 
 interface Drag {
   id: string;
-  handle: Handle | 'body';
+  handle: Handle;
   startLogical: number;
   startPrice: number;
+  startX: number;
+  startY: number;
   before: Drawing;
   snapshot: string;
   moved: boolean;
+  /** Alt / Ctrl drag made a copy: the list changed even without a move */
+  cloned: boolean;
 }
 
-const fmtDuration = (sec: number) => {
-  const m = Math.round(Math.abs(sec) / 60);
-  const d = Math.floor(m / 1440);
-  const h = Math.floor((m % 1440) / 60);
-  const mm = m % 60;
-  return d ? `${d}d ${h}h` : h ? `${h}h ${mm}m` : `${mm}m`;
-};
+interface Creating {
+  type: DrawingType;
+  points: Point[];
+  downX: number;
+  downY: number;
+  pressed: boolean;
+  /** multi-click tools: the last click (a second one close by finishes) */
+  lastAt: number;
+  lastX: number;
+  lastY: number;
+  /** screen positions of the fixed points (polyline closes on its first point) */
+  screen: { x: number; y: number }[];
+  props: ReturnType<typeof newProps>;
+  scale?: number;
+}
+
+const TIP_CSS = '.btl-tip{visibility:hidden}.btl-note:hover .btl-tip{visibility:visible}';
 
 export function createDrawingLayer(host: DrawingHost, symbol: string, initial: Record<string, Drawing[]>): DrawingLayer {
   const all: Record<string, Drawing[]> = structuredClone(initial);
@@ -102,9 +138,13 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
   let locked = false;
   let hidden = false;
   let selectedId: string | null = null;
-  let creating: { type: DrawingType; points: Point[]; downX: number; downY: number; pressed: boolean } | null = null;
+  let settingsId: string | null = null;
+  let edit: { id: string; before: Drawing; snapshot: string } | null = null;
+  let creating: Creating | null = null;
   let drag: Drag | null = null;
+  let lastDown: { id: string; at: number; x: number; y: number } | null = null;
   const undoStack: { symbol: string; json: string }[] = [];
+  const redoStack: { symbol: string; json: string }[] = [];
   const listeners = new Set<() => void>();
   let destroyed = false;
 
@@ -127,8 +167,22 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
   host.container.insertBefore(svg, host.before);
 
   // ---------- coordinates ----------
+  /** bar times, rebuilt only when the candles change (the host builds a new array each call) */
+  let timesCache: number[] = [];
+  let timesRef: Candle[] | null = null;
+  let timesKey = '';
+  function times(): number[] {
+    const c = host.candles();
+    const key = `${c.length}|${c[0]?.time}|${c[c.length - 1]?.time}|${host.stepSec()}`;
+    if (c !== timesRef || key !== timesKey) {
+      timesCache = host.times();
+      timesRef = c;
+      timesKey = key;
+    }
+    return timesCache;
+  }
   function timeToLogical(t: number): number {
-    const tt = host.times();
+    const tt = times();
     const n = tt.length;
     if (!n) return NaN;
     const step = host.stepSec();
@@ -144,7 +198,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     return tt[lo] === t ? lo : lo + (t - tt[lo]) / (tt[lo + 1] - tt[lo]);
   }
   function logicalToTime(l: number): number {
-    const tt = host.times();
+    const tt = times();
     const n = tt.length;
     const step = host.stepSec();
     if (!n) return 0;
@@ -153,9 +207,17 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     const i = Math.floor(l);
     return Math.round(tt[i] + (l - i) * (tt[i + 1] - tt[i]));
   }
+  /** bar index → x; also between bars (the library rounds fractional indices to the left edge) */
+  function xOfLogical(l: number): number | null {
+    const s = ts();
+    const a = s.logicalToCoordinate(0 as Logical);
+    const b = s.logicalToCoordinate(1 as Logical);
+    if (a === null || b === null) return null;
+    return a + (b - a) * l;
+  }
   const X = (t: number) => {
     const l = timeToLogical(t);
-    return Number.isFinite(l) ? ts().logicalToCoordinate(l as Logical) : null;
+    return Number.isFinite(l) ? xOfLogical(l) : null;
   };
   const Y = (p: number) => host.series.priceToCoordinate(p);
   const local = (e: PointerEvent) => {
@@ -183,11 +245,43 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     }
     return { time: logicalToTime(li), price: host.roundPrice(price), logical: li };
   }
+  /** pointer → time and price without snapping to bars (brushes, curve handles) */
+  function freeAt(x: number, y: number): Point | null {
+    const l = ts().coordinateToLogical(x);
+    const raw = host.series.coordinateToPrice(y);
+    if (l === null || raw === null) return null;
+    return { time: logicalToTime(l), price: raw as number };
+  }
+
+  function barSpacing() {
+    const a = ts().logicalToCoordinate(0 as Logical);
+    const b = ts().logicalToCoordinate(1 as Logical);
+    return a !== null && b !== null ? Math.abs(b - a) : 6;
+  }
+
+  function view(W: number, H: number): View {
+    return {
+      W,
+      H,
+      x: X,
+      y: Y,
+      logical: timeToLogical,
+      timeAt: logicalToTime,
+      xAt: xOfLogical,
+      priceAt: (y) => host.series.coordinateToPrice(y) as number | null,
+      barSpacing: barSpacing(),
+      colors: host.colors(),
+      digits: host.digits(),
+      pip: host.pip(),
+      candles: host.candles(),
+    };
+  }
 
   // ---------- changes ----------
-  function remember() {
-    undoStack.push({ symbol: sym, json: JSON.stringify(list()) });
-    if (undoStack.length > 60) undoStack.shift();
+  function remember(json = JSON.stringify(list())) {
+    undoStack.push({ symbol: sym, json });
+    if (undoStack.length > 80) undoStack.shift();
+    for (let i = redoStack.length - 1; i >= 0; i--) if (redoStack[i].symbol === sym) redoStack.splice(i, 1);
   }
   function changed() {
     host.onChange(all);
@@ -195,6 +289,8 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     notify();
   }
   const find = (id: string | null) => list().find((d) => d.id === id) ?? null;
+  const tfGroup = () => tfGroupOf(host.stepSec());
+  const shown = (d: Drawing) => !d.hidden && !d.hiddenOn?.includes(tfGroup());
 
   function select(id: string | null) {
     if (selectedId === id) return;
@@ -203,26 +299,136 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     notify();
   }
 
-  function finishCreating() {
-    if (!creating) return;
-    const { type, points } = creating;
-    creating = null;
-    const c = host.colors();
-    const d: Drawing = { id: drawingId(), type, points: points.map((p) => ({ time: p.time, price: p.price })), color: DEFAULT_COLOR[type], width: type === 'text' ? 2 : 2 };
-    if (type === 'long' || type === 'short') {
-      const entry = points[0];
-      const paneH = host.paneHeight();
-      const top = host.series.coordinateToPrice(0);
-      const bottom = host.series.coordinateToPrice(paneH);
-      const range = top !== null && bottom !== null ? Math.abs((top as number) - (bottom as number)) : entry.price * 0.01;
-      const risk = host.roundPrice(Math.max(range * 0.08, 10 ** -host.digits()));
-      const dir = type === 'long' ? 1 : -1;
-      d.stop = host.roundPrice(entry.price - dir * risk);
-      d.target = host.roundPrice(entry.price + dir * risk * 2);
-      d.points = [entry, { time: logicalToTime(timeToLogical(entry.time) + 25), price: entry.price }];
-      d.color = type === 'long' ? c.gain : c.loss;
+  // ---------- creating ----------
+  /** Gann square fixed: the second point keeps the price-per-bar of the square */
+  function constrain(type: DrawingType, pts: Point[], scale: number | undefined) {
+    if (type !== 'gannsqfixed' || !scale || pts.length < 2) return;
+    const a = pts[0];
+    const b = pts[1];
+    const bars = Math.abs(timeToLogical(b.time) - timeToLogical(a.time));
+    const dir = b.price >= a.price ? 1 : -1;
+    pts[1] = { time: b.time, price: host.roundPrice(a.price + dir * bars * scale) };
+  }
+
+  function startCreating(type: DrawingType, p: Point, x: number, y: number) {
+    const props = newProps(type);
+    let scale: number | undefined;
+    if (type === 'gannsqfixed') {
+      // square on screen as drawn: price per pixel × pixels per bar
+      const p0 = host.series.coordinateToPrice(0);
+      const p1 = host.series.coordinateToPrice(100);
+      scale = props.style.scale || (p0 !== null && p1 !== null ? (Math.abs((p0 as number) - (p1 as number)) / 100) * barSpacing() : undefined);
     }
-    if (type === 'text') d.text = 'متن';
+    const one = TOOL_SPECS[type].points === 1;
+    creating = { type, points: one ? [p] : [p, { ...p }], downX: x, downY: y, pressed: true, lastAt: performance.now(), lastX: x, lastY: y, screen: [{ x, y }], props, scale };
+  }
+
+  function finishCreating(opts: { closed?: boolean } = {}) {
+    if (!creating) return;
+    const cr = creating;
+    creating = null;
+    const { type, props } = cr;
+    const spec = TOOL_SPECS[type];
+    // a double click repeats the last point: keep one
+    const points = cr.points
+      .map((p) => ({ time: p.time, price: p.price }))
+      .filter((p, i, a) => spec.mode !== 'multi' || !i || p.time !== a[i - 1].time || p.price !== a[i - 1].price);
+    const c = host.colors();
+    if (spec.mode !== 'click' && points.length < 2) {
+      render();
+      notify();
+      return;
+    }
+    const d: Drawing = { id: drawingId(), type, points, color: props.color, width: props.width, style: { ...props.style } };
+    if (props.levels) d.levels = structuredClone(props.levels);
+    if (props.levels2) d.levels2 = structuredClone(props.levels2);
+    if (props.levels3) d.levels3 = structuredClone(props.levels3);
+    switch (type) {
+      case 'long':
+      case 'short': {
+        const entry = points[0];
+        const paneH = host.paneHeight();
+        const top = host.series.coordinateToPrice(0);
+        const bottom = host.series.coordinateToPrice(paneH);
+        const range = top !== null && bottom !== null ? Math.abs((top as number) - (bottom as number)) : entry.price * 0.01;
+        const risk = host.roundPrice(Math.max(range * 0.08, 10 ** -host.digits()));
+        const dir = type === 'long' ? 1 : -1;
+        d.stop = host.roundPrice(entry.price - dir * risk);
+        d.target = host.roundPrice(entry.price + dir * risk * 2);
+        d.points = [entry, { time: logicalToTime(timeToLogical(entry.time) + 25), price: entry.price }];
+        d.color = type === 'long' ? c.gain : c.loss;
+        d.width = 2;
+        delete d.style;
+        break;
+      }
+      case 'measure':
+        delete d.style;
+        break;
+      case 'text':
+        d.text = 'متن';
+        break;
+      case 'anchoredtext': {
+        const W = host.plotWidth();
+        const H = host.paneHeight();
+        d.anchor = { x: Math.max(0, Math.min(0.95, cr.downX / W)), y: Math.max(0, Math.min(0.95, cr.downY / H)) };
+        d.text = 'متن';
+        break;
+      }
+      case 'note':
+        d.text = 'یادداشت';
+        break;
+      case 'callout':
+        d.text = 'توضیح';
+        break;
+      case 'comment':
+        d.text = 'دیدگاه';
+        break;
+      case 'signpost':
+        d.text = 'تابلو';
+        break;
+      case 'pin':
+        d.text = 'سنجاق';
+        break;
+      case 'polyline':
+        d.style!.closed = !!opts.closed;
+        break;
+      case 'gannsqfixed':
+        if (cr.scale) d.style!.scale = cr.scale;
+        constrain(type, d.points, cr.scale);
+        break;
+      case 'curve':
+      case 'doublecurve': {
+        // control handles off the line, so it starts as a curve
+        const a = { x: X(points[0].time), y: Y(points[0].price) };
+        const b = { x: X(points[1].time), y: Y(points[1].price) };
+        if (a.x !== null && a.y !== null && b.x !== null && b.y !== null) {
+          const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+          const nx = (-(b.y - a.y) / len) * len * 0.3;
+          const ny = ((b.x - a.x) / len) * len * 0.3;
+          const ctrl = (t: number, s: number) => freeAt(a.x! + (b.x! - a.x!) * t + nx * s, a.y! + (b.y! - a.y!) * t + ny * s);
+          const extra = type === 'curve' ? [ctrl(0.5, -1)] : [ctrl(0.25, -1), ctrl(0.75, 1)];
+          if (extra.every(Boolean)) d.points.push(...(extra as Point[]));
+        }
+        break;
+      }
+      case 'barspattern': {
+        // copy the bars between the two clicks
+        let i0 = Math.round(timeToLogical(points[0].time));
+        let i1 = Math.round(timeToLogical(points[1].time));
+        if (i0 > i1) [i0, i1] = [i1, i0];
+        const candles = host.candles();
+        i0 = Math.max(0, i0);
+        i1 = Math.min(candles.length - 1, i1, i0 + 499);
+        if (i1 >= i0) {
+          d.bars = candles.slice(i0, i1 + 1).map((k) => [k.open, k.high, k.low, k.close]);
+          d.points = [
+            { time: candles[i0].time, price: candles[i0].open },
+            { time: candles[i1].time, price: candles[i1].close },
+          ];
+        }
+        break;
+      }
+    }
     remember();
     list().push(d);
     selectedId = d.id;
@@ -231,14 +437,21 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
   }
 
   function cancel() {
-    if (creating) creating = null;
-    else if (tool !== 'cursor') tool = 'cursor';
+    if (creating) {
+      const spec = TOOL_SPECS[creating.type];
+      // a path with points already placed: keep it
+      if (spec.mode === 'multi' && creating.points.length > 2) {
+        creating.points.pop();
+        finishCreating();
+        return;
+      }
+      creating = null;
+    } else if (tool !== 'cursor') tool = 'cursor';
     else selectedId = null;
     render();
     notify();
   }
 
-  // ---------- creating ----------
   function onCaptureDown(e: PointerEvent) {
     if (e.button !== 0 || tool === 'cursor') return;
     e.preventDefault();
@@ -249,12 +462,41 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     if (!pt) return;
     const p = { time: pt.time, price: pt.price };
     const type = tool as DrawingType;
+    const spec = TOOL_SPECS[type];
+    if (spec.mode === 'free') return startFree(e, type);
+    if (spec.mode === 'multi') {
+      const now = performance.now();
+      if (!creating) startCreating(type, p, x, y);
+      else {
+        const quick = now - creating.lastAt < 400 && Math.hypot(x - creating.lastX, y - creating.lastY) < 6;
+        const first = creating.screen[0];
+        if (quick) {
+          creating.points.pop();
+          finishCreating();
+          return;
+        }
+        if (type === 'polyline' && creating.points.length >= 4 && Math.hypot(x - first.x, y - first.y) < 8) {
+          creating.points.pop();
+          finishCreating({ closed: true });
+          return;
+        }
+        creating.points[creating.points.length - 1] = p;
+        creating.points.push({ ...p });
+        creating.screen.push({ x, y });
+        creating.lastAt = now;
+        creating.lastX = x;
+        creating.lastY = y;
+      }
+      render();
+      return;
+    }
     if (!creating) {
-      creating = { type, points: TOOL_POINTS[type] === 1 ? [p] : [p, { ...p }], downX: x, downY: y, pressed: true };
-      if (TOOL_POINTS[type] === 1) finishCreating();
+      startCreating(type, p, x, y);
+      if (spec.points === 1) finishCreating();
       else render();
     } else {
       creating.points[creating.points.length - 1] = p;
+      constrain(type, creating.points, creating.scale);
       creating.downX = x;
       creating.downY = y;
       creating.pressed = true;
@@ -270,6 +512,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       if (Math.hypot(q.x - creating.downX, q.y - creating.downY) > 5) {
         const r = pointAt(q.x, q.y);
         if (r) creating.points[creating.points.length - 1] = { time: r.time, price: r.price };
+        constrain(creating.type, creating.points, creating.scale);
         fixPoint();
       }
     };
@@ -280,11 +523,40 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
   /** the moving point is placed: finish, or start the next one */
   function fixPoint() {
     if (!creating) return;
-    if (creating.points.length >= TOOL_POINTS[creating.type]) finishCreating();
+    if (creating.points.length >= TOOL_SPECS[creating.type].points) finishCreating();
     else {
       creating.points.push({ ...creating.points[creating.points.length - 1] });
       render();
     }
+  }
+
+  /** brush and highlighter: press, draw, release */
+  function startFree(e: PointerEvent, type: DrawingType) {
+    const { x, y } = local(e);
+    const p = freeAt(x, y);
+    if (!p) return;
+    startCreating(type, p, x, y);
+    creating!.points = [p];
+    let last = { x, y };
+    const move = (ev: PointerEvent) => {
+      if (!creating) return;
+      const q = local(ev);
+      if (Math.hypot(q.x - last.x, q.y - last.y) < 3) return;
+      const r = freeAt(q.x, q.y);
+      if (!r) return;
+      last = q;
+      creating.points.push(r);
+      render();
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      finishCreating();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   }
 
   function onCaptureMove(e: PointerEvent) {
@@ -293,27 +565,37 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     if (!pt) return;
     const time = logicalToTime(pt.logical);
     // keep the crosshair following the pointer while a tool is active
-    const tt = host.times();
+    const tt = times();
     if (tt.includes(time)) host.chart.setCrosshairPosition(pt.price, time as UTCTimestamp, host.series);
-    if (creating) {
+    if (creating && TOOL_SPECS[creating.type].mode !== 'free') {
       creating.points[creating.points.length - 1] = { time: pt.time, price: pt.price };
+      constrain(creating.type, creating.points, creating.scale);
       render();
     }
   }
 
   // ---------- moving ----------
-  function startDrag(e: PointerEvent, d: Drawing, handle: Handle | 'body') {
+  function startDrag(e: PointerEvent, d0: Drawing, handle: Handle) {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
     activeLayer = api;
+    let d = d0;
+    const snapshot = JSON.stringify(list());
+    let cloned = false;
+    // Alt or Ctrl drag: move a copy
+    if (handle === 'body' && (e.altKey || e.ctrlKey || e.metaKey) && !locked) {
+      d = { ...structuredClone(d0), id: drawingId(), locked: false };
+      list().push(d);
+      cloned = true;
+    }
     select(d.id);
     if (locked || d.locked) return;
     const { x, y } = local(e);
     const l = ts().coordinateToLogical(x);
     const p = host.series.coordinateToPrice(y);
     if (l === null || p === null) return;
-    drag = { id: d.id, handle, startLogical: Math.round(l), startPrice: p as number, before: structuredClone(d), snapshot: JSON.stringify(list()), moved: false };
+    drag = { id: d.id, handle, startLogical: Math.round(l), startPrice: p as number, startX: x, startY: y, before: structuredClone(d), snapshot, moved: false, cloned };
     const move = (ev: PointerEvent) => onDrag(ev);
     const up = () => {
       window.removeEventListener('pointermove', move);
@@ -321,8 +603,8 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       window.removeEventListener('pointercancel', up);
       const dr = drag;
       drag = null;
-      if (dr?.moved) {
-        undoStack.push({ symbol: sym, json: dr.snapshot });
+      if (dr?.moved || dr?.cloned) {
+        remember(dr.snapshot);
         changed();
       } else render();
     };
@@ -336,43 +618,48 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     const d = find(drag.id);
     if (!d) return;
     const { x, y } = local(e);
+    if (!drag.moved && Math.hypot(x - drag.startX, y - drag.startY) < 2) return;
+    const free = d.type === 'brush' || d.type === 'highlighter' || ((d.type === 'curve' || d.type === 'doublecurve') && /^p[23]$/.test(drag.handle));
     const pt = pointAt(x, y);
     if (!pt) return;
     const b = drag.before;
     const shift = (p: Point, dl: number, dp: number): Point => ({ time: logicalToTime(timeToLogical(p.time) + dl), price: host.roundPrice(p.price + dp) });
-    const P = { time: pt.time, price: pt.price };
+    const fp = free ? freeAt(x, y) : null;
+    const P = fp ?? { time: pt.time, price: pt.price };
     drag.moved = true;
     switch (drag.handle) {
       case 'body': {
+        if (d.type === 'anchoredtext') {
+          const a = b.anchor ?? { x: 0.5, y: 0.2 };
+          d.anchor = {
+            x: Math.max(0, Math.min(0.98, a.x + (x - drag.startX) / host.plotWidth())),
+            y: Math.max(0, Math.min(0.98, a.y + (y - drag.startY) / host.paneHeight())),
+          };
+          break;
+        }
         const dl = pt.logical - drag.startLogical;
         const raw = host.series.coordinateToPrice(y);
         const dp = raw === null ? 0 : (raw as number) - drag.startPrice;
-        d.points = b.points.map((p) => shift(p, d.type === 'hline' || d.type === 'hray' ? (d.type === 'hray' ? dl : 0) : dl, d.type === 'vline' ? 0 : dp));
+        const noTime = d.type === 'hline';
+        const noPrice = d.type === 'vline' || d.type === 'regression';
+        if (free) {
+          // brushes keep their shape exactly (no snapping to bars)
+          const f0 = freeAt(drag.startX, drag.startY);
+          const f1 = freeAt(x, y);
+          const dlf = f0 && f1 ? timeToLogical(f1.time) - timeToLogical(f0.time) : dl;
+          d.points = b.points.map((p) => ({ time: logicalToTime(timeToLogical(p.time) + dlf), price: p.price + dp }));
+        } else d.points = b.points.map((p) => shift(p, noTime ? 0 : dl, noPrice ? 0 : dp));
         if (b.stop !== undefined) d.stop = host.roundPrice(b.stop + dp);
         if (b.target !== undefined) d.target = host.roundPrice(b.target + dp);
         break;
       }
-      case 'p0':
-      case 'p1': {
-        const i = drag.handle === 'p0' ? 0 : 1;
-        d.points = b.points.map((p, j) => (j === i ? (d.type === 'vline' ? { time: P.time, price: p.price } : P) : p));
-        if (d.type === 'channel') {
-          // keep the channel's width: the parallel line moves with the first one
-          const off = channelOffset(b);
-          d.points[2] = { time: b.points[2].time, price: host.roundPrice(priceOnLine(d, timeToLogical(b.points[2].time)) + off) };
-        }
-        break;
-      }
-      case 'p2':
-        d.points = [b.points[0], b.points[1], P];
-        break;
-      case 'c2': // rectangle corner (start time, end price)
+      case 'c2': // box corner (start time, end price)
         d.points = [
           { time: P.time, price: b.points[0].price },
           { time: b.points[1].time, price: P.price },
         ];
         break;
-      case 'c3': // rectangle corner (end time, start price)
+      case 'c3': // box corner (end time, start price)
         d.points = [
           { time: b.points[0].time, price: P.price },
           { time: P.time, price: b.points[1].price },
@@ -406,6 +693,25 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       case 'end':
         if (timeToLogical(P.time) > timeToLogical(b.points[0].time)) d.points = [b.points[0], { time: P.time, price: b.points[0].price }];
         break;
+      default: {
+        const i = Number(drag.handle.slice(1));
+        if (!Number.isInteger(i) || !b.points[i]) break;
+        const keepPrice = d.type === 'vline' || d.type === 'regression';
+        d.points = b.points.map((p, j) => (j === i ? (keepPrice ? { time: P.time, price: p.price } : P) : p));
+        if ((d.type === 'channel' || d.type === 'fibchannel') && i < 2 && b.points[2]) {
+          // keep the channel's width: the parallel line moves with the first one
+          const off = b.points[2].price - priceOnLine(b, timeToLogical(b.points[2].time));
+          d.points[2] = { time: b.points[2].time, price: host.roundPrice(priceOnLine(d, timeToLogical(b.points[2].time)) + off) };
+        }
+        if (d.type === 'gannsqfixed') {
+          const scale = d.style?.scale;
+          if (i === 0 && scale) {
+            const dir = b.points[1].price >= b.points[0].price ? 1 : -1;
+            const bars = Math.abs(timeToLogical(b.points[1].time) - timeToLogical(P.time));
+            d.points[1] = { time: b.points[1].time, price: host.roundPrice(P.price + dir * bars * scale) };
+          } else constrain(d.type, d.points, scale);
+        }
+      }
     }
     render();
   }
@@ -417,244 +723,9 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     if (l1 === l0) return d.points[0].price;
     return d.points[0].price + ((d.points[1].price - d.points[0].price) * (l - l0)) / (l1 - l0);
   }
-  const channelOffset = (d: Drawing) => (d.points[2] ? d.points[2].price - priceOnLine(d, timeToLogical(d.points[2].time)) : 0);
 
   // ---------- rendering ----------
-  function label(parent: SVGElement, x: number, y: number, text: string, bg: string, fg = '#fff', anchor: 'start' | 'middle' | 'end' = 'middle') {
-    const lines = text.split('\n');
-    const w = Math.max(...lines.map((l) => l.length)) * 6.3 + 12;
-    const h = lines.length * 15 + 5;
-    const left = anchor === 'middle' ? x - w / 2 : anchor === 'end' ? x - w : x;
-    svgEl('rect', { x: left, y, width: w, height: h, rx: 4, fill: bg }, parent);
-    lines.forEach((l, i) => {
-      const t = svgEl(
-        'text',
-        { x: left + w / 2, y: y + 14 + i * 15, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, fill: fg, style: 'font-variant-numeric:tabular-nums' },
-        parent,
-      );
-      t.textContent = l;
-    });
-    return h;
-  }
-
-  function hitLine(parent: SVGElement, x1: number, y1: number, x2: number, y2: number, d: Drawing) {
-    const hit = svgEl('line', { x1, y1, x2, y2, stroke: 'transparent', 'stroke-width': 12, 'pointer-events': 'stroke', style: 'cursor:move' }, parent);
-    hit.addEventListener('pointerdown', (e) => startDrag(e, d, 'body'));
-  }
-  function hitArea(el: SVGElement, d: Drawing) {
-    el.setAttribute('pointer-events', 'all');
-    el.setAttribute('style', 'cursor:move');
-    el.addEventListener('pointerdown', (e) => startDrag(e as PointerEvent, d, 'body'));
-  }
-  function handle(parent: SVGElement, x: number, y: number, d: Drawing, h: Handle, color: string, cursor = 'pointer') {
-    const c = svgEl('circle', { cx: x, cy: y, r: 5.5, fill: '#fff', stroke: color, 'stroke-width': 2, 'pointer-events': 'all', class: 'h', style: `cursor:${cursor}` }, parent);
-    c.addEventListener('pointerdown', (e) => startDrag(e, d, h));
-  }
-
-  /** where a line from a through b leaves the box */
-  function extend(ax: number, ay: number, bx: number, by: number, W: number, H: number) {
-    const dx = bx - ax;
-    const dy = by - ay;
-    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return { x: bx, y: by };
-    let t = Infinity;
-    if (dx > 0) t = Math.min(t, (W - ax) / dx);
-    if (dx < 0) t = Math.min(t, -ax / dx);
-    if (dy > 0) t = Math.min(t, (H + 50 - ay) / dy);
-    if (dy < 0) t = Math.min(t, (-50 - ay) / dy);
-    if (!Number.isFinite(t) || t < 1) t = 1;
-    return { x: ax + dx * t, y: ay + dy * t };
-  }
-
-  function drawOne(parent: SVGElement, d: Drawing, selected: boolean, interactive: boolean, W: number, H: number) {
-    const g = svgEl('g', {}, parent);
-    const P = d.points.map((p) => ({ x: X(p.time), y: Y(p.price) }));
-    if (P.some((p) => p.x === null || p.y === null)) return;
-    const pts = P as { x: number; y: number }[];
-    const col = d.color;
-    const sw = d.width;
-    const c = host.colors();
-    const digits = host.digits();
-    const stroke = { stroke: col, 'stroke-width': sw, 'stroke-linecap': 'round' };
-    switch (d.type) {
-      case 'trend':
-      case 'ray': {
-        const end = d.type === 'ray' ? extend(pts[0].x, pts[0].y, pts[1].x, pts[1].y, W, H) : pts[1];
-        svgEl('line', { x1: pts[0].x, y1: pts[0].y, x2: end.x, y2: end.y, ...stroke }, g);
-        if (interactive) hitLine(g, pts[0].x, pts[0].y, end.x, end.y, d);
-        if (selected) {
-          handle(g, pts[0].x, pts[0].y, d, 'p0', col);
-          handle(g, pts[1].x, pts[1].y, d, 'p1', col);
-        }
-        break;
-      }
-      case 'hline':
-      case 'hray': {
-        const x0 = d.type === 'hline' ? 0 : pts[0].x;
-        svgEl('line', { x1: x0, y1: pts[0].y, x2: W, y2: pts[0].y, ...stroke }, g);
-        if (interactive) hitLine(g, x0, pts[0].y, W, pts[0].y, d);
-        label(g, W - 4, pts[0].y - 18, d.points[0].price.toFixed(digits), col, '#fff', 'end');
-        if (selected) handle(g, pts[0].x, pts[0].y, d, 'p0', col, 'ns-resize');
-        break;
-      }
-      case 'vline': {
-        svgEl('line', { x1: pts[0].x, y1: 0, x2: pts[0].x, y2: H, ...stroke }, g);
-        if (interactive) hitLine(g, pts[0].x, 0, pts[0].x, H, d);
-        if (selected) handle(g, pts[0].x, pts[0].y, d, 'p0', col, 'ew-resize');
-        break;
-      }
-      case 'channel': {
-        const off = pts.length > 2 ? channelOffset(d) : 0;
-        const y2a = Y(d.points[0].price + off);
-        const y2b = Y(d.points[1].price + off);
-        if (y2a === null || y2b === null) break;
-        svgEl('polygon', { points: `${pts[0].x},${pts[0].y} ${pts[1].x},${pts[1].y} ${pts[1].x},${y2b} ${pts[0].x},${y2a}`, fill: col, 'fill-opacity': 0.1 }, g);
-        svgEl('line', { x1: pts[0].x, y1: pts[0].y, x2: pts[1].x, y2: pts[1].y, ...stroke }, g);
-        svgEl('line', { x1: pts[0].x, y1: y2a, x2: pts[1].x, y2: y2b, ...stroke }, g);
-        svgEl(
-          'line',
-          { x1: pts[0].x, y1: (pts[0].y + y2a) / 2, x2: pts[1].x, y2: (pts[1].y + y2b) / 2, stroke: col, 'stroke-width': 1, 'stroke-dasharray': '5 4', opacity: 0.7 },
-          g,
-        );
-        if (interactive) {
-          hitLine(g, pts[0].x, pts[0].y, pts[1].x, pts[1].y, d);
-          hitLine(g, pts[0].x, y2a, pts[1].x, y2b, d);
-        }
-        if (selected) {
-          handle(g, pts[0].x, pts[0].y, d, 'p0', col);
-          handle(g, pts[1].x, pts[1].y, d, 'p1', col);
-          if (pts[2]) handle(g, pts[2].x, pts[2].y, d, 'p2', col);
-        }
-        break;
-      }
-      case 'rect': {
-        const x = Math.min(pts[0].x, pts[1].x);
-        const y = Math.min(pts[0].y, pts[1].y);
-        const r = svgEl('rect', { x, y, width: Math.abs(pts[1].x - pts[0].x), height: Math.abs(pts[1].y - pts[0].y), fill: col, 'fill-opacity': 0.15, ...stroke }, g);
-        if (interactive) hitArea(r, d);
-        if (selected) {
-          handle(g, pts[0].x, pts[0].y, d, 'p0', col);
-          handle(g, pts[1].x, pts[1].y, d, 'p1', col);
-          handle(g, pts[0].x, pts[1].y, d, 'c2', col);
-          handle(g, pts[1].x, pts[0].y, d, 'c3', col);
-        }
-        break;
-      }
-      case 'fib': {
-        const left = Math.min(pts[0].x, pts[1].x);
-        const right = Math.max(pts[0].x, pts[1].x);
-        const p0 = d.points[0].price;
-        const p1 = d.points[1].price;
-        let prevY: number | null = null;
-        for (const { level, color } of FIB_LEVELS) {
-          const price = p1 + (p0 - p1) * level;
-          const ly = Y(price);
-          if (ly === null) continue;
-          if (prevY !== null) svgEl('rect', { x: left, y: Math.min(prevY, ly), width: right - left, height: Math.abs(ly - prevY), fill: color, 'fill-opacity': 0.08 }, g);
-          svgEl('line', { x1: left, y1: ly, x2: right, y2: ly, stroke: color, 'stroke-width': 1 }, g);
-          // labels left of the levels, or inside them when the drawing starts at the chart's left edge
-          const inside = left < 110;
-          const t = svgEl(
-            'text',
-            { x: inside ? left + 4 : left - 6, y: ly - 3, 'text-anchor': inside ? 'start' : 'end', 'font-size': 11, fill: color, style: 'font-variant-numeric:tabular-nums' },
-            g,
-          );
-          t.textContent = `${level} (${price.toFixed(digits)})`;
-          prevY = ly;
-        }
-        svgEl('line', { x1: pts[0].x, y1: pts[0].y, x2: pts[1].x, y2: pts[1].y, stroke: col, 'stroke-width': 1, 'stroke-dasharray': '4 4' }, g);
-        if (interactive) {
-          const top = Math.min(pts[0].y, pts[1].y);
-          hitArea(svgEl('rect', { x: left, y: top, width: Math.max(4, right - left), height: Math.max(4, Math.abs(pts[1].y - pts[0].y)), fill: 'transparent' }, g), d);
-        }
-        if (selected) {
-          handle(g, pts[0].x, pts[0].y, d, 'p0', col);
-          handle(g, pts[1].x, pts[1].y, d, 'p1', col);
-        }
-        break;
-      }
-      case 'long':
-      case 'short': {
-        const dir = d.type === 'long' ? 1 : -1;
-        const ye = pts[0].y;
-        const ys = Y(d.stop ?? d.points[0].price);
-        const yt = Y(d.target ?? d.points[0].price);
-        if (ys === null || yt === null) break;
-        const x0 = Math.min(pts[0].x, pts[1].x);
-        const x1 = Math.max(pts[0].x, pts[1].x, x0 + 8);
-        const entry = d.points[0].price;
-        const pip = host.pip();
-        const tgt = ((d.target ?? entry) - entry) * dir;
-        const stp = (entry - (d.stop ?? entry)) * dir;
-        const profit = svgEl('rect', { x: x0, y: Math.min(ye, yt), width: x1 - x0, height: Math.abs(yt - ye), fill: c.gain, 'fill-opacity': 0.2 }, g);
-        const loss = svgEl('rect', { x: x0, y: Math.min(ye, ys), width: x1 - x0, height: Math.abs(ys - ye), fill: c.loss, 'fill-opacity': 0.2 }, g);
-        svgEl('line', { x1: x0, y1: yt, x2: x1, y2: yt, stroke: c.gain, 'stroke-width': 1.5 }, g);
-        svgEl('line', { x1: x0, y1: ys, x2: x1, y2: ys, stroke: c.loss, 'stroke-width': 1.5 }, g);
-        svgEl('line', { x1: x0, y1: ye, x2: x1, y2: ye, stroke: c.text, 'stroke-width': 1.5, opacity: 0.8 }, g);
-        if (interactive) {
-          hitArea(profit, d);
-          hitArea(loss, d);
-        }
-        const mid = (x0 + x1) / 2;
-        const pct = (v: number) => ((v / entry) * 100).toFixed(2);
-        label(
-          g,
-          mid,
-          dir > 0 ? Math.min(yt, ye) - 22 : Math.max(yt, ye) + 3,
-          `Target: ${(d.target ?? entry).toFixed(digits)} (${pct(tgt)}%) ${(tgt / pip).toFixed(1)} pips`,
-          c.gain,
-        );
-        label(g, mid, dir > 0 ? Math.max(ys, ye) + 3 : Math.min(ys, ye) - 22, `Stop: ${(d.stop ?? entry).toFixed(digits)} (${pct(stp)}%) ${(stp / pip).toFixed(1)} pips`, c.loss);
-        label(g, mid, ye - 10, `R:R ${stp > 0 ? (tgt / stp).toFixed(2) : '—'}`, c.surface, c.text);
-        if (selected) {
-          handle(g, x0, yt, d, 'target', c.gain, 'ns-resize');
-          handle(g, x0, ys, d, 'stop', c.loss, 'ns-resize');
-          handle(g, x0, ye, d, 'entry', c.text, 'move');
-          handle(g, x1, ye, d, 'end', c.text, 'ew-resize');
-        }
-        break;
-      }
-      case 'measure': {
-        const up = d.points[1].price >= d.points[0].price;
-        const mc = up ? '#2962ff' : '#f23645';
-        const x = Math.min(pts[0].x, pts[1].x);
-        const y = Math.min(pts[0].y, pts[1].y);
-        const w = Math.abs(pts[1].x - pts[0].x);
-        const h = Math.abs(pts[1].y - pts[0].y);
-        const box = svgEl('rect', { x, y, width: Math.max(1, w), height: Math.max(1, h), fill: mc, 'fill-opacity': 0.15 }, g);
-        const mx = (pts[0].x + pts[1].x) / 2;
-        const my = (pts[0].y + pts[1].y) / 2;
-        svgEl('line', { x1: mx, y1: pts[0].y, x2: mx, y2: pts[1].y, stroke: mc, 'stroke-width': 1.5 }, g);
-        svgEl('line', { x1: pts[0].x, y1: my, x2: pts[1].x, y2: my, stroke: mc, 'stroke-width': 1.5 }, g);
-        const ah = up ? 6 : -6;
-        svgEl('path', { d: `M${mx - 5},${pts[1].y + ah} L${mx},${pts[1].y} L${mx + 5},${pts[1].y + ah}`, fill: 'none', stroke: mc, 'stroke-width': 1.5 }, g);
-        const diff = d.points[1].price - d.points[0].price;
-        const bars = Math.round(timeToLogical(d.points[1].time) - timeToLogical(d.points[0].time));
-        label(
-          g,
-          mx,
-          up ? y - 40 : y + h + 4,
-          `${diff >= 0 ? '+' : ''}${diff.toFixed(digits)} (${((diff / d.points[0].price) * 100).toFixed(2)}%) ${(diff / host.pip()).toFixed(1)} pips\n${bars} bars, ${fmtDuration(d.points[1].time - d.points[0].time)}`,
-          mc,
-        );
-        if (interactive) hitArea(box, d);
-        if (selected) {
-          handle(g, pts[0].x, pts[0].y, d, 'p0', mc);
-          handle(g, pts[1].x, pts[1].y, d, 'p1', mc);
-        }
-        break;
-      }
-      case 'text': {
-        const size = [12, 14, 18, 24][Math.max(0, Math.min(3, sw - 1))];
-        const t = svgEl('text', { x: pts[0].x, y: pts[0].y, 'font-size': size, 'font-weight': 600, fill: col, style: 'unicode-bidi:plaintext' }, g);
-        t.textContent = d.text || 'متن';
-        const w = (d.text || 'متن').length * size * 0.6 + 6;
-        const hit = svgEl('rect', { x: pts[0].x - 3, y: pts[0].y - size, width: w, height: size + 6, fill: 'transparent' }, g);
-        if (interactive) hitArea(hit, d);
-        if (selected) svgEl('rect', { x: pts[0].x - 3, y: pts[0].y - size, width: w, height: size + 6, fill: 'none', stroke: col, 'stroke-dasharray': '3 3', class: 'h' }, g);
-        break;
-      }
-    }
-  }
+  const clipId = Math.random().toString(36).slice(2, 8);
 
   function render() {
     if (destroyed) return;
@@ -666,12 +737,26 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     const defs = svgEl('defs', {}, svg);
     const clip = svgEl('clipPath', { id: `clip-${clipId}` }, defs);
     svgEl('rect', { x: 0, y: 0, width: W, height: H }, clip);
+    svgEl('style', {}, defs).textContent = TIP_CSS;
     const g = svgEl('g', { 'clip-path': `url(#clip-${clipId})` }, svg);
-    if (!hidden) for (const d of list()) drawOne(g, d, d.id === selectedId && tool === 'cursor', tool === 'cursor', W, H);
+    const v = view(W, H);
+    const interactive = tool === 'cursor';
+    if (!hidden) for (const d of list()) if (shown(d)) drawDrawing(g, d, v, { selected: d.id === selectedId && interactive, interactive });
     if (creating) {
-      const preview: Drawing = { id: 'new', type: creating.type, points: creating.points, color: DEFAULT_COLOR[creating.type], width: 2 };
-      if (creating.type === 'channel' && creating.points.length === 2) preview.type = 'trend';
-      drawOne(g, preview, false, false, W, H);
+      const { props } = creating;
+      const preview: Drawing = {
+        id: 'new',
+        type: creating.type,
+        points: creating.points,
+        color: props.color,
+        width: props.width,
+        style: props.style,
+        levels: props.levels,
+        levels2: props.levels2,
+        levels3: props.levels3,
+      };
+      if (creating.type === 'anchoredtext') preview.anchor = { x: creating.downX / W, y: creating.downY / H };
+      drawDrawing(g, preview, v, { selected: false, interactive: false, preview: true });
     }
     if (tool !== 'cursor') {
       const cap = svgEl('rect', { x: 0, y: 0, width: W, height: H, fill: 'transparent', 'pointer-events': 'all', style: 'cursor:crosshair' }, svg);
@@ -680,32 +765,112 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       cap.addEventListener('pointerleave', () => host.chart.clearCrosshairPosition());
     }
   }
-  const clipId = Math.random().toString(36).slice(2, 8);
 
   // ---------- page events ----------
+  /** a drawing or one of its handles pressed (one listener for all of them) */
+  const onSvgDown = (e: PointerEvent) => {
+    if (tool !== 'cursor' || e.button !== 0) return;
+    const t = e.target as Element | null;
+    const gEl = t?.closest?.('[data-id]');
+    if (!gEl) return;
+    const d = find(gEl.getAttribute('data-id'));
+    if (!d) return;
+    const h = t?.closest?.('[data-h]')?.getAttribute('data-h') ?? 'body';
+    const now = performance.now();
+    // a double click opens the settings
+    if (lastDown && lastDown.id === d.id && now - lastDown.at < 380 && Math.hypot(e.clientX - lastDown.x, e.clientY - lastDown.y) < 6) {
+      lastDown = null;
+      e.preventDefault();
+      e.stopPropagation();
+      api.openSettings(d.id);
+      return;
+    }
+    lastDown = { id: d.id, at: now, x: e.clientX, y: e.clientY };
+    startDrag(e, d, h);
+  };
+  svg.addEventListener('pointerdown', onSvgDown);
+
   const onContainerDown = (e: PointerEvent) => {
     activeLayer = api;
     if (!svg.contains(e.target as Node) && selectedId && !drag) select(null);
   };
   host.container.addEventListener('pointerdown', onContainerDown, true);
   const onKey = (e: KeyboardEvent) => {
-    if (activeLayer !== api) return;
+    if (activeLayer !== api || settingsId) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    const mod = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
     if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
       e.preventDefault();
       api.removeSelected();
+    } else if (e.key === 'Enter' && creating && TOOL_SPECS[creating.type].mode === 'multi') {
+      e.preventDefault();
+      creating.points.pop();
+      finishCreating();
     } else if (e.key === 'Escape' && (creating || tool !== 'cursor' || selectedId)) {
       cancel();
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && undoStack.length) {
+    } else if (mod && ((key === 'z' && e.shiftKey) || key === 'y')) {
+      if (redoStack.some((u) => u.symbol === sym)) {
+        e.preventDefault();
+        api.redo();
+      }
+    } else if (mod && key === 'z' && undoStack.some((u) => u.symbol === sym)) {
       e.preventDefault();
       api.undo();
+    } else if (mod && key === 'c' && selectedId && !window.getSelection()?.toString()) {
+      clipboard = structuredClone(find(selectedId));
+    } else if (mod && key === 'v' && clipboard) {
+      e.preventDefault();
+      const copy: Drawing = { ...structuredClone(clipboard), id: drawingId(), locked: false };
+      if (find(clipboard.id)) offset(copy);
+      remember();
+      list().push(copy);
+      selectedId = copy.id;
+      changed();
     }
   };
   window.addEventListener('keydown', onKey);
 
+  /** moves a copy a little to the right and down, so it does not hide its original */
+  function offset(d: Drawing) {
+    const top = host.series.coordinateToPrice(0);
+    const bottom = host.series.coordinateToPrice(host.paneHeight());
+    const dp = top !== null && bottom !== null ? -Math.abs((top as number) - (bottom as number)) * 0.04 : 0;
+    const dl = d.type === 'hline' ? 0 : 5;
+    d.points = d.points.map((p) => ({ time: logicalToTime(timeToLogical(p.time) + dl), price: host.roundPrice(p.price + (d.type === 'vline' ? 0 : dp)) }));
+    if (d.stop !== undefined) d.stop = host.roundPrice(d.stop + dp);
+    if (d.target !== undefined) d.target = host.roundPrice(d.target + dp);
+    if (d.anchor) d.anchor = { x: Math.min(0.95, d.anchor.x + 0.03), y: Math.min(0.95, d.anchor.y + 0.04) };
+  }
+
+  function step(from: { symbol: string; json: string }[], to: { symbol: string; json: string }[]) {
+    for (let i = from.length - 1; i >= 0; i--) {
+      if (from[i].symbol !== sym) continue;
+      const [u] = from.splice(i, 1);
+      to.push({ symbol: sym, json: JSON.stringify(list()) });
+      all[sym] = JSON.parse(u.json) as Drawing[];
+      if (!find(selectedId)) selectedId = null;
+      changed();
+      return;
+    }
+  }
+
   const api: DrawingLayer = {
-    ui: () => ({ tool, magnet, stay, locked, hidden, count: list().length, selected: find(selectedId), canUndo: undoStack.some((u) => u.symbol === sym) }),
+    ui: () => ({
+      tool,
+      magnet,
+      stay,
+      locked,
+      hidden,
+      count: list().length,
+      selected: find(selectedId),
+      canUndo: undoStack.some((u) => u.symbol === sym),
+      canRedo: redoStack.some((u) => u.symbol === sym),
+      settings: settingsId,
+      tfGroup: tfGroup(),
+      digits: host.digits(),
+    }),
     setTool(t) {
       tool = t;
       creating = null;
@@ -745,36 +910,122 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       return n;
     },
     removeSelected() {
-      if (!selectedId) return;
-      remember();
-      all[sym] = list().filter((d) => d.id !== selectedId);
-      selectedId = null;
-      changed();
+      if (selectedId) api.remove(selectedId);
     },
     updateSelected(patch) {
-      const d = find(selectedId);
-      if (!d) return;
-      remember();
-      Object.assign(d, patch);
-      changed();
+      if (selectedId) api.update(selectedId, patch);
     },
     undo() {
-      for (let i = undoStack.length - 1; i >= 0; i--) {
-        if (undoStack[i].symbol !== sym) continue;
-        const [u] = undoStack.splice(i, 1);
-        all[sym] = JSON.parse(u.json) as Drawing[];
-        if (!find(selectedId)) selectedId = null;
-        changed();
-        return;
-      }
+      step(undoStack, redoStack);
+    },
+    redo() {
+      step(redoStack, undoStack);
     },
     subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
+    list: () => list(),
+    select(id) {
+      activeLayer = api;
+      if (id && tool !== 'cursor') {
+        tool = 'cursor';
+        creating = null;
+      }
+      select(id);
+    },
+    update(id, patch) {
+      const d = find(id);
+      if (!d) return;
+      remember();
+      Object.assign(d, patch);
+      // a field set to undefined is removed
+      for (const [k, v] of Object.entries(patch)) if (v === undefined) delete (d as unknown as Record<string, unknown>)[k];
+      if (d.id === selectedId && !shown(d)) selectedId = null;
+      changed();
+    },
+    remove(id) {
+      if (!find(id)) return;
+      remember();
+      all[sym] = list().filter((d) => d.id !== id);
+      if (selectedId === id) selectedId = null;
+      changed();
+    },
+    clone(id = selectedId ?? '') {
+      const d = find(id);
+      if (!d) return;
+      const copy: Drawing = { ...structuredClone(d), id: drawingId(), locked: false };
+      offset(copy);
+      remember();
+      list().push(copy);
+      selectedId = copy.id;
+      changed();
+    },
+    reorder(where, id = selectedId ?? '') {
+      const arr = list();
+      const i = arr.findIndex((d) => d.id === id);
+      if (i < 0) return;
+      const j = where === 'front' ? arr.length - 1 : where === 'back' ? 0 : where === 'forward' ? Math.min(arr.length - 1, i + 1) : Math.max(0, i - 1);
+      if (i === j) return;
+      remember();
+      const [d] = arr.splice(i, 1);
+      arr.splice(j, 0, d);
+      changed();
+    },
+    saveAsDefault(id = selectedId ?? '') {
+      const d = find(id);
+      if (d) saveDefault(d);
+    },
+    snapTime: (t) => logicalToTime(Math.round(timeToLogical(t))),
+    openSettings(id = selectedId ?? '') {
+      const d = find(id);
+      if (!d) return;
+      if (edit) api.cancelEdit();
+      selectedId = d.id;
+      settingsId = d.id;
+      edit = { id: d.id, before: structuredClone(d), snapshot: JSON.stringify(list()) };
+      render();
+      notify();
+    },
+    previewEdit(next) {
+      if (!edit || next.id !== edit.id) return;
+      const arr = list();
+      const i = arr.findIndex((d) => d.id === next.id);
+      if (i < 0) return;
+      arr[i] = structuredClone(next);
+      render();
+      notify();
+    },
+    commitEdit() {
+      if (!edit) return;
+      const e = edit;
+      edit = null;
+      settingsId = null;
+      const now = find(e.id);
+      if (now && JSON.stringify(now) !== JSON.stringify(e.before)) {
+        remember(e.snapshot);
+        if (!shown(now)) selectedId = null;
+        changed();
+      } else {
+        render();
+        notify();
+      }
+    },
+    cancelEdit() {
+      if (!edit) return;
+      const e = edit;
+      edit = null;
+      settingsId = null;
+      const arr = list();
+      const i = arr.findIndex((d) => d.id === e.id);
+      if (i >= 0) arr[i] = e.before;
+      render();
+      notify();
+    },
     render,
     setSymbol(s) {
       if (s === sym) return;
+      if (edit) api.cancelEdit();
       sym = s;
       selectedId = null;
       creating = null;
@@ -784,7 +1035,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     async image() {
       if (hidden || !list().length) return null;
       const copy = svg.cloneNode(true) as SVGSVGElement;
-      copy.querySelectorAll('.h').forEach((n) => n.remove());
+      copy.querySelectorAll('.h, .btl-tip').forEach((n) => n.remove());
       copy.setAttribute('xmlns', NS);
       const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`;
       return new Promise((resolve) => {
@@ -798,6 +1049,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       destroyed = true;
       window.removeEventListener('keydown', onKey);
       host.container.removeEventListener('pointerdown', onContainerDown, true);
+      svg.removeEventListener('pointerdown', onSvgDown);
       if (activeLayer === api) activeLayer = null;
       svg.remove();
       listeners.clear();
