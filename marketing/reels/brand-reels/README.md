@@ -480,3 +480,43 @@ To rebuild it:
 6. Render and encode as for the music-only version.
 
 Captions are in `launch/captions.md`.
+
+---
+
+## i1 «با ICT و اسمارت‌مانی ترید می‌کنی؟» (`i1/`, music only)
+
+Built from the user's hook. It takes the launch reel's structure: a question to the viewer, the stakes, then a real
+demonstration and a call to action. The motion design and type are new: Vazirmatn 700–900 at large sizes, always on
+solid ground. 45 s, 1080×1920, no voice: the lines on screen carry the script.
+
+**Story:**
+1. The hook, readable from the first frame, among ICT terms.
+2. Two stat cards («وین‌ریت», «میانگین ریسک به ریوارد») spin and land on «؟».
+3. The usual answers appear as chat bubbles and are struck out: «یعنی نمی‌دونی.»
+4. A classic short replayed on real NAS100 5-minute bars in New York time (7 Jan 2025):
+   1. London high and its liquidity;
+   2. the sweep;
+   3. the FVG;
+   4. entry, stop and 2R target;
+   5. the replay to the target: +2R.
+5. The same setup on 18 May 2026: −1R.
+6. «یه معامله هیچی رو ثابت نمی‌کنه». A hundred tiles: the two real trades and 98 «؟».
+7. BacktestLab: replay without the future, the chart time zone set to New York with the kill zone, Fib levels for OTE,
+   spread and commission, and per-strategy win rate and average RR in Analytics.
+8. «با عدد ترید کن، نه با حس», the link in bio, and a prompt to send it to a friend.
+
+**Charts:**
+- `setup.py` finds the setup on stored 1-minute data from the `market-data` branch's `store/`, set with
+  `MARKET_STORE`.
+- `scan.py` lists every such NAS100 day from 2024 to 2026 with its outcome; the two days were picked from it.
+- No win rate or average RR is shown or claimed.
+
+**Rebuild** (from `i1/`):
+1. `python3 build.py`: writes `data.json`, the timeline and the charts.
+2. `python3 page.py`: writes `index.html`, with the fonts and logo inlined.
+3. `python3 sound.py`: writes `music.json`, `music.wav` and `mix.wav` at −14 LUFS.
+4. `node render.cjs stills <dir> [t …]`: optional, to check frames.
+5. `node render.cjs cover cover.png`.
+6. `node render.cjs video reel-hq.mp4 mix.wav 4`: 30 fps, three subframes per frame for motion blur.
+
+Caption, pinned comment and an optional voice-over script are in `i1/caption.md`.
