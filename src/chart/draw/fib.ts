@@ -1,4 +1,4 @@
-import { levelsOf, type Level } from '../drawings';
+import { levelsOf, type Level, type LineDash } from '../drawings';
 import { Kit, dashArray, dist, extendTo, fmtNum, mid, svgEl, type Pt } from './kit';
 import { farX, priceOnLine } from './lines';
 
@@ -50,7 +50,7 @@ function horizontalLevels(k: Kit, base: number, span: number, left: number, righ
     }
     prevY = ly;
     if (ly < lo || ly > hi) continue;
-    svgEl('line', { x1: xL, y1: ly, x2: xR, y2: ly, stroke: c, 'stroke-width': lw, 'stroke-dasharray': dashArray(ld, lw) }, k.g);
+    svgEl('line', { x1: xL, y1: ly, x2: xR, y2: ly, stroke: c, 'stroke-width': lw, 'stroke-dasharray': dashArray(l.dash ?? ld, lw) }, k.g);
     k.hitSeg({ x: xL, y: ly }, { x: xR, y: ly });
     const label = levelText(k, l, price);
     if (label) {
@@ -145,7 +145,7 @@ export function fibChannel(k: Kit) {
     const c = color(k, l);
     if (prev && f)
       svgEl('polygon', { points: `${prev[0].x},${prev[0].y} ${prev[1].x},${prev[1].y} ${seg[1].x},${seg[1].y} ${seg[0].x},${seg[0].y}`, fill: c, 'fill-opacity': f.opacity }, k.g);
-    k.line(seg[0], seg[1], { color: c, width: lw, dash: ld, cap: 'butt' });
+    k.line(seg[0], seg[1], { color: c, width: lw, dash: l.dash ?? ld, cap: 'butt' });
     const label = levelText(k, l, a.x <= b.x !== labRight ? d.points[0].price + o : d.points[1].price + o);
     if (label) {
       const p = a.x <= b.x !== labRight ? { x: a.x, y: ya } : { x: b.x, y: yb };
@@ -172,7 +172,7 @@ function verticalLevels(k: Kit, l0: number, unit: number, useValue: (l: Level) =
       svgEl('rect', { x: Math.min(prevX, x), y: 0, width: Math.abs(x - prevX), height: v.H, fill: c, 'fill-opacity': f.opacity }, k.g);
     prevX = x;
     if (x < -20 || x > v.W + 20) continue;
-    k.line({ x, y: 0 }, { x, y: v.H }, { color: c, width: lw, dash: ld, cap: 'butt' });
+    k.line({ x, y: 0 }, { x, y: v.H }, { color: c, width: lw, dash: l.dash ?? ld, cap: 'butt' });
     const label = k.s('showLabels') !== false ? (k.s('percent') ? pct(l.value) : fmtNum(l.value)) : '';
     if (label) smallText(k, x + 4, 14, label, c);
   }
@@ -197,7 +197,7 @@ export function fibTime(k: Kit) {
 }
 
 /** wedges between rays from o through the given points, and the rays themselves */
-function fan(k: Kit, o: Pt, rays: { p: Pt; color: string; label?: string }[], lw: number, ld: Level['dash']) {
+function fan(k: Kit, o: Pt, rays: { p: Pt; color: string; label?: string; dash?: LineDash }[], lw: number, ld: LineDash) {
   const { v } = k;
   const f = k.fill();
   const far = (p: Pt) => {
@@ -214,7 +214,7 @@ function fan(k: Kit, o: Pt, rays: { p: Pt; color: string; label?: string }[], lw
       svgEl('polygon', { points: `${o.x},${o.y} ${p.x},${p.y} ${q.x},${q.y}`, fill: sorted[i].color, 'fill-opacity': f.opacity }, k.g);
     }
   for (const r of rays) {
-    k.line(o, extendTo(o, r.p, v.W, v.H), { color: r.color, width: lw, dash: ld });
+    k.line(o, extendTo(o, r.p, v.W, v.H), { color: r.color, width: lw, dash: r.dash ?? ld });
     if (r.label) smallText(k, r.p.x + 4, r.p.y - 4, r.label, r.color);
   }
 }
@@ -244,9 +244,9 @@ export function fibFan(k: Kit) {
       if (labels) smallText(k, x, (b.y >= a.y ? bottom + 13 : top - 4) + 0, fmtNum(l.value), color(k, l), 'middle');
     }
   }
-  const rays: { p: Pt; color: string }[] = [];
-  for (const l of P) rays.push({ p: { x: b.x, y: yOf(l.value) }, color: color(k, l) });
-  for (const l of T) if (!P.some((pl) => pl.value === 0 && l.value === 0)) rays.push({ p: { x: xOf(l.value), y: b.y }, color: color(k, l) });
+  const rays: { p: Pt; color: string; dash?: LineDash }[] = [];
+  for (const l of P) rays.push({ p: { x: b.x, y: yOf(l.value) }, color: color(k, l), dash: l.dash });
+  for (const l of T) if (!P.some((pl) => pl.value === 0 && l.value === 0)) rays.push({ p: { x: xOf(l.value), y: b.y }, color: color(k, l), dash: l.dash });
   fan(
     k,
     a,
@@ -272,7 +272,7 @@ export function fibCircles(k: Kit) {
     if (r <= 0) continue;
     const c = color(k, l);
     if (f) svgEl('path', { d: circlePath(a, r) + (prev > 0 ? circlePath(a, prev) : ''), fill: c, 'fill-opacity': f.opacity, 'fill-rule': 'evenodd' }, k.g);
-    k.path(circlePath(a, r), { color: c, width: lw, dash: ld });
+    k.path(circlePath(a, r), { color: c, width: lw, dash: l.dash ?? ld });
     const label = k.s('showLabels') !== false ? (k.s('percent') ? pct(l.value) : fmtNum(l.value)) : '';
     if (label) smallText(k, a.x, a.y - r - 3, label, c, 'middle');
     prev = r;
@@ -303,7 +303,7 @@ export function fibArcs(k: Kit) {
         : `${half(r)}L${b.x + prev},${b.y}${prev > 0 ? `A${prev},${prev} 0 0 ${1 - sw} ${b.x - prev},${b.y}` : `L${b.x - prev},${b.y}`}Z`;
       svgEl('path', { d: ring, fill: c, 'fill-opacity': f.opacity, 'fill-rule': 'evenodd' }, k.g);
     }
-    k.path(full ? circlePath(b, r) : half(r), { color: c, width: lw, dash: ld });
+    k.path(full ? circlePath(b, r) : half(r), { color: c, width: lw, dash: l.dash ?? ld });
     const label = k.s('showLabels') !== false ? (k.s('percent') ? pct(l.value) : fmtNum(l.value)) : '';
     if (label) smallText(k, b.x, lower ? b.y + r + 12 : b.y - r - 3, label, c, 'middle');
     prev = r;
@@ -345,7 +345,7 @@ export function fibWedge(k: Kit) {
         k.g,
       );
     }
-    k.path(`M${s2.x},${s2.y}A${r},${r} 0 0 ${sw} ${e2.x},${e2.y}`, { color: col, width: lw, dash: ld });
+    k.path(`M${s2.x},${s2.y}A${r},${r} 0 0 ${sw} ${e2.x},${e2.y}`, { color: col, width: lw, dash: l.dash ?? ld });
     const label = k.s('showLabels') !== false ? (k.s('percent') ? pct(l.value) : fmtNum(l.value)) : '';
     if (label) smallText(k, s2.x + 4, s2.y - 4, label, col);
     prev = r;
@@ -386,7 +386,7 @@ export function pitchfan(k: Kit) {
   const M = mid(B, C);
   const lw = k.s('levelWidth') ?? 1;
   const ld = k.s('levelDash') ?? 'solid';
-  const rays: { p: Pt; color: string }[] = [{ p: M, color: k.col }];
+  const rays: { p: Pt; color: string; dash?: LineDash }[] = [{ p: M, color: k.col }];
   for (const l of sortedVisible(levelsOf(k.d)))
     if (l.value !== 0) for (const E of [B, C]) rays.push({ p: { x: M.x + (E.x - M.x) * l.value, y: M.y + (E.y - M.y) * l.value }, color: color(k, l) });
   fan(k, A, rays, lw, ld);
@@ -428,14 +428,14 @@ export function gannBox(k: Kit) {
   for (const l of P) {
     const y = yOf(l.value);
     const c = color(k, l);
-    k.line({ x: left, y }, { x: right, y }, { color: c, width: lw, dash: ld, cap: 'butt' });
+    k.line({ x: left, y }, { x: right, y }, { color: c, width: lw, dash: l.dash ?? ld, cap: 'butt' });
     if (k.s('labelsLeft')) smallText(k, left - 4, y + fs * 0.35, fmtNum(l.value), c, 'end');
     if (k.s('labelsRight')) smallText(k, right + 4, y + fs * 0.35, fmtNum(l.value), c, 'start');
   }
   for (const l of T) {
     const x = xOf(l.value);
     const c = color(k, l);
-    k.line({ x, y: top }, { x, y: bottom }, { color: c, width: lw, dash: ld, cap: 'butt' });
+    k.line({ x, y: top }, { x, y: bottom }, { color: c, width: lw, dash: l.dash ?? ld, cap: 'butt' });
     if (k.s('labelsTop')) smallText(k, x, top - 4, fmtNum(l.value), c, 'middle');
     if (k.s('labelsBottom')) smallText(k, x, bottom + fs + 2, fmtNum(l.value), c, 'middle');
   }
@@ -484,8 +484,8 @@ export function gannSquare(k: Kit) {
         const py = O.y + (E.y - O.y) * L[i - 1].value;
         svgEl('rect', { x: left, y: Math.min(py, y), width: right - left, height: Math.abs(y - py), fill: c, 'fill-opacity': f.opacity }, k.g);
       }
-      k.line({ x: left, y }, { x: right, y }, { color: c, width: lw, dash: 'solid', cap: 'butt' });
-      k.line({ x, y: top }, { x, y: bottom }, { color: c, width: lw, dash: 'solid', cap: 'butt' });
+      k.line({ x: left, y }, { x: right, y }, { color: c, width: lw, dash: L[i].dash ?? 'solid', cap: 'butt' });
+      k.line({ x, y: top }, { x, y: bottom }, { color: c, width: lw, dash: L[i].dash ?? 'solid', cap: 'butt' });
       if (labels) {
         smallText(k, left - 4, y + 4, fmtNum(L[i].value), c, 'end');
         smallText(k, x, bottom + 13, fmtNum(L[i].value), c, 'middle');
@@ -498,7 +498,7 @@ export function gannSquare(k: Kit) {
       const r = l.value / (l.value2 ?? 1);
       const end = r <= 1 ? { x: E.x, y: O.y + (E.y - O.y) * r } : { x: O.x + (E.x - O.x) / r, y: E.y };
       const c = color(k, l);
-      k.line(O, end, { color: c, width: lw, dash: 'solid' });
+      k.line(O, end, { color: c, width: lw, dash: l.dash ?? 'solid' });
       if (labels) smallText(k, end.x + (E.x >= O.x ? 3 : -3), end.y + (E.y >= O.y ? 12 : -3), `${fmtNum(l.value)}/${fmtNum(l.value2 ?? 1)}`, c, E.x >= O.x ? 'start' : 'end');
     }
   if (k.s('arcs') !== false) {
@@ -508,7 +508,7 @@ export function gannSquare(k: Kit) {
       const rx = Math.abs(E.x - O.x) * l.value;
       const ry = Math.abs(E.y - O.y) * l.value;
       if (rx < 0.5 || ry < 0.5) continue;
-      k.path(`M${O.x + sx * rx},${O.y}A${rx},${ry} 0 0 ${sx * sy > 0 ? 1 : 0} ${O.x},${O.y + sy * ry}`, { color: color(k, l), width: lw, dash: 'solid' });
+      k.path(`M${O.x + sx * rx},${O.y}A${rx},${ry} 0 0 ${sx * sy > 0 ? 1 : 0} ${O.x},${O.y + sy * ry}`, { color: color(k, l), width: lw, dash: l.dash ?? 'solid' });
     }
   }
   svgEl('rect', { x: left, y: top, width: right - left, height: bottom - top, fill: 'none', stroke: k.col, 'stroke-width': k.sw }, k.g);
@@ -529,12 +529,12 @@ export function gannFan(k: Kit) {
   const lw = k.s('levelWidth') ?? 1;
   const ld = k.s('levelDash') ?? 'solid';
   const labels = k.s('showLabels') !== false;
-  const rays: { p: Pt; color: string; label?: string }[] = [];
+  const rays: { p: Pt; color: string; label?: string; dash?: LineDash }[] = [];
   for (const l of levelsOf(k.d)) {
     const t = l.value2 ?? 1;
     if (!l.visible || !(l.value > 0) || !(t > 0)) continue;
     const m = Math.max(l.value, t);
-    rays.push({ p: { x: a.x + (dx * t) / m, y: a.y + (dy * l.value) / m }, color: color(k, l), label: labels ? `${fmtNum(l.value)}/${fmtNum(t)}` : undefined });
+    rays.push({ p: { x: a.x + (dx * t) / m, y: a.y + (dy * l.value) / m }, color: color(k, l), dash: l.dash, label: labels ? `${fmtNum(l.value)}/${fmtNum(t)}` : undefined });
   }
   fan(k, a, rays, lw, ld);
   k.pointHandles();

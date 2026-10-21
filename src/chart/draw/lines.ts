@@ -373,7 +373,8 @@ export function pitchfork(k: Kit) {
         const fq = far(q);
         svgEl('polygon', { points: `${p.x},${p.y} ${fp.x},${fp.y} ${fq.x},${fq.y} ${q.x},${q.y}`, fill: oneColor ? k.col : side[i].l.color, 'fill-opacity': f.opacity }, k.g);
       }
-  for (const side of sides) for (const { l, p } of side.slice(1)) k.line(p, extendTo(p, far(p), v.W, v.H), { color: oneColor ? k.col : l.color, width: lw, dash: ld, cap: 'butt' });
+  for (const side of sides)
+    for (const { l, p } of side.slice(1)) k.line(p, extendTo(p, far(p), v.W, v.H), { color: oneColor ? k.col : l.color, width: lw, dash: l.dash ?? ld, cap: 'butt' });
   if (O !== A) k.line(A, O, { dash: 'dashed', width: 1 });
   k.line(O, extendTo(O, M, v.W, v.H));
   k.line(B, Cp);

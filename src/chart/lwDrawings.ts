@@ -802,6 +802,8 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     if (activeLayer !== api || settingsId) return;
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    // keys in a dialog are the dialog's (Escape closes it without dropping the selection)
+    if (t?.closest?.('[role=dialog]')) return;
     const mod = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
     if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {

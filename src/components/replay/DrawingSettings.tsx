@@ -23,7 +23,7 @@ import type { DrawingApi } from '../../chart/lwDrawings';
 import { toast } from '../../store/useStore';
 import { Modal } from '../ui/Modal';
 import { Select } from '../ui/controls';
-import { CheckRow, ColorButton, DashPicker, FloatingPanel, NumberField, Seg, WidthPicker } from './drawingControls';
+import { CheckRow, ColorButton, DASHES, DashIcon, DashPicker, FloatingPanel, NumberField, Seg, WidthPicker } from './drawingControls';
 
 /**
  * TradingView-style settings of one drawing: Style (lines, background, levels and options),
@@ -36,6 +36,7 @@ type Tab = 'style' | 'text' | 'coords' | 'visibility';
 const TEXT_MAIN = new Set(['text', 'anchoredtext', 'note', 'pin', 'callout', 'comment', 'signpost']);
 const NO_STYLE = new Set(['long', 'short', 'measure']);
 const FONT_SIZES = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 40];
+const NEXT_DASH: Record<LineDash, LineDash> = { solid: 'dashed', dashed: 'dotted', dotted: 'solid' };
 
 function Row({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
@@ -88,7 +89,22 @@ function TimeField({ value, onChange, label }: { value: number; onChange: (t: nu
 }
 
 // ---------- levels ----------
-function LevelsEditor({ set, levels, onChange, oneColor, defaults }: { set: LevelSetSpec; levels: Level[]; onChange: (l: Level[]) => void; oneColor: boolean; defaults: Level[] }) {
+function LevelsEditor({
+  set,
+  levels,
+  onChange,
+  oneColor,
+  defaults,
+  lineDash,
+}: {
+  set: LevelSetSpec;
+  levels: Level[];
+  onChange: (l: Level[]) => void;
+  oneColor: boolean;
+  defaults: Level[];
+  /** the levels' common line style (a level can have its own) */
+  lineDash: LineDash;
+}) {
   const [focus, setFocus] = useState<number | null>(null);
   const patch = (i: number, p: Partial<Level>) => onChange(levels.map((l, j) => (j === i ? { ...l, ...p } : l)));
   const add = () => {
@@ -129,6 +145,15 @@ function LevelsEditor({ set, levels, onChange, oneColor, defaults }: { set: Leve
             <span className={clsx(oneColor && 'pointer-events-none opacity-40')}>
               <ColorButton size="sm" value={l.color} label="رنگ سطح" onChange={(c) => patch(i, { color: c })} />
             </span>
+            <button
+              type="button"
+              title={`سبک خط: ${DASHES.find((x) => x.value === (l.dash ?? lineDash))?.label}`}
+              aria-label="سبک خط سطح"
+              onClick={() => patch(i, { dash: NEXT_DASH[l.dash ?? lineDash] })}
+              className={clsx('grid h-7 w-8 shrink-0 place-items-center rounded-md hover:bg-raised', l.dash ? 'text-ink' : 'text-faint')}
+            >
+              <DashIcon dash={l.dash ?? lineDash} w={18} />
+            </button>
             <button
               type="button"
               title="حذف سطح"
@@ -338,6 +363,7 @@ export function DrawingSettings({ api, id }: { api: DrawingApi; id: string }) {
                 levels={d[set_.key] ?? []}
                 oneColor={!!st('oneColor')}
                 defaults={factoryProps(d.type)[set_.key] ?? []}
+                lineDash={(st('levelDash') ?? 'solid') as LineDash}
                 onChange={(l) => set({ ...d, [set_.key]: l })}
               />
             </div>
