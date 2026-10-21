@@ -54,6 +54,8 @@ function cleanTrade(t: any): SnapshotTrade {
     pointValue: num(t?.pointValue),
     risk: num(t?.risk),
     riskPct: num(t?.riskPct),
+    spread: optNum(t?.spread),
+    commission: optNum(t?.commission),
     placedTime: num(t?.placedTime),
     openTime: num(t?.openTime),
     closeTime: optNum(t?.closeTime),

@@ -1,10 +1,10 @@
 import clsx from 'clsx';
 import { Check, Clock3, Pencil, Plus, Star, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
-import { fmtDayLong, msToKey } from '../../lib/calendar';
+import { useMemo, useState } from 'react';
+import { fmtDayLong } from '../../lib/calendar';
 import { faDigits } from '../../lib/format';
 import { SYMBOL_MAP, dayIndexOf, isTradingDay } from '../../lib/market';
-import { BUILTIN_GOTO, TZ_OPTIONS, fmtTehran, nextOccurrence, tzLabel } from '../../lib/timezone';
+import { BUILTIN_GOTO, allTimeZones, dayKeyIn, fmtClock, fmtOffset, nextOccurrence, tzName } from '../../lib/timezone';
 import type { GoToPreset } from '../../lib/types';
 import { useStore } from '../../store/useStore';
 import { Popover } from '../ui/Popover';
@@ -14,15 +14,18 @@ interface Props {
   endMs: number;
   symbols: string[];
   disabled: boolean;
+  /** The chart's time zone: times here are shown in it, and new targets start in it. */
+  tz: string;
   onJump: (target: number, label: string) => void;
 }
 
 const HOUR = 3_600_000;
 
-function Editor({ initial, onSave, onCancel }: { initial: Partial<GoToPreset>; onSave: (p: Omit<GoToPreset, 'id'>) => void; onCancel: () => void }) {
+function Editor({ initial, chartTz, onSave, onCancel }: { initial: Partial<GoToPreset>; chartTz: string; onSave: (p: Omit<GoToPreset, 'id'>) => void; onCancel: () => void }) {
   const [name, setName] = useState(initial.name ?? '');
   const [time, setTime] = useState(initial.time ?? '16:30');
-  const [tz, setTz] = useState(initial.tz ?? 'Asia/Tehran');
+  const [tz, setTz] = useState(initial.tz ?? chartTz);
+  const zones = useMemo(() => allTimeZones(), []);
   const ok = name.trim().length > 0 && /^\d{2}:\d{2}$/.test(time);
   return (
     <form
@@ -48,9 +51,9 @@ function Editor({ initial, onSave, onCancel }: { initial: Partial<GoToPreset>; o
             منطقه‌ی زمانی
           </label>
           <select id="goto-tz" className="field py-2" value={tz} onChange={(e) => setTz(e.target.value)}>
-            {TZ_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+            {zones.map((z) => (
+              <option key={z} value={z}>
+                {tzName(z)} ({fmtOffset(Date.now(), z)})
               </option>
             ))}
           </select>
@@ -68,7 +71,7 @@ function Editor({ initial, onSave, onCancel }: { initial: Partial<GoToPreset>; o
   );
 }
 
-export function GoToMenu({ cursor, endMs, symbols, disabled, onJump }: Props) {
+export function GoToMenu({ cursor, endMs, symbols, disabled, tz, onJump }: Props) {
   const stored = useStore((s) => s.goToPresets);
   const add = useStore((s) => s.addGoToPreset);
   const update = useStore((s) => s.updateGoToPreset);
@@ -104,7 +107,9 @@ export function GoToMenu({ cursor, endMs, symbols, disabled, onJump }: Props) {
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold">برو به زمان بعدی</p>
-            <p className="num text-[11px] text-faint">الان: {fmtTehran(cursor)} تهران</p>
+            <p className="num text-[11px] text-faint">
+              الان: {fmtClock(cursor, tz)} {tzName(tz)}
+            </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {[
@@ -127,6 +132,7 @@ export function GoToMenu({ cursor, endMs, symbols, disabled, onJump }: Props) {
                   <li key={p.id} className="px-1 py-1">
                     <Editor
                       initial={p}
+                      chartTz={tz}
                       onCancel={() => setEditing(null)}
                       onSave={(v) => {
                         update(p.id, { ...v, id: p.id });
@@ -149,11 +155,11 @@ export function GoToMenu({ cursor, endMs, symbols, disabled, onJump }: Props) {
                   <button type="button" disabled={beyond} onClick={() => go(next, p.name, close)} className="min-w-0 flex-1 py-2 text-start disabled:opacity-50">
                     <span className="block truncate text-[13px] font-semibold">{p.name}</span>
                     <span className="num block text-[11px] text-faint">
-                      {faDigits(p.time)} {tzLabel(p.tz)}
+                      {faDigits(p.time)} {tzName(p.tz)}
                       {!beyond && (
                         <span className="text-muted">
                           {' '}
-                          ← {fmtDayLong(msToKey(next))}، {fmtTehran(next)} تهران
+                          ← {fmtDayLong(dayKeyIn(next, tz))}، {fmtClock(next, tz)} {tzName(tz)}
                         </span>
                       )}
                       {beyond && <span> · بیرون از بازه‌ی جلسه</span>}
@@ -174,6 +180,7 @@ export function GoToMenu({ cursor, endMs, symbols, disabled, onJump }: Props) {
           {editing === 'new' ? (
             <Editor
               initial={{}}
+              chartTz={tz}
               onCancel={() => setEditing(null)}
               onSave={(v) => {
                 add({ ...v, favorite: true });

@@ -289,6 +289,50 @@ function coverageOf(symbol: string): Map<string, Uint8Array> {
   return months;
 }
 
+// ---------- which days have chart data (for the session form's date pickers) ----------
+const RANGES_TTL = 60_000;
+const rangesCache = new Map<string, { at: number; ranges: [string, string][] }>();
+const dayKey = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/**
+ * Days with chart data for a symbol, as inclusive ranges of UTC day keys: from a stored day to the last
+ * stored day before one that was not downloaded. Closed days (holidays, weekends) inside a range keep it
+ * going; for markets that do not trade at weekends a Saturday with nothing stored counts as closed.
+ * Kept a minute at most, and forgotten when the store is read again after a download.
+ */
+export function dataRanges(symbol: string, weekends: boolean): [string, string][] {
+  const hit = rangesCache.get(symbol);
+  if (hit && Date.now() - hit.at < RANGES_TTL) return hit.ranges;
+  const out: [string, string][] = [];
+  let start: string | null = null;
+  let last: string | null = null;
+  let next = NaN;
+  const end = () => {
+    if (start && last) out.push([start, last]);
+    start = last = null;
+  };
+  const months = [...coverageOf(symbol).entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  for (const [key, status] of months) {
+    const monthStart = Date.parse(`${key}-01T00:00:00Z`);
+    // a month with no file between two stored ones is a gap
+    if (Number.isFinite(next) && monthStart !== next) end();
+    const n = daysInMonth(monthStart);
+    for (let d = 0; d < n; d++) {
+      const dayStart = monthStart + d * DAY_MS;
+      let st = status[d];
+      if (st === MISSING && !weekends && new Date(dayStart).getUTCDay() === 6) st = CLOSED;
+      if (st === STORED) {
+        start ??= dayKey(dayStart);
+        last = dayKey(dayStart);
+      } else if (st === MISSING) end();
+    }
+    next = monthStart + n * DAY_MS;
+  }
+  end();
+  rangesCache.set(symbol, { at: Date.now(), ranges: out });
+  return out;
+}
+
 /** Stored days of a symbol: status per day from `from` to `to` (inclusive day starts). */
 export function statusRange(symbol: string, from: number, to: number): DayStatus[] {
   const out: DayStatus[] = [];
@@ -318,6 +362,7 @@ export function storedBytes(symbol: string): number {
 /** Read the stored days again from the files (another process or a copied folder may have added some). */
 export function refreshCoverage() {
   coverage.clear();
+  rangesCache.clear();
   sizes.clear();
 }
 
@@ -325,6 +370,7 @@ export function refreshCoverage() {
 export function resetStoreCache() {
   monthCache.clear();
   coverage.clear();
+  rangesCache.clear();
   sizes.clear();
   secondCache.clear();
 }

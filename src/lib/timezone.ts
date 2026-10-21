@@ -94,8 +94,113 @@ export const BUILTIN_GOTO: GoToPreset[] = [
 
 /** "۱۶:۳۰" in Tehran time for an instant. */
 export function fmtTehran(ms: number): string {
-  const w = wallTime(ms, 'Asia/Tehran');
-  return faDigits(`${String(w.hh).padStart(2, '0')}:${String(w.mm).padStart(2, '0')}`);
+  return fmtClock(ms, 'Asia/Tehran');
+}
+
+// ---------- the chart's time zone (the user picks it under the chart) ----------
+
+/** Before the user picks one. */
+export const DEFAULT_CHART_TZ = 'Asia/Tehran';
+
+/** Persian names of zones traders use most; others are named after their city. */
+const TZ_FA: Record<string, string> = {
+  'Asia/Tehran': 'تهران',
+  'America/New_York': 'نیویورک',
+  'Europe/London': 'لندن',
+  'Asia/Tokyo': 'توکیو',
+  'Australia/Sydney': 'سیدنی',
+  UTC: 'UTC',
+  'Etc/UTC': 'UTC',
+  'Asia/Dubai': 'دبی',
+  'Europe/Istanbul': 'استانبول',
+  'Europe/Berlin': 'برلین',
+  'Europe/Paris': 'پاریس',
+  'Europe/Zurich': 'زوریخ',
+  'Europe/Moscow': 'مسکو',
+  'Asia/Hong_Kong': 'هنگ‌کنگ',
+  'Asia/Singapore': 'سنگاپور',
+  'Asia/Shanghai': 'شانگهای',
+  'Asia/Kabul': 'کابل',
+  'Asia/Baghdad': 'بغداد',
+  'Asia/Riyadh': 'ریاض',
+  'Asia/Karachi': 'کراچی',
+  'Asia/Kolkata': 'کلکته',
+  'America/Chicago': 'شیکاگو',
+  'America/Los_Angeles': 'لس‌آنجلس',
+  'America/Toronto': 'تورنتو',
+  'Pacific/Auckland': 'اوکلند',
+};
+
+/** Old names some browsers still list, and the names the cities have now. */
+const TZ_RENAMED: Record<string, string> = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'America/Godthab': 'America/Nuuk',
+  'Atlantic/Faeroe': 'Atlantic/Faroe',
+  'Pacific/Truk': 'Pacific/Chuuk',
+  'Pacific/Ponape': 'Pacific/Pohnpei',
+  'Pacific/Enderbury': 'Pacific/Kanton',
+  'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+};
+
+/** Every IANA time zone the browser knows (under the cities' current names), UTC first. */
+export function allTimeZones(): string[] {
+  let list: string[] = [];
+  try {
+    list = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? [];
+  } catch {
+    /* older browsers */
+  }
+  if (!list.length) list = TZ_OPTIONS.map((o) => o.value).filter((v) => v !== 'UTC');
+  const named = list.map((z) => (TZ_RENAMED[z] && isTimeZone(TZ_RENAMED[z]) ? TZ_RENAMED[z] : z));
+  return ['UTC', ...new Set(named.filter((z) => z !== 'UTC' && z !== 'Etc/UTC'))];
+}
+
+export function isTimeZone(tz: unknown): tz is string {
+  if (typeof tz !== 'string' || !tz || tz.length > 64) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** "تهران", or the city of the zone ("Buenos Aires"). */
+export function tzName(tz: string): string {
+  return TZ_FA[tz] ?? tz.split('/').pop()!.replace(/_/g, ' ');
+}
+
+/** "UTC+3:30", "UTC−5", "UTC" at instant `ms` (daylight saving included). */
+export function fmtOffset(ms: number, tz: string): string {
+  const min = Math.round(tzOffset(ms, tz) / 60_000);
+  if (!min) return 'UTC';
+  const a = Math.abs(min);
+  return `UTC${min > 0 ? '+' : '−'}${Math.floor(a / 60)}${a % 60 ? `:${String(a % 60).padStart(2, '0')}` : ''}`;
+}
+
+const two = (n: number) => String(n).padStart(2, '0');
+
+/** "۱۶:۳۰" (Persian digits) in `tz`. */
+export function fmtClock(ms: number, tz: string): string {
+  const w = wallTime(ms, tz);
+  return faDigits(`${two(w.hh)}:${two(w.mm)}`);
+}
+
+/** "16:30" (Latin digits) in `tz`, for the chart's axis. */
+export function fmtClockLatin(ms: number, tz: string, seconds = false): string {
+  const w = wallTime(ms, tz);
+  const s = seconds ? `:${two(new Date(ms).getUTCSeconds())}` : '';
+  return `${two(w.hh)}:${two(w.mm)}${s}`;
+}
+
+/** The calendar day in `tz` (YYYY-MM-DD). */
+export function dayKeyIn(ms: number, tz: string): string {
+  const w = wallTime(ms, tz);
+  return `${w.y}-${two(w.m)}-${two(w.d)}`;
 }
 
 /** Trading sessions in UTC hours, for "performance by session" (Tokyo, London, New York cash hours). */

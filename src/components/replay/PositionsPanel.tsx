@@ -1,10 +1,11 @@
 import clsx from 'clsx';
 import { NotebookPen, X } from 'lucide-react';
 import { useState } from 'react';
-import { fmtMarketTime } from '../../lib/calendar';
+import { fmtDay } from '../../lib/calendar';
+import { dayKeyIn, fmtClock } from '../../lib/timezone';
 import { fmtNum, fmtUsd } from '../../lib/format';
 import { SYMBOL_MAP, fmtPx, priceAt } from '../../lib/market';
-import { ORDER_LABEL, fmtLots, openPnl, rOfPrice } from '../../lib/trading';
+import { ORDER_LABEL, commissionFor, exitPriceAt, fmtLots, openPnl, rOfPrice } from '../../lib/trading';
 import type { Trade } from '../../lib/types';
 import { Toggle } from '../ui/controls';
 
@@ -16,10 +17,13 @@ interface Props {
   onClose: (t: Trade) => void;
   onCancel: (t: Trade) => void;
   onJournal: (t: Trade) => void;
+  /** The chart's time zone. */
+  tz: string;
 }
 
 /** Open and closed positions of the session (bottom drawer of the chart page). */
-export function PositionsPanel({ trades, cursor, showHistory, onShowHistory, onClose, onCancel, onJournal }: Props) {
+export function PositionsPanel({ trades, cursor, showHistory, onShowHistory, onClose, onCancel, onJournal, tz }: Props) {
+  const when = (ms: number) => `${fmtDay(dayKeyIn(ms, tz))} ${fmtClock(ms, tz)}`;
   const [tab, setTab] = useState<'open' | 'closed'>('open');
   const open = trades.filter((t) => t.status === 'open' || t.status === 'pending').sort((a, b) => b.placedTime - a.placedTime);
   const closed = trades.filter((t) => t.status === 'closed').sort((a, b) => (b.closeTime ?? 0) - (a.closeTime ?? 0));
@@ -70,7 +74,9 @@ export function PositionsPanel({ trades, cursor, showHistory, onShowHistory, onC
                 const live = t.status === 'open';
                 const realized = t.partials.reduce((s, p) => s + p.pnl, 0);
                 const floating = live ? openPnl(t, price) : 0;
-                const maxR = live ? Math.max(t.maxR ?? 0, rOfPrice(t, price)) : (t.maxR ?? 0);
+                const maxR = live ? Math.max(t.maxR ?? 0, rOfPrice(t, exitPriceAt(t, price))) : (t.maxR ?? 0);
+                // commission charged so far, plus what closing the rest would cost
+                const commission = (t.commission ?? 0) + (live ? commissionFor(t, t.lots) : 0);
                 return (
                   <tr key={t.id} className="border-t border-line/50 hover:bg-raised/30">
                     <td className="td font-bold" dir="ltr" style={{ textAlign: 'right' }}>
@@ -82,8 +88,8 @@ export function PositionsPanel({ trades, cursor, showHistory, onShowHistory, onC
                         {t.status === 'pending' && ` ${ORDER_LABEL[t.orderType]}`}
                       </span>
                     </td>
-                    <td className="td num text-muted">{t.status === 'pending' ? 'در انتظار' : fmtMarketTime(t.openTime)}</td>
-                    <td className="td num text-muted">{t.closeTime ? fmtMarketTime(t.closeTime) : '—'}</td>
+                    <td className="td num text-muted">{t.status === 'pending' ? 'در انتظار' : when(t.openTime)}</td>
+                    <td className="td num text-muted">{t.closeTime ? when(t.closeTime) : '—'}</td>
                     <td className="td num" dir="ltr" style={{ textAlign: 'right' }}>
                       {fmtPx(t.symbol, t.entry)}
                     </td>
@@ -98,7 +104,10 @@ export function PositionsPanel({ trades, cursor, showHistory, onShowHistory, onC
                     <td className="td num" dir="ltr" style={{ textAlign: 'right' }}>
                       {t.exit !== undefined ? fmtPx(t.symbol, t.exit) : '—'}
                     </td>
-                    <td className={clsx('td num font-semibold', realized > 0 ? 'text-gain' : realized < 0 ? 'text-loss' : 'text-muted')}>
+                    <td
+                      className={clsx('td num font-semibold', realized > 0 ? 'text-gain' : realized < 0 ? 'text-loss' : 'text-muted')}
+                      title={commission > 0 ? `پس از کسر کمیسیون ${fmtUsd(commission, 2)}` : undefined}
+                    >
                       {t.partials.length ? fmtUsd(realized, 2, true) : '—'}
                       {live && <span className={clsx('ms-2 text-[11px] font-normal', floating >= 0 ? 'text-gain' : 'text-loss')}>(باز: {fmtUsd(floating, 2, true)})</span>}
                     </td>

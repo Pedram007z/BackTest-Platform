@@ -26,6 +26,7 @@ import {
 import { api, hasServer } from './api';
 import { backend } from './index';
 import type { SiteConfig } from './types';
+import type { DayRanges } from '../lib/coverage';
 
 /**
  * Real market data from the API server (Dukascopy / Binance, chosen per market by the admin).
@@ -55,6 +56,43 @@ export function loadSiteConfig(): Promise<void> {
       configJob = null;
     });
   return configJob;
+}
+
+// ---------- which days have chart data (the session form's date pickers) ----------
+interface CoverageState {
+  /** symbol → ranges of days with data; null until loaded (and always without a server) */
+  ranges: Record<string, DayRanges> | null;
+  loadedAt: number;
+  failed: boolean;
+}
+const useCoverageState = create<CoverageState>(() => ({ ranges: null, loadedAt: 0, failed: false }));
+const COVERAGE_FRESH_MS = 5 * 60_000;
+let coverageJob: Promise<void> | null = null;
+
+/** Load the ranges again when they are older than a few minutes (downloads add days). */
+export function loadCoverage(): Promise<void> {
+  if (!hasServer) return Promise.resolve();
+  if (Date.now() - useCoverageState.getState().loadedAt < COVERAGE_FRESH_MS) return Promise.resolve();
+  coverageJob ??= api<{ ranges: Record<string, DayRanges> }>('/api/market/coverage')
+    .then((r) => useCoverageState.setState({ ranges: r.ranges, loadedAt: Date.now(), failed: false }))
+    .catch(() => useCoverageState.setState({ failed: true }))
+    .finally(() => {
+      coverageJob = null;
+    });
+  return coverageJob;
+}
+
+/**
+ * Days with chart data per symbol, loaded when `active` (the session form is open). `ranges` is null
+ * without a server (the demo's generated prices cover every day) and while loading; `failed` when the
+ * server could not say (the form then falls back to the symbols' first data day and yesterday).
+ */
+export function useDataCoverage(active: boolean): { ranges: Record<string, DayRanges> | null; loading: boolean; failed: boolean } {
+  const st = useCoverageState();
+  useEffect(() => {
+    if (active) void loadCoverage();
+  }, [active]);
+  return { ranges: st.ranges, loading: hasServer && !st.ranges && !st.failed, failed: st.failed };
 }
 
 /** Symbols users may pick for a new session. */

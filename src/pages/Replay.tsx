@@ -13,6 +13,7 @@ import {
   Minimize2,
   Minus,
   NotebookPen,
+  Palette,
   Plus,
   Send,
   X,
@@ -45,8 +46,11 @@ import { saveShot } from '../lib/shots';
 import { layoutsFromServer, pullLayouts } from '../services/layoutSync';
 import { sessionBalance, sessionEndMs, sessionFloating, sessionProgress, sessionRemainingDays } from '../lib/stats';
 import { local } from '../lib/storage';
-import { fmtTehran } from '../lib/timezone';
-import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, tickOf } from '../lib/trading';
+import { dayKeyIn, fmtClock, fmtOffset, tzName } from '../lib/timezone';
+import { TimezoneMenu } from '../components/replay/TimezoneMenu';
+import { ChartSettings } from '../components/replay/ChartSettings';
+import { resolveChartStyle } from '../chart/style';
+import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, sessionSpread, tickOf } from '../lib/trading';
 import type { ChartPane as Pane, JournalEntry, LayoutId, Side, Trade } from '../lib/types';
 import { ensureFine, ensureRange, fineReady, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
 import { hasServer } from '../services/api';
@@ -135,6 +139,11 @@ export default function Replay() {
   const session = useStore((s) => s.sessions.find((x) => x.id === id));
   const allTrades = useStore((s) => s.trades);
   const theme = useStore((s) => s.theme);
+  const chartTz = useStore((s) => s.chartTz);
+  const setChartTz = useStore((s) => s.setChartTz);
+  const chartStyleChanges = useStore((s) => s.chartStyle);
+  const chartStyle = useMemo(() => resolveChartStyle(theme, chartStyleChanges), [theme, chartStyleChanges]);
+  const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
   const checklists = useStore((s) => s.checklists);
   const newsFilters = useStore((s) => s.newsFilters);
   const setNewsFilters = useStore((s) => s.setNewsFilters);
@@ -342,7 +351,9 @@ export default function Replay() {
   const floating = sessionFloating(session, trades);
   const activeSym = SYMBOL_MAP[active.symbol];
 
-  const draftPrice = draft ? priceAt(draft.symbol, cursor) : 0;
+  // charts show the bid; a buy's market price is the ask (bid + the session's spread)
+  const askOffset = (symbol: string, side: Side) => (side === 'buy' ? sessionSpread(session, symbol) : 0);
+  const draftPrice = draft ? priceAt(draft.symbol, cursor) + askOffset(draft.symbol, draft.side) : 0;
   const preview = draft ? previewOrder(draft, draftPrice, balance, riskPct, cursor) : null;
   const draftForChart: (DraftOrder & { symbol: string }) | null =
     draft && preview ? { ...draft, type: preview.type, rr: preview.rr, riskUsd: preview.riskUsd, rewardUsd: preview.rewardUsd, lots: preview.lots } : null;
@@ -360,10 +371,12 @@ export default function Replay() {
     if (ended) return;
     if (draft && draft.side !== side && draft.symbol === active.symbol) {
       // flip the drawn position to the other side, keeping the distances
-      setDraft({ ...draft, side, sl: 2 * draft.entry - draft.sl, tp: 2 * draft.entry - draft.tp });
+      // a market order moves between the ask (buy) and the bid (sell)
+      const entry = preview?.type === 'market' ? draft.entry + askOffset(draft.symbol, side) - askOffset(draft.symbol, draft.side) : draft.entry;
+      setDraft({ ...draft, side, entry, sl: entry + (draft.entry - draft.sl), tp: entry - (draft.tp - draft.entry) });
       return;
     }
-    const price = priceAt(active.symbol, cursor);
+    const price = priceAt(active.symbol, cursor) + askOffset(active.symbol, side);
     const d = defaultStop(active.symbol, active.timeframe);
     const dir = dirOf(side);
     setDraft({
@@ -548,15 +561,16 @@ export default function Replay() {
           <div className="ms-auto flex flex-wrap items-center gap-1.5">
             <span
               className="num hidden rounded-xl bg-raised px-2.5 py-1.5 text-[12px] text-muted md:inline"
-              title={`${new Date(cursor).toISOString().slice(0, 16).replace('T', ' ')} UTC`}
+              title={`${new Date(cursor).toISOString().slice(0, 16).replace('T', ' ')} UTC · ${chartTz} (${fmtOffset(cursor, chartTz)})`}
             >
-              {fmtDayLong(msToKey(cursor + 3.5 * 3_600_000), 'jalali', true)} · <b className="text-ink">{fmtTehran(cursor)}</b> تهران
+              {fmtDayLong(dayKeyIn(cursor, chartTz), 'jalali', true)} · <b className="text-ink">{fmtClock(cursor, chartTz)}</b> {tzName(chartTz)}
             </span>
             <GoToMenu
               cursor={cursor}
               endMs={endMs}
               symbols={session.symbols}
               disabled={ended}
+              tz={chartTz}
               onJump={(t, label) => {
                 setPlaying(false);
                 jumpTo(t);
@@ -570,6 +584,14 @@ export default function Replay() {
               className={clsx('btn-soft py-1.5', newsOpen && !free && 'border-accent/60 text-accent-ink')}
             >
               <CalendarDays size={15} /> تقویم اقتصادی {free && <LockMark />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartSettingsOpen(true)}
+              className="btn-soft py-1.5"
+              title="تنظیمات چارت: رنگ کندل‌ها، پس‌زمینه، شبکه و متن"
+            >
+              <Palette size={15} /> <span className="hidden sm:inline">تنظیمات چارت</span>
             </button>
             <Popover
               align="end"
@@ -652,6 +674,9 @@ export default function Replay() {
                   draft={draftForChart}
                   trades={trades}
                   news={chartNews}
+                  spread={sessionSpread(session, p.symbol)}
+                  timezone={chartTz}
+                  chartStyle={chartStyle}
                   active={i === activePane}
                   multi={layoutDef.count > 1}
                   callbacks={callbacksFor(i)}
@@ -689,6 +714,7 @@ export default function Replay() {
         {newsOpen && !free && (
           <div className="fixed inset-x-0 bottom-0 top-1/3 z-40 lg:static lg:z-auto">
             <NewsPanel
+              tz={chartTz}
               events={news.events}
               source={news.source}
               loading={news.loading}
@@ -768,6 +794,7 @@ export default function Replay() {
             {positionsOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
             <span className="num">پوزیشن‌ها ({fmtNum(trades.filter((t) => t.status === 'open' || t.status === 'pending').length)})</span>
           </button>
+          <TimezoneMenu cursor={cursor} tz={chartTz} onChange={setChartTz} />
         </dl>
 
         <div className="ms-auto flex flex-wrap items-center gap-2">
@@ -826,6 +853,7 @@ export default function Replay() {
       {positionsOpen && (
         <div className="anim-up h-[min(42vh,320px)] shrink-0 border-t border-line/70 bg-side">
           <PositionsPanel
+            tz={chartTz}
             trades={trades}
             cursor={cursor}
             showHistory={showHistory}
@@ -881,6 +909,7 @@ export default function Replay() {
       />
 
       <UpgradeModal open={!!upgrade} onClose={() => setUpgrade(null)} feature={upgrade ?? undefined} />
+      <ChartSettings open={chartSettingsOpen} onClose={() => setChartSettingsOpen(false)} />
       {shot && (
         <Modal
           open

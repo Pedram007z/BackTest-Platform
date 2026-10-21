@@ -20,13 +20,14 @@ import { createNavButtons, lwNavActions } from './navButtons';
 import { DAY_MS } from '../lib/calendar';
 import { SYMBOL_MAP, TF_MS, candleTime, dayIndexOf, getCandles, isTradingDay, roundToTick, type Candle } from '../lib/market';
 import { IMPACT_LABEL, newsTitleFa, type NewsEvent } from '../lib/news';
-import { fmtTehran } from '../lib/timezone';
-import { dirOf, openPnl, orderTitleEn } from '../lib/trading';
+import { DEFAULT_CHART_TZ, fmtClock, tzName, wallTime } from '../lib/timezone';
+import { commissionFor, dirOf, openPnl, orderTitleEn } from '../lib/trading';
 import type { Trade } from '../lib/types';
 import { ensureFine, ensureRange, fineKindOf } from '../services/marketFeed';
 import { readLwLayout, writeLwLayout } from './drawings';
 import { createDrawingLayer } from './lwDrawings';
 import { createIndicatorLayer } from './lwIndicators';
+import { defaultChartStyle, isLightColor, withOpacity } from './style';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
 
 /**
@@ -55,6 +56,12 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, style: Partial<CSSSty
 }
 
 const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+
+/** TradingView's Bid and Ask line colours. */
+const BID_ASK = { bid: '#2962ff', ask: '#f23645' };
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function createLwEngine(container: HTMLElement, initial: EngineState, cb: EngineCallbacks): ChartEngine {
   let state = initial;
@@ -107,6 +114,38 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   const digits = () => SYMBOL_MAP[state.symbol]?.digits ?? 2;
   const fmt = (p: number) => p.toFixed(digits());
   const tfSec = () => TF_MS[state.timeframe] / 1000;
+
+  // ---------- time axis and crosshair in the chart's time zone ----------
+  const chartTz = () => state.timezone ?? DEFAULT_CHART_TZ;
+  /** wall time of a bar: in the chart's zone for intraday bars; daily and longer bars keep their trading date */
+  function axisTime(time: Time) {
+    const sec = typeof time === 'number' ? time : 0;
+    const daily = tfSec() >= 86_400;
+    return { ...wallTime(sec * 1000, daily ? 'UTC' : chartTz()), s: Math.floor(sec) % 60, daily };
+  }
+  const two = (n: number) => String(n).padStart(2, '0');
+  function applyTimeFormat() {
+    chart.applyOptions({
+      localization: {
+        locale: 'en-US',
+        timeFormatter: (time: Time) => {
+          const w = axisTime(time);
+          const date = `${WEEKDAYS[new Date(Date.UTC(w.y, w.m - 1, w.d)).getUTCDay()]} ${w.d} ${MONTHS[w.m - 1]} '${two(w.y % 100)}`;
+          return w.daily ? date : `${date}   ${two(w.hh)}:${two(w.mm)}${tfSec() < 60 ? `:${two(w.s)}` : ''}`;
+        },
+      },
+      timeScale: {
+        // tick types: 0 year, 1 month, 2 day of month, 3 time, 4 time with seconds
+        tickMarkFormatter: (time: Time, type: number) => {
+          const w = axisTime(time);
+          if (type === 0) return String(w.y);
+          if (type === 1) return MONTHS[w.m - 1];
+          if (type === 2) return String(w.d);
+          return `${two(w.hh)}:${two(w.mm)}${type === 4 ? `:${two(w.s)}` : ''}`;
+        },
+      },
+    });
+  }
 
   // ---------- drawings and indicators (saved per session pane) ----------
   const layout = readLwLayout(state.layoutKey);
@@ -162,17 +201,40 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   });
 
   // ---------- theme ----------
+  /** the user's chart colours (theme defaults for what they did not change) */
+  const look = () => state.style ?? defaultChartStyle(state.theme);
   function applyTheme() {
     pal = PALETTES[state.theme];
+    const st = look();
+    const grid = withOpacity(st.gridColor, st.gridOpacity);
+    const none = 'rgba(0,0,0,0)';
     chart.applyOptions({
-      layout: { textColor: pal.axis },
-      grid: { vertLines: { color: pal.grid + '70' }, horzLines: { color: pal.grid + '70' } },
+      layout: {
+        textColor: st.textColor,
+        fontSize: st.fontSize,
+        background: st.bgType === 'gradient' ? { type: ColorType.VerticalGradient, topColor: st.bg, bottomColor: st.bg2 } : { type: ColorType.Solid, color: st.bg },
+      },
+      grid: { vertLines: { visible: st.vertGrid, color: grid }, horzLines: { visible: st.horzGrid, color: grid } },
       rightPriceScale: { borderColor: pal.grid },
       timeScale: { borderColor: pal.grid },
-      crosshair: { vertLine: { labelBackgroundColor: pal.accent }, horzLine: { labelBackgroundColor: pal.accent } },
+      crosshair: {
+        vertLine: { color: st.crosshairColor, labelBackgroundColor: pal.accent },
+        horzLine: { color: st.crosshairColor, labelBackgroundColor: pal.accent },
+      },
     });
-    series.applyOptions({ upColor: pal.candleUp, downColor: pal.candleDown, wickUpColor: pal.candleUp, wickDownColor: pal.candleDown });
-    legend.style.color = pal.text;
+    series.applyOptions({
+      upColor: st.body ? st.upColor : none,
+      downColor: st.body ? st.downColor : none,
+      borderVisible: st.borders,
+      borderUpColor: st.borderUpColor,
+      borderDownColor: st.borderDownColor,
+      wickVisible: st.wick,
+      wickUpColor: st.wickUpColor,
+      wickDownColor: st.wickDownColor,
+    });
+    // the legend sits on the chart's background: the theme's text, unless the background is the other way round
+    const lightBg = isLightColor(st.bg);
+    legend.style.color = lightBg === (state.theme === 'light') ? pal.text : lightBg ? '#131722' : '#e8e6f0';
     nav.applyTheme();
   }
 
@@ -319,7 +381,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       return;
     }
     const up = c.close >= c.open;
-    const col = up ? pal.candleUp : pal.candleDown;
+    const col = up ? look().upColor : look().downColor;
     const chg = ((c.close - c.open) / c.open) * 100;
     ohlc.innerHTML =
       `<b style="font-weight:700">${sym.ticker}</b> <span style="opacity:.6">· ${state.timeframe} · BacktestLab</span>&nbsp;&nbsp;` +
@@ -354,6 +416,15 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
         series.createPriceLine({ price: sl, color: pal.loss, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' }),
       );
       if (tp > 0) priceLines.push(series.createPriceLine({ price: tp, color: pal.gain, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' }));
+    }
+    // with a spread: Bid (the candles' price) and Ask lines, like TradingView's
+    const spread = state.spread ?? 0;
+    const last = candles[candles.length - 1]?.close;
+    series.applyOptions({ priceLineVisible: !(spread > 0), lastValueVisible: !(spread > 0) });
+    if (spread > 0 && last !== undefined) {
+      const line = (price: number, color: string, title: string) =>
+        series.createPriceLine({ price, color, lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, axisLabelColor: color, axisLabelTextColor: '#fff', title });
+      priceLines.push(line(roundToTick(state.symbol, last + spread), BID_ASK.ask, 'Ask'), line(last, BID_ASK.bid, 'Bid'));
     }
     const list: SeriesMarker<Time>[] = [];
     const sym = SYMBOL_MAP[state.symbol];
@@ -650,7 +721,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
         if (field === 'tp' && !(p > 0)) continue;
         const py = y(p);
         if (py === null) continue;
-        const usd = (p - t.entry) * dirOf(t.side) * t.pointValue * t.lots;
+        const usd = (p - t.entry) * dirOf(t.side) * t.pointValue * t.lots - commissionFor(t, t.lots);
         const c = chip(`${field.toUpperCase()}  ${money(usd)}`, field === 'sl' ? pal.loss : pal.gain);
         c.style.right = `${chart.priceScale('right').width() + 8}px`;
         c.style.top = `${py - 10}px`;
@@ -684,7 +755,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       const past = ev.time <= state.cursor;
       row.innerHTML =
         `<div style="display:flex;gap:6px;align-items:center"><span style="width:8px;height:8px;border-radius:2px;background:${IMPACT_COLOR[ev.impact]}"></span>` +
-        `<b>${ev.currency}</b><span style="opacity:.7">${fmtTehran(ev.time)} تهران · ${IMPACT_LABEL[ev.impact]}</span></div>` +
+        `<b>${ev.currency}</b><span style="opacity:.7">${fmtClock(ev.time, chartTz())} ${tzName(chartTz())} · ${IMPACT_LABEL[ev.impact]}</span></div>` +
         `<div>${newsTitleFa(ev.title)}</div>` +
         (ev.forecast || ev.previous || ev.actual
           ? `<div style="opacity:.75;direction:ltr;text-align:right">A: ${past ? (ev.actual ?? '—') : '—'} · F: ${ev.forecast ?? '—'} · P: ${ev.previous ?? '—'}</div>`
@@ -824,7 +895,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       out.width = Math.round(shot.width * scale);
       out.height = Math.round(shot.height * scale);
       const ctx = out.getContext('2d')!;
-      ctx.fillStyle = pal.bg;
+      ctx.fillStyle = look().bg;
       ctx.fillRect(0, 0, out.width, out.height);
       ctx.drawImage(shot, 0, 0, out.width, out.height);
       // the canvas has the candles; add the drawings, the position tool and trade lines from the overlays
@@ -879,7 +950,8 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     state = next;
     if (prev.symbol !== next.symbol) drawings.setSymbol(next.symbol);
     const draftOpened = !!next.draft && (!prev.draft || prev.symbol !== next.symbol);
-    if (prev.theme !== next.theme || !loadedKey) applyTheme();
+    if (prev.theme !== next.theme || prev.style !== next.style || !loadedKey) applyTheme();
+    if (prev.timezone !== next.timezone || prev.timeframe !== next.timeframe || !loadedKey) applyTimeFormat();
     if (!loadedKey || prev.symbol !== next.symbol || prev.timeframe !== next.timeframe || prev.cursor !== next.cursor || prev.dataVersion !== next.dataVersion) {
       loadData();
       setLegend(candles[candles.length - 1]);

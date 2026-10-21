@@ -61,6 +61,16 @@ export interface Session {
   panes?: ChartPane[];
   createdAt: number;
   lastOpenedAt?: number;
+  /** Trading costs per symbol, set when the session is made (none: no spread, no commission). */
+  costs?: Record<string, SymbolCosts>;
+}
+
+/** A symbol's trading costs in a session. */
+export interface SymbolCosts {
+  /** Ask − bid, in the symbol's pips (its `pip` size). */
+  spreadPips: number;
+  /** USD per 1.0 lot, round turn (charged as each part of a position closes). */
+  commissionPerLot: number;
 }
 
 export type Side = 'buy' | 'sell';
@@ -73,7 +83,10 @@ export interface PartialClose {
   time: number;
   price: number;
   lots: number;
+  /** USD after commission. */
   pnl: number;
+  /** USD commission charged on these lots. */
+  commission?: number;
 }
 
 /** What the trader saved in the journal window for a trade. */
@@ -113,6 +126,15 @@ export interface Trade {
   /** Dollar amount risked on the full position (1R). */
   risk: number;
   riskPct: number;
+  /**
+   * Ask − bid in price units, fixed when the order was placed. Charts and bars are bid prices: buys fill
+   * on the ask and sell positions close on it. None: no spread (trades from before spreads existed).
+   */
+  spread?: number;
+  /** USD per 1.0 lot, round turn, fixed when the order was placed. */
+  commissionPerLot?: number;
+  /** USD commission charged so far. */
+  commission?: number;
   /** Market time the order was placed. */
   placedTime: number;
   /** Market time the position opened (filled). */

@@ -1,7 +1,7 @@
 import { adminGate, adminLogin, logout, optionalUser, requestOtp, requireUser, verifyOtp } from '../auth';
 import { db, save } from '../db';
 import { HttpError, Reply, Router, badRequest, notFound, rateLimit, str, type Ctx } from '../http';
-import { marketConfig, marketDays, marketSeconds, marketShowcase } from '../market';
+import { marketConfig, marketCoverage, marketDays, marketSeconds, marketShowcase } from '../market';
 import { eventsBetween } from '../news';
 import { checkDiscount, checkout, enabledGateways, handleCallback, publicPayment, simulatorComplete, simulatorPage } from '../payments';
 import { cancelTransfer, expireTransfers, reportTransfer } from '../payments/card';
@@ -197,6 +197,11 @@ export function buildRouter(): Router {
     if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) throw badRequest('range', 'بازه‌ی زمانی معتبر نیست.');
     if (to - from > 12 * 7 * DAY_MS) throw badRequest('range', 'بازه حداکثر ۱۲ هفته است.');
     return eventsBetween(from, to);
+  });
+  r.get('/api/market/coverage', (ctx) => {
+    requireUser(ctx);
+    rateLimit(`coverage:${ctx.ip}`, 120, 60_000);
+    return marketCoverage();
   });
   r.get('/api/market/days', (ctx) => {
     requireUser(ctx);

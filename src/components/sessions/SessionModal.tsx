@@ -4,13 +4,15 @@ import { DollarSign, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { DAY_MS, addDays, addMonths, fmtDayLong, keyToMs } from '../../lib/calendar';
 import { fmtNum, toLatinDigits } from '../../lib/format';
-import { GROUP_LABELS, SYMBOLS, dataEnd, dataStartOf } from '../../lib/market';
-import { useEnabledSymbols } from '../../services/marketFeed';
+import { GROUP_LABELS, SYMBOLS, SYMBOL_MAP, dataEnd, dataStartOf } from '../../lib/market';
+import { covered, gapIn, intersectRanges, rangeOf, type DayRanges } from '../../lib/coverage';
+import { useDataCoverage, useEnabledSymbols } from '../../services/marketFeed';
 import type { Session } from '../../lib/types';
 import { toast, useStore } from '../../store/useStore';
 import { DatePicker } from '../ui/DatePicker';
 import { Modal } from '../ui/Modal';
 import { MultiSelect, Select } from '../ui/controls';
+import { CostsEditor, costsError, costsFromDraft, draftFromCosts, type CostsDraft } from './CostsEditor';
 
 interface Props {
   open: boolean;
@@ -42,6 +44,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
   const [checklistId, setChecklistId] = useState<string>(NONE);
   const [quickStrategy, setQuickStrategy] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+  const [costs, setCosts] = useState<CostsDraft>({});
 
   useEffect(() => {
     if (!open) return;
@@ -55,6 +58,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
       setEnd(session.endDate);
       setStrategyId(session.strategyId ?? NONE);
       setChecklistId(session.checklistId ?? NONE);
+      setCosts(draftFromCosts(session.costs, session.symbols));
     } else {
       setName('');
       setBalance('10000');
@@ -63,29 +67,59 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
       setEnd('');
       setStrategyId(presetStrategyId ?? NONE);
       setChecklistId(NONE);
+      setCosts({});
     }
   }, [open, session, presetStrategyId]);
 
   const balanceNum = Number(balance.replace(/[^\d.]/g, ''));
   const hasTrades = useStore((s) => (session ? s.trades.some((t) => t.sessionId === session.id) : false));
 
+  // days every chosen symbol has chart data for on the server (the demo's generated prices cover every day)
+  const coverage = useDataCoverage(open);
+  const avail = useMemo<DayRanges | null>(
+    () => (coverage.ranges && symbols.length ? intersectRanges(symbols.map((sym) => coverage.ranges![sym] ?? [])) : null),
+    [coverage.ranges, symbols],
+  );
+  const firstDay = avail?.length ? avail[0][0] : dataStartOf(...symbols);
+  const lastDay = avail?.length ? avail[avail.length - 1][1] : max;
+  // the end date stays inside the stretch of data the start date is in
+  const startRange = avail && start ? rangeOf(avail, start) : undefined;
+  const endMax = startRange ? startRange[1] : lastDay;
+  const noData = (k: string) => !!avail && !covered(avail, k);
+  // a start date needs at least one more day with data after it
+  const badStart = (k: string) => noData(k) || (!!avail && rangeOf(avail, k)?.[1] === k);
+  // an existing session's dates are only checked again when they change
+  const datesChanged = !session || start !== session.startDate || end !== session.endDate;
+
   const errors = useMemo(() => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = 'یک نام برای جلسه بنویسید.';
     if (!(balanceNum >= 100)) e.balance = 'موجودی حساب باید حداقل ۱۰۰ دلار باشد.';
     if (symbols.length === 0) e.symbols = 'حداقل یک دارایی انتخاب کنید.';
+    const missing = coverage.ranges ? symbols.filter((sym) => !coverage.ranges![sym]?.length) : [];
+    if (missing.length) e.symbols = `داده‌ی چارت ${missing.map((sym) => SYMBOL_MAP[sym]?.ticker ?? sym).join('، ')} هنوز روی سرور نیست.`;
+    else if (avail && symbols.length && !avail.length) e.symbols = 'این نمادها روز مشترکی با داده‌ی چارت ندارند.';
     if (!start) e.start = 'تاریخ شروع را انتخاب کنید.';
+    else if (datesChanged && coverage.loading) e.start = 'در حال دریافت روزهایی که داده‌ی چارت دارند…';
+    else if (datesChanged && avail && badStart(start)) e.start = 'برای این روز (یا روز بعد از آن) داده‌ی چارت نداریم؛ روز دیگری انتخاب کنید.';
     else if (start < dataStartOf(...symbols)) e.start = `داده‌ی واقعی این نمادها از ${fmtDayLong(dataStartOf(...symbols))} شروع می‌شود.`;
     if (!end) e.end = 'تاریخ پایان را انتخاب کنید.';
     if (start && end && end <= start) e.end = 'تاریخ پایان باید بعد از تاریخ شروع باشد.';
+    else if (datesChanged && avail && start && end && !e.start) {
+      const gap = gapIn(avail, start, end);
+      if (gap) e.end = `از ${fmtDayLong(gap.from)} تا ${fmtDayLong(gap.to)} داده‌ی چارت نداریم؛ تاریخ پایان را تا ${fmtDayLong(endMax)} انتخاب کنید.`;
+    }
+    const c = costsError(costs, symbols);
+    if (c) e.costs = c;
     return e;
-  }, [name, balanceNum, symbols, start, end]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, balanceNum, symbols, start, end, costs, avail, coverage.ranges, coverage.loading, datesChanged]);
   const valid = Object.keys(errors).length === 0;
 
   const quickEnd = (fn: (k: string) => string) => {
-    const base = start || dataStartOf(...symbols);
+    const base = start || firstDay;
     let k = fn(base);
-    if (k > max) k = max;
+    if (k > endMax) k = endMax;
     setEnd(k);
   };
 
@@ -101,6 +135,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
       endDate: end,
       strategyId: strategyId === NONE ? undefined : strategyId,
       checklistId: checklistId === NONE ? undefined : checklistId,
+      costs: costsFromDraft(costs, symbols),
     };
     if (session) {
       const patch: Partial<Session> = { ...payload };
@@ -193,6 +228,13 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
           {err('symbols')}
         </div>
 
+        {symbols.length > 0 && (
+          <div>
+            <CostsEditor symbols={symbols} value={costs} onChange={setCosts} editingWithTrades={!!session && hasTrades} />
+            {err('costs')}
+          </div>
+        )}
+
         <div>
           <label className="label" htmlFor="session-strategy">
             استراتژی
@@ -254,8 +296,20 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
             <label className="label" htmlFor="session-start">
               تاریخ شروع
             </label>
-            <DatePicker id="session-start" value={start} onChange={setStart} min={dataStartOf(...symbols)} max={addDays(max, -1)} rangeWith={end} />
-            <p className="mt-1.5 text-xs text-faint">حداقل: {fmtDayLong(dataStartOf(...symbols))}</p>
+            <DatePicker
+              id="session-start"
+              value={start}
+              onChange={setStart}
+              min={firstDay}
+              max={addDays(lastDay, -1)}
+              rangeWith={end}
+              isDisabled={badStart}
+              disabledReason="داده‌ی چارت این روز روی سرور نیست"
+            />
+            <p className="mt-1.5 text-xs text-faint">
+              {avail?.length ? `داده‌ی چارت: ${fmtDayLong(firstDay)} تا ${fmtDayLong(lastDay)}` : `حداقل: ${fmtDayLong(firstDay)}`}
+              {avail && avail.length > 1 && ' · روزهای بدون داده خط خورده‌اند'}
+            </p>
             {err('start')}
           </div>
           <div>
@@ -281,8 +335,17 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
                 ))}
               </div>
             </div>
-            <DatePicker id="session-end" value={end} onChange={setEnd} min={start ? addDays(start, 1) : addDays(dataStartOf(...symbols), 1)} max={max} rangeWith={start} />
-            <p className="mt-1.5 text-xs text-faint">حداکثر: {fmtDayLong(max)}</p>
+            <DatePicker
+              id="session-end"
+              value={end}
+              onChange={setEnd}
+              min={start ? addDays(start, 1) : addDays(firstDay, 1)}
+              max={endMax}
+              rangeWith={start}
+              isDisabled={noData}
+              disabledReason="داده‌ی چارت این روز روی سرور نیست"
+            />
+            <p className="mt-1.5 text-xs text-faint">حداکثر: {fmtDayLong(endMax)}</p>
             {err('end')}
           </div>
         </div>
