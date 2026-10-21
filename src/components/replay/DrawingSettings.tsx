@@ -20,7 +20,8 @@ import {
   type TfGroup,
 } from '../../chart/drawings';
 import type { DrawingApi } from '../../chart/lwDrawings';
-import { toast } from '../../store/useStore';
+import { toast, useStore } from '../../store/useStore';
+import { tzName, wallTime, wallToUtc } from '../../lib/timezone';
 import { Modal } from '../ui/Modal';
 import { Select } from '../ui/controls';
 import { CheckRow, ColorButton, DASHES, DashIcon, DashPicker, FloatingPanel, NumberField, Seg, WidthPicker } from './drawingControls';
@@ -60,16 +61,19 @@ function Section({ title, children, extra }: { title: string; children: ReactNod
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
-function toUtcInput(t: number) {
-  const d = new Date(t * 1000);
-  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}`;
+/** A bar time (UTC seconds) as the wall clock in the chart's time zone, for a datetime-local field. */
+function toZoneInput(t: number, tz: string) {
+  const w = wallTime(t * 1000, tz);
+  return `${w.y}-${pad2(w.m)}-${pad2(w.d)}T${pad2(w.hh)}:${pad2(w.mm)}:${pad2(Math.floor(t) % 60)}`;
 }
-function fromUtcInput(s: string): number | null {
-  const ms = Date.parse(`${s.length === 16 ? `${s}:00` : s}Z`);
-  return Number.isFinite(ms) ? Math.round(ms / 1000) : null;
+function fromZoneInput(s: string, tz: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(s);
+  if (!m) return null;
+  return Math.round(wallToUtc(+m[1], +m[2], +m[3], +m[4], +m[5], tz) / 1000) + Number(m[6] ?? 0);
 }
 
 function TimeField({ value, onChange, label }: { value: number; onChange: (t: number) => void; label: string }) {
+  const tz = useStore((s) => s.chartTz);
   return (
     <input
       type="datetime-local"
@@ -78,9 +82,9 @@ function TimeField({ value, onChange, label }: { value: number; onChange: (t: nu
       aria-label={label}
       title={label}
       className="field num h-8 w-[13.5rem] px-2 py-0 text-[13px]"
-      value={toUtcInput(value)}
+      value={toZoneInput(value, tz)}
       onChange={(e) => {
-        const t = fromUtcInput(e.target.value);
+        const t = fromZoneInput(e.target.value, tz);
         if (t !== null) onChange(t);
       }}
       onKeyDown={(e) => e.stopPropagation()}
@@ -183,6 +187,7 @@ function LevelsEditor({
 
 // ---------- the dialog ----------
 export function DrawingSettings({ api, id }: { api: DrawingApi; id: string }) {
+  const chartTz = useStore((s) => s.chartTz);
   const start = api.list().find((x) => x.id === id);
   const [d, setD] = useState<Drawing | null>(() => (start ? withDefaults(start) : null));
   const spec = d ? TOOL_SPECS[d.type] : null;
@@ -547,10 +552,10 @@ export function DrawingSettings({ api, id }: { api: DrawingApi; id: string }) {
           <Row label="قیمت ورود">{priceField(d.points[0].price, (v) => set({ ...d, points: d.points.map((q) => ({ ...q, price: v })) }), 'قیمت ورود')}</Row>
           <Row label="حد ضرر">{priceField(d.stop ?? d.points[0].price, (v) => set({ ...d, stop: v }), 'حد ضرر')}</Row>
           <Row label="حد سود">{priceField(d.target ?? d.points[0].price, (v) => set({ ...d, target: v }), 'حد سود')}</Row>
-          <Row label="زمان شروع (UTC)">
+          <Row label={`زمان شروع (${tzName(chartTz)})`}>
             <TimeField value={d.points[0].time} label="زمان شروع" onChange={(t) => setPoint(0, { time: api.snapTime(t) })} />
           </Row>
-          <Row label="زمان پایان (UTC)">
+          <Row label={`زمان پایان (${tzName(chartTz)})`}>
             <TimeField value={d.points[1].time} label="زمان پایان" onChange={(t) => setPoint(1, { time: api.snapTime(t) })} />
           </Row>
         </div>
@@ -562,7 +567,7 @@ export function DrawingSettings({ api, id }: { api: DrawingApi; id: string }) {
     const pts = onlyFirst ? d.points.slice(0, 1) : d.points;
     return (
       <div className="flex flex-col">
-        <p className="mb-1 text-[12px] text-faint">زمان‌ها به وقت UTC و روی نزدیک‌ترین کندل می‌نشینند.</p>
+        <p className="mb-1 text-[12px] text-faint">زمان‌ها به وقت {tzName(chartTz)} (منطقه‌ی زمانی زیر چارت) و روی نزدیک‌ترین کندل می‌نشینند.</p>
         {pts.map((p, i) => (
           <Row key={i} label={spec.labels?.[i] ? `نقطه‌ی ${spec.labels[i]}` : `نقطه‌ی ${(i + 1).toLocaleString('fa-IR')}`}>
             {!noPrice && priceField(p.price, (v) => setPoint(i, { price: v }), `قیمت نقطه‌ی ${i + 1}`)}
