@@ -503,7 +503,15 @@ const SPECS: Record<DrawingType, Omit<ToolSpec, 'id'>> = {
     ],
   }),
   flattop: S({ name: 'سقف/کف صاف', hint: 'Flat Top/Bottom · سه کلیک', points: 3, fill: true, extend: true, text: 'label' }),
-  disjoint: S({ name: 'کانال ناهمسو', hint: 'Disjoint Channel · سه کلیک', points: 3, fill: true, extend: true, text: 'label' }),
+  disjoint: S({
+    name: 'کانال ناهمسو',
+    hint: 'Disjoint Channel · سه کلیک؛ هر چهار سر جابه‌جا می‌شود',
+    points: 3,
+    fill: true,
+    extend: true,
+    text: 'label',
+    labels: ['۱', '۲', '۳', '۴'],
+  }),
   pitchfork: S({
     name: 'چنگال اندروز',
     hint: 'Pitchfork · سه کلیک',

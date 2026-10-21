@@ -1,6 +1,7 @@
 import type { IChartApi, ISeriesApi, Logical, UTCTimestamp } from 'lightweight-charts';
 import type { Candle } from '../lib/market';
 import { drawDrawing, type View } from './draw';
+import { disjointSecond } from './draw/lines';
 import { NS, svgEl } from './draw/kit';
 import { TOOL_SPECS, drawingId, newProps, saveDefault, tfGroupOf, type Drawing, type DrawingType, type Point, type TfGroup, type ToolId } from './drawings';
 
@@ -395,6 +396,12 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       case 'polyline':
         d.style!.closed = !!opts.closed;
         break;
+      case 'disjoint': {
+        // the second line starts as the first one mirrored; both its ends can then move on their own
+        const [pa, pb] = disjointSecond(d, timeToLogical);
+        d.points = [points[0], points[1], { time: points[0].time, price: host.roundPrice(pa) }, { time: points[1].time, price: host.roundPrice(pb) }];
+        break;
+      }
       case 'gannsqfixed':
         if (cr.scale) d.style!.scale = cr.scale;
         constrain(type, d.points, cr.scale);

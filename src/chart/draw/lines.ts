@@ -234,25 +234,38 @@ export function flattop(k: Kit) {
   k.handle({ x: Math.max(Math.min(a.x, b.x), Math.min(Math.max(a.x, b.x), c.x)), y: c.y }, 'p2', k.col, 'ns-resize');
 }
 
+/** the second line of a disjoint channel at the first line's two times: its two points, or (while drawing) the first line's slope mirrored through the third point */
+export function disjointSecond(d: { points: { time: number; price: number }[] }, logical: (t: number) => number): [number, number] {
+  if (d.points.length >= 4) {
+    const l2 = logical(d.points[2].time);
+    const l3 = logical(d.points[3].time);
+    const at = (t: number) => (l3 === l2 ? d.points[2].price : d.points[2].price + ((d.points[3].price - d.points[2].price) * (logical(t) - l2)) / (l3 - l2));
+    return [at(d.points[0].time), at(d.points[1].time)];
+  }
+  const l0 = logical(d.points[0].time);
+  const l1 = logical(d.points[1].time);
+  const lc = logical(d.points[2].time);
+  const m = l1 === l0 ? 0 : (d.points[1].price - d.points[0].price) / (l1 - l0);
+  return [d.points[2].price - m * (l0 - lc), d.points[2].price - m * (l1 - lc)];
+}
+
 export function disjoint(k: Kit) {
   const { pts, d, v } = k;
   if (pts.length < 3) {
     k.line(pts[0], pts[1]);
     return;
   }
-  const [a, b, c] = pts;
-  // the second line mirrors the first one's slope and passes through the third point
-  const l0 = v.logical(d.points[0].time);
-  const l1 = v.logical(d.points[1].time);
-  const lc = v.logical(d.points[2].time);
-  const m = l1 === l0 ? 0 : (d.points[1].price - d.points[0].price) / (l1 - l0);
-  const ya = v.y(d.points[2].price - m * (l0 - lc));
-  const yb = v.y(d.points[2].price - m * (l1 - lc));
+  const [a, b] = pts;
+  const [pa, pb] = disjointSecond(d, v.logical);
+  const ya = v.y(pa);
+  const yb = v.y(pb);
   if (ya === null || yb === null) return;
+  const a2p = pts.length >= 4 ? pts[2] : { x: a.x, y: ya };
+  const b2p = pts.length >= 4 ? pts[3] : { x: b.x, y: yb };
   const extL = !!k.s('extendLeft');
   const extR = !!k.s('extendRight');
   const [a1, b1] = farX(a, b, extL, extR, v.W);
-  const [a2, b2] = farX({ x: a.x, y: ya }, { x: b.x, y: yb }, extL, extR, v.W);
+  const [a2, b2] = farX(a2p, b2p, extL, extR, v.W);
   const f = k.fill();
   if (f) svgEl('polygon', { points: `${a1.x},${a1.y} ${b1.x},${b1.y} ${b2.x},${b2.y} ${a2.x},${a2.y}`, fill: f.color, 'fill-opacity': f.opacity }, k.g);
   k.line(a1, b1);
@@ -260,7 +273,10 @@ export function disjoint(k: Kit) {
   lineText(k, a, b);
   k.handle(a, 'p0');
   k.handle(b, 'p1');
-  k.handle(c, 'p2');
+  if (pts.length >= 4) {
+    k.handle(pts[2], 'p2');
+    k.handle(pts[3], 'p3');
+  } else k.handle(pts[2], 'p2');
 }
 
 /** linear regression of the closes between the two bars, with deviation lines */
@@ -346,10 +362,15 @@ export function pitchfork(k: Kit) {
     return;
   }
   const [A, B, Cp] = pts;
-  const M = mid(B, Cp);
   const variant = k.s('variant') ?? 'original';
-  const O = variant === 'schiff' ? { x: A.x, y: (A.y + B.y) / 2 } : variant === 'modified' ? mid(A, B) : variant === 'inside' ? mid(A, M) : A;
-  const dir = { x: M.x - O.x, y: M.y - O.y };
+  // Andrews: from A through the middle of B–C, tines through B and C · Schiff: the origin moves halfway
+  // to B in price · modified Schiff: halfway to B in price and time · inside: from the middle of A–B
+  // through C, with the tines through A and B
+  const inside = variant === 'inside';
+  const M = inside ? mid(A, B) : mid(B, Cp);
+  const O = variant === 'schiff' ? { x: A.x, y: (A.y + B.y) / 2 } : variant === 'modified' || inside ? mid(A, B) : A;
+  const target = inside ? Cp : M;
+  const dir = { x: target.x - O.x, y: target.y - O.y };
   const len = Math.hypot(dir.x, dir.y) || 1;
   const far = (p: Pt) => ({ x: p.x + (dir.x / len) * 6000, y: p.y + (dir.y / len) * 6000 });
   const levels = visibleSorted(levelsOf(k.d));
@@ -357,8 +378,8 @@ export function pitchfork(k: Kit) {
   const lw = k.s('levelWidth') ?? 1;
   const ld = k.s('levelDash') ?? 'solid';
   const f = k.fill();
-  // the two sides: points on B–C at each level, lines from them along the median
-  const sides = [B, Cp].map((E) =>
+  // the two sides: points between the base's middle and each tine's point at each level, lines from them along the median
+  const sides = (inside ? [A, B] : [B, Cp]).map((E) =>
     [{ value: 0, color: k.col, visible: true } as Level, ...levels.filter((l) => l.value !== 0)].map((l) => ({
       l,
       p: { x: M.x + (E.x - M.x) * l.value, y: M.y + (E.y - M.y) * l.value },
@@ -375,9 +396,10 @@ export function pitchfork(k: Kit) {
       }
   for (const side of sides)
     for (const { l, p } of side.slice(1)) k.line(p, extendTo(p, far(p), v.W, v.H), { color: oneColor ? k.col : l.color, width: lw, dash: l.dash ?? ld, cap: 'butt' });
-  if (O !== A) k.line(A, O, { dash: 'dashed', width: 1 });
-  k.line(O, extendTo(O, M, v.W, v.H));
-  k.line(B, Cp);
+  if (O !== A && !inside) k.line(A, O, { dash: 'dashed', width: 1 });
+  k.line(O, extendTo(O, target, v.W, v.H));
+  if (inside) k.line(A, B);
+  else k.line(B, Cp);
   k.pointHandles();
 }
 
