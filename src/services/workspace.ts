@@ -1,5 +1,6 @@
 import type { Checklist, GoToPreset, NewsFilters, Session, Strategy, Trade } from '../lib/types';
 import { isTimeZone } from '../lib/timezone';
+import { cleanChartStyle, type ChartStyleOverrides } from '../chart/style';
 
 /**
  * A user's own data: sessions, orders and positions (with their journals), strategies, checklists,
@@ -33,8 +34,10 @@ export interface WorkspacePrefs {
   hasDemoData?: boolean;
   /** IANA time zone of the chart. */
   chartTz?: string;
+  /** The chart's colours the user changed ({}: the theme's). */
+  chartStyle?: ChartStyleOverrides;
 }
-export const WS_PREFS = ['avatar', 'theme', 'newsFilters', 'hasDemoData', 'chartTz'] as const satisfies readonly (keyof WorkspacePrefs)[];
+export const WS_PREFS = ['avatar', 'theme', 'newsFilters', 'hasDemoData', 'chartTz', 'chartStyle'] as const satisfies readonly (keyof WorkspacePrefs)[];
 export type WsPref = (typeof WS_PREFS)[number];
 
 export interface WorkspaceData {
@@ -305,6 +308,9 @@ function cleanPref(k: WsPref, v: unknown): unknown {
       return typeof v === 'boolean' ? v : undefined;
     case 'chartTz':
       return isTimeZone(v) ? v : undefined;
+    case 'chartStyle':
+      // {} is kept too: it means "back to the theme's colours" on every device
+      return cleanChartStyle(v) ?? (isObj(v) ? {} : undefined);
   }
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createLwEngine, tradesForChart } from '../../chart/lwEngine';
 import { createTvEngine } from '../../chart/tvEngine';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from '../../chart/types';
+import type { ChartStyle } from '../../chart/style';
 import { SYMBOL_MAP, TIMEFRAMES, historyStartMs, type Timeframe } from '../../lib/market';
 import type { NewsEvent } from '../../lib/news';
 import type { ChartPane as Pane, Trade } from '../../lib/types';
@@ -33,6 +34,8 @@ interface Props {
   spread: number;
   /** IANA time zone of the time axis. */
   timezone: string;
+  /** The chart's colours. */
+  chartStyle: ChartStyle;
   active: boolean;
   multi: boolean;
   callbacks: EngineCallbacks;
@@ -68,6 +71,7 @@ export function ChartPane(props: Props) {
     layoutKey: `${props.sessionId}:${index}`,
     spread: props.spread,
     timezone: props.timezone,
+    style: props.chartStyle,
   };
   const stateRef = useRef(state);
   stateRef.current = state;

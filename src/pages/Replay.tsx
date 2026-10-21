@@ -13,6 +13,7 @@ import {
   Minimize2,
   Minus,
   NotebookPen,
+  Palette,
   Plus,
   Send,
   X,
@@ -47,6 +48,8 @@ import { sessionBalance, sessionEndMs, sessionFloating, sessionProgress, session
 import { local } from '../lib/storage';
 import { dayKeyIn, fmtClock, fmtOffset, tzName } from '../lib/timezone';
 import { TimezoneMenu } from '../components/replay/TimezoneMenu';
+import { ChartSettings } from '../components/replay/ChartSettings';
+import { resolveChartStyle } from '../chart/style';
 import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, sessionSpread, tickOf } from '../lib/trading';
 import type { ChartPane as Pane, JournalEntry, LayoutId, Side, Trade } from '../lib/types';
 import { ensureFine, ensureRange, fineReady, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
@@ -138,6 +141,9 @@ export default function Replay() {
   const theme = useStore((s) => s.theme);
   const chartTz = useStore((s) => s.chartTz);
   const setChartTz = useStore((s) => s.setChartTz);
+  const chartStyleChanges = useStore((s) => s.chartStyle);
+  const chartStyle = useMemo(() => resolveChartStyle(theme, chartStyleChanges), [theme, chartStyleChanges]);
+  const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
   const checklists = useStore((s) => s.checklists);
   const newsFilters = useStore((s) => s.newsFilters);
   const setNewsFilters = useStore((s) => s.setNewsFilters);
@@ -579,6 +585,14 @@ export default function Replay() {
             >
               <CalendarDays size={15} /> تقویم اقتصادی {free && <LockMark />}
             </button>
+            <button
+              type="button"
+              onClick={() => setChartSettingsOpen(true)}
+              className="btn-soft py-1.5"
+              title="تنظیمات چارت: رنگ کندل‌ها، پس‌زمینه، شبکه و متن"
+            >
+              <Palette size={15} /> <span className="hidden sm:inline">تنظیمات چارت</span>
+            </button>
             <Popover
               align="end"
               panelClass="w-56 p-1.5"
@@ -662,6 +676,7 @@ export default function Replay() {
                   news={chartNews}
                   spread={sessionSpread(session, p.symbol)}
                   timezone={chartTz}
+                  chartStyle={chartStyle}
                   active={i === activePane}
                   multi={layoutDef.count > 1}
                   callbacks={callbacksFor(i)}
@@ -894,6 +909,7 @@ export default function Replay() {
       />
 
       <UpgradeModal open={!!upgrade} onClose={() => setUpgrade(null)} feature={upgrade ?? undefined} />
+      <ChartSettings open={chartSettingsOpen} onClose={() => setChartSettingsOpen(false)} />
       {shot && (
         <Modal
           open

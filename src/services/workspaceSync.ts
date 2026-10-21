@@ -66,7 +66,7 @@ function readLocal(): WorkspaceData {
     goToPresets: s.goToPresets,
     dailySeconds: s.dailySeconds,
     replayedMs: s.replayedMs,
-    prefs: { avatar: s.user.avatar, theme: s.theme, newsFilters: s.newsFilters, hasDemoData: s.hasDemoData, chartTz: s.chartTz },
+    prefs: { avatar: s.user.avatar, theme: s.theme, newsFilters: s.newsFilters, hasDemoData: s.hasDemoData, chartTz: s.chartTz, chartStyle: s.chartStyle },
   };
 }
 
@@ -82,6 +82,7 @@ function writeLocal(d: WorkspaceData, base: WorkspaceBase) {
     theme: d.prefs.theme ?? s.theme,
     newsFilters: d.prefs.newsFilters ?? s.newsFilters,
     chartTz: d.prefs.chartTz ?? s.chartTz,
+    chartStyle: d.prefs.chartStyle ?? s.chartStyle,
     hasDemoData: d.prefs.hasDemoData ?? false,
     user: { ...s.user, avatar: d.prefs.avatar },
     sync: { base },
@@ -101,6 +102,7 @@ function dataChanged(s: ReturnType<typeof useStore.getState>, p: ReturnType<type
     s.theme !== p.theme ||
     s.newsFilters !== p.newsFilters ||
     s.chartTz !== p.chartTz ||
+    s.chartStyle !== p.chartStyle ||
     s.hasDemoData !== p.hasDemoData ||
     s.user.avatar !== p.user.avatar
   );

@@ -9,6 +9,7 @@ import { local } from '../lib/storage';
 import { buildSeed, type SeedData } from './seed';
 import type { WorkspaceBase } from '../services/workspace';
 import { DEFAULT_CHART_TZ } from '../lib/timezone';
+import type { ChartStyleOverrides } from '../chart/style';
 
 export const uid = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -68,12 +69,15 @@ interface State {
   theme: Theme;
   /** IANA time zone of the chart's axis, the replay clock and Go To. */
   chartTz: string;
+  /** The chart's colours the user changed (chart/style.ts); the rest follow the theme. */
+  chartStyle: ChartStyleOverrides;
   sidebarCollapsed: boolean;
   hasDemoData: boolean;
   sync?: SyncMeta;
 
   setTheme: (t: Theme) => void;
   setChartTz: (tz: string) => void;
+  setChartStyle: (style: ChartStyleOverrides) => void;
   toggleSidebar: () => void;
   updateUser: (patch: Partial<UserProfile>) => void;
 
@@ -173,10 +177,12 @@ export const useStore = create<State>()(
       newsFilters: DEFAULT_NEWS_FILTERS,
       theme: initialTheme(),
       chartTz: DEFAULT_CHART_TZ,
+      chartStyle: {},
       sidebarCollapsed: false,
 
       setTheme: (theme) => set({ theme }),
       setChartTz: (chartTz) => set({ chartTz }),
+      setChartStyle: (chartStyle) => set({ chartStyle }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       updateUser: (patch) => set((s) => ({ user: { ...s.user, ...patch } })),
 
@@ -471,5 +477,15 @@ export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'de
     }
   }
   if (raw) void useStore.persist.rehydrate();
-  else useStore.setState({ ...freshData(account), goToPresets: [], newsFilters: DEFAULT_NEWS_FILTERS, chartTz: DEFAULT_CHART_TZ, theme, sidebarCollapsed, sync: undefined });
+  else
+    useStore.setState({
+      ...freshData(account),
+      goToPresets: [],
+      newsFilters: DEFAULT_NEWS_FILTERS,
+      chartTz: DEFAULT_CHART_TZ,
+      chartStyle: {},
+      theme,
+      sidebarCollapsed,
+      sync: undefined,
+    });
 }

@@ -27,6 +27,7 @@ import { ensureFine, ensureRange, fineKindOf } from '../services/marketFeed';
 import { readLwLayout, writeLwLayout } from './drawings';
 import { createDrawingLayer } from './lwDrawings';
 import { createIndicatorLayer } from './lwIndicators';
+import { defaultChartStyle, isLightColor, withOpacity } from './style';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
 
 /**
@@ -200,17 +201,40 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   });
 
   // ---------- theme ----------
+  /** the user's chart colours (theme defaults for what they did not change) */
+  const look = () => state.style ?? defaultChartStyle(state.theme);
   function applyTheme() {
     pal = PALETTES[state.theme];
+    const st = look();
+    const grid = withOpacity(st.gridColor, st.gridOpacity);
+    const none = 'rgba(0,0,0,0)';
     chart.applyOptions({
-      layout: { textColor: pal.axis },
-      grid: { vertLines: { color: pal.grid + '70' }, horzLines: { color: pal.grid + '70' } },
+      layout: {
+        textColor: st.textColor,
+        fontSize: st.fontSize,
+        background: st.bgType === 'gradient' ? { type: ColorType.VerticalGradient, topColor: st.bg, bottomColor: st.bg2 } : { type: ColorType.Solid, color: st.bg },
+      },
+      grid: { vertLines: { visible: st.vertGrid, color: grid }, horzLines: { visible: st.horzGrid, color: grid } },
       rightPriceScale: { borderColor: pal.grid },
       timeScale: { borderColor: pal.grid },
-      crosshair: { vertLine: { labelBackgroundColor: pal.accent }, horzLine: { labelBackgroundColor: pal.accent } },
+      crosshair: {
+        vertLine: { color: st.crosshairColor, labelBackgroundColor: pal.accent },
+        horzLine: { color: st.crosshairColor, labelBackgroundColor: pal.accent },
+      },
     });
-    series.applyOptions({ upColor: pal.candleUp, downColor: pal.candleDown, wickUpColor: pal.candleUp, wickDownColor: pal.candleDown });
-    legend.style.color = pal.text;
+    series.applyOptions({
+      upColor: st.body ? st.upColor : none,
+      downColor: st.body ? st.downColor : none,
+      borderVisible: st.borders,
+      borderUpColor: st.borderUpColor,
+      borderDownColor: st.borderDownColor,
+      wickVisible: st.wick,
+      wickUpColor: st.wickUpColor,
+      wickDownColor: st.wickDownColor,
+    });
+    // the legend sits on the chart's background: the theme's text, unless the background is the other way round
+    const lightBg = isLightColor(st.bg);
+    legend.style.color = lightBg === (state.theme === 'light') ? pal.text : lightBg ? '#131722' : '#e8e6f0';
     nav.applyTheme();
   }
 
@@ -357,7 +381,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       return;
     }
     const up = c.close >= c.open;
-    const col = up ? pal.candleUp : pal.candleDown;
+    const col = up ? look().upColor : look().downColor;
     const chg = ((c.close - c.open) / c.open) * 100;
     ohlc.innerHTML =
       `<b style="font-weight:700">${sym.ticker}</b> <span style="opacity:.6">· ${state.timeframe} · BacktestLab</span>&nbsp;&nbsp;` +
@@ -871,7 +895,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       out.width = Math.round(shot.width * scale);
       out.height = Math.round(shot.height * scale);
       const ctx = out.getContext('2d')!;
-      ctx.fillStyle = pal.bg;
+      ctx.fillStyle = look().bg;
       ctx.fillRect(0, 0, out.width, out.height);
       ctx.drawImage(shot, 0, 0, out.width, out.height);
       // the canvas has the candles; add the drawings, the position tool and trade lines from the overlays
@@ -926,7 +950,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     state = next;
     if (prev.symbol !== next.symbol) drawings.setSymbol(next.symbol);
     const draftOpened = !!next.draft && (!prev.draft || prev.symbol !== next.symbol);
-    if (prev.theme !== next.theme || !loadedKey) applyTheme();
+    if (prev.theme !== next.theme || prev.style !== next.style || !loadedKey) applyTheme();
     if (prev.timezone !== next.timezone || prev.timeframe !== next.timeframe || !loadedKey) applyTimeFormat();
     if (!loadedKey || prev.symbol !== next.symbol || prev.timeframe !== next.timeframe || prev.cursor !== next.cursor || prev.dataVersion !== next.dataVersion) {
       loadData();

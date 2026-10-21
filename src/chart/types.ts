@@ -3,6 +3,7 @@ import type { NewsEvent } from '../lib/news';
 import type { OrderType, Side, Trade } from '../lib/types';
 import type { DrawingApi } from './lwDrawings';
 import type { IndicatorApi } from './lwIndicators';
+import type { ChartStyle } from './style';
 
 /**
  * Both chart engines (TradingView Advanced Charts and the built-in lightweight-charts engine)
@@ -49,6 +50,8 @@ export interface EngineState {
   spread?: number;
   /** IANA time zone of the time axis and crosshair (the user's choice under the chart). */
   timezone?: string;
+  /** The chart's colours (the theme's, with the user's changes from «تنظیمات چارت»). */
+  style?: ChartStyle;
 }
 
 export interface EngineCallbacks {
