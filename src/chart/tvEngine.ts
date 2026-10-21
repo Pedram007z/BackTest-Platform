@@ -338,9 +338,10 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       bidAsk = null;
       return;
     }
-    const make = (color: string, text: string) =>
-      styleLine(chart.createOrderLine(), color).setText(text).setQuantity('').setCancellable(false).setEditable(false).setLineStyle(0).setLineLength(100);
-    bidAsk ??= { bid: make(BID_ASK.bid, 'Bid'), ask: make(BID_ASK.ask, 'Ask') };
+    // the labels sit apart, since the two lines are often a pixel or two from each other
+    const make = (color: string, text: string, at: number) =>
+      styleLine(chart.createOrderLine(), color).setText(text).setQuantity('').setCancellable(false).setEditable(false).setLineStyle(0).setLineLength(at);
+    bidAsk ??= { bid: make(BID_ASK.bid, 'Bid', 92), ask: make(BID_ASK.ask, 'Ask', 100) };
     bidAsk.bid.setPrice(bid);
     bidAsk.ask.setPrice(roundToTick(state.symbol, bid + spread));
   }

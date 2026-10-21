@@ -131,7 +131,22 @@ const TZ_FA: Record<string, string> = {
   'Pacific/Auckland': 'اوکلند',
 };
 
-/** Every IANA time zone the browser knows, UTC first. */
+/** Old names some browsers still list, and the names the cities have now. */
+const TZ_RENAMED: Record<string, string> = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'America/Godthab': 'America/Nuuk',
+  'Atlantic/Faeroe': 'Atlantic/Faroe',
+  'Pacific/Truk': 'Pacific/Chuuk',
+  'Pacific/Ponape': 'Pacific/Pohnpei',
+  'Pacific/Enderbury': 'Pacific/Kanton',
+  'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+};
+
+/** Every IANA time zone the browser knows (under the cities' current names), UTC first. */
 export function allTimeZones(): string[] {
   let list: string[] = [];
   try {
@@ -140,7 +155,8 @@ export function allTimeZones(): string[] {
     /* older browsers */
   }
   if (!list.length) list = TZ_OPTIONS.map((o) => o.value).filter((v) => v !== 'UTC');
-  return ['UTC', ...list.filter((z) => z !== 'UTC' && z !== 'Etc/UTC')];
+  const named = list.map((z) => (TZ_RENAMED[z] && isTimeZone(TZ_RENAMED[z]) ? TZ_RENAMED[z] : z));
+  return ['UTC', ...new Set(named.filter((z) => z !== 'UTC' && z !== 'Etc/UTC'))];
 }
 
 export function isTimeZone(tz: unknown): tz is string {

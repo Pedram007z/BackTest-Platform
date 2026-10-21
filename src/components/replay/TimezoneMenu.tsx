@@ -51,10 +51,10 @@ export function TimezoneMenu({ cursor, tz, onChange }: Props) {
         <span className="num w-[74px] shrink-0 text-faint" dir="ltr" style={{ textAlign: 'right' }}>
           {z.label}
         </span>
-        <span className="min-w-0 flex-1 truncate">
-          {z.name}
+        <span className="flex min-w-0 flex-1 items-baseline gap-2">
+          <span className="shrink-0">{z.name}</span>
           {z.name !== z.id && (
-            <span className="ms-1.5 text-[11px] text-faint" dir="ltr">
+            <span className="min-w-0 truncate text-[11px] text-faint" dir="ltr">
               {z.id}
             </span>
           )}
