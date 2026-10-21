@@ -293,7 +293,7 @@ export class Kit {
           'font-weight': weight,
           'font-style': o.italic ? 'italic' : undefined,
           fill: o.color ?? this.col,
-          style: 'font-variant-numeric:tabular-nums;unicode-bidi:plaintext',
+          class: 't',
         },
         holder,
       );
@@ -315,11 +315,7 @@ export class Kit {
     const left = anchor === 'middle' ? x - w / 2 : anchor === 'end' ? x - w : x;
     svgEl('rect', { x: left, y, width: w, height: h, rx: 4, fill: bg }, this.g);
     lines.forEach((l, i) => {
-      const t = svgEl(
-        'text',
-        { x: left + w / 2, y: y + 14 + i * 15, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, fill: fg, style: 'font-variant-numeric:tabular-nums' },
-        this.g,
-      );
+      const t = svgEl('text', { x: left + w / 2, y: y + 14 + i * 15, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, fill: fg, class: 'n' }, this.g);
       t.textContent = l;
     });
     return h;
@@ -328,11 +324,7 @@ export class Kit {
   /** a handle the user drags (only on the selected drawing) */
   handle(p: Pt, h: string, color = this.col, cursor = 'pointer') {
     if (!this.selected) return;
-    svgEl(
-      'circle',
-      { cx: p.x, cy: p.y, r: 5.5, fill: '#fff', stroke: color, 'stroke-width': 2, 'pointer-events': 'all', class: 'h', 'data-h': h, style: `cursor:${cursor}` },
-      this.g,
-    );
+    svgEl('circle', { cx: p.x, cy: p.y, r: 5.5, fill: '#fff', stroke: color, 'stroke-width': 2, 'pointer-events': 'all', class: 'h', 'data-h': h, cursor }, this.g);
   }
 
   /** handles on every point */
@@ -352,13 +344,13 @@ export class Kit {
   hitFill(el: SVGElement) {
     if (!this.interactive) return;
     el.setAttribute('pointer-events', 'all');
-    el.setAttribute('style', `${el.getAttribute('style') ?? ''};cursor:move`);
+    el.setAttribute('cursor', 'move');
   }
 
   /** the grabbable strokes, as one path under the handles */
   finish() {
     if (this.hitD) {
-      const hit = svgEl('path', { d: this.hitD, fill: 'none', stroke: 'transparent', 'stroke-width': 12, 'pointer-events': 'stroke', style: 'cursor:move' });
+      const hit = svgEl('path', { d: this.hitD, fill: 'none', stroke: 'transparent', 'stroke-width': 12, 'pointer-events': 'stroke', cursor: 'move' });
       const firstHandle = this.g.querySelector('.h');
       if (firstHandle) this.g.insertBefore(hit, firstHandle);
       else this.g.append(hit);

@@ -218,6 +218,25 @@ export function DrawingSettings({ api, id }: { api: DrawingApi; id: string }) {
           </Row>
         );
       case 'number':
+        if (o.key === 'levelWidth')
+          return (
+            <Row key={o.key} label={o.label}>
+              <WidthPicker value={Number(v ?? 1)} onChange={(w) => setStyle({ levelWidth: w })} />
+            </Row>
+          );
+        if (o.key === 'fontSize')
+          return (
+            <Row key={o.key} label={o.label}>
+              <div className="w-24">
+                <Select
+                  compact
+                  value={String(v ?? 11)}
+                  options={FONT_SIZES.map((f) => ({ value: String(f), label: String(f) }))}
+                  onChange={(f) => setStyle({ fontSize: Number(f) })}
+                />
+              </div>
+            </Row>
+          );
         return (
           <Row key={o.key} label={o.label}>
             <NumberField className="w-28" value={Number(v ?? 0)} min={o.min} max={o.max} step={o.step} label={o.label} onChange={(n) => setStyle({ [o.key]: n })} />

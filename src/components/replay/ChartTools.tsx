@@ -158,7 +158,7 @@ function DrawingsList({ api, ui }: { api: DrawingApi; ui: DrawingUiState }) {
         </ToolButton>
       </span>
       {open && (
-        <FloatingPanel anchor={btn} onClose={() => setOpen(false)} className="w-72 p-1">
+        <FloatingPanel anchor={btn} onClose={() => setOpen(false)} className="w-72 p-1" side="right">
           <p className="px-2 pb-1 pt-1 text-[12px] font-bold text-faint">رسم‌های این نماد ({ui.count.toLocaleString('fa-IR')})</p>
           {!items.length && <p className="px-2 py-4 text-center text-[13px] text-muted">هنوز رسمی نکشیده‌اید.</p>}
           <ul className="max-h-80 overflow-y-auto">
@@ -168,7 +168,10 @@ function DrawingsList({ api, ui }: { api: DrawingApi; ui: DrawingUiState }) {
                   <span className={clsx('shrink-0', d.hidden ? 'text-faint' : 'text-muted')} dir="ltr" style={{ color: d.hidden ? undefined : d.color }}>
                     <ToolIcon id={d.type} size={18} />
                   </span>
-                  <span className={clsx('min-w-0 truncate', d.hidden && 'text-faint line-through')}>
+                  <span
+                    className={clsx('min-w-0 truncate', d.hidden && 'text-faint line-through', d.hiddenOn?.includes(ui.tfGroup) && 'text-faint')}
+                    title={d.hiddenOn?.includes(ui.tfGroup) ? 'در این تایم‌فریم نمایش داده نمی‌شود (تنظیمات › نمایش)' : undefined}
+                  >
                     {TOOLS[d.type].name}
                     {d.text ? ` · ${d.text.split('\n')[0].slice(0, 24)}` : ''}
                   </span>

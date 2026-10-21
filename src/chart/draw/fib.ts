@@ -19,7 +19,7 @@ function levelText(k: Kit, l: Level, price?: number): string {
 }
 
 function smallText(k: Kit, x: number, y: number, str: string, fill: string, anchor: 'start' | 'middle' | 'end' = 'start') {
-  const t = svgEl('text', { x, y, 'text-anchor': anchor, 'font-size': k.s('fontSize') ?? 11, fill, style: 'font-variant-numeric:tabular-nums' }, k.g);
+  const t = svgEl('text', { x, y, 'text-anchor': anchor, 'font-size': k.s('fontSize') ?? 11, fill, class: 'n' }, k.g);
   t.textContent = str;
 }
 
@@ -40,7 +40,16 @@ function horizontalLevels(k: Kit, base: number, span: number, left: number, righ
     const ly = v.y(price);
     if (ly === null) continue;
     const c = color(k, l);
-    if (prevY !== null && f) svgEl('rect', { x: xL, y: Math.min(prevY, ly), width: xR - xL, height: Math.abs(ly - prevY), fill: c, 'fill-opacity': f.opacity }, k.g);
+    // levels far above or below the pane: only the part of their band that shows
+    const lo = -20;
+    const hi = v.H + 20;
+    if (prevY !== null && f && !((prevY < lo && ly < lo) || (prevY > hi && ly > hi))) {
+      const y1 = Math.max(lo, Math.min(hi, Math.min(prevY, ly)));
+      const y2 = Math.max(lo, Math.min(hi, Math.max(prevY, ly)));
+      svgEl('rect', { x: xL, y: y1, width: xR - xL, height: y2 - y1, fill: c, 'fill-opacity': f.opacity }, k.g);
+    }
+    prevY = ly;
+    if (ly < lo || ly > hi) continue;
     svgEl('line', { x1: xL, y1: ly, x2: xR, y2: ly, stroke: c, 'stroke-width': lw, 'stroke-dasharray': dashArray(ld, lw) }, k.g);
     k.hitSeg({ x: xL, y: ly }, { x: xR, y: ly });
     const label = levelText(k, l, price);
@@ -52,7 +61,6 @@ function horizontalLevels(k: Kit, base: number, span: number, left: number, righ
       const y = labV === 'top' ? ly - 3 : labV === 'middle' ? ly + fs * 0.35 : ly + fs + 1;
       smallText(k, x, y, label, c, anchor);
     }
-    prevY = ly;
   }
 }
 

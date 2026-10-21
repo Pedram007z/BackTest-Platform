@@ -127,7 +127,10 @@ interface Creating {
   scale?: number;
 }
 
-const TIP_CSS = '.btl-tip{visibility:hidden}.btl-note:hover .btl-tip{visibility:visible}';
+/** note tooltips show on hover; numbers in labels line up (classes keep inline styles off thousands of nodes) */
+const LAYER_CSS =
+  '.btl-drawings .btl-tip{visibility:hidden}.btl-drawings .btl-note:hover .btl-tip{visibility:visible}' +
+  '.btl-drawings .n{font-variant-numeric:tabular-nums}.btl-drawings .t{font-variant-numeric:tabular-nums;unicode-bidi:plaintext}';
 
 export function createDrawingLayer(host: DrawingHost, symbol: string, initial: Record<string, Drawing[]>): DrawingLayer {
   const all: Record<string, Drawing[]> = structuredClone(initial);
@@ -737,7 +740,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     const defs = svgEl('defs', {}, svg);
     const clip = svgEl('clipPath', { id: `clip-${clipId}` }, defs);
     svgEl('rect', { x: 0, y: 0, width: W, height: H }, clip);
-    svgEl('style', {}, defs).textContent = TIP_CSS;
+    svgEl('style', {}, defs).textContent = LAYER_CSS;
     const g = svgEl('g', { 'clip-path': `url(#clip-${clipId})` }, svg);
     const v = view(W, H);
     const interactive = tool === 'cursor';
@@ -759,7 +762,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       drawDrawing(g, preview, v, { selected: false, interactive: false, preview: true });
     }
     if (tool !== 'cursor') {
-      const cap = svgEl('rect', { x: 0, y: 0, width: W, height: H, fill: 'transparent', 'pointer-events': 'all', style: 'cursor:crosshair' }, svg);
+      const cap = svgEl('rect', { x: 0, y: 0, width: W, height: H, fill: 'transparent', 'pointer-events': 'all', cursor: 'crosshair' }, svg);
       cap.addEventListener('pointerdown', onCaptureDown);
       cap.addEventListener('pointermove', onCaptureMove);
       cap.addEventListener('pointerleave', () => host.chart.clearCrosshairPosition());
