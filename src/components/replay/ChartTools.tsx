@@ -307,158 +307,161 @@ export function SelectedDrawingBar({ api }: { api: DrawingApi }) {
   const isText = TEXT_TOOLS.has(d.type);
   return (
     <>
-      <div
-        className="anim-pop absolute left-1/2 top-2 z-20 flex max-w-[calc(100%-16px)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-xl border border-line bg-surface/95 px-2 py-1 shadow-pop backdrop-blur [scrollbar-width:none]"
-        dir="ltr"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <span className="hidden shrink-0 px-1 text-[12px] font-semibold text-muted sm:inline" dir="rtl">
-          {TOOLS[d.type].name}
-        </span>
-        {colored && (
-          <div className="flex items-center gap-0.5 border-l border-line/70 pl-1.5">
-            <ColorButton size="sm" value={d.color} label="رنگ" onChange={(c) => api.updateSelected({ color: c })} />
-          </div>
-        )}
-        {isText && (
-          <input
-            ref={textRef}
-            className="field h-7 w-40 py-0 text-[13px]"
-            dir="auto"
-            value={text}
-            aria-label="متن"
-            onChange={(e) => setText(e.target.value)}
-            onBlur={() => text.trim() && text !== d.text && api.updateSelected({ text: text.trim() })}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-            }}
-          />
-        )}
-        {d.type === 'text' ? (
-          <div className="flex items-center gap-0.5 border-l border-line/70 pl-1.5">
-            {[1, 2, 3, 4].map((w) => (
-              <button
-                key={w}
-                type="button"
-                title={SIZES[w - 1]}
-                onClick={() => api.updateSelected(d.style?.fontSize ? { width: w, style: { ...d.style, fontSize: undefined } } : { width: w })}
-                className={clsx(
-                  'grid h-6 w-6 place-items-center rounded-md font-bold',
-                  d.width === w && !d.style?.fontSize ? 'bg-accent/15 text-accent-ink' : 'text-muted hover:bg-raised',
-                )}
-                style={{ fontSize: 9 + w * 2 }}
-              >
-                A
-              </button>
-            ))}
-          </div>
-        ) : (
-          hasLine && (
+      {/* centred by the wrapper: the pop-in animation's transform would undo a translate on the bar itself */}
+      <div className="pointer-events-none absolute inset-x-2 top-2 z-20 flex justify-center">
+        <div
+          className="anim-pop pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-line bg-surface/95 px-2 py-1 shadow-pop backdrop-blur [scrollbar-width:none]"
+          dir="ltr"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <span className="hidden shrink-0 px-1 text-[12px] font-semibold text-muted sm:inline" dir="rtl">
+            {TOOLS[d.type].name}
+          </span>
+          {colored && (
+            <div className="flex items-center gap-0.5 border-l border-line/70 pl-1.5">
+              <ColorButton size="sm" value={d.color} label="رنگ" onChange={(c) => api.updateSelected({ color: c })} />
+            </div>
+          )}
+          {isText && (
+            <input
+              ref={textRef}
+              className="field h-7 w-40 py-0 text-[13px]"
+              dir="auto"
+              value={text}
+              aria-label="متن"
+              onChange={(e) => setText(e.target.value)}
+              onBlur={() => text.trim() && text !== d.text && api.updateSelected({ text: text.trim() })}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+            />
+          )}
+          {d.type === 'text' ? (
             <div className="flex items-center gap-0.5 border-l border-line/70 pl-1.5">
               {[1, 2, 3, 4].map((w) => (
                 <button
                   key={w}
                   type="button"
-                  title={`ضخامت ${w}`}
-                  aria-label={`ضخامت ${w}`}
-                  onClick={() => api.updateSelected(d.type === 'fib' && !d.style ? { ...stylePatch(d, {}), width: w } : { width: w })}
-                  className={clsx('grid h-6 w-6 place-items-center rounded-md', d.width === w ? 'bg-accent/15' : 'hover:bg-raised')}
+                  title={SIZES[w - 1]}
+                  onClick={() => api.updateSelected(d.style?.fontSize ? { width: w, style: { ...d.style, fontSize: undefined } } : { width: w })}
+                  className={clsx(
+                    'grid h-6 w-6 place-items-center rounded-md font-bold',
+                    d.width === w && !d.style?.fontSize ? 'bg-accent/15 text-accent-ink' : 'text-muted hover:bg-raised',
+                  )}
+                  style={{ fontSize: 9 + w * 2 }}
                 >
-                  <span className="block w-3.5 rounded-full bg-current text-ink" style={{ height: w }} />
+                  A
                 </button>
               ))}
-              <button
-                ref={dashRef}
-                type="button"
-                title="سبک خط"
-                aria-label="سبک خط"
-                aria-expanded={menu === 'dash'}
-                onClick={() => setMenu(menu === 'dash' ? null : 'dash')}
-                className="flex h-6 items-center gap-0.5 rounded-md px-1 text-ink hover:bg-raised"
-              >
-                <DashIcon dash={dash} w={18} />
-                <ChevronDown size={11} className="text-faint" />
-              </button>
-              {menu === 'dash' && (
-                <FloatingPanel anchor={dashRef} onClose={() => setMenu(null)} className="w-40 p-1">
-                  {DASHES.map((x) => (
-                    <button
-                      key={x.value}
-                      type="button"
-                      onClick={() => {
-                        api.updateSelected(stylePatch(d, { dash: x.value }));
-                        setMenu(null);
-                      }}
-                      className={clsx('flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-[13px] hover:bg-raised', dash === x.value && 'text-accent-ink')}
-                    >
-                      <span className="text-ink">
-                        <DashIcon dash={x.value} w={28} />
-                      </span>
-                      {x.label}
-                    </button>
-                  ))}
-                </FloatingPanel>
-              )}
             </div>
-          )
-        )}
-        <div className="flex items-center gap-0.5 border-l border-line/70 pl-1.5">
-          <BarButton title="تنظیمات (دابل‌کلیک روی رسم)" onClick={() => api.openSettings(d.id)}>
-            <Settings2 size={15} />
-          </BarButton>
-          <BarButton title="کپی (Alt یا Ctrl + کشیدن)" onClick={() => api.clone(d.id)}>
-            <Copy size={15} />
-          </BarButton>
-          <BarButton title={d.locked ? 'باز کردن قفل' : 'قفل (جابه‌جا نشود)'} active={d.locked} onClick={() => api.updateSelected({ locked: d.locked ? undefined : true })}>
-            {d.locked ? <Lock size={15} /> : <LockOpen size={15} />}
-          </BarButton>
-          <button
-            ref={moreRef}
-            type="button"
-            title="بیشتر"
-            aria-label="بیشتر"
-            aria-expanded={menu === 'more'}
-            onClick={() => setMenu(menu === 'more' ? null : 'more')}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted hover:bg-raised hover:text-ink"
-          >
-            <Ellipsis size={15} />
-          </button>
-          {menu === 'more' && (
-            <FloatingPanel anchor={moreRef} onClose={() => setMenu(null)} className="w-60 p-1">
-              {[
-                { label: 'آوردن به جلو', icon: <ArrowUpToLine size={15} />, run: () => api.reorder('front', d.id) },
-                { label: 'یک لایه بالاتر', icon: <ChevronUp size={15} />, run: () => api.reorder('forward', d.id) },
-                { label: 'یک لایه پایین‌تر', icon: <ChevronDown size={15} />, run: () => api.reorder('backward', d.id) },
-                { label: 'بردن به عقب', icon: <ArrowDownToLine size={15} />, run: () => api.reorder('back', d.id) },
-                { label: 'پنهان کردن', icon: <EyeOff size={15} />, run: () => api.update(d.id, { hidden: true }) },
-                {
-                  label: 'ذخیره‌ی سبک به‌عنوان پیش‌فرض',
-                  icon: <Star size={15} />,
-                  run: () => {
-                    api.saveAsDefault(d.id);
-                    toast(`پیش‌فرض «${TOOLS[d.type].name}» ذخیره شد`);
-                  },
-                },
-              ].map((m) => (
+          ) : (
+            hasLine && (
+              <div className="flex items-center gap-0.5 border-l border-line/70 pl-1.5">
+                {[1, 2, 3, 4].map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    title={`ضخامت ${w}`}
+                    aria-label={`ضخامت ${w}`}
+                    onClick={() => api.updateSelected(d.type === 'fib' && !d.style ? { ...stylePatch(d, {}), width: w } : { width: w })}
+                    className={clsx('grid h-6 w-6 place-items-center rounded-md', d.width === w ? 'bg-accent/15' : 'hover:bg-raised')}
+                  >
+                    <span className="block w-3.5 rounded-full bg-current text-ink" style={{ height: w }} />
+                  </button>
+                ))}
                 <button
-                  key={m.label}
+                  ref={dashRef}
                   type="button"
-                  onClick={() => {
-                    m.run();
-                    setMenu(null);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-[13px] hover:bg-raised"
+                  title="سبک خط"
+                  aria-label="سبک خط"
+                  aria-expanded={menu === 'dash'}
+                  onClick={() => setMenu(menu === 'dash' ? null : 'dash')}
+                  className="flex h-6 items-center gap-0.5 rounded-md px-1 text-ink hover:bg-raised"
                 >
-                  <span className="text-muted">{m.icon}</span>
-                  {m.label}
+                  <DashIcon dash={dash} w={18} />
+                  <ChevronDown size={11} className="text-faint" />
                 </button>
-              ))}
-            </FloatingPanel>
+                {menu === 'dash' && (
+                  <FloatingPanel anchor={dashRef} onClose={() => setMenu(null)} className="w-40 p-1">
+                    {DASHES.map((x) => (
+                      <button
+                        key={x.value}
+                        type="button"
+                        onClick={() => {
+                          api.updateSelected(stylePatch(d, { dash: x.value }));
+                          setMenu(null);
+                        }}
+                        className={clsx('flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-[13px] hover:bg-raised', dash === x.value && 'text-accent-ink')}
+                      >
+                        <span className="text-ink">
+                          <DashIcon dash={x.value} w={28} />
+                        </span>
+                        {x.label}
+                      </button>
+                    ))}
+                  </FloatingPanel>
+                )}
+              </div>
+            )
           )}
-          <BarButton title="حذف (Delete)" onClick={() => api.removeSelected()} className="hover:bg-loss/10 hover:text-loss">
-            <Trash2 size={15} />
-          </BarButton>
+          <div className="flex items-center gap-0.5 border-l border-line/70 pl-1.5">
+            <BarButton title="تنظیمات (دابل‌کلیک روی رسم)" onClick={() => api.openSettings(d.id)}>
+              <Settings2 size={15} />
+            </BarButton>
+            <BarButton title="کپی (Alt یا Ctrl + کشیدن)" onClick={() => api.clone(d.id)}>
+              <Copy size={15} />
+            </BarButton>
+            <BarButton title={d.locked ? 'باز کردن قفل' : 'قفل (جابه‌جا نشود)'} active={d.locked} onClick={() => api.updateSelected({ locked: d.locked ? undefined : true })}>
+              {d.locked ? <Lock size={15} /> : <LockOpen size={15} />}
+            </BarButton>
+            <button
+              ref={moreRef}
+              type="button"
+              title="بیشتر"
+              aria-label="بیشتر"
+              aria-expanded={menu === 'more'}
+              onClick={() => setMenu(menu === 'more' ? null : 'more')}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted hover:bg-raised hover:text-ink"
+            >
+              <Ellipsis size={15} />
+            </button>
+            {menu === 'more' && (
+              <FloatingPanel anchor={moreRef} onClose={() => setMenu(null)} className="w-60 p-1">
+                {[
+                  { label: 'آوردن به جلو', icon: <ArrowUpToLine size={15} />, run: () => api.reorder('front', d.id) },
+                  { label: 'یک لایه بالاتر', icon: <ChevronUp size={15} />, run: () => api.reorder('forward', d.id) },
+                  { label: 'یک لایه پایین‌تر', icon: <ChevronDown size={15} />, run: () => api.reorder('backward', d.id) },
+                  { label: 'بردن به عقب', icon: <ArrowDownToLine size={15} />, run: () => api.reorder('back', d.id) },
+                  { label: 'پنهان کردن', icon: <EyeOff size={15} />, run: () => api.update(d.id, { hidden: true }) },
+                  {
+                    label: 'ذخیره‌ی سبک به‌عنوان پیش‌فرض',
+                    icon: <Star size={15} />,
+                    run: () => {
+                      api.saveAsDefault(d.id);
+                      toast(`پیش‌فرض «${TOOLS[d.type].name}» ذخیره شد`);
+                    },
+                  },
+                ].map((m) => (
+                  <button
+                    key={m.label}
+                    type="button"
+                    onClick={() => {
+                      m.run();
+                      setMenu(null);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-[13px] hover:bg-raised"
+                  >
+                    <span className="text-muted">{m.icon}</span>
+                    {m.label}
+                  </button>
+                ))}
+              </FloatingPanel>
+            )}
+            <BarButton title="حذف (Delete)" onClick={() => api.removeSelected()} className="hover:bg-loss/10 hover:text-loss">
+              <Trash2 size={15} />
+            </BarButton>
+          </div>
         </div>
       </div>
       {settings}
