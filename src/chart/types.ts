@@ -45,6 +45,10 @@ export interface EngineState {
   historyFrom: number;
   /** Where the chart's own layout (drawings, indicators) is kept: one per session and pane. */
   layoutKey?: string;
+  /** Ask − bid for this symbol in the session (price units). Above 0, the chart shows Bid and Ask lines. */
+  spread?: number;
+  /** IANA time zone of the time axis and crosshair (the user's choice under the chart). */
+  timezone?: string;
 }
 
 export interface EngineCallbacks {

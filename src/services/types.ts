@@ -484,6 +484,10 @@ export interface SnapshotTrade {
   pointValue: number;
   risk: number;
   riskPct: number;
+  /** Ask − bid the order was placed with (price units). */
+  spread?: number;
+  /** USD commission charged. */
+  commission?: number;
   /** Market times (UTC ms): order placed, position opened, position closed. */
   placedTime: number;
   openTime: number;

@@ -11,6 +11,7 @@ import { toast, useStore } from '../../store/useStore';
 import { DatePicker } from '../ui/DatePicker';
 import { Modal } from '../ui/Modal';
 import { MultiSelect, Select } from '../ui/controls';
+import { CostsEditor, costsError, costsFromDraft, draftFromCosts, type CostsDraft } from './CostsEditor';
 
 interface Props {
   open: boolean;
@@ -42,6 +43,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
   const [checklistId, setChecklistId] = useState<string>(NONE);
   const [quickStrategy, setQuickStrategy] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+  const [costs, setCosts] = useState<CostsDraft>({});
 
   useEffect(() => {
     if (!open) return;
@@ -55,6 +57,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
       setEnd(session.endDate);
       setStrategyId(session.strategyId ?? NONE);
       setChecklistId(session.checklistId ?? NONE);
+      setCosts(draftFromCosts(session.costs, session.symbols));
     } else {
       setName('');
       setBalance('10000');
@@ -63,6 +66,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
       setEnd('');
       setStrategyId(presetStrategyId ?? NONE);
       setChecklistId(NONE);
+      setCosts({});
     }
   }, [open, session, presetStrategyId]);
 
@@ -78,8 +82,10 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
     else if (start < dataStartOf(...symbols)) e.start = `داده‌ی واقعی این نمادها از ${fmtDayLong(dataStartOf(...symbols))} شروع می‌شود.`;
     if (!end) e.end = 'تاریخ پایان را انتخاب کنید.';
     if (start && end && end <= start) e.end = 'تاریخ پایان باید بعد از تاریخ شروع باشد.';
+    const c = costsError(costs, symbols);
+    if (c) e.costs = c;
     return e;
-  }, [name, balanceNum, symbols, start, end]);
+  }, [name, balanceNum, symbols, start, end, costs]);
   const valid = Object.keys(errors).length === 0;
 
   const quickEnd = (fn: (k: string) => string) => {
@@ -101,6 +107,7 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
       endDate: end,
       strategyId: strategyId === NONE ? undefined : strategyId,
       checklistId: checklistId === NONE ? undefined : checklistId,
+      costs: costsFromDraft(costs, symbols),
     };
     if (session) {
       const patch: Partial<Session> = { ...payload };
@@ -192,6 +199,13 @@ export function SessionModal({ open, onClose, session, presetStrategyId, onCreat
           <MultiSelect id="session-assets" values={symbols} options={symbolOptions} onChange={setSymbols} placeholder="نمادها را انتخاب کنید" />
           {err('symbols')}
         </div>
+
+        {symbols.length > 0 && (
+          <div>
+            <CostsEditor symbols={symbols} value={costs} onChange={setCosts} editingWithTrades={!!session && hasTrades} />
+            {err('costs')}
+          </div>
+        )}
 
         <div>
           <label className="label" htmlFor="session-strategy">

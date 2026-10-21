@@ -682,6 +682,38 @@ const barAt = (arr: Float64Array, j: number, time: number, ms: number): Bar | nu
   return Number.isNaN(arr[b]) ? null : { time, open: arr[b], high: arr[b + 1], low: arr[b + 2], close: arr[b + 3], ms };
 };
 
+/**
+ * The bars inside `bar` one size finer (5-minute → 1-minute, 1-minute → 1-second), from recorded data only:
+ * null when that data is not loaded, or when the source has none (bars split from coarser ones are not used).
+ * The order engine looks inside a bar with them when the order of its moves matters.
+ */
+export function subBars(symbolId: string, bar: Bar): Bar[] | null {
+  const sym = SYMBOL_MAP[symbolId];
+  if (!sym) return null;
+  const remote = isRemote(sym.id);
+  let arr: Float64Array | null | undefined;
+  let start: number;
+  let level: number;
+  if (bar.ms === BAR_MS) {
+    const idx = dayIndexOf(bar.time);
+    arr = remote ? remoteMinutes.get(sym.id)?.get(idx) : minuteBars(sym, idx);
+    start = dayStartMs(idx);
+    level = MIN_MS;
+  } else if (bar.ms === MIN_MS) {
+    const idx = hourIndexOf(bar.time);
+    arr = remote ? remoteSeconds.get(sym.id)?.get(idx) : secondBars(sym, idx);
+    start = hourStartMs(idx);
+    level = SEC_MS;
+  } else return null;
+  if (!arr) return null;
+  const out: Bar[] = [];
+  for (let t = bar.time; t < bar.time + bar.ms; t += level) {
+    const b = barAt(arr, Math.round((t - start) / level), t, level);
+    if (b) out.push(b);
+  }
+  return out.length ? out : null;
+}
+
 /** One period (day or hour) of bars of a base size: the bars, null when closed, undefined when not loaded. */
 function periodOf(sym: SymbolInfo, level: number, idx: number): { bars: Float64Array | null | undefined; start: number; n: number } {
   if (level === BAR_MS) return { bars: dayBars(sym, idx), start: dayStartMs(idx), n: BARS_PER_DAY };

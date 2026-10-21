@@ -1,5 +1,5 @@
-import { BAR_MS, SYMBOL_MAP, bars5m, pointValueUsd, type Bar } from './market';
-import type { OrderType, PartialClose, Side, Trade } from './types';
+import { BAR_MS, SYMBOL_MAP, bars5m, pointValueUsd, subBars, type Bar } from './market';
+import type { OrderType, PartialClose, Side, SymbolCosts, Trade } from './types';
 
 /**
  * The simulated broker: order types, position sizing, fills, stops, targets and partial closes.
@@ -104,10 +104,29 @@ export function rOfPrice(t: Trade, price: number): number {
   return rd > 0 ? ((price - t.entry) * dirOf(t.side)) / rd : 0;
 }
 
-/** Unrealised dollars on what is still open at `price`. */
-export function openPnl(t: Trade, price: number): number {
+/** A session's spread for a symbol in price units (its setting is in pips). */
+export function sessionSpread(session: { costs?: Record<string, SymbolCosts> }, symbolId: string): number {
+  const pips = session.costs?.[symbolId]?.spreadPips ?? 0;
+  const s = SYMBOL_MAP[symbolId];
+  return s && pips > 0 ? Math.round(pips * s.pip * 10 ** s.digits) / 10 ** s.digits : 0;
+}
+
+/** A session's commission for a symbol: USD per lot, round turn. */
+export const sessionCommission = (session: { costs?: Record<string, SymbolCosts> }, symbolId: string) => Math.max(0, session.costs?.[symbolId]?.commissionPerLot ?? 0);
+
+/** Ask − bid the trade was placed with (price units). */
+export const spreadOf = (t: Pick<Trade, 'spread'>) => t.spread ?? 0;
+
+/** The price an open position closes at while the chart (bid) shows `bid`: the bid for buys, the ask for sells. */
+export const exitPriceAt = (t: Pick<Trade, 'side' | 'spread'>, bid: number) => (t.side === 'buy' ? bid : bid + spreadOf(t));
+
+/** USD commission for closing `lots` of the trade. */
+export const commissionFor = (t: Pick<Trade, 'commissionPerLot'>, lots: number) => round2((t.commissionPerLot ?? 0) * lots);
+
+/** Unrealised dollars on what is still open while the chart shows `bid`: closed at the bid (buys) or ask (sells), less commission. */
+export function openPnl(t: Trade, bid: number): number {
   if (t.status !== 'open') return 0;
-  return round2((price - t.entry) * dirOf(t.side) * t.pointValue * t.lots);
+  return round2((exitPriceAt(t, bid) - t.entry) * dirOf(t.side) * t.pointValue * t.lots - commissionFor(t, t.lots));
 }
 
 export function realizedPnl(t: Trade): number {
@@ -119,8 +138,9 @@ export function closeLots(t: Trade, lots: number, price: number, time: number, r
   if (t.status !== 'open') return t;
   const step = SYMBOL_MAP[t.symbol]?.lotStep ?? 0.01;
   const qty = Math.min(t.lots, Math.max(step, roundLots(lots, step)));
-  const pnl = round2((price - t.entry) * dirOf(t.side) * t.pointValue * qty);
-  const partials: PartialClose[] = [...t.partials, { time, price, lots: qty, pnl }];
+  const commission = commissionFor(t, qty);
+  const pnl = round2((price - t.entry) * dirOf(t.side) * t.pointValue * qty - commission);
+  const partials: PartialClose[] = [...t.partials, commission ? { time, price, lots: qty, pnl, commission } : { time, price, lots: qty, pnl }];
   const left = roundLots(t.lots - qty, step);
   const total = round2(partials.reduce((s, p) => s + p.pnl, 0));
   const closedLots = partials.reduce((s, p) => s + p.lots, 0);
@@ -129,6 +149,7 @@ export function closeLots(t: Trade, lots: number, price: number, time: number, r
     ...t,
     lots: left > step / 2 ? left : 0,
     partials,
+    ...(commission ? { commission: round2((t.commission ?? 0) + commission) } : {}),
     pnl: total,
     r: t.risk > 0 ? round2(total / t.risk) : 0,
     exit,
@@ -155,51 +176,133 @@ export interface FillEvent {
 }
 
 /**
- * Run one completed bar (5-minute, 1-minute or 1-second) through a trade. Pending orders fill when price trades through
- * the entry (at the open if the bar gaps past it). Open positions stop out or take profit; when
- * both levels sit inside one bar the stop is assumed to come first.
+ * Where an order or exit triggers, as a bid price (bars are bid prices) and the way price must move to
+ * reach it. Buys fill on the ask (bid + spread); sell positions close on the ask.
+ */
+interface Trigger {
+  level: number;
+  rising: boolean;
+}
+const reached = (p: number, g: Trigger) => (g.rising ? p >= g.level : p <= g.level);
+const inBar = (bar: Bar, g: Trigger) => (g.rising ? bar.high >= g.level : bar.low <= g.level);
+
+function entryTrigger(t: Trade): Trigger {
+  // buy limit: the ask falls to the entry · buy stop: the ask rises to it · sell limit: the bid rises · sell stop: the bid falls
+  if (t.side === 'buy') return { level: t.entry - spreadOf(t), rising: t.orderType === 'stop' };
+  return { level: t.entry, rising: t.orderType === 'limit' };
+}
+
+function exitTriggers(t: Trade): { sl: Trigger; tp: Trigger | null } {
+  const buy = t.side === 'buy';
+  const s = buy ? 0 : spreadOf(t);
+  return { sl: { level: t.sl - s, rising: !buy }, tp: t.tp > 0 ? { level: t.tp - s, rising: buy } : null };
+}
+
+/**
+ * The path assumed inside a bar when finer data is not available (as TradingView assumes):
+ * open → the nearer extreme → the other extreme → close.
+ */
+function barPath(bar: Bar): number[] {
+  const highFirst = bar.high - bar.open < bar.open - bar.low;
+  return highFirst ? [bar.open, bar.high, bar.low, bar.close] : [bar.open, bar.low, bar.high, bar.close];
+}
+
+/** Whether the order of the moves inside the bar decides what happens. */
+function needsOrder(t: Trade, bar: Bar): boolean {
+  if (t.status === 'pending') return inBar(bar, entryTrigger(t));
+  if (t.status !== 'open') return false;
+  const { sl, tp } = exitTriggers(t);
+  return inBar(bar, sl) && !!tp && inBar(bar, tp);
+}
+
+/**
+ * Run one completed bar (5-minute, 1-minute or 1-second) through a trade. Pending orders fill when the
+ * price trades through the entry (at the open if the bar gaps past it); open positions stop out or take
+ * profit. When the order of the moves inside the bar matters (an order fills, then its stop or target is
+ * reached; or both the stop and the target are inside one bar), the bar is replayed from its recorded
+ * 1-minute and 1-second bars when those are loaded. Without them, a bar that fills an order is walked
+ * open → nearer extreme → other extreme → close, and an open position whose stop and target are both
+ * inside one bar is assumed to hit the stop first.
  */
 export function processBar(t: Trade, bar: Bar, events: FillEvent[]): Trade {
+  if (t.status !== 'pending' && t.status !== 'open') return t;
+  if (needsOrder(t, bar)) {
+    const inner = subBars(t.symbol, bar);
+    if (inner) {
+      let trade = t;
+      for (const b of inner) {
+        if (trade.status === 'pending' || trade.status === 'open') trade = processBar(trade, b, events);
+        else if (trade.status === 'closed' && !trade.idealDone) trade = followIdeal(trade, b);
+      }
+      return trade;
+    }
+  }
+  return t.status === 'pending' ? fillBar(t, bar, events) : exitBar(t, bar, events);
+}
+
+/** A bar that may fill a pending order, walked along its assumed path; the fill can stop out or take profit later in the same bar. */
+function fillBar(t: Trade, bar: Bar, events: FillEvent[]): Trade {
+  const end = bar.time + bar.ms;
+  const path = barPath(bar);
+  const entry = entryTrigger(t);
+  let seg = 0;
+  let at: number;
+  let fill: number;
+  if (reached(path[0], entry)) {
+    // the bar opened past the entry: filled at the open (the ask for buys)
+    at = path[0];
+    fill = t.side === 'buy' ? path[0] + spreadOf(t) : path[0];
+  } else {
+    while (seg < 3 && !reached(path[seg + 1], entry)) seg++;
+    if (seg === 3) return t;
+    at = entry.level;
+    fill = t.entry;
+  }
+  // keep 1R in dollars: shift the stop and target with the fill
+  const shift = fill - t.entry;
+  let trade: Trade = { ...t, status: 'open', entry: fill, sl: t.sl + shift, tp: t.tp > 0 ? t.tp + shift : t.tp, openTime: bar.time, bestPrice: fill };
+  events.push({ kind: 'filled', trade });
+
+  // the rest of the bar, from the fill on
+  const buy = trade.side === 'buy';
+  const { sl, tp } = exitTriggers(trade);
+  const close = (price: number, reason: 'sl' | 'tp') => {
+    trade = closeLots(trade, trade.lots, price, end, reason);
+    events.push({ kind: reason, trade });
+    return trade;
+  };
+  // opened past the stop or target already (a gap through both levels)
+  if (reached(at, sl)) return close(exitPriceAt(trade, at), 'sl');
+  if (tp && reached(at, tp)) return close(exitPriceAt(trade, at), 'tp');
+  let best = at;
+  for (let i = seg; i < 3; i++) {
+    const next = path[i + 1];
+    // a stretch of the path moves one way only, so it can reach the stop or the target, not both
+    if (reached(next, sl)) return close(trade.sl, 'sl');
+    if (tp && reached(next, tp)) return close(trade.tp, 'tp');
+    best = buy ? Math.max(best, next) : Math.min(best, next);
+  }
+  const maxR = Math.max(0, round2(rOfPrice(trade, best)));
+  return { ...trade, bestPrice: buy ? Math.max(fill, best) : Math.min(fill, best), maxR, idealR: Math.max(trade.idealR ?? 0, maxR) };
+}
+
+/** A bar for an open position: its stop or target (the stop first when both are inside the bar). */
+function exitBar(t: Trade, bar: Bar, events: FillEvent[]): Trade {
   let trade = t;
   const end = bar.time + bar.ms;
-
-  if (trade.status === 'pending') {
-    const e = trade.entry;
-    const hit =
-      (trade.side === 'buy' && trade.orderType === 'limit' && bar.low <= e) ||
-      (trade.side === 'buy' && trade.orderType === 'stop' && bar.high >= e) ||
-      (trade.side === 'sell' && trade.orderType === 'limit' && bar.high >= e) ||
-      (trade.side === 'sell' && trade.orderType === 'stop' && bar.low <= e);
-    if (!hit) return trade;
-    const gapped =
-      (trade.orderType === 'stop' && (trade.side === 'buy' ? bar.open > e : bar.open < e)) || (trade.orderType === 'limit' && (trade.side === 'buy' ? bar.open < e : bar.open > e));
-    const fill = gapped ? bar.open : e;
-    // keep 1R in dollars: shift the stop and target with the fill
-    const shift = fill - e;
-    trade = { ...trade, status: 'open', entry: fill, sl: trade.sl + shift, tp: trade.tp + shift, openTime: bar.time, bestPrice: fill };
-    events.push({ kind: 'filled', trade });
-    // in the fill bar only the stop is checked (we cannot know the order of the moves inside it)
-    const stopNow = trade.side === 'buy' ? bar.low <= trade.sl : bar.high >= trade.sl;
-    if (stopNow) {
-      trade = closeLots(trade, trade.lots, trade.sl, end, 'sl');
-      events.push({ kind: 'sl', trade });
-    }
-    return trade;
-  }
-
-  if (trade.status !== 'open') return trade;
-  const buy = trade.side === 'buy';
-  const hitSl = buy ? bar.low <= trade.sl : bar.high >= trade.sl;
-  const hitTp = trade.tp > 0 && (buy ? bar.high >= trade.tp : bar.low <= trade.tp);
+  const { sl, tp } = exitTriggers(trade);
+  const hitSl = inBar(bar, sl);
+  const hitTp = !!tp && inBar(bar, tp);
   // a bar that stops out is assumed to hit the stop before its favourable extreme
   if (!hitSl) trade = track(trade, bar);
   if (hitSl) {
-    const gap = buy ? bar.open < trade.sl : bar.open > trade.sl;
-    trade = closeLots(trade, trade.lots, gap ? bar.open : trade.sl, end, 'sl');
+    // opened past the stop: closed at the open
+    const price = reached(bar.open, sl) ? exitPriceAt(trade, bar.open) : trade.sl;
+    trade = closeLots(trade, trade.lots, price, end, 'sl');
     events.push({ kind: 'sl', trade });
   } else if (hitTp) {
-    const gap = buy ? bar.open > trade.tp : bar.open < trade.tp;
-    trade = closeLots(trade, trade.lots, gap ? bar.open : trade.tp, end, 'tp');
+    const price = reached(bar.open, tp!) ? exitPriceAt(trade, bar.open) : trade.tp;
+    trade = closeLots(trade, trade.lots, price, end, 'tp');
     events.push({ kind: 'tp', trade });
   }
   return trade;

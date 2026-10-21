@@ -1,12 +1,16 @@
 import { PALETTES } from '../hooks/useChartTheme';
-import { SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, stepCursor, tfFromTv } from '../lib/market';
-import { orderTitleEn } from '../lib/trading';
+import { SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, knownPriceAt, roundToTick, stepCursor, tfFromTv } from '../lib/market';
+import { commissionFor, orderTitleEn } from '../lib/trading';
+import { DEFAULT_CHART_TZ, isTimeZone, tzOffset } from '../lib/timezone';
 import type { Trade } from '../lib/types';
 import { createNavButtons } from './navButtons';
 import { createReplayDatafeed } from './tvDatafeed';
 import { TV_LIBRARY_PATH } from './tvLoader';
 import { layoutSaved } from '../services/layoutSync';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
+
+/** TradingView's Bid and Ask line colours. */
+const BID_ASK = { bid: '#2962ff', ask: '#f23645' };
 
 /**
  * Replay chart on TradingView Advanced Charts. One widget per pane. Prices come from the replay
@@ -104,6 +108,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     auto_save_delay: 2,
     autosize: true,
     theme: state.theme === 'dark' ? 'dark' : 'light',
+    // the user's zone is applied once the chart is ready (tvZone); this one is always available
     timezone: 'Asia/Tehran',
     disabled_features: [
       'header_compare',
@@ -299,6 +304,47 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     return l;
   }
 
+  // ---------- time zone (picked under the chart) ----------
+  /** The library knows about 90 zones: another zone shows as one with the same offset at the replay time (or UTC). */
+  function tvZone(tz: string): string {
+    try {
+      const list: { id: string }[] = chart.getTimezoneApi().availableTimezones();
+      if (list.some((z) => z.id === tz)) return tz;
+      if (tz === 'UTC') return 'Etc/UTC';
+      const off = tzOffset(state.cursor, tz);
+      return list.find((z) => z.id.includes('/') && isTimeZone(z.id) && tzOffset(state.cursor, z.id) === off)?.id ?? 'Etc/UTC';
+    } catch {
+      return 'Etc/UTC';
+    }
+  }
+  function applyTimezone() {
+    try {
+      const want = tvZone(state.timezone ?? DEFAULT_CHART_TZ);
+      const api = chart.getTimezoneApi();
+      if (api.getTimezone().id !== want) api.setTimezone(want);
+    } catch {
+      /* timezone API not available */
+    }
+  }
+
+  // ---------- Bid and Ask lines (when the session has a spread) ----------
+  let bidAsk: { bid: Any; ask: Any } | null = null;
+  function syncBidAsk() {
+    const spread = state.spread ?? 0;
+    const bid = knownPriceAt(state.symbol, state.cursor);
+    if (!(spread > 0) || bid === null) {
+      bidAsk?.bid.remove();
+      bidAsk?.ask.remove();
+      bidAsk = null;
+      return;
+    }
+    const make = (color: string, text: string) =>
+      styleLine(chart.createOrderLine(), color).setText(text).setQuantity('').setCancellable(false).setEditable(false).setLineStyle(0).setLineLength(100);
+    bidAsk ??= { bid: make(BID_ASK.bid, 'Bid'), ask: make(BID_ASK.ask, 'Ask') };
+    bidAsk.bid.setPrice(bid);
+    bidAsk.ask.setPrice(roundToTick(state.symbol, bid + spread));
+  }
+
   function syncTrades() {
     const p = PALETTES[state.theme];
     const live = state.trades.filter((t) => t.status === 'open' || t.status === 'pending');
@@ -349,7 +395,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
         l = { entry, sl, tp, status: t.status };
         lines.set(t.id, l);
       }
-      const usd = (price: number) => (price - t.entry) * (t.side === 'buy' ? 1 : -1) * t.pointValue * t.lots;
+      const usd = (price: number) => (price - t.entry) * (t.side === 'buy' ? 1 : -1) * t.pointValue * t.lots - commissionFor(t, t.lots);
       l.entry
         .setPrice(t.entry)
         .setQuantity(String(t.lots))
@@ -440,6 +486,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       void widget.changeTheme(next.theme).then(() => widget.applyOverrides(overrides(next.theme)));
       nav.applyTheme();
     }
+    if (prev.timezone !== next.timezone) applyTimezone();
     if (prev.symbol !== next.symbol && chart.symbol() !== next.symbol) chart.setSymbol(next.symbol);
     if (prev.timeframe !== next.timeframe && tfFromTv(chart.resolution()) !== next.timeframe) chart.setResolution(tvRes(next.timeframe));
     if (prev.cursor !== next.cursor || prev.dataVersion !== next.dataVersion) {
@@ -450,6 +497,11 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     }
     syncDraft();
     syncTrades();
+    try {
+      syncBidAsk();
+    } catch {
+      /* order lines not available */
+    }
     syncNews();
   }
 
@@ -457,6 +509,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     if (destroyed) return;
     ready = true;
     chart = widget.activeChart();
+    applyTimezone();
     chart.onSymbolChanged().subscribe(null, () => {
       const sym = String(chart.symbol()).split(':').pop()!;
       if (sym !== state.symbol) cb.onSymbolChange(sym);

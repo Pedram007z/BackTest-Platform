@@ -1,4 +1,5 @@
 import type { Checklist, GoToPreset, NewsFilters, Session, Strategy, Trade } from '../lib/types';
+import { isTimeZone } from '../lib/timezone';
 
 /**
  * A user's own data: sessions, orders and positions (with their journals), strategies, checklists,
@@ -30,8 +31,10 @@ export interface WorkspacePrefs {
   newsFilters?: NewsFilters;
   /** The sample data is loaded. */
   hasDemoData?: boolean;
+  /** IANA time zone of the chart. */
+  chartTz?: string;
 }
-export const WS_PREFS = ['avatar', 'theme', 'newsFilters', 'hasDemoData'] as const satisfies readonly (keyof WorkspacePrefs)[];
+export const WS_PREFS = ['avatar', 'theme', 'newsFilters', 'hasDemoData', 'chartTz'] as const satisfies readonly (keyof WorkspacePrefs)[];
 export type WsPref = (typeof WS_PREFS)[number];
 
 export interface WorkspaceData {
@@ -300,6 +303,8 @@ function cleanPref(k: WsPref, v: unknown): unknown {
       return cleanNewsFilters(v);
     case 'hasDemoData':
       return typeof v === 'boolean' ? v : undefined;
+    case 'chartTz':
+      return isTimeZone(v) ? v : undefined;
   }
 }
 

@@ -29,6 +29,10 @@ interface Props {
   draft: (DraftOrder & { symbol: string }) | null;
   trades: Trade[];
   news: NewsEvent[];
+  /** Ask − bid of the pane's symbol in the session (price units). */
+  spread: number;
+  /** IANA time zone of the time axis. */
+  timezone: string;
   active: boolean;
   multi: boolean;
   callbacks: EngineCallbacks;
@@ -62,6 +66,8 @@ export function ChartPane(props: Props) {
     dataVersion: props.dataVersion,
     historyFrom: historyStartMs(pane.symbol, props.sessionStart),
     layoutKey: `${props.sessionId}:${index}`,
+    spread: props.spread,
+    timezone: props.timezone,
   };
   const stateRef = useRef(state);
   stateRef.current = state;
