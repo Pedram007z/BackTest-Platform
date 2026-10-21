@@ -6,7 +6,8 @@
 const { chromium } = require('../../tools/pw.cjs');
 const { spawn } = require('child_process');
 const fs = require('fs'), path = require('path');
-const PAGE = 'file://' + path.resolve(__dirname, 'index.html'), FPS = 30, SUB = 3, SUBRATE = 180;
+// REEL_DIR=voice renders the voiced cut (voice/index.html)
+const PAGE = 'file://' + path.resolve(__dirname, process.env.REEL_DIR || '.', 'index.html'), FPS = 30, SUB = 3, SUBRATE = 180;
 const [, , mode, out, ...rest] = process.argv;
 async function open() {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });

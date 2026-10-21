@@ -9,7 +9,7 @@ const W = 1080, H = 1920, CX = 540;
 const BG = '#0A0910', PANEL = '#14111D', PANEL2 = '#1B1828', LINE = '#2C2842', INK = '#F5F3FA', MUTED = '#A9A3BE', FAINT = '#6E6886';
 const V = '#7C5CFF', LILAC = '#B9A6FF', G = '#22C27E', R = '#F25466', AMBER = '#FFB93E', SKY = '#4C8DFF';
 const cv = document.getElementById('c').getContext('2d');
-const D = window.DATA, T = D.T, DUR = D.dur, CH = D.charts;
+const D = window.DATA, T = D.T, DUR = D.dur, CH = D.charts, VO = !!D.voiced;   // VO: the voiced cut (voice/), whose lines follow the take
 
 // ---------- time ----------
 const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x)), lerp = (a, b, k) => a + (b - a) * k, k01 = (t, a, d) => cl((t - a) / d);
@@ -65,9 +65,9 @@ function background(t) {
 const CAPS = [
   [T.q1, T.q2, [[['خب…', MUTED]], [['وین‌ریت', AMBER], ['دقیقش چنده؟', INK]]]],
   [T.q2, T.guess, [[['میانگین', INK], ['ریسک به ریواردش', AMBER]], [['چی؟', INK]]]],
-  [T.guess, T.dunno, [[['اگه جوابت', INK]], [['یکی از اینا بود…', INK]]]],
+  [T.guess, T.dunno, [[['اگه جوابت', INK]], VO ? [['حدوداً', AMBER], ['یا', INK], ['حس می‌کنم…', AMBER]] : [['یکی از اینا بود…', INK]]]],
   [T.dunno, T.chart, [[['یعنی', INK], ['نمی‌دونی.', R]]]],
-  [T.chart, T.liq, [[['یه ستاپ کلاسیک', INK], ['ICT', LILAC]], [['روی داده‌ی واقعی', MUTED]]]],
+  [T.chart, T.liq, [[['یه ستاپ کلاسیک', INK], ['ICT', LILAC]], [[VO ? 'روی داده‌ی واقعی نزدک' : 'روی داده‌ی واقعی', MUTED]]]],
   [T.liq, T.sweep, [[['نقدینگی', AMBER], ['بالای سقف لندن…', INK]]]],
   [T.sweep, T.fvg, [[['سوییپ', AMBER], ['شد…', INK]]]],
   [T.fvg, T.entry, [[['حرکت قوی و', INK], ['FVG', LILAC]]]],
@@ -81,8 +81,9 @@ const CAPS = [
   [T.f1, T.f2, [[['بازار واقعی،', INK], ['کندل به کندل', LILAC]], [['بدون دیدن آینده', MUTED]]]],
   [T.f2, T.f3, [[['ساعت چارت روی', INK], ['نیویورک', LILAC]], [['برای کیل‌زون‌ها', MUTED]]]],
   [T.f3, T.f4, [[['سطوح فیبو برای', INK], ['OTE', LILAC]], [['همون‌طور که خودت می‌خوای', MUTED]]]],
-  [T.f4, T.f5, [[['اسپرد و کمیسیون', LILAC]], [['مثل حساب واقعی', MUTED]]]],
-  [T.f5, T.cta, [[['هر ستاپ، یه استراتژی', INK]], [['وین‌ریت و میانگین RR هرکدوم، جدا', MUTED]]]],
+  [T.f4, T.f5, [VO ? [['اسپرد و کمیسیون', LILAC], ['هم حساب می‌شه', INK]] : [['اسپرد و کمیسیون', LILAC]], [['مثل حساب واقعی', MUTED]]]],
+  [T.f5, T.cta, VO ? [[['هر ستاپ رو یه استراتژی جدا تعریف کن', INK]], [['وین‌ریت و میانگین RR هرکدوم رو جدا می‌بینی', MUTED]]]
+    : [[['هر ستاپ، یه استراتژی', INK]], [['وین‌ریت و میانگین RR هرکدوم، جدا', MUTED]]]],
 ];
 function captions(t) {
   for (const [a, b, lines] of CAPS) {
@@ -153,8 +154,8 @@ function statCard(y, label, t, t0, tSpin, tLand, kind) {
 }
 function stats(t) {
   if (t < T.q1 - 0.1 || t > T.guess + 0.5) return;
-  statCard(640, 'وین‌ریت', t, T.q1 + 0.05, T.q1 + 0.15, T.q1 + 1.35, 'pct');
-  statCard(1030, 'میانگین ریسک به ریوارد', t, T.q2 + 0.05, T.q2 + 0.15, T.q2 + 1.3, 'rr');
+  statCard(640, 'وین‌ریت', t, T.q1 + 0.05, T.q1 + 0.15, Math.min(T.q1 + 1.35, T.q2 - 0.45), 'pct');
+  statCard(1030, 'میانگین ریسک به ریوارد', t, T.q2 + 0.05, T.q2 + 0.15, Math.min(T.q2 + 1.3, T.guess - 0.65), 'rr');
 }
 
 // ---------- 3 · the usual answers, struck out ----------

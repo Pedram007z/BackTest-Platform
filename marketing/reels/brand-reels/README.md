@@ -519,4 +519,21 @@ solid ground. 45 s, 1080×1920, no voice: the lines on screen carry the script.
 5. `node render.cjs cover cover.png`.
 6. `node render.cjs video reel-hq.mp4 mix.wav 4`: 30 fps, three subframes per frame for motion blur.
 
-Caption, pinned comment and an optional voice-over script are in `i1/caption.md`.
+Caption, pinned comment and the voice-over script are in `i1/caption.md`.
+
+**The voiced cut (`i1/voice/`).**
+- It is the same scenes on the user's take (`voice/t1.mp3`, 71.6 s).
+- `voice/build.py` prepares the voice:
+  1. It snaps Whisper's word starts to the voice (they often start inside the pause before).
+  2. It cuts pauses to 0.12 s.
+  3. It adds short beats after the +2R and −1R results, before the losing chart's stop, and after the logo.
+  4. It speeds the take up 1.3× with the pitch kept.
+- Each scene starts on the word that names it, and the reel lasts 54.9 s.
+- A few lines follow the take's wording (`VO` in `scenes.js`).
+
+To rebuild the voiced cut (from `i1/`):
+1. `python3 ../transcribe.py voice/t1.mp3 voice/t1.words.json`
+2. `python3 voice/build.py`
+3. `python3 page.py voice`
+4. `python3 sound.py voice`: the music and effects are ducked under the voice, and the mix is at −14 LUFS.
+5. `REEL_DIR=voice node render.cjs video voice/reel-hq.mp4 voice/mix.wav 4`

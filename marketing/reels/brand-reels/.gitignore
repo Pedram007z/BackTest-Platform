@@ -41,3 +41,8 @@ i[0-9]/*.mp4
 i[0-9]/*.png
 i[0-9]/*.log
 i[0-9]/chunks/
+i[0-9]/voice/*.wav
+i[0-9]/voice/*.mp4
+i[0-9]/voice/*.png
+i[0-9]/voice/*.log
+i[0-9]/voice/chunks/

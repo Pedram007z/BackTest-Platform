@@ -37,10 +37,9 @@
 
 **Pinned comment:** «وین‌ریت ستاپت رو می‌دونی؟ بنویس روی چند تا معامله تستش کردی 👇»
 
-## Voice-over script (optional)
+## Voice-over script
 
-The reel works without a voice: the lines on screen carry the whole script. If you record it, read these lines in one
-take, and I'll re-time the scenes to your voice (as for the launch reel).
+The user's take of these lines is the voiced cut (`voice/`). Both cuts use the same caption and cover.
 
 1. با ICT و اسمارت‌مانی ترید می‌کنی؟
 2. خب… وین‌ریت دقیقش چنده؟
