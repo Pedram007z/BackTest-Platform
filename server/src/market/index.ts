@@ -5,7 +5,7 @@ import { INSTRUMENTS, type Instrument } from './instruments';
 import { liveQuotes } from './live';
 import { sourceFor } from './source';
 import { BARS_PER_DAY, HOUR_MS, SECONDS_PER_HOUR, aggregate, type DayBars } from './sources';
-import { readDay, readSecondsDay } from './store';
+import { dataRanges, readDay, readSecondsDay } from './store';
 
 export { sourceFor } from './source';
 
@@ -174,6 +174,13 @@ export async function marketShowcase(): Promise<Showcase> {
       return s ? [s] : [];
     }),
   };
+}
+
+/** GET /api/market/coverage: each market's ranges of days with chart data (store.ts, `dataRanges`). */
+export function marketCoverage(): { ranges: Record<string, [string, string][]> } {
+  const ranges: Record<string, [string, string][]> = {};
+  for (const inst of Object.values(INSTRUMENTS)) ranges[inst.id] = dataRanges(inst.id, inst.weekends);
+  return { ranges };
 }
 
 /** Which real source each market uses, for the app's settings. */
