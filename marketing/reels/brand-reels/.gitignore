@@ -57,3 +57,10 @@ p[0-9]/light/*.mp4
 p[0-9]/light/*.png
 p[0-9]/light/*.log
 p[0-9]/light/chunks/
+# q1 «چک قبل از معامله»: voice cuts, music, mix, renders, render chunks and the cover are rebuilt (see q1/voice/build.py)
+q[0-9]/*.wav
+q[0-9]/*.mp4
+q[0-9]/*.png
+q[0-9]/*.log
+q[0-9]/chunks/
+q[0-9]/voice/*.wav

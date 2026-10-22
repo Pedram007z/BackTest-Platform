@@ -567,3 +567,40 @@ first frame. One picture per line:
 8. `node render.cjs video reel-hq.mp4 mix.wav 4`
 
 Caption and the facts on screen are in `p1/caption.md`.
+
+---
+
+## q1 «تریدرهای سودده قبل از هر معامله یه چیزی رو چک می‌کنن… تو نه.» (`q1/`, the user's voice)
+
+A new look: full-bleed colour blocks (paper, ink, violet, lime) that wipe into each other on the beat, and the words as
+the picture: huge Vazirmatn type that lands word by word as it is spoken.
+
+**Symbols, in order:**
+1. A check that ticks on «چک».
+2. «تو نه.» alone on ink.
+3. Three struck-out rows: news, indicators, others' opinions.
+4. A green «خرید» button the cursor stops short of. It comes back at the end.
+5. Ten spinning «؟» for «چند بار از ده بار».
+6. A red arrow plunging for «ضرر».
+7. «عدد» crisp on paper over «حس» blurred on ink.
+8. A wall of tiles for «صدها بار».
+9. A lime «تو هم می‌تونی».
+10. Giant real gold daily candles behind an «آینده» curtain, rewound and replayed for «بارها».
+11. A worked position-size example.
+12. A journal page.
+13. Two gauges.
+14. «عددش رو می‌دونم؟»
+15. The end card.
+
+**Timing:** the take (57.1 s) is cut to 0.18 s pauses with a few beats added, and sped up 1.14×. The reel is 49.1 s.
+
+**Rebuild** (from `q1/`):
+1. `python3 ../transcribe.py voice/t1.mp3 voice/t1.words.json`
+2. `python3 voice/build.py`
+3. `python3 data.py`: the timing plus the gold candles.
+4. `python3 page.py`
+5. `python3 sound.py`
+6. `node render.cjs cover cover.png`
+7. `node render.cjs video reel-hq.mp4 mix.wav 4`
+
+Caption and the facts on screen are in `q1/caption.md`.
