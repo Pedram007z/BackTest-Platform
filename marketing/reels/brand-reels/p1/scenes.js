@@ -11,9 +11,9 @@ const W = 1080, H = 1920, CX = 540;
 const D = window.DATA, T = D.T, DUR = D.dur, Wd = D.w, C = D.chart, LIGHT = !!D.light;   // light: the light-theme cut (light/)
 // ON_*: text on a filled chip of that colour; BGR: the background as "r,g,b" for veils; GRID / HATCH: hairlines
 const TH = LIGHT
-  ? { BG: '#F5F3FA', PANEL: '#FFFFFF', PANEL2: '#F1EEF8', LINE: '#DFD9EC', INK: '#17131F', MUTED: '#5F5874', FAINT: '#9C95B2', V: '#6A46FF', LILAC: '#6A46FF',
-      G: '#12A36A', R: '#E0384F', AMBER: '#C77D00', SKY: '#2F6FE8', ON_G: '#FFFFFF', ON_AMB: '#FFFFFF', ON_INK: '#FFFFFF', ON_V: '#FFFFFF', ON_R: '#FFFFFF',
-      CARD: '#F3EFFF', REDGLOW: '#F25466', BGR: '245,243,250', GRID: 'rgba(23,19,31,0.045)', GRID2: 'rgba(23,19,31,0.06)', HATCH: 'rgba(23,19,31,0.08)' }
+  ? { BG: '#ECE5FF', PANEL: '#FFFFFF', PANEL2: '#F3EEFF', LINE: '#D8CCFF', INK: '#1B1530', MUTED: '#5B5280', FAINT: '#998FC2', V: '#6A46FF', LILAC: '#6A46FF',
+      G: '#12A36A', R: '#E0384F', AMBER: '#C27400', SKY: '#2F6FE8', ON_G: '#FFFFFF', ON_AMB: '#FFFFFF', ON_INK: '#FFFFFF', ON_V: '#FFFFFF', ON_R: '#FFFFFF',
+      CARD: '#F1EBFF', REDGLOW: '#F25466', BGR: '236,229,255', GRID: 'rgba(106,70,255,0.07)', GRID2: 'rgba(106,70,255,0.08)', HATCH: 'rgba(106,70,255,0.10)' }
   : { BG: '#09080F', PANEL: '#14111D', PANEL2: '#1C1829', LINE: '#2D2843', INK: '#F5F3FA', MUTED: '#A9A3BE', FAINT: '#6E6886', V: '#7C5CFF', LILAC: '#B9A6FF',
       G: '#22C27E', R: '#F25466', AMBER: '#FFB93E', SKY: '#4C8DFF', ON_G: ON_G, ON_AMB: ON_AMB, ON_INK: ON_INK, ON_V: '#F5F3FA', ON_R: '#F5F3FA',
       CARD: CARD, REDGLOW: REDGLOW, BGR: '9,8,15', GRID: GRID, GRID2: GRID2, HATCH: HATCH };
@@ -60,7 +60,9 @@ function loadImg(k, src) { return new Promise((ok) => { const i = new Image(); i
 
 // ---------- background: near-black, two slow glows (violet, and green once the platform appears), a faint grid ----------
 function background(t) {
-  cv.fillStyle = BG; cv.fillRect(0, 0, W, H);
+  if (LIGHT) { const g = cv.createLinearGradient(0, 0, W * 0.4, H); g.addColorStop(0, '#F4F0FF'); g.addColorStop(0.55, '#ECE5FF'); g.addColorStop(1, '#E2D7FF'); cv.fillStyle = g; }
+  else cv.fillStyle = BG;
+  cv.fillRect(0, 0, W, H);
   const glow = (x, y, r, col, a) => { const g = cv.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, rgba(col, a)); g.addColorStop(1, rgba(col, 0)); cv.fillStyle = g; cv.fillRect(0, 0, W, H); };
   const red = t >= T.crash && t < T.feel ? 0.5 : 0, green = k01(t, T.brand, 1.2);
   glow(220 + Math.sin(t * 0.3) * 90, 420 + Math.cos(t * 0.25) * 70, 760, red > 0 ? REDGLOW : V, 0.17);
