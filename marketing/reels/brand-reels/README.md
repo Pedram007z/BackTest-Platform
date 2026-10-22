@@ -537,3 +537,33 @@ To rebuild the voiced cut (from `i1/`):
 3. `python3 page.py voice`
 4. `python3 sound.py voice`: the music and effects are ducked under the voice, and the mix is at −14 LUFS.
 5. `REEL_DIR=voice node render.cjs video voice/reel-hq.mp4 voice/mix.wav 4`
+
+---
+
+## p1 «می‌خوای تو ترید سودده بشی… ولی نمی‌تونی؟» (`p1/`, the user's voice)
+
+The user's 39 s take, kept at its own pace with the longest pauses trimmed. The reel is 41.3 s, 1080×1920.
+
+**Captions:** they light up word by word as they are spoken, in a band low on the screen. The hook is lit from the
+first frame. One picture per line:
+1. A balance curve that climbs and crashes.
+2. A new strategy every week, indicators raining down, and the «ضرر» stamp.
+3. The trader's checklist: strategy ✓, indicators ✓, testing ✗.
+4. «حس» struck out and «عدد» lit up.
+5. BacktestLab replays a real gold day: XAUUSD 15m, 14 Aug 2026, Tehran time. A long is placed with its stop and a 2R
+   target, and the target is really hit.
+6. The trade goes into the journal. Analytics bars, labelled «نمونه», show where money is made and burned.
+7. A 2015 → 2026 counter and a stopwatch.
+8. The end card: «شروعش رایگانه» and «لینک توی بیو».
+
+**Rebuild** (from `p1/`):
+1. `python3 ../transcribe.py voice/t1.mp3 voice/t1.words.json`
+2. `python3 voice/build.py`
+3. `python3 gold.py 1786707000`: writes `chart.json`. `python3 gold.py list` lists the other candidates.
+4. `python3 data.py`: merges `voice/timing.json` and `chart.json` into `data.json`.
+5. `python3 page.py`
+6. `python3 sound.py`
+7. `node render.cjs cover cover.png`
+8. `node render.cjs video reel-hq.mp4 mix.wav 4`
+
+Caption and the facts on screen are in `p1/caption.md`.

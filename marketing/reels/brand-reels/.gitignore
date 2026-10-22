@@ -46,3 +46,10 @@ i[0-9]/voice/*.mp4
 i[0-9]/voice/*.png
 i[0-9]/voice/*.log
 i[0-9]/voice/chunks/
+# p1 «سودده»: voice cuts, music, mix, renders, render chunks and the cover are rebuilt (see p1/voice/build.py)
+p[0-9]/*.wav
+p[0-9]/*.mp4
+p[0-9]/*.png
+p[0-9]/*.log
+p[0-9]/chunks/
+p[0-9]/voice/*.wav
