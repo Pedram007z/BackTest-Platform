@@ -71,3 +71,9 @@ n[0-9]/*.png
 n[0-9]/*.log
 n[0-9]/chunks/
 n[0-9]/voice/*.wav
+# n1g, n1's glass cut: renders, render chunks and the cover are rebuilt (it plays ../n1/mix.wav)
+n[0-9]g/*.wav
+n[0-9]g/*.mp4
+n[0-9]g/*.png
+n[0-9]g/*.log
+n[0-9]g/chunks/

@@ -635,3 +635,25 @@ story are new.
 5. `python3 sound.py`
 6. `node render.cjs cover cover.png`
 7. `node render.cjs video reel-hq.mp4 mix.wav 4`
+
+---
+
+## n1g «سه تا عدد», glass cut (`n1g/`, the user's voice)
+
+n1 restyled in glassmorphism. It uses the same take, timing, story beats and soundtrack, and reads n1's
+`data.json` and plays `../n1/mix.wav`. Only the visuals are new.
+
+**Look:**
+- Frosted-glass cards: a real blur of the background behind them, a dark frost, and a light rim.
+- Behind them, slowly drifting colour fields that turn red in the panic, mint in the calm and violet with the brand,
+  plus floating glossy shapes (spheres, a ring, a capsule).
+- Lucide icons (ISC licence) on gradient squircles, read from `node_modules/lucide-react` by `page.py`. The losing
+  streak is a five-tally drawn in the same style.
+- The vault is a glass lock card with a padlock whose shackle lifts as it opens.
+
+**Rebuild** (from `n1g/`, after n1's `data.json` and `mix.wav` exist):
+1. `python3 page.py`
+2. `node render.cjs cover cover.png`
+3. `node render.cjs video reel-hq.mp4 ../n1/mix.wav 4`
+
+The caption is n1's (`n1g/caption.md`).
