@@ -604,3 +604,34 @@ the picture: huge Vazirmatn type that lands word by word as it is spoken.
 7. `node render.cjs video reel-hq.mp4 mix.wav 4`
 
 Caption and the facts on screen are in `q1/caption.md`.
+
+---
+
+## n1 «سه تا عدد» (`n1/`, the user's voice)
+
+The user's script, written from a reference video's idea: «۳ عدد که قبل از چالش پراپ باید بدونی». The wording and the
+story are new.
+
+**Look:** a dark navy "monitor" with mint and red. Captions type in word by word at the top.
+
+**Story:**
+1. The three numbers are a vault's combination. The vault is labelled «حساب پراپ · پول واقعی», and its three drums
+   spin and lock on «یک / دو / سه».
+2. «پنجمین ضرر» cuts to a heart monitor: five «−1R» pile up and the pulse climbs.
+3. The trader without numbers goes red, with «ریسک ×۲ / اورترید / استراتژی کنار گذاشته شد».
+4. The trader with numbers sees «۵ از ۷», breathes, and continues.
+5. «این آرامش از عدد میاد»: the vault opens, and BacktestLab comes out of its light.
+6. Real gold daily candles.
+7. The three stats under the platform's own Analytics labels.
+8. The vault takes the coin on «بعد پول بذار».
+
+**Timing:** the take (59.9 s) is cut to 0.18 s pauses with beats added, and sped up 1.17×. The reel is 49.4 s.
+
+**Rebuild** (from `n1/`):
+1. `python3 ../transcribe.py voice/t1.mp3 voice/t1.words.json`
+2. `python3 voice/build.py`
+3. `python3 data.py`: needs `../q1/data.json` for the gold candles.
+4. `python3 page.py`
+5. `python3 sound.py`
+6. `node render.cjs cover cover.png`
+7. `node render.cjs video reel-hq.mp4 mix.wav 4`

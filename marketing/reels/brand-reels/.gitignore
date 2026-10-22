@@ -64,3 +64,10 @@ q[0-9]/*.png
 q[0-9]/*.log
 q[0-9]/chunks/
 q[0-9]/voice/*.wav
+# n1 «سه تا عدد»: voice cuts, music, mix, renders, render chunks and the cover are rebuilt (see n1/voice/build.py)
+n[0-9]/*.wav
+n[0-9]/*.mp4
+n[0-9]/*.png
+n[0-9]/*.log
+n[0-9]/chunks/
+n[0-9]/voice/*.wav
