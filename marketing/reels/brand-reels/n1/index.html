@@ -122,14 +122,15 @@ function drumSymbol(sym, x, y, s = 1) {
 /** state: per drum { spin: t0 or null, land: t or null }, lit (0–1), checks (t or null), open (0–1) */
 function vault(t, o) {
   const cx = CX, cy = 960, R = 400, open = o.open ?? 0;
-  // the light inside, behind the door
-  if (open > 0) {
-    const g = cv.createRadialGradient(cx, cy, 20, cx, cy, R * 1.4); g.addColorStop(0, rgba(MINT, 0.9 * open)); g.addColorStop(0.35, rgba(MINT, 0.35 * open)); g.addColorStop(1, rgba(MINT, 0)); cv.fillStyle = g; cv.fillRect(0, 0, W, H);
-    cv.save(); cv.globalAlpha = 0.25 * open; cv.translate(cx, cy); for (let i = 0; i < 16; i++) { cv.rotate(Math.PI / 8); rrect(-6, -R * 1.6, 12, R * 1.3, 6, '#FFFFFF'); } cv.restore();
-  }
   // the frame
   circle(cx, cy, R + 46, '#121927', '#273044', 6);
   for (let i = 0; i < 20; i++) { const a = (i / 20) * Math.PI * 2; circle(cx + Math.cos(a) * (R + 23), cy + Math.sin(a) * (R + 23), 9, '#3A4558'); }
+  // the light inside, seen as the door swings away (drawn over the frame, under the door)
+  if (open > 0) {
+    cv.save(); circle(cx, cy, R, '#F2FFF9'); cv.globalAlpha = open;
+    const g = cv.createRadialGradient(cx, cy, 20, cx, cy, R * 1.6); g.addColorStop(0, rgba('#FFFFFF', 0.95)); g.addColorStop(0.3, rgba(MINT, 0.85)); g.addColorStop(0.65, rgba(MINT, 0.25)); g.addColorStop(1, rgba(MINT, 0)); cv.fillStyle = g; cv.fillRect(0, 0, W, H);
+    cv.globalAlpha = 0.3 * open; cv.translate(cx, cy); for (let i = 0; i < 16; i++) { cv.rotate(Math.PI / 8); rrect(-6, -R * 1.6, 12, R * 1.3, 6, '#FFFFFF'); } cv.restore();
+  }
   // the door, swinging on its hinge (left)
   cv.save(); const hx = cx - R; cv.translate(hx, 0); cv.scale(Math.cos(open * 1.35), 1); cv.translate(-hx, 0);
   const g = cv.createRadialGradient(cx - 120, cy - 160, 40, cx, cy, R); g.addColorStop(0, STEEL0); g.addColorStop(1, STEEL1); circle(cx, cy, R, g, '#4A5568', 6);
@@ -296,7 +297,7 @@ window.seek = (t) => {
   if (v2 > 0) { cv.save(); cv.globalAlpha = v2; vault(t, { lit: 1, drums: DRUMS.map(() => ({ spin: null, land: 0 })), checks: T.peace + 0.25, open: cub(k01(t, ws(106) - 0.05, 1.1)) }); cv.restore(); }
   const kl = pop(t - T.brand - 0.1, 11, 0.6);
   if (kl > 0 && t < T.test + 0.5 && IMG.icon) { const out = 1 - cub(k01(t, T.test - 0.1, 0.4)); at(CX, 900, cl(kl, 0, 1.25) * lerp(1, 0.6, 1 - out), cl(kl) * out, () => { cv.shadowColor = rgba(MINT, 0.6); cv.shadowBlur = 70; cv.drawImage(IMG.icon, -150, -150, 300, 300); });
-    const kw = cub(k01(t, T.brand + 0.35, 0.35)); if (kw > 0 && IMG.word) { const w = 560, h = (w * IMG.word.height) / IMG.word.width; cv.save(); cv.globalAlpha = kw * out; cv.drawImage(IMG.word, CX - w / 2, 1110, w, h); cv.restore(); } }
+    const kw = cub(k01(t, T.brand + 0.35, 0.35)); if (kw > 0 && IMG.word) { const w = 560, h = (w * IMG.word.height) / IMG.word.width; cv.save(); cv.globalAlpha = kw * out; rrect(CX - w / 2 - 40, 1110 - 30, w + 80, h + 60, 40, 'rgba(7,11,20,0.88)'); cv.drawImage(IMG.word, CX - w / 2, 1110, w, h); cv.restore(); } }
   // 4 · real gold candles, then the three stats
   goldPanel(t, win(t, T.test, T.analytics + 0.2, 0.35, 0.35));
   statsPanel(t, win(t, T.analytics, T.know + 0.2, 0.35, 0.35));
