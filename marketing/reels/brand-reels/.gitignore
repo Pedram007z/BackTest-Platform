@@ -53,3 +53,7 @@ p[0-9]/*.png
 p[0-9]/*.log
 p[0-9]/chunks/
 p[0-9]/voice/*.wav
+p[0-9]/light/*.mp4
+p[0-9]/light/*.png
+p[0-9]/light/*.log
+p[0-9]/light/chunks/
