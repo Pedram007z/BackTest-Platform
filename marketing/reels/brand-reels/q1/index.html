@@ -123,16 +123,17 @@ function bgFill(bg, x, y, w, h) {
     cv.restore(); return; }
   cv.fillStyle = bg; cv.fillRect(x, y, w, h);
 }
-function background(s, t, origin) {
-  if (s.wipe === 'none' || (s.wipe === 'cut' && t < s.t0)) return;     // 'none' shares the previous scene's ground
-  const k = s.wipe === 'cut' ? 1 : exIO(k01(t, s.t0 - 0.06, WIPE));
-  if (k >= 1) return bgFill(s.bg, 0, 0, W, H);
-  if (k <= 0) return;
-  if (s.wipe === 'right') return bgFill(s.bg, W * (1 - k), 0, W * k, H);
-  if (s.wipe === 'left') return bgFill(s.bg, 0, 0, W * k, H);
-  if (s.wipe === 'up') return bgFill(s.bg, 0, H * (1 - k), W, H * k);
-  if (s.wipe === 'down') return bgFill(s.bg, 0, 0, W, H * k);
-  if (s.wipe === 'iris') { const [ox, oy] = origin ?? [CX, 960]; cv.save(); cv.beginPath(); cv.arc(ox, oy, k * 2300, 0, Math.PI * 2); cv.clip(); bgFill(s.bg, 0, 0, W, H); cv.restore(); }
+/** Progress of a scene's wipe (1 = done), and a clip to that shape while it runs. */
+function wipeK(s, t) { if (s.wipe === 'none') return 1; if (s.wipe === 'cut') return t < s.t0 ? 0 : 1; return exIO(k01(t, s.t0 - 0.06, WIPE)); }
+function clipTo(s, k, origin) {
+  cv.beginPath();
+  if (s.wipe === 'right') cv.rect(W * (1 - k), 0, W * k, H);
+  else if (s.wipe === 'left') cv.rect(0, 0, W * k, H);
+  else if (s.wipe === 'up') cv.rect(0, H * (1 - k), W, H * k);
+  else if (s.wipe === 'down') cv.rect(0, 0, W, H * k);
+  else if (s.wipe === 'iris') { const [ox, oy] = origin ?? [CX, 960]; cv.arc(ox, oy, k * 2300, 0, Math.PI * 2); }
+  else cv.rect(0, 0, W, H);
+  cv.clip();
 }
 // the spoken words: each token lands (a spring from 0.8×) as its word starts; the hook's first line is there from frame 0
 function words(s, t) {
@@ -318,11 +319,14 @@ window.seek = (t) => {
     if (t < s.t0 - 0.1) return;
     const nextBg = SC.slice(i + 1).find((x) => x.wipe !== 'none'), hidden = nextBg && t > nextBg.t0 + WIPE;
     if (hidden) return;
-    background(s, t, s.k === 'tenof' ? [760, 1080] : undefined);
-    // the scene's art and words stay until the next scene's ground has covered them (at once if it shares this ground)
-    const nx = SC[i + 1], live = t < s.t1 + (nx && nx.wipe === 'none' ? 0 : nx && nx.wipe === 'cut' ? 0 : WIPE);
+    const k = wipeK(s, t); if (k <= 0) return;
+    // the scene's ground, art and words, all inside its wipe while the wipe runs ('none' shares the previous ground)
+    cv.save(); if (k < 1) clipTo(s, k, s.k === 'tenof' ? [760, 1080] : undefined);
+    if (s.wipe !== 'none') bgFill(s.bg, 0, 0, W, H);
+    const nx = SC[i + 1], live = t < s.t1 + (nx && (nx.wipe === 'none' || nx.wipe === 'cut') ? 0 : WIPE);
     if (live && ART[s.k]) ART[s.k](t);
     if (live) words(s, t);
+    cv.restore();
   });
   cv.restore();
 };
