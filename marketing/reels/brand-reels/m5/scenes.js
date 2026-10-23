@@ -3,7 +3,7 @@
 // 2347.52, through the stops under the previous low (2350.36) and the round 2350, and closed back at 2362.58; two
 // minutes later gold traded at 2376. Scenes: the hook (the stop hit, then the turn), «آشناست؟» (rewind; your stop is
 // one of a crowd), where everyone puts it (previous low, round number, the sweep), the backtest (a further stop with
-// half the size, same $800 risk), the 1-pip share prompt, and the link with the 7-day trial.
+// half the size, same $800 risk), the 1-pip share prompt, and the link with «شروع رایگان».
 const T = DATA.t, SAY = DATA.say, TR = DATA.trade, M1 = DATA.m1, M30 = DATA.m30;
 const GOLD = '#F5B014', GOLD2 = '#FFD566', RED = C.loss, RED2 = '#FF6B7D', GRN = C.gain, GRN2 = '#5CF2B0', BLUE = '#6E8BFF';
 const fp = (v, d = 0) => fa(v, d).replace(/٬/g, '');
@@ -263,7 +263,7 @@ function sShare(t) {
 }
 const s2 = (w) => { const x = SAY.share2.find(([s]) => s.startsWith(w)); return x ? x[1] : T.pip; };
 
-// ---------- 6 · link in bio, 7 days free ----------
+// ---------- 6 · link in bio, free start ----------
 function sCta(t) {
   const l = t - T.cta; bg(t, { col: C.accent, a: 0.28, green: 0.3 * P(t, T.free, 0.5) });
   say('cta', t, 400, { size: 84, colors: { 3: GRN2, 4: GRN2, 5: GRN2 } });
@@ -271,7 +271,7 @@ function sCta(t) {
     cv.save(); cv.globalAlpha = clamp(lk); cv.translate(540, y - 120 + bob); cv.fillStyle = C.lilac; cv.beginPath(); cv.moveTo(0, -38); cv.lineTo(34, 4); cv.lineTo(12, 4); cv.lineTo(12, 38); cv.lineTo(-12, 38); cv.lineTo(-12, 4); cv.lineTo(-34, 4); cv.closePath(); cv.fill(); cv.restore(); }
   const fk = pop(t, T.free); if (fk > 0) { cv.save(); cv.translate(540, 1080); cv.scale(fk, fk); cv.globalAlpha = clamp(fk);
     card(-400, -150, 800, 300, { r: 44, border: rgba(C.gain, 0.75), glow: rgba(C.gain, 0.35), fill: rgba('#16121F', 0.96) });
-    txt('۷ روز', 0, -48, { size: 76, font: 'Rdx', weight: 700, color: C.ink });
+    txt('شروع', 0, -48, { size: 76, font: 'Rdx', weight: 700, color: C.ink });
     txt('رایگان', 0, 50, { size: 104, font: 'Rdx', weight: 700, color: GRN2, glow: rgba(C.gain, 0.5) }); cv.restore(); }
   const gk = E.out(P(t, T.free + 0.5, 0.5)); if (gk > 0 && IMG.logo) { const w = 330, h = (w * IMG.logo.height) / IMG.logo.width; cv.save(); cv.globalAlpha = gk; cv.drawImage(IMG.logo, 540 - w / 2, 1350 - h / 2, w, h); cv.restore();
     txt('backtestlab.ir', 540, 1435, { size: 38, weight: 600, color: C.muted, alpha: gk, dir: 'ltr', font: 'Rdx' }); }

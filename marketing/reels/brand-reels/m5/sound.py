@@ -2,7 +2,7 @@
 # the pulse from the backtest on, a lift for the link) ducked under the voice, with effects on the picture's moments:
 # a clock before the stop, the hit, the target reached without you, the rewind, the crowd and the swarm appearing,
 # the sweep that takes every stop, the stop line sliding and the size halving, A's loss and B's target in the replay,
-# the paper plane, the magnifier, «استاپ!», and a bell on «۷ روز رایگان».
+# the paper plane, the magnifier, «استاپ!», and a bell as the «شروع رایگان» card lands.
 #   python3 sound.py  → mix.wav (−14 LUFS, true peak −1.5 dB)
 import json, subprocess, wave
 import numpy as np
