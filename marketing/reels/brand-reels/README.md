@@ -696,3 +696,29 @@ account at zero. It is sped up 1.18×. The reel is 49.2 s.
 7. `node render.cjs video reel-hq.mp4 mix.wav 4`
 
 The caption and the facts on screen are in `q2/caption.md`.
+
+---
+
+## q3 «یکی بهت سیگنال با ۹۰ درصد سود ماهانه می‌فروشه؟» (`q3/`, the user's voice)
+
+A script written for the user's chosen hook and recorded by the user, in q2's style. `scenes.js` reuses q2's engine
+(time, drawing, wipes, words); only the scenes and symbols are new.
+
+**Story:**
+1. A generic «سیگنال VIP · ۹۰٪» ad.
+2. Three numbered questions:
+   - **«روی چند تا معامله؟»:** ten winning trades turn out to be 10 of 200, labelled «نمونه».
+   - **«بدترین ماهش؟»:** a dashed «اسکرین‌شات» of three green months zooms out to a year with its red months,
+     labelled «نمونه».
+   - **«پس چرا داره سیگنال می‌فروشه؟»:** ×1.9 a month turns $1,000 into $2,213,315.
+3. The ad stamped «تست‌نشده».
+4. Real NAS100 monthly candles, 2015–2026.
+5. The two gauges.
+6. «عدد» crisp over «اسکرین‌شات» struck out.
+7. The end card, with a share prompt.
+
+**Timing:** the take (55.3 s) is cut to 0.18 s pauses, with beats added, and sped up 1.12×. The reel is 48.4 s.
+
+**Rebuild** (from `q3/`): the same steps as q2. `data.py` reads NAS100 from the market store.
+
+The caption and the facts on screen are in `q3/caption.md`.
