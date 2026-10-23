@@ -657,3 +657,42 @@ n1 restyled in glassmorphism. It uses the same take, timing, story beats and sou
 3. `node render.cjs video reel-hq.mp4 ../n1/mix.wav 4`
 
 The caption is n1's (`n1g/caption.md`).
+
+---
+
+## q2 «چطور می‌تونم تو یه ماه ۲۰۰ درصد سود کنم؟» (`q2/`, the user's voice)
+
+The user's hook, with a script written for it and recorded by the user. It uses q1's visual language: full-bleed
+colour blocks that wipe on the beat, huge words that land as they're spoken, and one symbol per idea.
+
+**Story:**
+1. The hook, with a rising arrow.
+2. A calculator types «۲۰۰٪».
+3. One bill becomes three (×3).
+4. Twelve monthly bars: $1,000 tripled every month stays flat for half a year, then breaks the chart at
+   $531,441,000.
+5. «هیچ‌کس نداره؟»
+6. A risk gauge in the red.
+7. A worked example, labelled «مثال»: a $1,000 account risking a fixed $200 a trade. Five losses take all of it,
+   and the card stamps «حساب صفر شد».
+8. A wall of example trades, labelled «نمونه», with a run of five losses lit up.
+9. «حدس» blurred and struck out over a crisp «بک‌تست».
+10. The logo.
+11. Real gold monthly candles, 2015–2026.
+12. Two gauges waiting for your own numbers.
+13. A small repeating profit against a one-off spike.
+14. The end card.
+
+**Timing:** the take (58.7 s) is cut to 0.18 s pauses, with beats added after the hook, the $531M, «هیچ‌کس» and the
+account at zero. It is sped up 1.18×. The reel is 49.2 s.
+
+**Rebuild** (from `q2/`):
+1. `python3 ../transcribe.py voice/t1.mp3 voice/t1.words.json`
+2. `python3 voice/build.py`
+3. `python3 data.py`: reads the market store, about a minute.
+4. `python3 page.py`
+5. `python3 sound.py`
+6. `node render.cjs cover cover.png`
+7. `node render.cjs video reel-hq.mp4 mix.wav 4`
+
+The caption and the facts on screen are in `q2/caption.md`.
