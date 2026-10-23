@@ -722,3 +722,11 @@ A script written for the user's chosen hook and recorded by the user, in q2's st
 **Rebuild** (from `q3/`): the same steps as q2. `data.py` reads NAS100 from the market store.
 
 The caption and the facts on screen are in `q3/caption.md`.
+
+**Dark cut** (`q3/dark/`):
+- **Build:** `python3 page.py dark` writes `dark/index.html` with `dark: true` in its data.
+- **What changes:** the paper ground becomes deep violet-slate, the violet ground deep indigo, and the lime ground a
+  dark olive with lime words. Text on these grounds turns light, and the white chart card turns dark. The accents and
+  the timing stay the same.
+- **Render:** `REEL_DIR=dark node render.cjs video dark/reel-hq.mp4 mix.wav 4` (it uses the same mix) and
+  `REEL_DIR=dark node render.cjs cover dark/cover.png`.

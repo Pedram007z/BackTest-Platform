@@ -14,8 +14,12 @@ html, body { margin: 0; background: #F3F0FA; overflow: hidden; } canvas { displa
 // 1080×1920, every frame a pure function of t (window.seek). Vazirmatn 800–900. Key content inside y 230–1480.
 // Built from q2's engine (time, drawing, wipes, words): only the scenes and the symbols are new.
 const W = 1080, H = 1920, CX = 540;
-const PAPER = '#F3F0FA', INKD = '#100C1C', INKP = '#1A1430', VIO = '#6C47FF', LIME = '#C6F24E', G = '#16B37A', R = '#F0435B', AMB = '#FFB020';
-const WHITE = '#FFFFFF', MP = '#6B6489', MD = '#9C95B8', PLATE = '#1D1730';
+const DK = !!window.DATA.dark;   // the dark cut (q3/dark): the light grounds go deep and their text goes light; accents stay bright
+const INKD = '#100C1C', VIO = '#6C47FF', LIME = '#C6F24E', G = '#16B37A', R = '#F0435B', AMB = '#FFB020';
+const PAPER = DK ? '#1B1535' : '#F3F0FA', INKP = DK ? '#F1EEFA' : '#1A1430', MP = DK ? '#A9A1C8' : '#6B6489';
+const WHITE = '#FFFFFF', MD = '#9C95B8', PLATE = '#1D1730';
+// the scene grounds and what sits on them
+const BG_INK = DK ? '#0B0915' : INKD, BG_VIO = DK ? '#2A1874' : VIO, BG_LIME = DK ? '#15210B' : LIME, ON_LIME = DK ? LIME : INKD, ACC = DK ? '#B9A6FF' : VIO, CARD = DK ? '#241D42' : WHITE;
 const cv = document.getElementById('c').getContext('2d');
 const D = window.DATA, T = D.T, DUR = D.dur, Wd = D.w, CHART = D.chart;
 const ws = (i) => Wd[i][0];
@@ -64,37 +68,37 @@ const SC = [
     { y: 590, size: 200, c: INKP, toks: [['سیگنال', 2, { hl: VIO, ht: WHITE }]] },
     { y: 800, size: 108, c: INKP, toks: [['با', 3], ['۹۰', 4, { c: G }], ['درصد', 5, { c: G }], ['سود', 6], ['ماهانه', 7]] },
     { y: 950, size: 120, c: INKP, toks: [['می‌فروشه؟', [8, 9]]] }] }] },
-  { k: 'three', bg: INKD, wipe: 'right', groups: [{ at: 10, lines: [
+  { k: 'three', bg: BG_INK, wipe: 'right', groups: [{ at: 10, lines: [
     { y: 380, size: 96, c: MD, toks: [['قبل', 10], ['از', 11], ['اینکه', [12, 13]], ['پول', 14], ['بدی،', 15]] },
     { y: 530, size: 116, c: WHITE, toks: [['این', 16], ['سه', 17, { c: LIME }], ['تا', 17, { c: LIME }], ['سؤال', 18, { c: LIME }], ['رو', 19]] },
     { y: 680, size: 116, c: WHITE, toks: [['ازش', 20], ['بپرس.', 21]] }] }] },
-  { k: 'q1', bg: VIO, wipe: 'iris', groups: [
+  { k: 'q1', bg: BG_VIO, wipe: 'iris', groups: [
     { at: 22, lines: [{ y: 360, size: 120, c: LIME, toks: [['یک:', 22]] }, { y: 500, size: 100, c: WHITE, toks: [['این', 23], ['عدد', 24], ['روی', 25]] },
       { y: 630, size: 116, c: WHITE, toks: [['چند', 26, { c: LIME }], ['تا', 27, { c: LIME }], ['معامله‌ست؟', [28, 29]]] }] },
     { at: 30, lines: [{ y: 360, size: 100, c: WHITE, toks: [['ده', 30, { c: LIME }], ['تا', 31, { c: LIME }], ['معامله‌ی', 32], ['خوب،', 33]] },
       { y: 490, size: 116, c: WHITE, toks: [['هیچی', 34, { c: LIME }], ['رو', 35]] }, { y: 620, size: 116, c: WHITE, toks: [['ثابت', 36], ['نمی‌کنه.', [37, 38]]] }] }] },
   { k: 'q2', bg: PAPER, wipe: 'left', groups: [
-    { at: 39, lines: [{ y: 360, size: 120, c: VIO, toks: [['دو:', 39]] }, { y: 500, size: 140, c: R, toks: [['بدترین', 40], ['ماهش', 41]] }, { y: 650, size: 110, c: INKP, toks: [['چی', 42], ['بوده؟', 43]] }] },
+    { at: 39, lines: [{ y: 360, size: 120, c: ACC, toks: [['دو:', 39]] }, { y: 500, size: 140, c: R, toks: [['بدترین', 40], ['ماهش', 41]] }, { y: 650, size: 110, c: INKP, toks: [['چی', 42], ['بوده؟', 43]] }] },
     { at: 44, lines: [{ y: 340, size: 92, c: INKP, toks: [['اگه', 44], ['فقط', 45], ['ماه‌های', 46], ['سبزش', 47, { c: G }], ['رو', 48]] }, { y: 460, size: 92, c: INKP, toks: [['نشونت', 49], ['می‌ده،', [50, 51]]] }] },
     { at: 52, lines: [{ y: 350, size: 104, c: INKP, toks: [['یعنی', 52], ['کل ماجرا', [53, 54], { hl: R, ht: WHITE }], ['رو', 55]] }, { y: 500, size: 110, c: INKP, toks: [['نمی‌بینی.', [56, 57]]] }] }] },
-  { k: 'q3', bg: INKD, wipe: 'up', groups: [
+  { k: 'q3', bg: BG_INK, wipe: 'up', groups: [
     { at: 58, lines: [{ y: 360, size: 120, c: LIME, toks: [['سه:', 58]] }, { y: 500, size: 96, c: WHITE, toks: [['اگه', 59], ['واقعاً', 60], ['ماهی', 61]] },
       { y: 630, size: 110, c: WHITE, toks: [['۹۰', 62, { c: LIME }], ['درصد', 63, { c: LIME }], ['سود', 64], ['می‌کنه،', [65, 66]]] }] },
     { at: 67, lines: [{ y: 340, size: 96, c: WHITE, toks: [['با', 67], ['هزار', 68, { c: LIME }], ['دلار،', 69, { c: LIME }]] }, { y: 460, size: 96, c: WHITE, toks: [['یه', 70], ['سال', 71], ['بعد…', 72]] }] },
     { at: 73, lines: [{ y: 320, size: 88, c: WHITE, toks: [['بیشتر', 73], ['از', 74]] }, { y: 450, size: 130, c: LIME, toks: [['دو', 75], ['میلیون', 76], ['دلار', 77]] }, { y: 580, size: 88, c: WHITE, toks: [['داره.', 78]] }] }] },
-  { k: 'why', bg: LIME, wipe: 'iris', groups: [{ at: 79, lines: [
-    { y: 660, size: 120, c: INKD, toks: [['پس', 79], ['چرا', 80]] },
-    { y: 880, size: 190, c: INKD, toks: [['داره', 81], ['سیگنال', 82]] },
-    { y: 1120, size: 200, c: INKD, toks: [['می‌فروشه؟', [83, 84]]] }] }] },
-  { k: 'test', bg: INKD, wipe: 'down', groups: [
+  { k: 'why', bg: BG_LIME, wipe: 'iris', groups: [{ at: 79, lines: [
+    { y: 660, size: 120, c: ON_LIME, toks: [['پس', 79], ['چرا', 80]] },
+    { y: 880, size: 190, c: ON_LIME, toks: [['داره', 81], ['سیگنال', 82]] },
+    { y: 1120, size: 200, c: ON_LIME, toks: [['می‌فروشه؟', [83, 84]]] }] }] },
+  { k: 'test', bg: BG_INK, wipe: 'down', groups: [
     { at: 85, lines: [{ y: 380, size: 100, c: WHITE, toks: [['هیچ', 85], ['عددی', 86], ['رو', 87]] }, { y: 540, size: 150, c: LIME, toks: [['بدون', 88], ['تست', 89]] }, { y: 710, size: 130, c: R, toks: [['قبول', 90], ['نکن.', 91]] }] },
     { at: 92, lines: [{ y: 420, size: 130, c: WHITE, toks: [['نه', 92], ['از', 93], ['اون،', 94]] }, { y: 620, size: 130, c: LIME, toks: [['نه', 95], ['از', 96], ['خودت.', 97]] }] }] },
   { k: 'brand', bg: PAPER, wipe: 'right', groups: [{ at: 98, lines: [{ y: 600, size: 90, c: MP, toks: [['توی', 98]] }] }] },
-  { k: 'years', bg: INKD, wipe: 'up', groups: [{ at: 102, lines: [
+  { k: 'years', bg: BG_INK, wipe: 'up', groups: [{ at: 102, lines: [
     { y: 340, size: 92, c: WHITE, toks: [['هر', 102], ['ستاپی', [103, 104]], ['رو', 105], ['روی', 106]] },
     { y: 470, size: 116, c: LIME, toks: [['سال‌ها', 107], ['داده‌ی', [108, 109]], ['واقعی', 110]] },
     { y: 600, size: 92, c: WHITE, toks: [['تست', 111], ['می‌کنی،', [112, 113]]] }] }] },
-  { k: 'stats', bg: VIO, wipe: 'down', groups: [{ at: 114, lines: [
+  { k: 'stats', bg: BG_VIO, wipe: 'down', groups: [{ at: 114, lines: [
     { y: 370, size: 110, c: WHITE, toks: [['و', 114], ['وین‌ریت', [115, 116], { c: LIME }]] },
     { y: 500, size: 110, c: WHITE, toks: [['و', 117], ['بدترین', 118, { c: LIME }], ['افتش', 119, { c: LIME }], ['رو', 120]] },
     { y: 625, size: 88, c: WHITE, toks: [['با', 121], ['چشم', 122], ['خودت', 123], ['می‌بینی.', [124, 125]]] }] }] },
@@ -103,7 +107,7 @@ const SC = [
     { y: 620, size: 120, c: INKP, toks: [['اعتماد', 128], ['کن،', 129]] },
     { y: 1190, size: 110, c: MD, toks: [['نه', 130], ['به', 131]] },
     { y: 1390, size: 150, c: MD, toks: [['اسکرین‌شات.', 132, { blur: 4 }]] }] }] },
-  { k: 'end', bg: VIO, wipe: 'iris', groups: [] },
+  { k: 'end', bg: BG_VIO, wipe: 'iris', groups: [] },
 ];
 
 SC.forEach((s, i) => { s.t0 = T[s.k]; s.t1 = i + 1 < SC.length ? T[SC[i + 1].k] : DUR + 1; });
@@ -112,12 +116,12 @@ const wIdx = (x) => (Array.isArray(x) ? x[0] : x);
 // the wipe of a scene's background over the previous one
 const WIPE = 0.32;
 function bgFill(bg, x, y, w, h) {
-  if (bg === 'splitR') { cv.save(); cv.beginPath(); cv.rect(x, y, w, h); cv.clip(); cv.fillStyle = INKD; cv.fillRect(0, 0, W, 960); cv.fillStyle = PAPER; cv.fillRect(0, 960, W, H - 960);
+  if (bg === 'splitR') { cv.save(); cv.beginPath(); cv.rect(x, y, w, h); cv.clip(); cv.fillStyle = BG_INK; cv.fillRect(0, 0, W, 960); cv.fillStyle = PAPER; cv.fillRect(0, 960, W, H - 960);
     // a fine ruler grid on the paper half: the side of tests
-    cv.strokeStyle = 'rgba(26,20,48,0.07)'; cv.lineWidth = 2; for (let gx = 0; gx <= W; gx += 60) { cv.beginPath(); cv.moveTo(gx, 960); cv.lineTo(gx, H); cv.stroke(); } for (let gy = 960; gy <= H; gy += 60) { cv.beginPath(); cv.moveTo(0, gy); cv.lineTo(W, gy); cv.stroke(); }
+    cv.strokeStyle = DK ? 'rgba(255,255,255,0.05)' : 'rgba(26,20,48,0.07)'; cv.lineWidth = 2; for (let gx = 0; gx <= W; gx += 60) { cv.beginPath(); cv.moveTo(gx, 960); cv.lineTo(gx, H); cv.stroke(); } for (let gy = 960; gy <= H; gy += 60) { cv.beginPath(); cv.moveTo(0, gy); cv.lineTo(W, gy); cv.stroke(); }
     cv.restore(); return; }
-  if (bg === 'split') { cv.save(); cv.beginPath(); cv.rect(x, y, w, h); cv.clip(); cv.fillStyle = PAPER; cv.fillRect(0, 0, W, 960); cv.fillStyle = INKD; cv.fillRect(0, 960, W, H - 960);
-    cv.strokeStyle = 'rgba(26,20,48,0.07)'; cv.lineWidth = 2; for (let gx = 0; gx <= W; gx += 60) { cv.beginPath(); cv.moveTo(gx, 0); cv.lineTo(gx, 960); cv.stroke(); } for (let gy = 0; gy <= 960; gy += 60) { cv.beginPath(); cv.moveTo(0, gy); cv.lineTo(W, gy); cv.stroke(); }
+  if (bg === 'split') { cv.save(); cv.beginPath(); cv.rect(x, y, w, h); cv.clip(); cv.fillStyle = PAPER; cv.fillRect(0, 0, W, 960); cv.fillStyle = BG_INK; cv.fillRect(0, 960, W, H - 960);
+    cv.strokeStyle = DK ? 'rgba(255,255,255,0.05)' : 'rgba(26,20,48,0.07)'; cv.lineWidth = 2; for (let gx = 0; gx <= W; gx += 60) { cv.beginPath(); cv.moveTo(gx, 0); cv.lineTo(gx, 960); cv.stroke(); } for (let gy = 0; gy <= 960; gy += 60) { cv.beginPath(); cv.moveTo(0, gy); cv.lineTo(W, gy); cv.stroke(); }
     cv.restore(); return; }
   cv.fillStyle = bg; cv.fillRect(x, y, w, h);
 }
@@ -160,7 +164,7 @@ function words(s, t) {
 function adCard(t, x, y, s, a, o = {}) {
   if (a <= 0) return;
   at(x, y, s, a, () => {
-    cv.shadowColor = 'rgba(0,0,0,0.25)'; cv.shadowBlur = 40; cv.shadowOffsetY = 16; rrect(-400, -150, 800, 300, 44, INKD); cv.shadowColor = 'transparent';
+    cv.shadowColor = 'rgba(0,0,0,0.25)'; cv.shadowBlur = 40; cv.shadowOffsetY = 16; rrect(-400, -150, 800, 300, 44, INKD); cv.shadowColor = 'transparent'; if (DK) rrect(-400, -150, 800, 300, 44, null, 'rgba(255,255,255,0.16)', 3);
     chip('سیگنال VIP', 250, -82, 34, INKD, AMB);
     const kn = o.num === undefined ? 1 : pop(t - o.num, 16, 0.5);
     if (kn > 0) at(210, 22, cl(kn, 0, 1.25), cl(kn), () => txt('۹۰٪', 0, 0, 120, G));
@@ -202,7 +206,7 @@ function monthsArt(t) {
   const k = pop(t - T.q2 - 0.1, 12, 0.7); if (k <= 0) return;
   const z = cub(k01(t, ws(53) - 0.05, 0.7)), cx = CX, base = 1120, sc = lerp(13, 7, z);
   at(cx, 0, cl(k, 0, 1.06), cl(k), () => {
-    rrect(-450, 700, 900, 760, 48, WHITE, rgba(VIO, 0.25), 4);
+    rrect(-450, 700, 900, 760, 48, CARD, rgba(VIO, DK ? 0.5 : 0.25), 4);
     cv.save(); cv.beginPath(); cv.roundRect(-440, 710, 880, 740, 40); cv.clip();
     line(-420, base, 420, base, rgba(INKP, 0.2), 4);
     PNL.forEach((v, i) => {
@@ -244,7 +248,7 @@ function testArt(t) { const k = pop(t - T.test - 0.1, 12, 0.65); adCard(t, CX, 1
 // the brand
 function brandArt(t) {
   const ki = pop(t - ws(99) + 0.1, 12, 0.6); if (ki > 0 && IMG.icon) at(CX, 880, cl(ki, 0, 1.3), cl(ki), () => { cv.shadowColor = rgba(VIO, 0.5); cv.shadowBlur = 60; cv.shadowOffsetY = 18; cv.drawImage(IMG.icon, -160, -160, 320, 320); });
-  const kw = cub(k01(t, ws(99) + 0.15, 0.35)); if (kw > 0 && IMG.wordL) { const w = 620, h = (w * IMG.wordL.height) / IMG.wordL.width; cv.save(); cv.globalAlpha = kw; cv.drawImage(IMG.wordL, CX - w / 2, 1090 + (1 - kw) * 24, w, h); cv.restore(); }
+  const kw = cub(k01(t, ws(99) + 0.15, 0.35)); const WM = DK ? IMG.word : IMG.wordL; if (kw > 0 && WM) { const w = 620, h = (w * WM.height) / WM.width; cv.save(); cv.globalAlpha = kw; cv.drawImage(WM, CX - w / 2, 1090 + (1 - kw) * 24, w, h); cv.restore(); }
 }
 // «روی سال‌ها داده‌ی واقعی»: real NAS100 monthly candles from January 2015, drawn year by year
 function yearsArt(t) {
@@ -324,7 +328,7 @@ window.cover = () => {
     parts.forEach(([p, c], j) => { txt(p, right - ws_[j] / 2, 800, size2, c); right -= ws_[j] + gap; }); }
   txt('می‌فروشه؟', CX, 950, 116, INKP);
   adCard(99, CX, 1260, 0.95, 1, { stamp: 0 });
-  rrect(CX - 340, 1520, 680, 110, 55, INKD); txt('اول این ۳ تا سؤال رو بپرس', CX, 1577, 54, WHITE);
+  rrect(CX - 340, 1520, 680, 110, 55, DK ? VIO : INKD); txt('اول این ۳ تا سؤال رو بپرس', CX, 1577, 54, WHITE);
 };
 (async () => {
   await Promise.all(['700', '800', '900'].map((w) => document.fonts.load(`${w} 100px Vazirmatn`, 'آبپ۱A')));
