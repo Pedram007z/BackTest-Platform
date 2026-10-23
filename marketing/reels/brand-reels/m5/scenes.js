@@ -266,7 +266,7 @@ const s2 = (w) => { const x = SAY.share2.find(([s]) => s.startsWith(w)); return 
 // ---------- 6 · link in bio, free start ----------
 function sCta(t) {
   const l = t - T.cta; bg(t, { col: C.accent, a: 0.28, green: 0.3 * P(t, T.free, 0.5) });
-  say('cta', t, 400, { size: 84, colors: { 3: GRN2, 4: GRN2, 5: GRN2 } });
+  say('cta', t, 400, { size: 84 });
   const lk = pop(t, T.cta + 0.15); if (lk > 0) { const y = 790, bob = Math.sin((t - T.cta) * 7) * 9; cv.save(); cv.translate(540, y); cv.scale(lk, lk); button(0, 0, 'لینک توی بیو', { size: 50 }); cv.restore();
     cv.save(); cv.globalAlpha = clamp(lk); cv.translate(540, y - 120 + bob); cv.fillStyle = C.lilac; cv.beginPath(); cv.moveTo(0, -38); cv.lineTo(34, 4); cv.lineTo(12, 4); cv.lineTo(12, 38); cv.lineTo(-12, 38); cv.lineTo(-12, 4); cv.lineTo(-34, 4); cv.closePath(); cv.fill(); cv.restore(); }
   const fk = pop(t, T.free); if (fk > 0) { cv.save(); cv.translate(540, 1080); cv.scale(fk, fk); cv.globalAlpha = clamp(fk);
