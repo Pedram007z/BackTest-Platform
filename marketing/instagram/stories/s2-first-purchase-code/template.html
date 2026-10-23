@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<title>Story · first-purchase code</title>
+<style>
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-arabic.woff2) format('woff2'); font-weight: 100 900; unicode-range: U+0600-06FF, U+0750-077F, U+200C-200F, U+FB50-FDFF, U+FE70-FEFF; }
+@font-face { font-family: Vaz; src: url(../../../../public/fonts/vazirmatn-latin.woff2) format('woff2'); font-weight: 100 900; }
+html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: #6C47FF; }
+canvas { display: block; width: 1080px; height: 1920px; }
+</style></head><body><canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// Story s2 · «کد تخفیف خرید اولت»: reply to the story and get a first-purchase discount code by DM.
+// The look of the q-series reels: a violet block above, an ink block below, huge words that land one by one.
+// Above: the logo, «کد تخفیف / خرید اولت», and a ticket whose code is hidden behind dots and a lock. Below: «فقط به این
+// استوری ریپلای بده», a chat bubble that types «کد» and sends it, «کد تخفیفت رو برات دایرکت می‌کنیم», and arrows
+// bouncing toward Instagram's reply field. Every frame is a pure function of t (window.render); the video loops at 12 s.
+// PCT: set a percentage (e.g. 20) to print «۲۰٪» on the ticket; null keeps the amount for the DM.
+const PCT = null;
+const ICONS = /*ICONS*/;
+const W = 1080, H = 1920, CX = 540;
+const PAPER = '#F3F0FA', INKD = '#100C1C', INKP = '#1A1430', VIO = '#6C47FF', LIME = '#C6F24E', G = '#16B37A', WHITE = '#FFFFFF', MP = '#6B6489', MD = '#9C95B8', PINK = '#FF7AB6';
+const cv = document.getElementById('c').getContext('2d');
+const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x)), lerp = (a, b, k) => a + (b - a) * k, k01 = (t, a, d) => cl((t - a) / d);
+const cub = (x) => 1 - Math.pow(1 - cl(x), 3);
+const pop = (dt, w = 18, z = 0.55) => { if (dt <= 0) return 0; const wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + ((z * w) / wd) * Math.sin(wd * dt)); };
+const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const fa = (s) => String(s).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
+const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const FONT = (s, w = 900) => `${w} ${s}px Vaz`;
+function txt(s, x, y, size, col, o = {}) { cv.save(); if (o.alpha !== undefined) cv.globalAlpha *= o.alpha; cv.font = FONT(size, o.w ?? 900); cv.fillStyle = col; cv.textAlign = o.align ?? 'center'; cv.textBaseline = 'middle'; cv.direction = o.dir ?? 'rtl'; cv.fillText(s, x, y); cv.restore(); }
+function measure(s, size, w = 900) { cv.font = FONT(size, w); cv.direction = 'rtl'; return cv.measureText(s).width; }
+function rrect(x, y, w, h, r, fill, stroke, lw = 3) { cv.beginPath(); cv.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2))); if (fill) { cv.fillStyle = fill; cv.fill(); } if (stroke) { cv.strokeStyle = stroke; cv.lineWidth = lw; cv.stroke(); } }
+function circle(x, y, r, fill) { cv.beginPath(); cv.arc(x, y, r, 0, Math.PI * 2); cv.fillStyle = fill; cv.fill(); }
+function at(x, y, s, a, fn, rot = 0) { cv.save(); cv.translate(x, y); if (rot) cv.rotate(rot); cv.scale(s, s); cv.globalAlpha *= a; fn(); cv.restore(); }
+// Lucide icons (ISC licence), 24-unit boxes
+const ICON = {};
+for (const [n, nodes] of Object.entries(ICONS)) ICON[n] = nodes.map(([tag, a]) => { const p = new Path2D(), N = (k) => parseFloat(a[k] ?? 0);
+  if (tag === 'path') p.addPath(new Path2D(a.d)); else if (tag === 'circle') p.arc(N('cx'), N('cy'), N('r'), 0, Math.PI * 2);
+  else if (tag === 'rect') p.roundRect(N('x'), N('y'), N('width'), N('height'), N('rx')); else if (tag === 'line') { p.moveTo(N('x1'), N('y1')); p.lineTo(N('x2'), N('y2')); }
+  else if (tag === 'polyline' || tag === 'polygon') { const q = a.points.trim().split(/[\s,]+/).map(Number); p.moveTo(q[0], q[1]); for (let i = 2; i < q.length; i += 2) p.lineTo(q[i], q[i + 1]); if (tag === 'polygon') p.closePath(); }
+  return p; });
+function icon(n, x, y, s, col, lw = 2) { const ps = ICON[n]; if (!ps) return; cv.save(); cv.translate(x - s / 2, y - s / 2); cv.scale(s / 24, s / 24); cv.lineWidth = lw; cv.lineCap = 'round'; cv.lineJoin = 'round'; cv.strokeStyle = col; ps.forEach((p) => cv.stroke(p)); cv.restore(); }
+/** One line of words, right to left; each word lands (a spring from 0.8×) at its own time. toks: [text, t0, colour] */
+function words(toks, y, size, t, o = {}) {
+  const gap = measure(' ', size) * 1.35, ws = toks.map(([s]) => measure(s, size)), total = ws.reduce((a, b) => a + b, 0) + gap * (toks.length - 1); let right = CX + total / 2;
+  toks.forEach(([s, t0, col], j) => { const d = t - t0; if (d >= 0) { const k = pop(d, 22, 0.62); at(right - ws[j] / 2, y, lerp(0.8, 1, k), cl(d / 0.08), () => txt(s, 0, 0, size, col, { w: o.w ?? 900 })); } right -= ws[j] + gap; });
+}
+const IMG = {};
+const load = (k, src) => new Promise((ok) => { const i = new Image(); i.onload = () => { IMG[k] = i; ok(); }; i.onerror = () => ok(); i.src = src; });
+
+const SPLIT = 1170;   // the violet block above, the ink block below
+function confetti(t) {
+  for (let i = 0; i < 26; i++) {
+    const x = rnd(i) * W, sp = 40 + rnd(i + 3) * 50, y = ((rnd(i + 7) * SPLIT + t * sp) % (SPLIT + 80)) - 40, r = t * (0.6 + rnd(i + 9)) + i;
+    const col = [LIME, WHITE, PINK][i % 3];
+    at(x, y, 1, 0.22 + 0.2 * rnd(i + 11), () => rrect(-9, -18, 18, 36, 6, col), r);
+  }
+}
+// the ticket: a gift stub on the left, the hidden code on the right; a glint sweeps across it every 3 s
+function ticket(t) {
+  const k = pop(t - 1.0, 11, 0.6); if (k <= 0) return;
+  const y = lerp(1180, 950, cl(k, 0, 1.05)), rot = -0.03 * cl(k);
+  at(CX, y, cl(k, 0, 1.08), cl(k * 1.4), () => {
+    const w = 880, h = 300, x0 = -w / 2, y0 = -h / 2, stub = 250;
+    cv.save(); cv.shadowColor = 'rgba(16,12,28,0.35)'; cv.shadowBlur = 50; cv.shadowOffsetY = 24;
+    cv.beginPath(); cv.roundRect(x0, y0, w, h, 34); cv.fillStyle = WHITE; cv.fill(); cv.restore();
+    // the notches and the perforation between stub and body
+    const px = x0 + stub; circle(px, y0, 26, VIO); circle(px, -y0, 26, VIO);
+    cv.save(); cv.strokeStyle = rgba(VIO, 0.35); cv.lineWidth = 5; cv.setLineDash([14, 12]); cv.beginPath(); cv.moveTo(px, y0 + 34); cv.lineTo(px, -y0 - 34); cv.stroke(); cv.restore();
+    // the stub: a gift
+    const sx = x0 + stub / 2; circle(sx, -20, 74, rgba(VIO, 0.12)); icon('gift', sx, -20, 92, VIO, 2.2); txt('هدیه', sx, 90, 36, VIO, { w: 800 });
+    // the body
+    const bx = (px + w / 2) / 2 + 10;
+    txt(PCT ? `${fa(PCT)}٪ تخفیف خرید اول` : 'کد تخفیف تو', bx + 250, -88, 38, MP, { align: 'right', w: 800 });
+    rrect(bx - 250, -40, 500, 104, 26, '#EEE9FF');
+    for (let i = 0; i < 6; i++) { const s = 0.75 + 0.25 * Math.sin(t * 5 - i * 0.7); circle(bx + 175 - i * 62, 12, 13 * s, VIO); }
+    const wig = Math.sin(t * 2 * Math.PI / 3) > 0.96 ? Math.sin(t * 60) * 0.15 : 0;
+    at(bx - 200, 12, 1, 1, () => icon('lock', 0, 0, 52, VIO, 2.4), wig);
+    txt('فقط برای خرید اول', bx + 250, 108, 32, G, { align: 'right', w: 800 });
+    // the glint
+    const gp = ((t - 1.6) % 3) / 3; if (t > 1.6 && gp < 0.35) { cv.save(); cv.beginPath(); cv.roundRect(x0, y0, w, h, 34); cv.clip(); const gx = lerp(x0 - 200, -x0 + 200, gp / 0.35); const g = cv.createLinearGradient(gx - 120, 0, gx + 120, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,0.75)'); g.addColorStop(1, 'rgba(255,255,255,0)'); cv.fillStyle = g; cv.save(); cv.transform(1, 0, -0.35, 1, 0, 0); cv.fillRect(gx - 120, y0, 240, h); cv.restore(); cv.restore(); }
+  }, rot);
+}
+// the reply: a bubble that types «کد», then «ارسال شد»
+function bubble(t) {
+  const k = pop(t - 3.0, 14, 0.6); if (k <= 0) return;
+  at(CX, 1540, cl(k, 0, 1.1), cl(k), () => {
+    txt('بنویس:', 250, 0, 44, MD, { align: 'right', w: 800 });
+    const typed = t > 3.45, w = 300;
+    rrect(-200, -62, w, 124, 62, VIO);
+    if (!typed) for (let i = 0; i < 3; i++) circle(-20 - i * 30, 0, 9 * (0.6 + 0.4 * Math.sin(t * 12 - i)), WHITE);
+    else { const q = pop(t - 3.45, 18, 0.5); at(-50, 2, lerp(0.7, 1, cl(q)), 1, () => txt('کد', 0, 0, 66, WHITE)); }
+    const sk = pop(t - 3.85, 16, 0.55); if (sk > 0) at(-290, 0, cl(sk, 0, 1.2), cl(sk), () => { circle(0, 0, 50, LIME); icon('send', -2, 2, 50, INKD, 2.4); });
+  });
+}
+window.DURATION = 12;
+window.render = (t) => {
+  cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1;
+  cv.fillStyle = VIO; cv.fillRect(0, 0, W, H);
+  confetti(t);
+  // the ink block rises from the bottom
+  const ib = cub(k01(t, 1.8, 0.5)); cv.fillStyle = INKD; cv.beginPath(); cv.roundRect(0, lerp(H, SPLIT, ib), W, H, [64, 64, 0, 0]); cv.fill();
+  // the logo
+  const kl = pop(t - 0.05, 12, 0.6); if (kl > 0 && IMG.logo) { const w = 300, h = (w * IMG.logo.height) / IMG.logo.width; at(CX, 285, cl(kl, 0, 1.2), cl(kl), () => cv.drawImage(IMG.logo, -w / 2, -h / 2, w, h)); }
+  // «کد تخفیف / خرید اولت»
+  words([['کد', 0.25, WHITE], ['تخفیف', 0.45, WHITE]], 470, 168, t);
+  const mk = cub(k01(t, 0.7, 0.25)); if (mk > 0) { const s = 'خرید اولت', size = 120, w = measure(s, size) + 70; cv.save(); cv.translate(CX, 660); cv.rotate(-0.025); rrect(w / 2 - w * mk, -size * 0.62, w * mk, size * 1.22, 20, LIME); cv.restore(); }
+  words([['خرید', 0.7, INKD], ['اولت', 0.82, INKD]], 660, 120, t);
+  ticket(t);
+  // «فقط به این استوری ریپلای بده»
+  if (t > 2.0) {
+    words([['فقط', 2.1, WHITE], ['به', 2.2, WHITE], ['این', 2.3, WHITE], ['استوری', 2.4, WHITE]], 1270, 76, t);
+    words([['ریپلای', 2.6, LIME], ['بده', 2.8, LIME]], 1385, 130, t);
+  }
+  bubble(t);
+  const kd = cub(k01(t, 4.3, 0.4)); if (kd > 0) { cv.save(); cv.globalAlpha = kd; const s = 'کد تخفیفت رو برات دایرکت می‌کنیم', w = measure(s, 40, 800); txt(s, CX + 30, 1665, 40, MD, { w: 800 }); icon('gift', CX - w / 2 - 20, 1662, 44, LIME, 2.2); cv.restore(); }
+  // arrows down to Instagram's reply field
+  const ka = cub(k01(t, 4.8, 0.4)); if (ka > 0) { const b = ((t * 1.4) % 1); cv.save(); cv.globalAlpha = ka; icon('chevrons-down', CX, 1745 + b * 22, 86, LIME, 2.6); cv.restore(); }
+};
+(async () => {
+  await Promise.all(['600', '800', '900'].map((w) => document.fonts.load(`${w} 100px Vaz`, 'آبپ۱A')));
+  await load('logo', '../../../../brand/svg/logo-fa-white.svg');
+  window.render(0); window.ready = true;
+})();
+</script></body></html>
