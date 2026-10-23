@@ -82,3 +82,11 @@ n[0-9]g/*.mp4
 n[0-9]g/*.png
 n[0-9]g/*.log
 n[0-9]g/chunks/
+# u-reels (u1–u3): voice cuts, music, mixes, and both cuts' renders, render chunks and covers are rebuilt (see README)
+u[0-9]/*.wav
+u[0-9]/*.log
+u[0-9]/voice/*.wav
+u[0-9]/*/*.mp4
+u[0-9]/*/*.png
+u[0-9]/*/*.log
+u[0-9]/*/chunks/

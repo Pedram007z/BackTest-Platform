@@ -730,3 +730,35 @@ The caption and the facts on screen are in `q3/caption.md`.
   the timing stay the same.
 - **Render:** `REEL_DIR=dark node render.cjs video dark/reel-hq.mp4 mix.wav 4` (it uses the same mix) and
   `REEL_DIR=dark node render.cjs cover dark/cover.png`.
+
+---
+
+## u1–u3: three reels, each in two cuts (`u1/`, `u2/`, `u3/`, the user's voice)
+
+The shared engine `u-kit.js` renders one story (`<reel>/story.js`: scenes, spoken lines with their word indices,
+symbols) in two looks, chosen by `DATA.mode`:
+- **`kinetic/`:** the q-series look. Colour blocks wipe on the beat, the words land huge, and the symbol sits under
+  them.
+- **`motion/`:** a classic explainer on one dark stage. The words are typed in as subtitles at the top, the symbol is
+  bigger in the middle under a section tag, and scenes without a symbol build their lines as a centred title.
+
+Both cuts share the reel's timing (`voice/build.py`), data (`data.py`) and mix (`sound.py`).
+
+- **u1 «سکه و هزار معامله»:** a coin-flip test on real gold, 2023–2025.
+  - 1,000 random entries with a $3 stop and target.
+  - With no costs: 502 wins and +4R. With a 0.30 spread and $7 a lot: 452 wins, −119R, and a $10,000 account at $100
+    a trade reaches $0 at trade 743.
+- **u2 «درست بعد از بستن»:** one real gold move on 15 April 2025, 15-minute candles. It came back to the entry, then
+  ran $89 past the nervous close. The «ضررها کامل، سودها نصفه» bars are an example, the three exit rules are shown as
+  cards, and the comparison is left for the viewer's own test.
+- **u3 «ستاپ بعد از اتفاق»:** the «return to the last swing low» setup tested on daily gold, 2015–2026.
+  - 106 trades: 33 reached the target and 73 the stop.
+  - The «Instagram» chart is one of the 33, cut at the top.
+
+**Rebuild** (from `brand-reels/`, for reel `uN`):
+1. In `uN/`: `python3 ../transcribe.py voice/t1.mp3 voice/t1.words.json`, then `python3 voice/build.py`,
+   `python3 data.py` and `python3 sound.py`.
+2. `python3 mkpage_u.py uN kinetic` and `python3 mkpage_u.py uN motion`.
+3. `sh render_u.sh uN`: both covers and both videos.
+
+The captions and the facts on screen are in `uN/caption.md`.
