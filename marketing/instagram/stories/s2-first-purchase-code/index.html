@@ -11,7 +11,7 @@ canvas { display: block; width: 1080px; height: 1920px; }
 // Story s2 · «کد تخفیف خرید اولت»: reply to the story and get a first-purchase discount code by DM.
 // The look of the q-series reels: a violet block above, an ink block below, huge words that land one by one.
 // Above: the logo, «کد تخفیف / خرید اولت», and a ticket whose code is hidden behind dots and a lock. Below: «فقط به این
-// استوری ریپلای بده», a chat bubble that types «کد» and sends it, «کد تخفیفت رو برات دایرکت می‌کنیم», and arrows
+// استوری ریپلای بزن», a chat bubble that types «کد» and sends it, «کد تخفیفت رو برات دایرکت می‌کنیم», and arrows
 // bouncing toward Instagram's reply field. Every frame is a pure function of t (window.render); the video loops at 12 s.
 // PCT: set a percentage (e.g. 20) to print «۲۰٪» on the ticket; null keeps the amount for the DM.
 const PCT = null;
@@ -106,10 +106,10 @@ window.render = (t) => {
   const mk = cub(k01(t, 0.7, 0.25)); if (mk > 0) { const s = 'خرید اولت', size = 120, w = measure(s, size) + 70; cv.save(); cv.translate(CX, 660); cv.rotate(-0.025); rrect(w / 2 - w * mk, -size * 0.62, w * mk, size * 1.22, 20, LIME); cv.restore(); }
   words([['خرید', 0.7, INKD], ['اولت', 0.82, INKD]], 660, 120, t);
   ticket(t);
-  // «فقط به این استوری ریپلای بده»
+  // «فقط به این استوری ریپلای بزن»
   if (t > 2.0) {
     words([['فقط', 2.1, WHITE], ['به', 2.2, WHITE], ['این', 2.3, WHITE], ['استوری', 2.4, WHITE]], 1270, 76, t);
-    words([['ریپلای', 2.6, LIME], ['بده', 2.8, LIME]], 1385, 130, t);
+    words([['ریپلای', 2.6, LIME], ['بزن', 2.8, LIME]], 1385, 130, t);
   }
   bubble(t);
   const kd = cub(k01(t, 4.3, 0.4)); if (kd > 0) { cv.save(); cv.globalAlpha = kd; const s = 'کد تخفیفت رو برات دایرکت می‌کنیم', w = measure(s, 40, 800); txt(s, CX + 30, 1665, 40, MD, { w: 800 }); icon('gift', CX - w / 2 - 20, 1662, 44, LIME, 2.2); cv.restore(); }

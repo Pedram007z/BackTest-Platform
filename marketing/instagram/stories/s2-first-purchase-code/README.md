@@ -1,10 +1,10 @@
-# Story s2 · «کد تخفیف خرید اولت: فقط به این استوری ریپلای بده»
+# Story s2 · «کد تخفیف خرید اولت: فقط به این استوری ریپلای بزن»
 
 A 1080×1920 story offering a first-purchase discount code to anyone who replies. It uses the look of the q-series
 reels:
 - **Top, violet:** the logo, «کد تخفیف / خرید اولت», and a ticket whose code is hidden behind dots and a lock, with
   «فقط برای خرید اول».
-- **Bottom, ink:** «فقط به این استوری ریپلای بده», a bubble that types «کد» and sends it, «کد تخفیفت رو برات دایرکت
+- **Bottom, ink:** «فقط به این استوری ریپلای بزن», a bubble that types «کد» and sends it, «کد تخفیفت رو برات دایرکت
   می‌کنیم», and arrows bouncing toward Instagram's reply field.
 
 The story shows no percentage. To print one on the ticket, set `PCT` in `template.html` (e.g. `const PCT = 20;`) and
