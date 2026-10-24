@@ -194,6 +194,7 @@ window.camAt = camAt;
 window.cover = () => { cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; if (COVER) COVER(); };
 window.addEventListener('load', async () => {
   await Promise.all(['700', '800', '900'].map((w) => document.fonts.load(`${w} 100px Vazirmatn`, 'آبپ۱A')));
-  await Promise.all([loadImg('icon', window.LOGO.icon), loadImg('word', window.LOGO.word)]);
+  await Promise.all([loadImg('icon', window.LOGO.icon), loadImg('word', window.LOGO.word), ...Object.entries(window.IMGS || {}).map(([k, src]) => loadImg(k, src))]);
+  const miss = Object.keys(window.IMGS || {}).filter((k) => !IMG[k]); if (miss.length) console.error('missing images: ' + miss.join(', '));
   makeGrain(); window.seek(0); window.ready = true;
 });

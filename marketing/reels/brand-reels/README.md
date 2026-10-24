@@ -797,3 +797,40 @@ streak of 14, and +54R in total.
 3. `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 mix.wav 4`.
 
 The caption, the pinned comment and the DM reply are in `z1/caption.md`.
+
+---
+
+## f1: «همیشه میخواستی رو FX Replay بک‌تست بگیری؟», the real platform on a desktop screen (`f1/`, the user's voice)
+
+**The look.** It uses the z-kit camera. Every product screen is a real 2× capture of BacktestLab, shown in a browser
+window. The detail the voice names grows out of the screen as a sharp callout cut from the capture, with a ring on its
+place:
+- the Iranian payment gateways;
+- the 2015–2026 data range;
+- the order bar with entry, stop, target and R:R;
+- the spread and commission table;
+- win rate;
+- the longest losing streak.
+
+The replay and the trade play as real frame sequences. The hook and the three pains (a declined card, a VPN switching
+off, a dollar price) are drawn and generic. The reel ends on a pull-back over every screen, the «ریپلی» comment, and
+the DM.
+
+**The captures (`f1/capture/`, Playwright against a local copy of the platform):**
+1. Start the API server on a copy of the market store and the app with `VITE_API_URL`.
+2. `signup.mjs`: a new account.
+3. `mksession.mjs`: the gold session.
+4. `cap1.mjs`: sign-up, billing, the new-session window, and the replay stepped 40 candles.
+5. `cap2.mjs` and `cap2c.mjs`: drawings and indicators through the chart library's API, and a trade played until it
+   closes.
+6. `cap4.mjs`: eight more trades and the analytics pages.
+
+They write to the scratch `cap/` folder. `f1/screens/` holds the frames the reel uses (not in git): the stills at 2×,
+and the replay sequences scaled to 1920 px.
+
+**Rebuild** (in `f1/`):
+1. `python3 voice/build.py`, then refresh `data.json` from `voice/timing.json`, then `python3 sound.py`.
+2. `python3 ../mkpage_z.py f1`.
+3. `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 mix.wav 3`.
+
+The caption, the DM reply and the facts on screen are in `f1/caption.md`.

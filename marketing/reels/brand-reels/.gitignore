@@ -97,3 +97,12 @@ z[0-9]/voice/*.wav
 z[0-9]/*.mp4
 z[0-9]/*.png
 z[0-9]/chunks/
+# f-reels (f1…): the screen captures (rebuilt with <reel>/capture/), voice cuts, music, mix, render, chunks and cover
+f[0-9]/screens/
+f[0-9]/*.wav
+f[0-9]/*.log
+f[0-9]/voice/*.wav
+f[0-9]/voice/*.log
+f[0-9]/*.mp4
+f[0-9]/*.png
+f[0-9]/chunks/
