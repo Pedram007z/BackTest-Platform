@@ -762,3 +762,38 @@ Both cuts share the reel's timing (`voice/build.py`), data (`data.py`) and mix (
 3. `sh render_u.sh uN`: both covers and both videos.
 
 The captions and the facts on screen are in `uN/caption.md`.
+
+---
+
+## z1: «میخوای جزو ۵ درصد باشی؟», one camera shot through one world (`z1/`, the user's voice)
+
+**The look (`z-kit.js`).** Nothing cuts or wipes:
+- **One world:** every scene is a plate placed somewhere in it, and the camera flies between shots. It zooms through
+  an object into the plate nested inside it, pans along a row, or pulls all the way back.
+- **Spoken words:** each shot's words belong to its camera frame, so they arrive framed and leave with the camera. They
+  rise from behind a mask, with key words in gold.
+- **Depth and finish:** light pools and dust move with parallax, a few bokeh pass in front, and film grain and a
+  vignette finish the frame.
+- **Precision:** each plate's transform is computed in double precision, because the deepest zoom goes about 1,000×
+  in.
+
+**The camera's path:**
+1. A crowd of 100: 95 fade and 5 turn gold, and one grey figure with a «؟» is «you».
+2. One gold and one grey figure; the «اندیکاتور مخفی» and «استراتژی جادویی» cards are stamped «نیست».
+3. A zoom into the gold figure's badge, which holds three number cards.
+4. The equity curve on the real five-loss streak, then widening to all 755 trades.
+5. A pull back to the wall of 755 tiles, then a zoom into one tile: that trade's replay.
+6. A rewind out to the crowd, where «you» turn gold.
+7. A zoom into «you»: the «عدد» comment and the DM, then the end card.
+
+**Data (`data.py`).** The numbers come from a real, fully specified example: a 20-candle breakout rule on gold 4-hour
+candles, 2015–2026, with costs. It made 755 trades with a 36.8% win rate, wins 1.9× losses on average, a longest losing
+streak of 14, and +54R in total.
+
+**Rebuild** (in `z1/`):
+1. `python3 ../transcribe.py voice/t1.mp3 voice/t1.words.json`, then `python3 voice/build.py`, `python3 data.py` and
+   `python3 sound.py`.
+2. `python3 ../mkpage_z.py z1`.
+3. `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 mix.wav 4`.
+
+The caption, the pinned comment and the DM reply are in `z1/caption.md`.

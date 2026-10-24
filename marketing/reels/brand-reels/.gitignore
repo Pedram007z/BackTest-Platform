@@ -90,3 +90,10 @@ u[0-9]/*/*.mp4
 u[0-9]/*/*.png
 u[0-9]/*/*.log
 u[0-9]/*/chunks/
+# z-reels (z1…): voice cuts, music, mix, render, render chunks and cover are rebuilt (see README)
+z[0-9]/*.wav
+z[0-9]/*.log
+z[0-9]/voice/*.wav
+z[0-9]/*.mp4
+z[0-9]/*.png
+z[0-9]/chunks/
