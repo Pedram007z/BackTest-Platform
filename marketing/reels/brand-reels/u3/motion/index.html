@@ -373,10 +373,11 @@ story({
   cover: () => {
     if (KIN) { cv.fillStyle = PAPER; cv.fillRect(0, 0, W, H); } else stage(0);
     const ink = KIN ? INKP : WHITE;
-    txt('ستاپی که تو اینستاگرام دیدی،', CX, 380, 96, ink);
-    const s = 'بعد از اتفاق', size = 150, w = measure(s, size); cv.save(); cv.translate(CX, 560); cv.rotate(-0.025); rrect(-w / 2 - 40, -size * 0.62, w + 80, size * 1.22, 22, VIO); cv.restore(); txt(s, CX, 560, size, WHITE);
-    txt('کشیده شده.', CX, 740, 120, ink);
-    at(CX, 1240, 0.8, 1, () => instaArt(ws(9) + 1, KIN ? THEME.paper : THEME.stage));
+    const fit = (str, size) => Math.min(size, size * 940 / measure(str, size));   // keep every line inside the frame
+    txt('ستاپی که', CX, 350, 108, ink); txt('تو اینستاگرام دیدی،', CX, 490, fit('تو اینستاگرام دیدی،', 104), ink);
+    const s = 'بعد از اتفاق', size = 140, w = measure(s, size); cv.save(); cv.translate(CX, 670); cv.rotate(-0.025); rrect(-w / 2 - 40, -size * 0.62, w + 80, size * 1.22, 22, VIO); cv.restore(); txt(s, CX, 670, size, WHITE);
+    txt('کشیده شده.', CX, 845, 112, ink);
+    at(CX, 1320, 0.78, 1, () => instaArt(ws(9) + 1, KIN ? THEME.paper : THEME.stage));
   },
 });
 
