@@ -1,4 +1,4 @@
-# Deploying BackTest Platform
+# Deploying BacktestLab
 
 The site is two parts:
 
@@ -11,14 +11,15 @@ The steps below use `backtestlab.ir` as the domain; use yours.
 ## What you need
 
 - A Linux server (Ubuntu 22.04 or 24.04). 1 CPU and 1–2 GB RAM are enough to start.
-  Disk: the market-data cache grows by about 1.2 MB per symbol per year of history that users replay.
+  Disk: about 2 GB for the market history of all symbols from 2015 (about 1.2 MB per symbol per year), plus
+  0.2–1 MB per day of optional 1-second data.
 - A domain whose A record points to the server.
 - On your own computer: Node.js 20.12 or newer, and this repository.
 
 ### Servers in Iran
 
 Payment gateways and SMS providers (Zarinpal, Zibal, Kavenegar, …) work best from a server in Iran, and some
-refuse servers abroad. On an Iranian VPS, expect these; the installer (and the manual steps) handle each one:
+refuse servers abroad. On an Iranian VPS, expect these; the steps below handle each one:
 
 - **Downloads from abroad are often blocked** (NodeSource, sometimes npm). Build the release on your own
   computer (step 1) and install Node from a file you upload (step 2). `server.mjs` needs nothing else.
@@ -27,59 +28,15 @@ refuse servers abroad. On an Iranian VPS, expect these; the installer (and the m
   and ForexFactory are often unreachable. `check-sources.sh` tells you whether you need one; step 8 sets it up.
 - **IPv6 is often off**, which stops nginx from starting; step 2 shows the fix.
 - **During international internet disruptions** the site keeps working: sign-in, SMS and payments are
-  domestic, and market data and calendar weeks loaded before are cached on the server. Only data that was
-  never loaded is missing until the connection returns.
+  domestic, and the market history is stored on the server (step 9); calendar weeks loaded before are cached.
+  Only the newest days wait until the connection returns.
 - **Payment gateways** approve your merchant for your domain and usually require an eNamad (اینماد) first.
 
-## Quick install (recommended)
-
-`install.sh` does the server work for you: packages, Node.js, files, settings, the API service, nginx,
-HTTPS and the data-source check. It asks three questions and stops with a plain explanation if something
-needs your attention. It is safe to run again.
-
-1. **On your computer, build the release** for your domain (details in step 1 below):
-   ```bash
-   npm run release -- https://backtestlab.ir
-   ```
-2. **Download Node.js** on your computer: the **Linux Binaries (x64)** `.tar.xz` of version 22 LTS from
-   https://nodejs.org/en/download. Servers in Iran usually cannot download it themselves.
-3. **Upload both** to the server (PowerShell on Windows 10+ has `scp`; WinSCP also works):
-   ```bash
-   scp release/backtestlab-*.tar.gz node-v22.*-linux-x64.tar.xz root@SERVER_IP:/tmp/
-   ```
-4. **On the server, run the installer:**
-   ```bash
-   cd /tmp && tar -xzf backtestlab-*.tar.gz && cd backtestlab
-   sudo bash install.sh
-   ```
-   It asks for the site domain (suggested from the release), your admin mobile number(s) and an email for
-   the HTTPS certificate. Point the domain's A record (and `www`) at the server first, so HTTPS can be set up.
-   If it is not pointing there yet, the installer says so; fix DNS and run `sudo bash /opt/backtestlab/install.sh --https`.
-5. **If it reports that market data and the calendar need a relay** (usual in Iran), on a small VPS outside Iran
-   upload the same release and run
-   ```bash
-   sudo bash install.sh --relay
-   ```
-   It asks for the relay's domain (for example `relay.backtestlab.ir`, with its A record pointing to that VPS)
-   and your Iranian server's IP, and prints the command to run on the main server:
-   ```bash
-   sudo bash /opt/backtestlab/install.sh --set-relay https://relay.backtestlab.ir
-   ```
-6. **Sign in as admin and fill in the admin panel:** step 7 below.
-
-**Updating:** build a new release, upload it, and run `sudo bash install.sh` in it again. Settings, accounts,
-payments and cached data are kept.
-
-Everything the installer prints is also saved in `/var/log/backtestlab-install.log`; send that file if you
-need help. The manual steps below do the same work by hand.
-
-## Manual installation
-
-### 1. Build the release (on your computer)
+## 1. Build the release (on your computer)
 
 ```bash
 cd BackTest-Platform
-# optional, for TradingView charts: install the library you licensed
+# TradingView chart (drawing tools, indicators, seconds): install the library you licensed, once
 npm run setup:charts -- path/to/charting_library-master.zip
 # build for your domain
 npm run release -- https://backtestlab.ir
@@ -91,19 +48,24 @@ This runs the tests and creates `release/backtestlab/`, plus a `.tar.gz` of it w
 web/                  the web app (goes to /var/www/backtestlab)
 server/server.mjs     the API server (goes to /opt/backtestlab/server)
 server/env.example    all server settings
-install.sh            the installer (quick install above)
 backtestlab.service   systemd unit
 nginx-site.conf       nginx site
 relay-nginx.conf      relay abroad for servers in Iran (step 8)
 check-sources.sh      checks whether the server reaches the data sources (step 8)
+make-admin.sh         admin sign-in: username and password, or a mobile number (step 7)
+import-market-data.sh loads ready-made market history from GitHub (step 9)
 ```
 
 The address you pass is built into the app. If you later change the domain, build again.
 
+The TradingView Charting Library is licensed to you and is not part of this repository. `setup:charts` copies
+it into `public/charting_library/` (kept out of git), and the release then ships it in `web/charting_library/`.
+Without it the replay uses the built-in chart; the release output says which chart it was built with.
+
 If `npm ci` fails with `403 Forbidden` or times out (npm sometimes refuses Iranian connections), run the
 build with a VPN on, or point npm at a mirror with `npm config set registry <mirror address>`.
 
-### 2. Prepare the server (once)
+## 2. Prepare the server (once)
 
 ```bash
 sudo apt update
@@ -144,7 +106,7 @@ sudo useradd --system --home /var/lib/backtestlab --shell /usr/sbin/nologin back
 sudo mkdir -p /opt/backtestlab/server /var/www/backtestlab
 ```
 
-### 3. Upload and install the files
+## 3. Upload and install the files
 
 From your computer (Windows 10+ has `scp` in PowerShell; WinSCP also works):
 
@@ -159,12 +121,12 @@ cd /tmp && tar -xzf backtestlab-*.tar.gz
 sudo cp -r backtestlab/web/. /var/www/backtestlab/
 sudo cp backtestlab/server/server.mjs /opt/backtestlab/server/
 sudo cp backtestlab/backtestlab.service /etc/systemd/system/
-sudo cp backtestlab/check-sources.sh /opt/backtestlab/
+sudo cp backtestlab/check-sources.sh backtestlab/make-admin.sh backtestlab/import-market-data.sh /opt/backtestlab/
 ```
 
 If you uploaded the folder instead of the archive, skip the `tar` line.
 
-### 4. Server settings
+## 4. Server settings
 
 Create `/opt/backtestlab/server/.env` (`sudo nano /opt/backtestlab/server/.env`):
 
@@ -181,7 +143,11 @@ TRUST_PROXY=true
 ```
 
 - `ADMIN_PHONES`: your mobile number(s), comma separated. These accounts get the admin panel.
+- An admin can also sign in with a username and password instead (`ADMIN_USERNAME` and
+  `ADMIN_PASSWORD_HASH`): `make-admin.sh --username` sets both (step 7). Never write the password itself here.
 - `HOST=127.0.0.1` keeps the API reachable only through nginx.
+- `APP_URL` is the site's own address: the blog's links for Google (canonical address, sitemap, sharing
+  cards) are built from it, so it must be the address visitors use (with `https://`).
 - Every other setting (SMS keys, gateways, prices, data sources) is set later in the admin panel.
   `backtestlab/server/env.example` lists the rest.
 
@@ -190,7 +156,7 @@ sudo chown root:backtestlab /opt/backtestlab/server/.env
 sudo chmod 640 /opt/backtestlab/server/.env
 ```
 
-### 5. Start the API server
+## 5. Start the API server
 
 ```bash
 sudo systemctl daemon-reload
@@ -201,7 +167,7 @@ curl http://127.0.0.1:8787/api/health      # {"ok":true,...}
 
 It restarts by itself after a crash or a reboot. Logs: `sudo journalctl -u backtestlab -f`.
 
-### 6. nginx and HTTPS
+## 6. nginx and HTTPS
 
 ```bash
 sudo cp /tmp/backtestlab/nginx-site.conf /etc/nginx/sites-available/backtestlab
@@ -218,26 +184,90 @@ sudo certbot --nginx -d YOUR-DOMAIN -d www.YOUR-DOMAIN
 - certbot needs the domain to point at this server and port 80 to be open from abroad. If it cannot verify
   the domain during an international disruption, run the same command again later.
 
+`nginx-site.conf` lets the app upload up to 10 MB to the API (a user's backtest copy) and the admin panel
+upload pictures and videos for announcements up to 100 MB (`location /api/admin/media`). If you set up nginx
+with an older copy of the file, copy it again (and repeat the `sed` line), or uploads stop with "حجم فایل
+بیش از حد مجاز سرور است".
+
+The blog (`/blog`), `sitemap.xml` and `robots.txt` are pages the API server renders for search engines;
+`nginx-site.conf` sends them to it (`location ~ ^/(blog…|sitemap\.xml|robots\.txt)$`). With an older copy of
+the file, copy it again (or add that block), or `/blog` shows the app's home page instead.
+
 Open `https://YOUR-DOMAIN`. You should see the landing page.
 
-### 7. First sign-in and the admin panel
+Pages have plain addresses (`https://YOUR-DOMAIN/dashboard`) and every click loads the new page from the
+server. nginx answers every address that is not a file with `index.html` (`try_files $uri /index.html` in
+`nginx-site.conf`); keep that line if you edit the file, or addresses other than the home page show
+"404". Older links with `/#/` (for example an admin address from before) still work: they are moved to
+the plain address when the page opens.
 
-1. Click **ورود** and enter a number from `ADMIN_PHONES`. Real SMS sending is still off, so the code is
-   in the server log:
+## 7. First sign-in and the admin panel
+
+Users sign in with a mobile number and a code sent by SMS. Admins can do the same, or use a username and
+password, which needs no SMS. Pick one:
+
+**A. Username and password (simplest).**
+
+```bash
+sudo bash /opt/backtestlab/make-admin.sh --username admin
+```
+
+It asks for a password twice (at least 8 characters; nothing is shown while you type), writes
+`ADMIN_USERNAME` and a hash of the password (`ADMIN_PASSWORD_HASH`, never the password itself) to the `.env`
+and restarts the API server. It also gives the admin sign-in page a secret address and prints it:
+`https://YOUR-DOMAIN/k/` followed by 32 random characters (`ADMIN_LOGIN_KEY` in `.env`). The site has no link to
+it, and without the key the page leads to the home page and the admin sign-in API answers "not found", so it
+cannot be guessed or found in the site's code. Save it privately (a password manager), open it, enter the
+username and password, and you are in the admin panel. Signed-in admins also see it in **تنظیمات سایت**. To
+replace it (the old one stops working): `sudo bash /opt/backtestlab/make-admin.sh --new-url`. Change them later in **پنل مدیریت → تنظیمات سایت → ورود مدیر با نام کاربری و رمز**; forgot the
+password? Run the command again. Ten wrong passwords in 15 minutes block further tries for 15 minutes.
+
+**B. Mobile number.** A number becomes an admin when it is listed in `ADMIN_PHONES` (step 4). To add one:
+
+```bash
+sudo bash /opt/backtestlab/make-admin.sh 09121234567
+```
+
+1. Open `https://YOUR-DOMAIN/login` (or click **ورود**) and enter that number. Real SMS sending is still
+   off, so the code is in the server log; run this right after pressing the button:
    ```bash
-   sudo journalctl -u backtestlab -n 20 | grep sms:dev
+   sudo journalctl -u backtestlab -n 30 --no-pager | grep sms:dev
    ```
+   The last line reads `[sms:dev] 09121234567 ← 12345`; enter that code (and your name, the first time).
+   The menu then shows **پنل مدیریت** (admin panel).
 2. Open **پنل مدیریت** (admin panel):
    - **پیامک** (SMS): choose your provider, enter the API key, sender line and OTP template, send a test
      message, then turn on **ارسال واقعی** (real sending).
    - **درگاه‌های پرداخت** (gateways): enter each merchant id, turn sandbox off, and press the connection test.
      If a gateway asks for a callback address, it is `https://YOUR-DOMAIN/api/payments/callback/zarinpal`
      (or `zibal`, `idpay`, `nextpay`, `payir`).
-   - **پلن‌ها** (plans) and **کدهای تخفیف** (discount codes): prices and offers.
-   - **نمادها و داده‌ی بازار** (symbols and market data): data source per market, and which symbols users can pick.
+   - **کارت به کارت** (card to card, optional, works without a gateway): add your cards (number and the
+     holder's name) and switch on «پرداخت کارت به کارت در صفحه‌ی خرید». Each payment's amount is in rial and
+     its last three digits are its own; when the bank tells you a deposit arrived (SMS or account history),
+     type those three digits in the search box of the **واریزها** list and press **تأیید** (confirm). The
+     plan starts at once. The menu shows how many reported transfers are waiting.
+   - **پلن‌ها** (plans) and **کدهای تخفیف** (discount codes): prices and offers. A code marked
+     **فقط برای اولین خرید** (first purchase only) works only for customers who have never completed a
+     purchase; a refunded purchase counts as one. It is checked when the code is applied and again at checkout.
+   - **نمادها و داده‌ی بازار** (symbols and market data): the stored market history and its download (step 9),
+     data source per market, which symbols users can pick, and QVeris (optional, paid; step 9).
    - **تقویم اقتصادی** (economic calendar): press sync and check that no error is shown.
+   - **بک‌تست کاربران** (users' backtests): every user's sessions with their results, open positions,
+     pending orders and closed trades (entry and exit price and time), the equity curve, the IP address their
+     app last sent data from, their devices and recent sign-ins. **حذف این جلسه** deletes a session; it also
+     disappears from the user's browser the next time they open the site. Only sessions, orders, positions
+     and strategies are copied to the server; journals and notes stay in the user's browser.
+   - **ورود و خروج کاربران** (sign-ins and sign-outs): every sign-in and sign-out with the time, IP address,
+     browser and method; search by name, number or IP. On a user's backtests page, **خروج از همه** (or the
+     button next to one device) signs them out.
+   - **اعلان‌ها** (announcements): a message with an optional picture or video that opens as a popup when
+     someone opens the home page, the dashboard, or both; for every visitor or signed-in users only; with an
+     optional button (a page like `/billing` or a full `https://` address) and start and end dates. Each
+     visitor sees a message once; turn on «دوباره به کسانی که این پیام را بسته‌اند نشان داده شود» when you
+     edit it to show it again. MP4 (H.264) videos play in every browser; iPhone videos saved as HEVC may not
+     play on Windows or Android.
 
-### 8. Relay for market data and the calendar (servers in Iran)
+## 8. Relay for market data and the calendar (servers in Iran)
 
 Check whether the server reaches the sources on its own:
 
@@ -245,8 +275,9 @@ Check whether the server reaches the sources on its own:
 bash /opt/backtestlab/check-sources.sh
 ```
 
-If all four lines say `OK`, skip this step. Otherwise (the usual case in Iran) the API server fetches them
-through a relay: a small server outside Iran that forwards only these four sources, and only for your server.
+If it ends with `All sources reachable.`, skip this step (for Dukascopy one of its two addresses is enough).
+Otherwise (the usual case in Iran) the API server fetches them through a relay: a small server outside Iran
+that forwards only these sources, and only for your server.
 
 1. **Rent a small Ubuntu VPS outside Iran.** The smallest plan is enough (1 CPU, 512 MB–1 GB RAM); it only
    forwards requests.
@@ -266,8 +297,10 @@ through a relay: a small server outside Iran that forwards only these four sourc
    address are refused.
 4. **On the main server**, add to `/opt/backtestlab/server/.env`:
    ```ini
+   DUKASCOPY_API_URL=https://relay.YOUR-DOMAIN/dukascopy-api
    DUKASCOPY_URL=https://relay.YOUR-DOMAIN/dukascopy
    BINANCE_URL=https://relay.YOUR-DOMAIN/binance
+   BINANCE_VISION_URL=https://relay.YOUR-DOMAIN/binance-vision
    FF_BASE_URL=https://relay.YOUR-DOMAIN/forexfactory
    FF_FEED_URL=https://relay.YOUR-DOMAIN/ff_calendar_thisweek.json
    ```
@@ -279,30 +312,105 @@ through a relay: a small server outside Iran that forwards only these four sourc
    Then press sync on the calendar page of the admin panel.
 
 ForexFactory protects its site with Cloudflare. If only the ForexFactory calendar line fails through the
-relay, the server falls back to the weekly feed for the current week, and the app fills older weeks from
-its sample calendar.
+relay, the server falls back to the weekly feed for the current week, and fills older weeks from the
+official release schedule built into it (times of US dollar, euro and pound news since 2015, no values).
+
+## 9. Market history
+
+Charts read candles only from the server's own storage (`/var/lib/backtestlab/market/store`): nothing is
+fetched from Dukascopy or Binance while someone uses the site. The history has to be downloaded once:
+
+- **Ready-made, from GitHub (quickest).** The history from 2015 (about 1 GB; coverage per symbol in its
+  README) is kept on this repository's `market-data` branch. In the admin panel → **نمادها و داده‌ی بازار**
+  → **تاریخچه‌ی آماده از GitHub**, press **دریافت از GitHub**: the server downloads only the months it does
+  not have (or has fewer days of), with progress and a stop button; pressing it again later takes only
+  what changed. A month the server already has is replaced only by a fuller one; to take data that was
+  corrected on the branch later (as on 8 October 2026), turn on **اصلاح داده‌های قبلی** before pressing
+  the button: every day the branch has then replaces the server's copy, and days only the server has
+  stay. The repository and branch can be changed there (`MARKET_DATA_REPO` and
+  `MARKET_DATA_BRANCH` in `.env` set the defaults). If the repository is private, put a read-only token in
+  `.env` as `MARKET_DATA_TOKEN` (github.com → Settings → Developer settings → Fine-grained tokens → only
+  this repository, Contents: Read-only). Through a relay, set `GITHUB_API_URL` and `GITHUB_RAW_URL`.
+  The same from the command line, with git:
+  ```bash
+  sudo apt install -y git
+  sudo GITHUB_TOKEN=YOUR_TOKEN bash /opt/backtestlab/import-market-data.sh
+  ```
+  It copies the months the server does not have (a month it has is replaced only by a fuller one) and
+  restarts the API server. With automatic download on, the server then adds each new day by itself; run
+  the import again to take months added to the repository later.
+
+- **By itself (default).** Half a minute after the API server starts, and then every hour, it downloads
+  whatever is missing: the whole history from 2015 the first time (a few hours; about 2 GB), afterwards
+  only each new day. Progress, coverage per symbol, stop and start are in the admin panel →
+  **نمادها و داده‌ی بازار**. Turn **دانلود خودکار** off there to download only when you press the button.
+  A stopped or interrupted download continues where it ended.
+- **From the command line** on the server (the same download, with progress in the terminal):
+  ```bash
+  sudo -u backtestlab node --env-file=/opt/backtestlab/server/.env /opt/backtestlab/server/server.mjs download
+  # some symbols or dates only:
+  sudo -u backtestlab node --env-file=/opt/backtestlab/server/.env /opt/backtestlab/server/server.mjs download --symbols=EURUSD,XAUUSD --from=2020-01-01
+  ```
+  `download --help` lists the options. Stop the API server's automatic download first (admin panel) so the
+  two do not fetch the same days.
+- **On another computer**, when the server cannot reach the sources even through the relay: copy
+  `server.mjs` from the release to any computer with Node.js 20.12+ and open internet, then
+  ```bash
+  node server.mjs download --data-dir=./backtestlab-data
+  scp -r ./backtestlab-data/market/store root@SERVER_IP:/var/lib/backtestlab/market/
+  # on the server
+  sudo chown -R backtestlab /var/lib/backtestlab/market && sudo systemctl restart backtestlab
+  ```
+  Run it again later (it adds only new days) and copy again to bring the server up to date.
+
+Dukascopy refuses a share of requests when they come quickly, and its firewall blocks a server that sends
+too many for a while (it answers with a "challenge" instead of data). The download therefore asks at most
+10 times a second (`DUKASCOPY_RATE` in `.env`); when it is blocked anyway it pauses five minutes, halves the
+rate and goes on, so it only slows down. The first download of the whole history from 2015 takes several
+hours; it runs in the background and continues after a restart.
+
+**QVeris (optional, paid).** QVeris (qveris.ai) sells EODHD's 1-minute history for forex, metals and crypto
+and live quotes, per request (2.81 credits each). The free sources above are enough; use QVeris only if
+your server cannot reach them, or for live prices in the sign-in page's ticker. Put the key in
+`/opt/backtestlab/server/.env` (`QVERIS_API_KEY=…`, see `.env.example`), restart, then in the admin panel →
+**نمادها و داده‌ی بازار** pick QVeris as a market's source and set the daily credit limit. One request
+fetches one symbol's day, newest days first; at the limit the rest waits for the next day. A full history
+for one forex pair is about 3,700 requests (about 10,000 credits). Through the relay (step 8) also set
+`QVERIS_URL` and `QVERIS_FILES_URL`.
+
+Second timeframes (1–30 s) are built from the 1-minute candles. For the real movement inside each minute,
+download 1-second data (Dukascopy ticks / Binance 1-second archives) for a symbol and date range in the
+admin panel, or with `download --seconds --symbols=EURUSD --from=… --to=…` (up to 92 days per run).
 
 ## Updating
 
-Build a new release (step 1) and upload it (step 3). Then either run the installer in it:
+Build a new release (step 1), upload it (step 3), copy `web/` and `server.mjs` as in step 3, then:
 
 ```bash
-cd /tmp && tar -xzf backtestlab-*.tar.gz && cd backtestlab && sudo bash install.sh
+sudo systemctl restart backtestlab
 ```
 
-or, by hand, copy `web/` and `server.mjs` as in step 3 and run `sudo systemctl restart backtestlab`.
-Accounts, payments, settings and cached data in `/var/lib/backtestlab` are kept.
+Releases with the blog also need the newer `nginx-site.conf` (step 6: copy it again and repeat the `sed`
+line, or add its `blog` block to your site), then `sudo nginx -t && sudo systemctl reload nginx`. Check with
+`curl -I https://YOUR-DOMAIN/blog` (it should answer `200` from the API server). Then add
+`https://YOUR-DOMAIN/sitemap.xml` in Google Search Console (Sitemaps), so new posts are found quickly.
+
+Accounts, payments, settings and the market history in `/var/lib/backtestlab` are kept. Versions before the
+market storage kept a download cache in `market/dukascopy` and `market/binance`; after updating, those two
+folders are no longer used and can be deleted.
 
 ## Backups
 
-`/var/lib/backtestlab/db.json` holds accounts, payments and settings; back it up daily. The market cache
-(`market/`) can always be downloaded again.
+`/var/lib/backtestlab/db.json` holds accounts, payments, settings, the sign-in log and announcements;
+`backtests/` the copies of users' backtests and `media/` the announcements' pictures and videos. Back them
+up daily. The market history
+(`market/store`) can be downloaded again, but that takes hours: keep a copy of it too, for example monthly.
 
 ```bash
 sudo mkdir -p /root/backups
 sudo crontab -e
 # add this line: every night at 03:30
-30 3 * * * tar -czf /root/backups/backtestlab-$(date +\%F).tar.gz -C /var/lib/backtestlab db.json news.json
+30 3 * * * tar -czf /root/backups/backtestlab-$(date +\%F).tar.gz -C /var/lib/backtestlab db.json news.json backtests media
 ```
 
 ## When something goes wrong
@@ -310,11 +418,16 @@ sudo crontab -e
 | What you see | What to check |
 |---|---|
 | **502 Bad Gateway** on the site's API | The API server is not running: `sudo journalctl -u backtestlab -n 50` |
-| The installer stopped | It prints the reason and what to do; fix it and run it again. Full log: `/var/log/backtestlab-install.log` |
 | **500** on every page | nginx cannot read the files: `sudo chmod -R a+rX /var/www/backtestlab`; details in `/var/log/nginx/error.log` |
 | **اتصال به سرور برقرار نشد** when signing in | The app was built for another address. Build again with the exact domain you open (step 1), and list both `www` and non-`www` in `CORS_ORIGINS` |
 | No sign-in code arrives | Admin panel → پیامک → send a test message; the SMS log shows the provider's error |
 | Payment returns as failed | Merchant id and sandbox setting in the admin panel; the gateway's callback domain must match your site |
 | Settings are not saved after a restart | `DATA_DIR` must be `/var/lib/backtestlab` (the only folder the service may write to) |
+| Replay candles look made up, with a «داده‌ی نمونه» badge | The app was built without the API server (demo mode). Build with `npm run release -- https://YOUR-DOMAIN` (step 1) and install the API server; only then are prices real |
+| Prices differ slightly from your broker | Normal: prices are Dukascopy's (bid) and Binance's; brokers' feeds differ by a few points. Daily and 4-hour candles close at 17:00 New York like most brokers; crypto days are UTC |
+| Charts stay empty, with «هنوز روی سرور دانلود نشده» | Those days are not in the market history yet: admin panel → نمادها و داده‌ی بازار shows coverage and the download (step 9). If downloads fail, the server cannot reach the sources: `bash /opt/backtestlab/check-sources.sh`, then set up the relay (step 8) or download on another computer |
+| A click shows an **empty page** until you refresh | Errors from visitors' browsers are logged: `sudo journalctl -u backtestlab \| grep client-error`. Common causes: the browser's translator (turn off "Translate this page"), an extension, or a CDN/firewall "optimization" (ArvanCloud/Cloudflare minify, Rocket Loader, script rewriting): turn those off for the site. Serve the release's `web/` folder, not the source code or `npm run dev` |
+| Replay shows the simple chart, not TradingView's | The library was not installed when the release was built: `npm run setup:charts -- …zip`, build again, upload `web/` |
+| 1-second candles look smooth inside each minute | They are built from the 1-minute candles. Download 1-second data for that symbol and period (step 9) |
 
 Run a single copy of the API server: its database is one file and is not shared between processes.

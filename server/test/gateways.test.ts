@@ -38,7 +38,7 @@ test('Zarinpal: request, return from the bank, server-side verify', async () => 
 
   const back = await s.call('GET', `/api/payments/callback/zarinpal?pid=${co.data.paymentId}&Authority=A0000000000000000000000000000wwOGYpd&Status=OK`);
   assert.equal(back.status, 302);
-  assert.equal(back.headers.get('location'), `https://app.test/#/billing?payment=${co.data.paymentId}`);
+  assert.equal(back.headers.get('location'), `https://app.test/billing?payment=${co.data.paymentId}`);
   const verify = JSON.parse(s.calls.at(-1)!.body!);
   assert.deepEqual(verify, { merchant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', amount: 6_900_000, authority: 'A0000000000000000000000000000wwOGYpd' });
   const p = payment(co.data.paymentId);

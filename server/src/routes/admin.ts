@@ -1,14 +1,21 @@
-import { dropSessions, requireAdmin } from '../auth';
-import { db, save } from '../db';
+import { dropSessions, ownCredentials, removeCredentials, requireAdmin, saveCredentials } from '../auth';
+import { db, save, type StoredPayment } from '../db';
 import { HttpError, badRequest, bool, notFound, num, oneOf, str, type Ctx, type Router } from '../http';
 import { INSTRUMENTS } from '../market/instruments';
-import { newsStatus, syncNews } from '../news';
-import { GATEWAY_IDS, publicPayment, testGateway } from '../payments';
+import { marketStorage, startDownload, stopDownload } from '../market/download';
+import { startImport, stopImport } from '../market/importer';
+import { qverisStatus } from '../market/qveris';
+import { newsStatus, startCalendarHistory, stopCalendarHistory, syncNews } from '../news';
+import { GATEWAY_IDS, markPaid, publicPayment, testGateway } from '../payments';
+import { cardAdmin, deleteCard, expireTransfers, rejectTransfer, saveCard, saveCardSettings, transferToReview } from '../payments/card';
 import {
   SMS_PROVIDER_NAMES,
+  fmtCardNumber,
   normalizePhone,
   type AccountUser,
   type AdminStats,
+  type BacktestQuery,
+  type LoginEventKind,
   type DataSource,
   type DiscountCode,
   type GatewayConfig,
@@ -21,6 +28,11 @@ import {
 } from '../shared';
 import { sendTextSms } from '../sms';
 import { DAY_MS, addDays, clone, faDay, faNum, isDayKey, tehranDayKey, toLatinDigits, todayKey, uid } from '../util';
+import { activityList, signOutDevices, userDevices } from '../activity';
+import { adminAnnouncements, deleteAnnouncement, saveAnnouncement, uploadMedia } from '../announcements';
+import { adminPost, adminPosts, deletePost, savePost } from '../blog';
+import { adminBacktestDetail, adminBacktests, adminDeleteSession, dropBacktests } from '../backtests';
+import { dropWorkspace, removeWorkspaceSessions } from '../workspace';
 
 function audit(ctx: Ctx, action: string, target?: string) {
   const d = db();
@@ -35,7 +47,10 @@ function page<T>(items: T[], q: URLSearchParams) {
   return { items: items.slice((p - 1) * size, p * size), total: items.length };
 }
 
-const SOURCES: DataSource[] = ['synthetic', 'dukascopy', 'binance'];
+/** Real sources only: the replay never shows generated prices when it has a server. */
+const SOURCES: DataSource[] = ['dukascopy', 'binance'];
+/** QVeris has forex, metals and crypto (EODHD), not the index and energy CFDs. */
+const WITH_QVERIS: DataSource[] = [...SOURCES, 'qveris'];
 const SMS_IDS = Object.keys(SMS_PROVIDER_NAMES) as SmsProviderId[];
 
 function stats(): AdminStats {
@@ -111,6 +126,7 @@ function validPlan(b: any, id: string): Plan {
 function validSettings(b: any): SiteSettings {
   const d = db();
   const md = b.marketData ?? {};
+  const qv = b.qveris ?? d.settings.qveris;
   const enabled = Array.isArray(b.enabledSymbols) ? b.enabledSymbols.filter((s: unknown) => typeof s === 'string' && INSTRUMENTS[s]) : [];
   const trialPlanId = String(b.trialPlanId ?? '');
   if (!d.plans.some((p) => p.id === trialPlanId)) throw badRequest('invalid', 'پلن دوره‌ی آزمایشی پیدا نشد.', 'trialPlanId');
@@ -124,14 +140,20 @@ function validSettings(b: any): SiteSettings {
     otpLength: num(b.otpLength, 'otpLength', { min: 4, max: 8, int: true, label: 'طول کد' }),
     otpTtlSec: num(b.otpTtlSec, 'otpTtlSec', { min: 30, max: 900, int: true, label: 'اعتبار کد' }),
     marketData: {
-      forex: oneOf(md.forex, SOURCES, 'marketData.forex'),
+      forex: oneOf(md.forex, WITH_QVERIS, 'marketData.forex'),
       index: oneOf(md.index, SOURCES, 'marketData.index'),
-      metal: oneOf(md.metal, SOURCES, 'marketData.metal'),
+      metal: oneOf(md.metal, WITH_QVERIS, 'marketData.metal'),
       energy: oneOf(md.energy, SOURCES, 'marketData.energy'),
-      crypto: oneOf(md.crypto, SOURCES, 'marketData.crypto'),
+      crypto: oneOf(md.crypto, WITH_QVERIS, 'marketData.crypto'),
     },
     enabledSymbols: enabled.length === Object.keys(INSTRUMENTS).length ? [] : enabled,
     newsAutoSync: bool(b.newsAutoSync),
+    marketAutoDownload: bool(b.marketAutoDownload),
+    qveris: {
+      dailyCredits: num(qv.dailyCredits, 'qveris.dailyCredits', { min: 0, max: 1_000_000, int: true, label: 'سقف اعتبار روزانه‌ی QVeris' }),
+      live: bool(qv.live),
+      liveMinutes: num(qv.liveMinutes, 'qveris.liveMinutes', { min: 5, max: 1440, int: true, label: 'فاصله‌ی به‌روزرسانی قیمت لحظه‌ای' }),
+    },
   };
 }
 
@@ -215,7 +237,10 @@ export function adminRoutes(r: Router) {
       const u = findUser(ctx.params.id);
       const d = db();
       d.users = d.users.filter((x) => x.id !== u.id);
+      delete d.credentials[u.id];
       dropSessions(u.id);
+      dropBacktests(u.id);
+      dropWorkspace(u.id);
       audit(ctx, 'حذف کاربر', u.name);
       save();
     }),
@@ -258,13 +283,25 @@ export function adminRoutes(r: Router) {
   r.get(
     '/api/admin/payments',
     admin(({ query }) => {
-      const text = (query.get('q') ?? '').trim();
+      expireTransfers();
+      const text = toLatinDigits(query.get('q') ?? '')
+        .trim()
+        .replace(/,/g, '');
       const status = query.get('status');
       const gateway = query.get('gateway');
+      // 1–3 digits: the last three digits of a card-to-card amount
+      const code = /^\d{1,3}$/.test(text) ? Number(text) : null;
+      const matches = (p: StoredPayment) =>
+        code !== null
+          ? p.transfer?.code === code
+          : p.userName.includes(text) ||
+            p.phone.includes(text) ||
+            (p.refId ?? '').includes(text) ||
+            (p.authority ?? '').includes(text) ||
+            p.id === text ||
+            (!!p.transfer && (String(p.transfer.amountRial).includes(text) || p.transfer.payerRef === text || p.transfer.cardNumber.includes(text)));
       const list = db()
-        .payments.filter(
-          (p) => !text || p.userName.includes(text) || p.phone.includes(text) || (p.refId ?? '').includes(text) || (p.authority ?? '').includes(text) || p.id === text,
-        )
+        .payments.filter((p) => !text || matches(p))
         .filter((p) => !status || status === 'all' || p.status === status)
         .filter((p) => !gateway || gateway === 'all' || p.gateway === gateway);
       return clone(page(list, query));
@@ -279,6 +316,62 @@ export function adminRoutes(r: Router) {
       audit(ctx, 'استرداد وجه', `${p.userName} — ${faNum(p.amountToman)} تومان`);
       save();
       return publicPayment(p);
+    }),
+  );
+
+  r.post(
+    '/api/admin/payments/:id/confirm',
+    admin((ctx) => {
+      const p = transferToReview(ctx.params.id);
+      if (p.status === 'paid' || p.status === 'refunded') throw badRequest('bad_state', 'این پرداخت قبلاً تأیید شده است.');
+      const refId = toLatinDigits(String(ctx.body.refId ?? '')).trim();
+      if (refId && !/^[0-9A-Za-z-]{4,30}$/.test(refId)) throw badRequest('invalid', 'شماره‌ی پیگیری معتبر نیست.', 'refId');
+      p.gatewayMessage = undefined;
+      p.transfer!.closed = undefined;
+      p.transfer!.reviewedBy = ctx.user!.name;
+      p.transfer!.reviewedAt = Date.now();
+      markPaid(p, refId || p.transfer!.payerRef, p.transfer!.payerCard ? `****-${p.transfer!.payerCard}` : undefined);
+      audit(ctx, 'تأیید کارت به کارت', `${p.userName} — ${faNum(p.transfer!.amountRial)} ریال`);
+      return publicPayment(p);
+    }),
+  );
+  r.post(
+    '/api/admin/payments/:id/reject',
+    admin((ctx) => {
+      const p = transferToReview(ctx.params.id);
+      rejectTransfer(p, ctx.body.reason, ctx.user!.name);
+      audit(ctx, 'رد کارت به کارت', `${p.userName} — ${faNum(p.transfer!.amountRial)} ریال`);
+      return publicPayment(p);
+    }),
+  );
+
+  // ---------- card to card ----------
+  r.get(
+    '/api/admin/cards',
+    admin(() => cardAdmin()),
+  );
+  r.put(
+    '/api/admin/cards/settings',
+    admin((ctx) => {
+      const s = saveCardSettings(ctx.body);
+      audit(ctx, 'تنظیم کارت به کارت', s.enabled ? 'فعال' : 'غیرفعال');
+      return s;
+    }),
+  );
+  r.put(
+    '/api/admin/cards/:id',
+    admin((ctx) => {
+      const isNew = !db().cards.some((c) => c.id === ctx.params.id);
+      const c = saveCard(ctx.params.id, ctx.body);
+      audit(ctx, isNew ? 'افزودن کارت' : 'ویرایش کارت', `${c.holder} — ${fmtCardNumber(c.number)}${c.active ? '' : ' (غیرفعال)'}`);
+      return c;
+    }),
+  );
+  r.delete(
+    '/api/admin/cards/:id',
+    admin((ctx) => {
+      const c = deleteCard(ctx.params.id);
+      audit(ctx, 'حذف کارت', `${c.holder} — ${fmtCardNumber(c.number)}`);
     }),
   );
 
@@ -306,11 +399,12 @@ export function adminRoutes(r: Router) {
         used: num(b.used ?? 0, 'used', { min: 0, int: true, label: 'تعداد استفاده' }),
         expiresAt: b.expiresAt || undefined,
         active: bool(b.active),
+        firstPurchaseOnly: bool(b.firstPurchaseOnly) || undefined,
       };
       const i = d.discounts.findIndex((x) => x.id === next.id);
       if (i >= 0) d.discounts[i] = next;
       else d.discounts.unshift(next);
-      audit(ctx, i >= 0 ? 'ویرایش کد تخفیف' : 'ساخت کد تخفیف', code);
+      audit(ctx, i >= 0 ? 'ویرایش کد تخفیف' : 'ساخت کد تخفیف', next.firstPurchaseOnly ? `${code} (فقط اولین خرید)` : code);
       save();
       return clone(next);
     }),
@@ -482,6 +576,206 @@ export function adminRoutes(r: Router) {
       const status = await syncNews();
       audit(ctx, 'همگام‌سازی تقویم اقتصادی', 'ForexFactory');
       return status;
+    }),
+  );
+  r.post(
+    '/api/admin/news/history',
+    admin((ctx) => {
+      const j = startCalendarHistory({ from: ctx.body.from });
+      audit(ctx, 'دریافت تاریخچه‌ی تقویم اقتصادی', `FMP از ${j.from}`);
+      return j;
+    }),
+  );
+  r.post(
+    '/api/admin/news/history/stop',
+    admin(() => stopCalendarHistory()),
+  );
+
+  // ---------- the signed-in admin's username and password ----------
+  r.get(
+    '/api/admin/credentials',
+    admin((ctx) => ownCredentials(ctx.user!)),
+  );
+  r.put(
+    '/api/admin/credentials',
+    admin(async (ctx) => {
+      const result = await saveCredentials(ctx, ctx.user!);
+      audit(ctx, 'تنظیم نام کاربری و رمز مدیر', result.username);
+      return result;
+    }),
+  );
+  r.delete(
+    '/api/admin/credentials',
+    admin((ctx) => {
+      removeCredentials(ctx.user!);
+      audit(ctx, 'حذف ورود با نام کاربری مدیر');
+      return undefined;
+    }),
+  );
+
+  // ---------- market history in storage ----------
+  r.get(
+    '/api/admin/market/storage',
+    admin(() => marketStorage()),
+  );
+  r.post(
+    '/api/admin/market/download',
+    admin((ctx) => {
+      const job = startDownload({ kind: ctx.body.kind, symbols: ctx.body.symbols, from: ctx.body.from, to: ctx.body.to, by: 'admin' });
+      audit(
+        ctx,
+        job.kind === 's1' ? 'دانلود داده‌ی ثانیه‌ای' : 'دانلود داده‌ی بازار',
+        `${job.symbols.length > 3 ? `${job.symbols.length} نماد` : job.symbols.join('، ')} · ${job.from} تا ${job.to}`,
+      );
+      return job;
+    }),
+  );
+  r.post(
+    '/api/admin/market/import',
+    admin((ctx) => {
+      const j = startImport({ repo: ctx.body.repo, branch: ctx.body.branch, fix: ctx.body.fix });
+      audit(ctx, j.fix ? 'اصلاح تاریخچه‌ی بازار با نسخه‌ی GitHub' : 'دریافت تاریخچه‌ی آماده‌ی بازار', `${j.repo} · ${j.branch}`);
+      return j;
+    }),
+  );
+  r.post(
+    '/api/admin/market/import/stop',
+    admin((ctx) => {
+      const j = stopImport();
+      if (j) audit(ctx, 'توقف دریافت تاریخچه‌ی آماده');
+      return j;
+    }),
+  );
+  r.get(
+    '/api/admin/market/qveris',
+    admin(() => qverisStatus()),
+  );
+  r.post(
+    '/api/admin/market/download/stop',
+    admin((ctx) => {
+      const job = stopDownload();
+      if (job) audit(ctx, 'توقف دانلود داده‌ی بازار');
+      return job;
+    }),
+  );
+
+  // ---------- users' backtests (the copy their apps sync) ----------
+  r.get(
+    '/api/admin/backtests',
+    admin((ctx) =>
+      adminBacktests({
+        q: ctx.query.get('q') ?? undefined,
+        userId: ctx.query.get('userId') ?? undefined,
+        sort: (ctx.query.get('sort') as BacktestQuery['sort']) ?? undefined,
+        page: Number(ctx.query.get('page')) || 1,
+      }),
+    ),
+  );
+  r.get(
+    '/api/admin/backtests/:userId',
+    admin((ctx) => adminBacktestDetail(ctx.params.userId)),
+  );
+  r.delete(
+    '/api/admin/backtests/:userId/sessions/:sessionId',
+    admin((ctx) => {
+      const u = findUser(ctx.params.userId);
+      // from the user's data (every device of theirs drops it at its next sync) and from the admin copy
+      const name = removeWorkspaceSessions(u.id, [ctx.params.sessionId])[0];
+      let s: { name: string } | undefined;
+      try {
+        s = adminDeleteSession(u.id, ctx.params.sessionId);
+      } catch (e) {
+        if (name === undefined) throw e;
+      }
+      audit(ctx, 'حذف جلسه‌ی بک‌تست کاربر', `${u.name} — ${s?.name ?? name}`);
+    }),
+  );
+
+  // ---------- sign-ins and devices ----------
+  r.get(
+    '/api/admin/activity',
+    admin((ctx) =>
+      activityList({
+        q: ctx.query.get('q') ?? undefined,
+        userId: ctx.query.get('userId') ?? undefined,
+        kind: (ctx.query.get('kind') as LoginEventKind) || undefined,
+        page: Number(ctx.query.get('page')) || 1,
+      }),
+    ),
+  );
+  r.get(
+    '/api/admin/users/:id/devices',
+    admin((ctx) => userDevices(findUser(ctx.params.id).id)),
+  );
+  r.delete(
+    '/api/admin/users/:id/devices',
+    admin((ctx) => {
+      const u = findUser(ctx.params.id);
+      const count = signOutDevices(u);
+      audit(ctx, 'خروج کاربر از همه‌ی دستگاه‌ها', u.name);
+      return { count };
+    }),
+  );
+  r.delete(
+    '/api/admin/users/:id/devices/:deviceId',
+    admin((ctx) => {
+      const u = findUser(ctx.params.id);
+      const count = signOutDevices(u, ctx.params.deviceId);
+      audit(ctx, 'خروج کاربر از یک دستگاه', u.name);
+      return { count };
+    }),
+  );
+
+  // ---------- announcements ----------
+  r.get(
+    '/api/admin/announcements',
+    admin(() => adminAnnouncements()),
+  );
+  r.put(
+    '/api/admin/announcements/:id',
+    admin((ctx) => {
+      const existed = db().announcements.some((a) => a.id === ctx.params.id);
+      const a = saveAnnouncement(ctx.params.id, ctx.body);
+      audit(ctx, existed ? 'ویرایش اعلان' : 'ساخت اعلان', a.title);
+      return a;
+    }),
+  );
+  r.delete(
+    '/api/admin/announcements/:id',
+    admin((ctx) => {
+      const a = deleteAnnouncement(ctx.params.id);
+      if (a) audit(ctx, 'حذف اعلان', a.title);
+    }),
+  );
+  r.post(
+    '/api/admin/media',
+    admin((ctx) => uploadMedia(ctx)),
+    { raw: true },
+  );
+
+  // ---------- blog ----------
+  r.get(
+    '/api/admin/blog',
+    admin(() => adminPosts()),
+  );
+  r.get(
+    '/api/admin/blog/:id',
+    admin((ctx) => adminPost(ctx.params.id)),
+  );
+  r.put(
+    '/api/admin/blog/:id',
+    admin((ctx) => {
+      const existed = adminPosts().some((p) => p.id === ctx.params.id);
+      const p = savePost(ctx.params.id, ctx.body);
+      audit(ctx, existed ? 'ویرایش مقاله' : 'ساخت مقاله', p.title);
+      return p;
+    }),
+  );
+  r.delete(
+    '/api/admin/blog/:id',
+    admin((ctx) => {
+      const p = deletePost(ctx.params.id);
+      if (p) audit(ctx, 'حذف مقاله', p.title);
     }),
   );
 }

@@ -18,13 +18,20 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { useGo } from '../../lib/nav';
 import { Link, NavLink } from '../ui/AppLink';
+import { Logo } from '../brand/Brand';
 import { diffDays } from '../../lib/calendar';
+import { usePlan } from '../../hooks/usePlan';
+import { LockMark } from '../plan/Locked';
 import { fmtNum } from '../../lib/format';
 import { planDaysLeft } from '../../lib/stats';
 import { useAuth } from '../../store/useAuth';
-import { toast, useStore, useToasts } from '../../store/useStore';
+import { useStore, useToasts } from '../../store/useStore';
+import { AnnouncementPopup } from '../AnnouncementPopup';
+import { SyncBadge } from './SyncBadge';
+import { InstallButton } from './InstallApp';
 import { Avatar } from '../ui/Avatar';
 import { Meter } from '../ui/controls';
 
@@ -33,8 +40,8 @@ const NAV = [
   { to: '/sessions', label: 'جلسات', icon: List },
   { to: '/strategies', label: 'استراتژی‌ها', icon: Layers },
   { to: '/checklists', label: 'چک‌لیست‌ها', icon: CheckCheck },
-  { to: '/journal', label: 'ژورنال', icon: NotebookPen },
-  { to: '/analytics', label: 'آنالیز', icon: ChartColumn },
+  { to: '/journal', label: 'ژورنال', icon: NotebookPen, locked: true },
+  { to: '/analytics', label: 'آنالیز', icon: ChartColumn, locked: true },
 ];
 
 const ACCOUNT_NAV = [
@@ -43,27 +50,12 @@ const ACCOUNT_NAV = [
   { to: '/settings', label: 'تنظیمات حساب', icon: Settings },
 ];
 
-export function Logo() {
-  return (
-    <div className="flex items-center gap-2 select-none">
-      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-        <rect x="1" y="1" width="24" height="24" rx="7" fill="rgb(var(--accent))" />
-        <rect x="6" y="13" width="2.6" height="7" rx="1" fill="#fff" opacity="0.55" />
-        <rect x="10.2" y="9" width="2.6" height="11" rx="1" fill="#fff" opacity="0.8" />
-        <path d="M15.5 8.2v9.6l6-4.8z" fill="#fff" />
-      </svg>
-      <span className="text-[17px] font-extrabold tracking-tight">
-        بک‌تست<span className="text-accent">لب</span>
-      </span>
-    </div>
-  );
-}
-
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const user = useStore((s) => s.user);
   const logout = useAuth((s) => s.logout);
   const isAdmin = useAuth((s) => s.session?.role === 'admin');
-  const navigate = useNavigate();
+  const go = useGo();
+  const { free } = usePlan();
   const left = planDaysLeft(user.plan.endsAt);
   const total = Math.max(1, diffDays(user.plan.startedAt, user.plan.endsAt));
   const remaining = left / total;
@@ -71,7 +63,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   return (
     <div className="flex h-full flex-col">
       <nav className="flex flex-col gap-1 p-3">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {NAV.map(({ to, label, icon: Icon, end, locked }) => (
           <NavLink
             key={to}
             to={to}
@@ -88,6 +80,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           >
             <Icon size={18} strokeWidth={1.9} />
             {!collapsed && <span>{label}</span>}
+            {!collapsed && locked && free && <LockMark className="ms-auto" />}
           </NavLink>
         ))}
       </nav>
@@ -115,8 +108,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           type="button"
           onClick={() => {
             logout();
-            navigate('/login', { replace: true, state: { notice: 'از حساب خارج شدید.' } });
-            toast('از حساب خارج شدید', 'info');
+            go('/login', { replace: true, notice: 'از حساب خارج شدید.' });
           }}
           title={collapsed ? 'خروج از حساب' : undefined}
           className={clsx(
@@ -193,9 +185,12 @@ export function Layout({ children }: { children: ReactNode }) {
         <Link to="/" aria-label="صفحه اصلی">
           <Logo />
         </Link>
+        <span className="ms-auto" />
+        <SyncBadge />
+        <InstallButton />
         <button
           type="button"
-          className="icon-btn ms-auto"
+          className="icon-btn"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}
           title={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}
@@ -231,6 +226,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <main className="min-w-0 flex-1">{children}</main>
       </div>
       <Toaster />
+      <AnnouncementPopup where="app" />
     </div>
   );
 }

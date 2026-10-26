@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, NotebookPen, Pencil, Play, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useGo } from '../../lib/nav';
 import { GREGORIAN_MONTHS, WEEKDAY_NAMES, fmtDay, fmtDayLong, weekdayOf } from '../../lib/calendar';
 import { faDigits, fmtNum, fmtPct, fmtUsd } from '../../lib/format';
 import { SYMBOL_MAP } from '../../lib/market';
@@ -22,7 +22,7 @@ import { KebabMenu, Meter, Select } from '../ui/controls';
 import { SessionModal } from './SessionModal';
 
 function SessionSummary({ session, trades }: { session: Session; trades: Trade[] }) {
-  const navigate = useNavigate();
+  const go = useGo();
   const s = summarize(trades);
   const equity = equitySeries(trades, session.balance);
   const monthly = monthlyPerformance(trades, 3).map((m) => {
@@ -39,7 +39,7 @@ function SessionSummary({ session, trades }: { session: Session; trades: Trade[]
   return (
     <div className="anim-fade px-4 pb-5 sm:px-5">
       <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-        <button type="button" className="btn-soft py-1.5" onClick={() => navigate(`/sessions?id=${session.id}`)}>
+        <button type="button" className="btn-soft py-1.5" onClick={() => go(`/sessions?id=${session.id}`)}>
           مشاهده خلاصه <ArrowLeft size={14} />
         </button>
         <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
@@ -91,7 +91,7 @@ function SessionSummary({ session, trades }: { session: Session; trades: Trade[]
 }
 
 function SessionRow({ session, trades }: { session: Session; trades: Trade[] }) {
-  const navigate = useNavigate();
+  const go = useGo();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -105,7 +105,7 @@ function SessionRow({ session, trades }: { session: Session; trades: Trade[] }) 
       <div className="flex items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-5">
         <button
           type="button"
-          onClick={() => navigate(`/replay/${session.id}`)}
+          onClick={() => go(`/replay/${session.id}`)}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-white shadow-[0_0_0_4px_rgb(var(--accent)/0.15)] transition hover:scale-105"
           aria-label={`ادامه بک‌تست ${session.name}`}
           title="ادامه بک‌تست روی چارت"
@@ -146,7 +146,7 @@ function SessionRow({ session, trades }: { session: Session; trades: Trade[] }) 
           <KebabMenu
             items={[
               { label: 'ویرایش جلسه', icon: <Pencil size={15} />, onClick: () => setEditing(true) },
-              { label: 'ژورنال معاملات', icon: <NotebookPen size={15} />, onClick: () => navigate(`/journal?session=${session.id}`) },
+              { label: 'ژورنال معاملات', icon: <NotebookPen size={15} />, onClick: () => go(`/journal?session=${session.id}`) },
               { label: 'حذف جلسه', icon: <Trash2 size={15} />, onClick: () => setConfirm(true), danger: true },
             ]}
           />

@@ -5,9 +5,13 @@ import {
   CalendarClock,
   CandlestickChart,
   CreditCard,
+  Fingerprint,
   Gauge,
   Landmark,
   LifeBuoy,
+  LineChart,
+  Megaphone,
+  Newspaper,
   MessageSquareText,
   Moon,
   PanelRightOpen,
@@ -16,12 +20,13 @@ import {
   Settings2,
   Sun,
   Users,
+  WalletCards,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Link, NavLink } from '../../components/ui/AppLink';
-import { Logo } from '../../components/layout/Layout';
+import { Logo } from '../../components/brand/Brand';
 import { backend } from '../../services';
 import { useAuth } from '../../store/useAuth';
 import { useStore, useToasts } from '../../store/useStore';
@@ -29,10 +34,15 @@ import { useStore, useToasts } from '../../store/useStore';
 const NAV = [
   { to: '/admin', label: 'نمای کلی', icon: Gauge, end: true },
   { to: '/admin/users', label: 'کاربران', icon: Users },
+  { to: '/admin/backtests', label: 'بک‌تست کاربران', icon: LineChart },
+  { to: '/admin/activity', label: 'ورود و خروج کاربران', icon: Fingerprint },
+  { to: '/admin/announcements', label: 'اعلان‌ها', icon: Megaphone },
+  { to: '/admin/blog', label: 'بلاگ', icon: Newspaper },
   { to: '/admin/plans', label: 'پلن‌ها و اشتراک', icon: Receipt },
   { to: '/admin/payments', label: 'تراکنش‌ها', icon: CreditCard },
   { to: '/admin/discounts', label: 'کدهای تخفیف', icon: BadgePercent },
   { to: '/admin/gateways', label: 'درگاه‌های پرداخت', icon: Landmark },
+  { to: '/admin/cards', label: 'کارت به کارت', icon: WalletCards },
   { to: '/admin/sms', label: 'پیامک', icon: MessageSquareText },
   { to: '/admin/tickets', label: 'تیکت‌ها', icon: LifeBuoy },
   { to: '/admin/news', label: 'تقویم اقتصادی', icon: CalendarClock },
@@ -41,7 +51,29 @@ const NAV = [
   { to: '/admin/audit', label: 'گزارش فعالیت', icon: ScrollText },
 ];
 
+/** Card-to-card transfers waiting for an admin, shown next to «کارت به کارت». */
+function useWaitingTransfers() {
+  const [count, setCount] = useState(0);
+  const location = useLocation();
+  useEffect(() => {
+    let live = true;
+    const check = () =>
+      backend.admin
+        .payments({ gateway: 'card', status: 'review', pageSize: 1 })
+        .then((r) => live && setCount(r.total))
+        .catch(() => undefined);
+    void check();
+    const t = setInterval(check, 60_000);
+    return () => {
+      live = false;
+      clearInterval(t);
+    };
+  }, [location.pathname]);
+  return count;
+}
+
 function Nav({ onNavigate }: { onNavigate?: () => void }) {
+  const waiting = useWaitingTransfers();
   return (
     <nav className="flex flex-col gap-0.5 p-3">
       {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -58,6 +90,11 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
             <>
               <Icon size={18} strokeWidth={1.9} className={isActive ? 'text-accent-ink' : undefined} />
               {label}
+              {to === '/admin/cards' && waiting > 0 && (
+                <span className="num ms-auto rounded-full bg-accent px-1.5 text-[11px] font-bold leading-5 text-white" aria-label={`${waiting} واریز در انتظار تأیید`}>
+                  {waiting.toLocaleString('fa-IR')}
+                </span>
+              )}
             </>
           )}
         </NavLink>
@@ -88,7 +125,8 @@ export default function AdminLayout() {
   const location = useLocation();
   useEffect(() => setDrawer(false), [location.pathname]);
 
-  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  // signed out: the home page, as for any unknown address (nothing here points at the admin sign-in page)
+  if (!session) return <Navigate to="/" replace />;
   if (session.role !== 'admin') return <Navigate to="/dashboard" replace />;
 
   return (

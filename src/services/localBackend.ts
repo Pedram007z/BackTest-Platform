@@ -1,21 +1,37 @@
 import { addDays, diffDays, fmtDayLong, localDayKey, msToKey } from '../lib/calendar';
-import { seededRng } from '../lib/market';
+import { SYMBOLS, dataStartOf, seededRng } from '../lib/market';
 import { sampleNews } from '../lib/news';
+import { deleteMedia, mediaUrl, putMedia } from '../lib/mediaStore';
 import { local, readJson, writeJson } from '../lib/storage';
+import { announcementError, announcementVisible } from './announcements';
+import { blogPostError, cleanTags, postIsPublic, slugify, toSummary } from './blog';
+import { cleanSnapshot, queryBacktestRows, summarizeSessions } from './backtests';
 import { getToken } from './api';
 import { BackendError, type Backend } from './backend';
+import { bankOfCard, canReportTransfer, cardAmountRial, cardDigits, fmtCardNumber, holdsCode, isCardNumber, pickCardCode, transferReportError } from './cards';
 import {
   GATEWAY_NAMES,
+  MEDIA_MAX_BYTES,
+  MEDIA_TYPES,
+  PAYMENT_METHOD_NAMES,
   SMS_PROVIDER_NAMES,
   normalizePhone,
   type AccountUser,
+  type AdminBacktestRow,
   type AdminStats,
+  type Announcement,
+  type BlogPost,
+  type AnnouncementMedia,
   type AuditEntry,
+  type BacktestSnapshot,
+  type CardToCardSettings,
   type DiscountCode,
   type GatewayConfig,
   type GatewayId,
+  type LoginEvent,
   type NewsSyncStatus,
   type Payment,
+  type PaymentCard,
   type Plan,
   type SiteSettings,
   type SmsLog,
@@ -39,6 +55,8 @@ interface Db {
   payments: Payment[];
   discounts: DiscountCode[];
   gateways: GatewayConfig[];
+  cards: PaymentCard[];
+  cardToCard: CardToCardSettings;
   sms: SmsSettings;
   smsLogs: SmsLog[];
   tickets: Ticket[];
@@ -46,6 +64,26 @@ interface Db {
   audit: AuditEntry[];
   otps: Record<string, { code: string; expiresAt: number; tries: number; sentAt: number }>;
   newsSyncedAt?: number;
+  /** Backtest copies the app synced (the sample users' are generated, see sampleBacktests). */
+  backtests?: Record<string, StoredBacktest>;
+  /** Sessions the admin deleted from the sample users' generated data. */
+  backtestDeleted?: Record<string, string[]>;
+  loginLog?: LoginEvent[];
+  /** Devices (sign-in events) the admin signed out. */
+  revokedDevices?: string[];
+  announcements?: Announcement[];
+  blog?: BlogPost[];
+  /** Uploaded pictures and videos; the files themselves are in IndexedDB (lib/mediaStore). */
+  media?: (Omit<AnnouncementMedia, 'url'> & { createdAt: number })[];
+}
+
+interface StoredBacktest {
+  hash: string;
+  syncedAt: number;
+  ip: string;
+  userAgent: string;
+  snapshot: BacktestSnapshot;
+  pendingRemovals: string[];
 }
 
 export const DEMO_USER_ID = 'demo';
@@ -65,7 +103,7 @@ export const DEFAULT_PLANS: Plan[] = [
     description: 'برای شروع و آشنایی با بک‌تست',
     priceToman: 0,
     durationDays: 3650,
-    features: ['۱ جلسه‌ی فعال', '۵ نماد فارکس', 'تایم‌فریم ۱۵ دقیقه به بالا', 'ژورنال و چک‌لیست'],
+    features: ['۱ جلسه‌ی بک‌تست', '۵ نماد فارکس', 'تایم‌فریم ۱۵ دقیقه به بالا', 'چک‌لیست معامله'],
     active: true,
     sort: 0,
   },
@@ -75,7 +113,7 @@ export const DEFAULT_PLANS: Plan[] = [
     description: 'همه‌ی امکانات، پرداخت ماه به ماه',
     priceToman: 690_000,
     durationDays: 30,
-    features: ['جلسه‌ی نامحدود', 'بیش از ۷۰ نماد فارکس، شاخص و کریپتو', 'چارت TradingView و ۴ چارت هم‌زمان', 'تقویم اقتصادی ForexFactory', 'آنالیز کامل و مونت‌کارلو'],
+    features: ['جلسه‌ی نامحدود', 'بیش از ۷۰ نماد فارکس، شاخص و کریپتو', 'چارت TradingView و ۴ چارت هم‌زمان', 'ژورنال معاملات', 'تقویم اقتصادی ForexFactory', 'آنالیز کامل و مونت‌کارلو'],
     active: true,
     sort: 1,
   },
@@ -115,6 +153,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   marketData: { forex: 'dukascopy', index: 'dukascopy', metal: 'dukascopy', energy: 'dukascopy', crypto: 'binance' },
   enabledSymbols: [],
   newsAutoSync: true,
+  marketAutoDownload: true,
+  qveris: { dailyCredits: 300, live: false, liveMinutes: 60 },
 };
 
 function seed(): Db {
@@ -193,6 +233,49 @@ function seed(): Db {
       });
     }
   }
+  // card to card: two transfers waiting for the admin, one confirmed
+  const cards: PaymentCard[] = [
+    { id: 'card_demo1', number: '6037997512345670', holder: 'آرش کریمی', bank: bankOfCard('6037997512345670'), active: true, createdAt: now - 40 * DAY, lastUsedAt: now - 2 * 3_600_000 },
+    { id: 'card_demo2', number: '6104331287452107', holder: 'آرش کریمی', bank: bankOfCard('6104331287452107'), active: true, createdAt: now - 12 * DAY, lastUsedAt: now - 3_600_000 },
+  ];
+  [
+    [users[5], 'pro-1m', 'review', 347, 25],
+    [users[11], 'pro-3m', 'review', 128, 70],
+    [users[20], 'pro-1m', 'paid', 615, 26 * 60],
+  ].forEach(([u, planId, status, code, minutesAgo], i) => {
+    const user = u as AccountUser;
+    const plan = DEFAULT_PLANS.find((p) => p.id === planId)!;
+    const c = cards[i % 2];
+    const created = now - (minutesAgo as number) * 60_000;
+    payments.unshift({
+      id: `pay_seed_card_${i}`,
+      userId: user.id,
+      userName: user.name,
+      phone: user.phone,
+      planId: plan.id,
+      planName: plan.name,
+      amountToman: plan.priceToman,
+      gateway: 'card',
+      status: status as Payment['status'],
+      refId: status === 'paid' ? '730112' : undefined,
+      createdAt: created,
+      paidAt: status === 'paid' ? created + 40 * 60_000 : undefined,
+      transfer: {
+        cardId: c.id,
+        cardNumber: c.number,
+        holder: c.holder,
+        bank: c.bank,
+        code: code as number,
+        amountRial: cardAmountRial(plan.priceToman, code as number),
+        expiresAt: created + 30 * 60_000,
+        payerCard: ['4421', '9038', '1176'][i],
+        payerRef: i === 1 ? undefined : String(400_000 + i * 70_311),
+        sentAt: created + 6 * 60_000,
+        reviewedBy: status === 'paid' ? 'مدیر سیستم' : undefined,
+        reviewedAt: status === 'paid' ? created + 40 * 60_000 : undefined,
+      },
+    });
+  });
   payments.sort((a, b) => b.createdAt - a.createdAt);
 
   const smsLogs: SmsLog[] = [];
@@ -257,6 +340,7 @@ function seed(): Db {
     discounts: [
       { id: 'dc1', code: 'NOROOZ1405', percent: 30, maxUses: 500, used: 137, expiresAt: '2026-04-15', active: true },
       { id: 'dc4', code: 'PAEEZ1405', percent: 20, maxUses: 300, used: 46, expiresAt: addDays(localDayKey(), 45), active: true },
+      { id: 'dc5', code: 'WELCOME20', percent: 20, maxUses: 5000, used: 64, active: true, firstPurchaseOnly: true },
       { id: 'dc2', code: 'WELCOME15', percent: 15, maxUses: 10_000, used: 412, active: true },
       { id: 'dc3', code: 'VIP50', percent: 50, maxUses: 20, used: 20, expiresAt: '2025-12-31', active: false },
     ],
@@ -267,6 +351,8 @@ function seed(): Db {
       { id: 'nextpay', name: GATEWAY_NAMES.nextpay, enabled: false, sandbox: false, merchantId: '', priority: 4 },
       { id: 'payir', name: GATEWAY_NAMES.payir, enabled: false, sandbox: true, merchantId: 'test', priority: 5 },
     ],
+    cards,
+    cardToCard: { ...DEFAULT_CARD_TO_CARD, enabled: true },
     sms: {
       active: 'kavenegar',
       enabled: false,
@@ -287,10 +373,27 @@ function seed(): Db {
   };
 }
 
+const DEFAULT_CARD_TO_CARD: CardToCardSettings = { enabled: false, payMinutes: 30, note: '' };
+
 // ---------- storage ----------
 let cache: Db | null = null;
 function db(): Db {
-  if (!cache) cache = readJson<Db | null>(local, KEY, null) ?? seed();
+  if (!cache) {
+    cache = readJson<Db | null>(local, KEY, null) ?? seed();
+    // saved before card to card existed
+    cache.cards ??= [];
+    cache.cardToCard ??= { ...DEFAULT_CARD_TO_CARD };
+    // saved before backtest copies, sign-in history and announcements existed
+    cache.backtests ??= {};
+    cache.backtestDeleted ??= {};
+    cache.loginLog ??= seedLoginLog(cache.users);
+    cache.revokedDevices ??= [];
+    cache.announcements ??= [];
+    cache.blog ??= [];
+    cache.media ??= [];
+    // saved before QVeris existed
+    cache.settings.qveris ??= { ...DEFAULT_SETTINGS.qveris };
+  }
   return cache;
 }
 function save() {
@@ -340,12 +443,18 @@ function extendPlan(user: AccountUser, plan: Plan) {
   user.planEndsAt = addDays(from, plan.durationDays);
 }
 
-function discountFor(code: string | undefined, plan: Plan): { percent: number; finalToman: number; dc?: DiscountCode } {
+/** Whether the user has completed a purchase before (a refunded one counts too). */
+function hasPurchased(userId: string): boolean {
+  return db().payments.some((p) => p.userId === userId && (p.status === 'paid' || p.status === 'refunded'));
+}
+
+function discountFor(code: string | undefined, plan: Plan, user?: AccountUser): { percent: number; finalToman: number; dc?: DiscountCode } {
   if (!code) return { percent: 0, finalToman: plan.priceToman };
   const dc = db().discounts.find((x) => x.code.toUpperCase() === code.trim().toUpperCase());
   if (!dc || !dc.active) throw new BackendError('bad_code', 'این کد تخفیف معتبر نیست.', 'discount');
   if (dc.expiresAt && dc.expiresAt < localDayKey()) throw new BackendError('expired', 'مهلت این کد تخفیف تمام شده است.', 'discount');
   if (dc.used >= dc.maxUses) throw new BackendError('used_up', 'ظرفیت این کد تخفیف پر شده است.', 'discount');
+  if (dc.firstPurchaseOnly && user && hasPurchased(user.id)) throw new BackendError('first_purchase', 'این کد تخفیف فقط برای اولین خرید است.', 'discount');
   return { percent: dc.percent, finalToman: Math.round((plan.priceToman * (100 - dc.percent)) / 100), dc };
 }
 
@@ -353,33 +462,225 @@ function page<T>(items: T[], p = 1, size = 20) {
   return { items: items.slice((p - 1) * size, p * size), total: items.length };
 }
 
+function markPaid(p: Payment, refId?: string, cardPan?: string) {
+  const d = db();
+  p.status = 'paid';
+  p.paidAt = Date.now();
+  p.refId = refId;
+  p.cardPan = cardPan;
+  const user = d.users.find((u) => u.id === p.userId);
+  const plan = d.plans.find((x) => x.id === p.planId);
+  if (user && plan) extendPlan(user, plan);
+  if (p.discountCode) {
+    const dc = d.discounts.find((x) => x.code === p.discountCode);
+    if (dc) dc.used++;
+  }
+}
+
+// ---------- sign-in history, backtest copies, announcements (demo) ----------
+const DEMO_UAS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1',
+  'Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0',
+];
+/** Sample addresses from the ranges reserved for documentation (never a real visitor). */
+const demoIp = (rng: () => number) => `${['192.0.2', '198.51.100', '203.0.113'][Math.floor(rng() * 3)]}.${1 + Math.floor(rng() * 254)}`;
+const THIS_BROWSER_IP = '127.0.0.1';
+
+function seedLoginLog(users: AccountUser[]): LoginEvent[] {
+  const rng = seededRng('login-seed-v1');
+  const now = Date.now();
+  const out: LoginEvent[] = [];
+  for (const u of users.slice(0, 36)) {
+    const ip = demoIp(rng);
+    const ua = DEMO_UAS[Math.floor(rng() * DEMO_UAS.length)];
+    const n = 1 + Math.floor(rng() * 4);
+    for (let k = 0; k < n; k++) {
+      const at = now - Math.floor(rng() * 30 * DAY);
+      const base = { userId: u.id, userName: u.name, phone: u.phone, ip: rng() < 0.2 ? demoIp(rng) : ip, userAgent: ua };
+      out.push({ id: `le_seed_${out.length}`, kind: 'login', method: 'otp', at, ...base });
+      if (rng() < 0.4) out.push({ id: `le_seed_${out.length}`, kind: 'logout', at: Math.min(now, at + Math.floor(rng() * 5 * 3_600_000)), ...base });
+    }
+  }
+  return out.sort((a, b) => b.at - a.at);
+}
+
+function logEvent(u: AccountUser, kind: LoginEvent['kind'], method?: LoginEvent['method'], ip = THIS_BROWSER_IP, userAgent = navigator.userAgent) {
+  const d = db();
+  d.loginLog!.unshift({ id: uid('le'), userId: u.id, userName: u.name, phone: u.phone, kind, method, at: Date.now(), ip, userAgent: userAgent.slice(0, 200) });
+  d.loginLog!.length = Math.min(d.loginLog!.length, 10_000);
+}
+
+/** Devices = sign-ins in the last 30 days the admin has not signed out (at most 3 per user). */
+function demoDevices(userId: string) {
+  const d = db();
+  const now = Date.now();
+  return d
+    .loginLog!.filter((e) => e.userId === userId && e.kind === 'login' && e.at > now - 30 * DAY && !d.revokedDevices!.includes(e.id))
+    .slice(0, 3)
+    .map((e) => ({ id: e.id, createdAt: e.at, lastSeenAt: Math.min(now, e.at + 2 * 3_600_000), expiresAt: e.at + 30 * DAY, ip: e.ip, userAgent: e.userAgent }));
+}
+
+type BacktestEntry = Omit<StoredBacktest, 'hash' | 'pendingRemovals'> & { pendingRemovals: string[] };
+let samples: Promise<Map<string, BacktestEntry>> | null = null;
+
+/** Backtests for a dozen sample users: varied copies of the sample data (built once, kept in memory). */
+function sampleBacktests(users: AccountUser[]): Promise<Map<string, BacktestEntry>> {
+  samples ??= import('../store/seed').then(({ buildSeed }) => {
+    const base = buildSeed();
+    const rng = seededRng('backtests-seed-v1');
+    const now = Date.now();
+    const out = new Map<string, BacktestEntry>();
+    users
+      .filter((u) => u.id.startsWith('u_seed_') && u.status === 'active')
+      .slice(0, 14)
+      .forEach((u, i) => {
+        let keep = base.sessions.filter(() => rng() < 0.5);
+        if (!keep.length) keep = [base.sessions[i % base.sessions.length]];
+        // some traders lose: their results are mirrored
+        const f = rng() < 0.3 ? -(0.3 + rng() * 0.7) : 0.4 + rng() * 1.4;
+        const seen = u.lastLoginAt ?? now;
+        const snapshot = cleanSnapshot({
+          sessions: keep.map((s) => ({ ...s, id: `${s.id}_${i}`, lastOpenedAt: seen - Math.floor(rng() * 3 * DAY) })),
+          trades: base.trades
+            .filter((t) => keep.some((s) => s.id === t.sessionId))
+            .map((t) => ({
+              ...t,
+              id: `${t.id}_${i}`,
+              sessionId: `${t.sessionId}_${i}`,
+              pnl: t.pnl === undefined ? undefined : t.pnl * f,
+              r: t.r === undefined ? undefined : t.r * f,
+              partials: t.partials.map((p) => ({ ...p, pnl: p.pnl * f })),
+            })),
+          strategies: base.strategies,
+        });
+        out.set(u.id, { snapshot, syncedAt: seen, ip: demoIp(rng), userAgent: DEMO_UAS[Math.floor(rng() * DEMO_UAS.length)], pendingRemovals: [] });
+      });
+    return out;
+  });
+  return samples;
+}
+
+/** Every user's copy: the sample users' (minus sessions the admin deleted) and the ones apps synced here. */
+async function allBacktests(): Promise<Map<string, BacktestEntry>> {
+  const d = db();
+  const out = new Map<string, BacktestEntry>();
+  for (const [id, e] of await sampleBacktests(d.users)) {
+    const gone = d.backtestDeleted![id] ?? [];
+    out.set(id, {
+      ...e,
+      snapshot: { ...e.snapshot, sessions: e.snapshot.sessions.filter((s) => !gone.includes(s.id)), trades: e.snapshot.trades.filter((t) => !gone.includes(t.sessionId)) },
+    });
+  }
+  for (const [id, e] of Object.entries(d.backtests!)) out.set(id, e);
+  return out;
+}
+
+/** Fills in blob: addresses for the demo's stored pictures and videos. */
+async function withMediaUrls(list: Announcement[]): Promise<Announcement[]> {
+  for (const a of list) if (a.media) a.media.url = await mediaUrl(a.media.id);
+  return list;
+}
+
+/** Files no message or post uses any more (uploads younger than a day are kept: the admin may still be writing). */
+function dropUnusedMedia() {
+  const d = db();
+  const used = new Set(d.announcements!.map((a) => a.media?.id).filter(Boolean));
+  for (const p of d.blog!) {
+    if (p.cover) used.add(p.cover.id);
+    for (const m of p.content.matchAll(/\/api\/media\/([\w-]+)/g)) used.add(m[1]);
+  }
+  const old = Date.now() - DAY;
+  for (const m of d.media!.filter((x) => !used.has(x.id) && x.createdAt < old)) void deleteMedia(m.id);
+  d.media = d.media!.filter((x) => used.has(x.id) || x.createdAt >= old);
+}
+
 /** Called by the sandbox gateway page in demo mode. */
 export function completeSandboxPayment(paymentId: string, ok: boolean): Payment {
   const d = db();
   const p = d.payments.find((x) => x.id === paymentId);
   if (!p) throw new BackendError('not_found', 'تراکنش پیدا نشد.');
-  if (p.status !== 'pending') return clone(p);
-  if (ok) {
-    p.status = 'paid';
-    p.paidAt = Date.now();
-    p.refId = String(Math.floor(Math.random() * 1e9));
-    p.cardPan = '6037-99**-****-1234';
-    const user = d.users.find((u) => u.id === p.userId);
-    const plan = d.plans.find((x) => x.id === p.planId);
-    if (user && plan) extendPlan(user, plan);
-    if (p.discountCode) {
-      const dc = d.discounts.find((x) => x.code === p.discountCode);
-      if (dc) dc.used++;
-    }
-  } else p.status = 'failed';
+  if (p.status !== 'pending' || p.transfer) return clone(p);
+  if (ok) markPaid(p, String(Math.floor(Math.random() * 1e9)), '6037-99**-****-1234');
+  else p.status = 'failed';
   save();
   return clone(p);
 }
+
+// ---------- card to card (same rules as server/src/payments/card.ts) ----------
+const cardPaymentsOpen = () => db().cardToCard.enabled && db().cards.some((c) => c.active);
+
+function expireTransfers(now = Date.now()) {
+  for (const p of db().payments) {
+    if (p.transfer && p.status === 'pending' && p.transfer.expiresAt < now) {
+      p.status = 'failed';
+      p.transfer.closed = 'expired';
+    }
+  }
+}
+
+function startCardPayment(user: AccountUser, plan: Plan, finalToman: number, discountCode: string | undefined) {
+  const d = db();
+  if (!cardPaymentsOpen()) throw new BackendError('gateway', 'پرداخت کارت به کارت فعال نیست.', 'gateway');
+  const now = Date.now();
+  expireTransfers(now);
+  const mine = d.payments.filter((p) => p.userId === user.id && p.transfer);
+  if (mine.filter((p) => p.status === 'review').length >= 3) {
+    throw new BackendError('too_many', 'سه پرداخت کارت به کارت شما در انتظار تأیید است؛ پس از بررسی آن‌ها دوباره تلاش کنید.', 'gateway');
+  }
+  const same = mine.find((p) => p.status === 'pending' && p.planId === plan.id && p.amountToman === finalToman && p.discountCode === discountCode);
+  if (same) return same;
+  for (const p of mine) {
+    if (p.status === 'pending') {
+      p.status = 'failed';
+      p.transfer!.closed = 'cancelled';
+    }
+  }
+  const code = pickCardCode(new Set(d.payments.filter((p) => holdsCode(p, now)).map((p) => p.transfer!.code)));
+  if (code === null) throw new BackendError('busy', 'ظرفیت پرداخت کارت به کارت موقتاً پر است؛ کمی بعد یا با درگاه بانکی پرداخت کنید.', 'gateway');
+  const card = d.cards.filter((c) => c.active).sort((a, b) => (a.lastUsedAt ?? 0) - (b.lastUsedAt ?? 0))[0];
+  card.lastUsedAt = now;
+  const p: Payment = {
+    id: uid('pay'),
+    userId: user.id,
+    userName: user.name,
+    phone: user.phone,
+    planId: plan.id,
+    planName: plan.name,
+    amountToman: finalToman,
+    discountCode,
+    gateway: 'card',
+    status: 'pending',
+    createdAt: now,
+    transfer: { cardId: card.id, cardNumber: card.number, holder: card.holder, bank: card.bank, code, amountRial: cardAmountRial(finalToman, code), expiresAt: now + d.cardToCard.payMinutes * 60_000, instructions: d.cardToCard.note || undefined },
+  };
+  d.payments.unshift(p);
+  return p;
+}
+
+function ownTransfer(id: string) {
+  const u = currentUser();
+  const p = db().payments.find((x) => x.id === id && x.userId === u.id);
+  if (!p?.transfer) throw new BackendError('not_found', 'پرداخت پیدا نشد.');
+  return p;
+}
+
+function adminTransfer(id: string) {
+  const p = db().payments.find((x) => x.id === id);
+  if (!p?.transfer) throw new BackendError('not_found', 'پرداخت کارت به کارت پیدا نشد.');
+  return p;
+}
+
+const latin = (v: string | undefined) => (v ?? '').replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0)).trim();
 
 export function sandboxPaymentInfo(paymentId: string): Payment | null {
   const p = db().payments.find((x) => x.id === paymentId);
   return p ? clone(p) : null;
 }
+
+const serverOnly = (): Promise<never> => Promise.reject(new BackendError('unsupported', 'این کار فقط با سرور انجام می‌شود.'));
 
 export const localBackend: Backend = {
   mode: 'demo',
@@ -448,8 +749,18 @@ export const localBackend: Backend = {
     if (user.status === 'banned') throw new BackendError('banned', 'این حساب مسدود شده است. با پشتیبانی تماس بگیرید.');
     delete d.otps[phone];
     user.lastLoginAt = Date.now();
+    user.lastIp = THIS_BROWSER_IP;
+    logEvent(user, 'login', 'otp');
     save();
     return delay({ token: `local.${user.id}`, user: clone(user), isNew }, 350);
+  },
+
+  /** the demo has no admin sign-in page: its sample account already opens the panel */
+  async adminGate() {
+    return false;
+  },
+  async adminLogin() {
+    throw new BackendError('unsupported', 'ورود با نام کاربری و رمز فقط روی سرور فعال است؛ در نسخه‌ی نمایشی از «ورود با حساب نمایشی» استفاده کنید.', 'username');
   },
 
   async demoLogin() {
@@ -460,6 +771,8 @@ export const localBackend: Backend = {
       user = db().users.find((u) => u.id === DEMO_USER_ID)!;
     }
     user.lastLoginAt = Date.now();
+    user.lastIp = THIS_BROWSER_IP;
+    logEvent(user, 'login', 'demo');
     save();
     return delay({ token: `local.${DEMO_USER_ID}`, user: clone(user), isNew: false }, 350);
   },
@@ -473,24 +786,36 @@ export const localBackend: Backend = {
     save();
     return clone(u);
   },
-  async logout() {},
+  async logout() {
+    try {
+      logEvent(currentUser(), 'logout');
+      save();
+    } catch {
+      /* already signed out */
+    }
+  },
 
   async plans() {
     return delay(clone(db().plans.filter((p) => p.active).sort((a, b) => a.sort - b.sort)), 80);
   },
   async gateways() {
-    return delay(
-      db()
-        .gateways.filter((g) => g.enabled)
-        .sort((a, b) => a.priority - b.priority)
-        .map((g) => ({ id: g.id, name: g.name })),
-      80,
-    );
+    const list: { id: Payment['gateway']; name: string }[] = db()
+      .gateways.filter((g) => g.enabled)
+      .sort((a, b) => a.priority - b.priority)
+      .map((g) => ({ id: g.id, name: g.name }));
+    if (cardPaymentsOpen()) list.push({ id: 'card', name: PAYMENT_METHOD_NAMES.card });
+    return delay(list, 80);
   },
   async checkDiscount(code, planId) {
     const plan = db().plans.find((p) => p.id === planId);
     if (!plan) throw new BackendError('not_found', 'پلن پیدا نشد.');
-    const r = discountFor(code, plan);
+    let user: AccountUser | undefined;
+    try {
+      user = currentUser();
+    } catch {
+      user = undefined;
+    }
+    const r = discountFor(code, plan, user);
     return delay({ percent: r.percent, finalToman: r.finalToman });
   },
   async checkout({ planId, gateway, discountCode }) {
@@ -498,9 +823,15 @@ export const localBackend: Backend = {
     const d = db();
     const plan = d.plans.find((p) => p.id === planId && p.active);
     if (!plan || plan.priceToman <= 0) throw new BackendError('not_found', 'این پلن قابل خرید نیست.');
+    if (gateway === 'card') {
+      const disc = discountFor(discountCode, plan, user);
+      const t = startCardPayment(user, plan, disc.finalToman, disc.dc?.code);
+      save();
+      return delay({ paymentId: t.id, amountToman: t.amountToman, redirectUrl: `/billing/card?payment=${t.id}` }, 400);
+    }
     const g = d.gateways.find((x) => x.id === gateway && x.enabled);
     if (!g) throw new BackendError('gateway', 'این درگاه فعال نیست.');
-    const disc = discountFor(discountCode, plan);
+    const disc = discountFor(discountCode, plan, user);
     const p: Payment = {
       id: uid('pay'),
       userId: user.id,
@@ -517,15 +848,40 @@ export const localBackend: Backend = {
     };
     d.payments.unshift(p);
     save();
-    return delay({ paymentId: p.id, amountToman: p.amountToman, redirectUrl: `#/pay/sandbox?payment=${p.id}` }, 500);
+    return delay({ paymentId: p.id, amountToman: p.amountToman, redirectUrl: `/pay/sandbox?payment=${p.id}` }, 500);
   },
   async payment(id) {
+    expireTransfers();
     const p = db().payments.find((x) => x.id === id);
     if (!p) throw new BackendError('not_found', 'تراکنش پیدا نشد.');
     return clone(p);
   },
+  async reportTransfer(id, input) {
+    expireTransfers();
+    const p = ownTransfer(id);
+    if (p.status !== 'review') {
+      if (!canReportTransfer(p)) throw new BackendError('bad_state', 'این پرداخت بسته شده است؛ از صفحه‌ی اشتراک دوباره پرداخت کنید.');
+      const payerCard = latin(input.payerCard);
+      const payerRef = latin(input.payerRef);
+      const err = transferReportError(payerCard, payerRef);
+      if (err) throw new BackendError('invalid', err.message, err.field);
+      p.status = 'review';
+      Object.assign(p.transfer!, { closed: undefined, payerCard: payerCard || undefined, payerRef: payerRef || undefined, sentAt: Date.now() });
+      save();
+    }
+    return delay(clone(p), 400);
+  },
+  async cancelTransfer(id) {
+    const p = ownTransfer(id);
+    if (p.status !== 'pending') throw new BackendError('bad_state', 'فقط پرداختی که هنوز گزارش نشده لغو می‌شود.');
+    p.status = 'failed';
+    p.transfer!.closed = 'cancelled';
+    save();
+    return clone(p);
+  },
   async myPayments() {
     const u = currentUser();
+    expireTransfers();
     return clone(db().payments.filter((p) => p.userId === u.id));
   },
   async myTickets() {
@@ -548,6 +904,56 @@ export const localBackend: Backend = {
     t.updatedAt = Date.now();
     save();
     return clone(t);
+  },
+
+  async backtestCheck(hash) {
+    const e = db().backtests![currentUser().id];
+    return delay({ needData: !e || e.hash !== hash, remove: e?.pendingRemovals ?? [] }, 60);
+  },
+  async backtestUpload(hash, raw) {
+    const u = currentUser();
+    const d = db();
+    const snapshot = cleanSnapshot(raw);
+    const prev = d.backtests![u.id];
+    const pending = (prev?.pendingRemovals ?? []).filter((id) => snapshot.sessions.some((s) => s.id === id));
+    snapshot.sessions = snapshot.sessions.filter((s) => !pending.includes(s.id));
+    snapshot.trades = snapshot.trades.filter((t) => !pending.includes(t.sessionId));
+    d.backtests![u.id] = { hash, syncedAt: Date.now(), ip: THIS_BROWSER_IP, userAgent: navigator.userAgent.slice(0, 200), snapshot, pendingRemovals: pending };
+    save();
+    return delay({ needData: false, remove: pending }, 120);
+  },
+  // the demo keeps everything in this browser: there is no account data to share between devices
+  workspace: () => serverOnly(),
+  saveWorkspace: () => serverOnly(),
+  layouts: () => serverOnly(),
+  saveLayout: () => serverOnly(),
+  shot: () => serverOnly(),
+  saveShot: () => serverOnly(),
+  deleteShot: () => serverOnly(),
+  async latestBlogPosts(limit) {
+    const list = clone(db().blog!.filter((p) => postIsPublic(p)))
+      .sort((a, b) => (b.publishedAt ?? 0) - (a.publishedAt ?? 0))
+      .slice(0, limit)
+      .map((p) => ({ ...toSummary(p), views: 0 }));
+    for (const p of list) if (p.cover) p.cover.url = await mediaUrl(p.cover.id);
+    return list;
+  },
+  async announcements(placement) {
+    let signedIn = false;
+    try {
+      signedIn = !!currentUser();
+    } catch {
+      /* a visitor */
+    }
+    const list = clone(db().announcements!.filter((a) => announcementVisible(a, placement, signedIn, localDayKey()))).map((a) => ({ ...a, views: 0 }));
+    return withMediaUrls(list);
+  },
+  async announcementSeen(id) {
+    const a = db().announcements!.find((x) => x.id === id);
+    if (a) {
+      a.views++;
+      save();
+    }
   },
 
   admin: {
@@ -643,9 +1049,21 @@ export const localBackend: Backend = {
     },
     async payments(q) {
       requireAdmin();
-      const text = (q.q ?? '').trim();
+      expireTransfers();
+      const text = latin(q.q).replace(/[,٬]/g, '');
+      const code = /^\d{1,3}$/.test(text) ? Number(text) : null;
       const list = db()
-        .payments.filter((p) => !text || p.userName.includes(text) || p.phone.includes(text) || (p.refId ?? '').includes(text) || (p.authority ?? '').includes(text))
+        .payments.filter(
+          (p) =>
+            !text ||
+            (code !== null
+              ? p.transfer?.code === code
+              : p.userName.includes(text) ||
+                p.phone.includes(text) ||
+                (p.refId ?? '').includes(text) ||
+                (p.authority ?? '').includes(text) ||
+                (!!p.transfer && (String(p.transfer.amountRial).includes(text) || p.transfer.payerRef === text || p.transfer.cardNumber.includes(text)))),
+        )
         .filter((p) => !q.status || q.status === 'all' || p.status === q.status)
         .filter((p) => !q.gateway || q.gateway === 'all' || p.gateway === q.gateway);
       return delay(clone(page(list, q.page, q.pageSize)), 150);
@@ -659,6 +1077,79 @@ export const localBackend: Backend = {
       save();
       return clone(p);
     },
+    async confirmPayment(id, refId) {
+      const admin = requireAdmin();
+      const p = adminTransfer(id);
+      if (p.status === 'paid' || p.status === 'refunded') throw new BackendError('bad_state', 'این پرداخت قبلاً تأیید شده است.');
+      const ref = latin(refId);
+      if (ref && !/^[0-9A-Za-z-]{4,30}$/.test(ref)) throw new BackendError('invalid', 'شماره‌ی پیگیری معتبر نیست.', 'refId');
+      Object.assign(p.transfer!, { closed: undefined, reviewedBy: admin.name, reviewedAt: Date.now() });
+      markPaid(p, ref || p.transfer!.payerRef, p.transfer!.payerCard ? `****-${p.transfer!.payerCard}` : undefined);
+      log('تأیید کارت به کارت', `${p.userName} — ${p.transfer!.amountRial.toLocaleString('fa-IR')} ریال`);
+      save();
+      return delay(clone(p));
+    },
+    async rejectPayment(id, reason) {
+      const admin = requireAdmin();
+      const p = adminTransfer(id);
+      if (p.status !== 'pending' && p.status !== 'review') throw new BackendError('bad_state', 'فقط پرداخت‌های باز رد می‌شوند.');
+      p.status = 'failed';
+      Object.assign(p.transfer!, { closed: 'rejected', note: reason.trim().slice(0, 200) || 'واریزی با این مبلغ به حساب نرسید.', reviewedBy: admin.name, reviewedAt: Date.now() });
+      log('رد کارت به کارت', `${p.userName} — ${p.transfer!.amountRial.toLocaleString('fa-IR')} ریال`);
+      save();
+      return delay(clone(p));
+    },
+    async cards() {
+      requireAdmin();
+      const d = db();
+      return delay(
+        clone({
+          settings: d.cardToCard,
+          cards: d.cards.map((c) => {
+            const list = d.payments.filter((p) => p.transfer?.cardId === c.id);
+            const paid = list.filter((p) => p.status === 'paid');
+            return { ...c, open: list.filter((p) => p.status === 'pending' || p.status === 'review').length, paidCount: paid.length, paidToman: paid.reduce((s, p) => s + p.amountToman, 0) };
+          }),
+        }),
+        150,
+      );
+    },
+    async saveCard(input) {
+      requireAdmin();
+      const d = db();
+      const number = cardDigits(input.number);
+      if (!isCardNumber(number)) throw new BackendError('invalid', 'شماره‌ی کارت ۱۶ رقمی معتبر نیست.', 'number');
+      const holder = input.holder.trim();
+      if (holder.length < 2 || holder.length > 60) throw new BackendError('invalid', 'نام صاحب کارت را وارد کنید (حداکثر ۶۰ حرف).', 'holder');
+      if (d.cards.some((c) => c.number === number && c.id !== input.id)) throw new BackendError('exists', 'این کارت قبلاً اضافه شده است.', 'number');
+      const old = d.cards.find((c) => c.id === input.id);
+      const card: PaymentCard = { id: input.id, number, holder, bank: input.bank.trim().slice(0, 40) || bankOfCard(number), active: input.active, createdAt: old?.createdAt ?? Date.now(), lastUsedAt: old?.lastUsedAt };
+      d.cards = old ? d.cards.map((c) => (c.id === card.id ? card : c)) : [...d.cards, card];
+      log(old ? 'ویرایش کارت' : 'افزودن کارت', `${holder} — ${fmtCardNumber(number)}${card.active ? '' : ' (غیرفعال)'}`);
+      save();
+      return delay(clone(card));
+    },
+    async deleteCard(id) {
+      requireAdmin();
+      const d = db();
+      const card = d.cards.find((c) => c.id === id);
+      if (!card) throw new BackendError('not_found', 'کارت پیدا نشد.');
+      const open = d.payments.filter((p) => p.transfer?.cardId === id && (p.status === 'pending' || p.status === 'review')).length;
+      if (open) throw new BackendError('in_use', `${open.toLocaleString('fa-IR')} پرداخت باز روی این کارت است؛ فعلاً آن را غیرفعال کنید و پس از بستن آن‌ها حذفش کنید.`);
+      d.cards = d.cards.filter((c) => c.id !== id);
+      log('حذف کارت', `${card.holder} — ${fmtCardNumber(card.number)}`);
+      save();
+    },
+    async saveCardSettings(input) {
+      requireAdmin();
+      const minutes = Number(latin(String(input.payMinutes)));
+      if (!Number.isInteger(minutes) || minutes < 5 || minutes > 1440) throw new BackendError('invalid', 'مهلت پرداخت باید بین ۵ تا ۱۴۴۰ دقیقه باشد.', 'payMinutes');
+      if (input.note.trim().length > 300) throw new BackendError('invalid', 'توضیح حداکثر ۳۰۰ حرف است.', 'note');
+      db().cardToCard = { enabled: input.enabled, payMinutes: minutes, note: input.note.trim() };
+      log('تنظیم کارت به کارت', input.enabled ? 'فعال' : 'غیرفعال');
+      save();
+      return clone(db().cardToCard);
+    },
     async discounts() {
       requireAdmin();
       return clone(db().discounts);
@@ -669,11 +1160,11 @@ export const localBackend: Backend = {
       const code = dc.code.trim().toUpperCase();
       if (!/^[A-Z0-9_-]{3,24}$/.test(code)) throw new BackendError('bad_code', 'کد باید ۳ تا ۲۴ حرف انگلیسی یا عدد باشد.', 'code');
       if (d.discounts.some((x) => x.code === code && x.id !== dc.id)) throw new BackendError('exists', 'این کد قبلاً ساخته شده است.', 'code');
-      const next = { ...dc, code };
+      const next = { ...dc, code, firstPurchaseOnly: dc.firstPurchaseOnly || undefined };
       const i = d.discounts.findIndex((x) => x.id === dc.id);
       if (i >= 0) d.discounts[i] = next;
       else d.discounts.unshift(next);
-      log(i >= 0 ? 'ویرایش کد تخفیف' : 'ساخت کد تخفیف', code);
+      log(i >= 0 ? 'ویرایش کد تخفیف' : 'ساخت کد تخفیف', next.firstPurchaseOnly ? `${code} (فقط اولین خرید)` : code);
       save();
       return clone(next);
     },
@@ -785,12 +1276,274 @@ export const localBackend: Backend = {
       requireAdmin();
       return sampleNewsStatus(db().newsSyncedAt);
     },
+    async startNewsHistory() {
+      requireAdmin();
+      throw new BackendError('unsupported', 'نسخه‌ی نمایشی سرور ندارد؛ تاریخچه‌ی تقویم روی سرور API دریافت می‌شود.');
+    },
+    async stopNewsHistory() {
+      requireAdmin();
+      return null;
+    },
     async syncNews() {
       requireAdmin();
       db().newsSyncedAt = Date.now();
       log('همگام‌سازی تقویم اقتصادی', 'نمونه');
       save();
       return delay(sampleNewsStatus(db().newsSyncedAt), 800);
+    },
+    async marketStorage() {
+      requireAdmin();
+      // the demo has no server and no stored history: its prices are generated
+      return {
+        symbols: SYMBOLS.map((s) => ({ id: s.id, source: 'synthetic' as const, start: dataStartOf(s.id), days: 0, expected: 0, bytes: 0, secondDays: 0 })),
+        bytes: 0,
+        job: null,
+        lastJob: null,
+        autoDownload: db().settings.marketAutoDownload,
+      };
+    },
+    async startMarketImport() {
+      requireAdmin();
+      throw new BackendError('unsupported', 'نسخه‌ی نمایشی سرور ندارد؛ تاریخچه‌ی آماده روی سرور API دریافت می‌شود.');
+    },
+    async stopMarketImport() {
+      requireAdmin();
+      return null;
+    },
+    async qverisStatus() {
+      requireAdmin();
+      // the demo has no server, so no QVeris key
+      return {
+        configured: false,
+        today: { day: new Date().toISOString().slice(0, 10), credits: 0, calls: 0 },
+        dailyCredits: db().settings.qveris.dailyCredits,
+        callCredits: 2.81,
+        symbols: SYMBOLS.filter((s) => s.group === 'forex' || s.group === 'metal' || s.group === 'crypto').map((s) => s.id),
+      };
+    },
+    async startMarketDownload() {
+      requireAdmin();
+      throw new BackendError('unsupported', 'نسخه‌ی نمایشی سرور ندارد؛ دانلود داده‌ی بازار روی سرور API انجام می‌شود.');
+    },
+    async stopMarketDownload() {
+      requireAdmin();
+      return null;
+    },
+    async credentials() {
+      requireAdmin();
+      return { username: null, loginPath: '', keyFromEnv: false };
+    },
+    async saveCredentials() {
+      requireAdmin();
+      throw new BackendError('unsupported', 'ورود با نام کاربری و رمز فقط روی سرور API فعال است.');
+    },
+    async removeCredentials() {
+      requireAdmin();
+    },
+
+    async backtests(q) {
+      requireAdmin();
+      const users = new Map(db().users.map((u) => [u.id, u]));
+      const rows: AdminBacktestRow[] = [];
+      for (const [userId, e] of await allBacktests()) {
+        const u = users.get(userId);
+        if (u) for (const s of summarizeSessions(e.snapshot)) rows.push({ ...s, userId, userName: u.name, phone: u.phone, syncedAt: e.syncedAt, ip: e.ip });
+      }
+      return delay({ ...queryBacktestRows(rows, q), users: new Set(rows.map((r) => r.userId)).size, open: rows.reduce((n, r) => n + r.open, 0) });
+    },
+    async backtestDetail(userId) {
+      requireAdmin();
+      const u = db().users.find((x) => x.id === userId);
+      if (!u) throw new BackendError('not_found', 'کاربر پیدا نشد.');
+      const e = (await allBacktests()).get(userId);
+      return delay({
+        user: { id: u.id, name: u.name, phone: u.phone, planId: u.planId, status: u.status, lastLoginAt: u.lastLoginAt, lastIp: u.lastIp },
+        syncedAt: e?.syncedAt ?? 0,
+        ip: e?.ip,
+        userAgent: e?.userAgent,
+        snapshot: clone(e?.snapshot ?? { sessions: [], trades: [], strategies: [] }),
+        pendingRemovals: e?.pendingRemovals ?? [],
+      });
+    },
+    async deleteBacktestSession(userId, sessionId) {
+      requireAdmin();
+      const d = db();
+      const u = d.users.find((x) => x.id === userId);
+      const e = (await allBacktests()).get(userId);
+      const s = e?.snapshot.sessions.find((x) => x.id === sessionId);
+      if (!u || !e || !s) throw new BackendError('not_found', 'جلسه پیدا نشد.');
+      const stored = d.backtests![userId];
+      if (stored) {
+        stored.snapshot.sessions = stored.snapshot.sessions.filter((x) => x.id !== sessionId);
+        stored.snapshot.trades = stored.snapshot.trades.filter((t) => t.sessionId !== sessionId);
+        if (!stored.pendingRemovals.includes(sessionId)) stored.pendingRemovals.push(sessionId);
+      } else (d.backtestDeleted![userId] ??= []).push(sessionId);
+      log('حذف جلسه‌ی بک‌تست کاربر', `${u.name} — ${s.name}`);
+      save();
+      await delay(null);
+    },
+    async activity(q) {
+      requireAdmin();
+      const term = (q.q ?? '').trim().toLowerCase();
+      const rows = db().loginLog!.filter(
+        (e) =>
+          (!q.userId || e.userId === q.userId) && (!q.kind || e.kind === q.kind) && (!term || [e.userName, e.phone, e.ip, e.userAgent].some((v) => v.toLowerCase().includes(term))),
+      );
+      const page = Math.max(1, q.page ?? 1);
+      return delay({ items: clone(rows.slice((page - 1) * 50, page * 50)), total: rows.length });
+    },
+    async userDevices(userId) {
+      requireAdmin();
+      return delay(demoDevices(userId));
+    },
+    async signOutDevices(userId, deviceId) {
+      requireAdmin();
+      const d = db();
+      const u = d.users.find((x) => x.id === userId);
+      if (!u) throw new BackendError('not_found', 'کاربر پیدا نشد.');
+      const list = demoDevices(userId).filter((x) => !deviceId || x.id === deviceId);
+      if (deviceId && !list.length) throw new BackendError('not_found', 'این دستگاه دیگر وارد نیست.');
+      for (const dev of list) {
+        d.revokedDevices!.push(dev.id);
+        logEvent(u, 'signed_out_by_admin', undefined, dev.ip, dev.userAgent);
+      }
+      log(deviceId ? 'خروج کاربر از یک دستگاه' : 'خروج کاربر از همه‌ی دستگاه‌ها', u.name);
+      save();
+      return delay({ count: list.length });
+    },
+    async announcements() {
+      requireAdmin();
+      return withMediaUrls(clone(db().announcements!));
+    },
+    async saveAnnouncement(input) {
+      requireAdmin();
+      const d = db();
+      const title = input.title.trim();
+      const body = input.body.trim();
+      const button = input.button && (input.button.label || input.button.url) ? { label: input.button.label.trim(), url: input.button.url.trim() } : undefined;
+      const bad = announcementError({ id: input.id, title, body, button, startsAt: input.startsAt || undefined, endsAt: input.endsAt || undefined });
+      if (bad) throw new BackendError('invalid', bad.message, bad.field);
+      let media: AnnouncementMedia | undefined;
+      if (input.mediaId) {
+        const m = d.media!.find((x) => x.id === input.mediaId);
+        if (!m) throw new BackendError('invalid', 'فایل پیدا نشد؛ دوباره بارگذاری کنید.', 'media');
+        media = { id: m.id, kind: m.kind, mime: m.mime, size: m.size, name: m.name, url: '' };
+      }
+      const prev = d.announcements!.find((a) => a.id === input.id);
+      const now = Date.now();
+      const next: Announcement = {
+        id: input.id,
+        title,
+        body,
+        media,
+        button,
+        audience: input.audience,
+        placement: input.placement,
+        startsAt: input.startsAt || undefined,
+        endsAt: input.endsAt || undefined,
+        active: input.active,
+        version: (prev?.version ?? 0) + (prev && input.showAgain ? 1 : 0) || 1,
+        views: prev?.views ?? 0,
+        createdAt: prev?.createdAt ?? now,
+        updatedAt: now,
+      };
+      if (prev) d.announcements![d.announcements!.indexOf(prev)] = next;
+      else d.announcements!.unshift(next);
+      dropUnusedMedia();
+      log(prev ? 'ویرایش اعلان' : 'ساخت اعلان', title);
+      save();
+      return (await withMediaUrls([clone(next)]))[0];
+    },
+    async deleteAnnouncement(id) {
+      requireAdmin();
+      const d = db();
+      const a = d.announcements!.find((x) => x.id === id);
+      d.announcements = d.announcements!.filter((x) => x.id !== id);
+      dropUnusedMedia();
+      if (a) log('حذف اعلان', a.title);
+      save();
+    },
+    async blogPosts() {
+      requireAdmin();
+      const list = clone(db().blog!).map(toSummary);
+      for (const p of list) if (p.cover) p.cover.url = await mediaUrl(p.cover.id);
+      return delay(list.sort((a, b) => b.updatedAt - a.updatedAt));
+    },
+    async blogPost(id) {
+      requireAdmin();
+      const p = db().blog!.find((x) => x.id === id);
+      if (!p) throw new BackendError('not_found', 'مقاله پیدا نشد.');
+      const out = clone(p);
+      if (out.cover) out.cover.url = await mediaUrl(out.cover.id);
+      return out;
+    },
+    async saveBlogPost(input) {
+      requireAdmin();
+      const d = db();
+      const title = input.title.trim();
+      const slug = input.slug.trim() || slugify(title);
+      const fields = { title, slug, excerpt: input.excerpt.trim(), content: input.content, status: input.status };
+      const bad = blogPostError(fields);
+      if (bad) throw new BackendError('invalid', bad.message, bad.field);
+      if (d.blog!.some((p) => p.slug === slug && p.id !== input.id)) throw new BackendError('invalid', 'این نشانی برای مقاله‌ی دیگری است.', 'slug');
+      let cover: BlogPost['cover'];
+      if (input.coverId) {
+        const m = d.media!.find((x) => x.id === input.coverId);
+        if (!m || m.kind !== 'image') throw new BackendError('invalid', 'تصویر شاخص پیدا نشد؛ دوباره بارگذاری کنید.', 'cover');
+        cover = { id: m.id, kind: m.kind, mime: m.mime, size: m.size, name: m.name, url: '' };
+      }
+      const prev = d.blog!.find((p) => p.id === input.id);
+      const now = Date.now();
+      const next: BlogPost = {
+        id: input.id,
+        ...fields,
+        seoTitle: input.seoTitle?.trim() || undefined,
+        cover,
+        coverAlt: input.coverAlt?.trim() || undefined,
+        tags: cleanTags(input.tags),
+        author: input.author.trim() || d.settings.siteName,
+        publishedAt: input.publishedAt || (input.status === 'published' ? (prev?.publishedAt ?? now) : prev?.publishedAt),
+        views: prev?.views ?? 0,
+        createdAt: prev?.createdAt ?? now,
+        updatedAt: now,
+      };
+      if (prev) d.blog![d.blog!.indexOf(prev)] = next;
+      else d.blog!.unshift(next);
+      dropUnusedMedia();
+      log(prev ? 'ویرایش مقاله' : 'ساخت مقاله', title);
+      save();
+      const out = clone(next);
+      if (out.cover) out.cover.url = await mediaUrl(out.cover.id);
+      return delay(out);
+    },
+    async deleteBlogPost(id) {
+      requireAdmin();
+      const d = db();
+      const p = d.blog!.find((x) => x.id === id);
+      d.blog = d.blog!.filter((x) => x.id !== id);
+      dropUnusedMedia();
+      if (p) log('حذف مقاله', p.title);
+      save();
+    },
+    async uploadMedia(file, onProgress) {
+      requireAdmin();
+      const kind = MEDIA_TYPES[file.type];
+      if (!kind) throw new BackendError('type', 'فقط تصویر (JPG، PNG، WebP، GIF) یا ویدیو (MP4، WebM، MOV) پذیرفته می‌شود.', 'media');
+      if (file.size > MEDIA_MAX_BYTES[kind])
+        throw new BackendError('too_large', `حداکثر حجم ${kind === 'image' ? 'تصویر' : 'ویدیو'} ${Math.round(MEDIA_MAX_BYTES[kind] / 1024 / 1024)} مگابایت است.`, 'media');
+      onProgress?.(0.2);
+      const id = uid('m');
+      let url: string;
+      try {
+        url = await putMedia(id, file);
+      } catch {
+        throw new BackendError('storage', 'مرورگر اجازه‌ی ذخیره‌ی فایل را نداد (فضای کافی یا حالت خصوصی).', 'media');
+      }
+      const meta = { id, kind, mime: file.type, size: file.size, name: file.name.slice(0, 80), createdAt: Date.now() };
+      db().media!.push(meta);
+      save();
+      onProgress?.(1);
+      return { id, kind, mime: meta.mime, size: meta.size, name: meta.name, url };
     },
   },
 };

@@ -1,8 +1,8 @@
-import { DATA_START, SYMBOL_MAP, TF_MS, TIMEFRAMES, candlesBetween, getCandles, tfFromTv, type SymbolInfo, type Timeframe } from '../lib/market';
+import { HOUR_MS, SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, candlesBetween, dataStartOf, getCandles, tfFromTv, type SymbolInfo, type Timeframe } from '../lib/market';
 import { DAY_MS, keyToMs } from '../lib/calendar';
 import { newsTitleFa, type NewsEvent } from '../lib/news';
 import { hasServer } from '../services/api';
-import { ensureRange } from '../services/marketFeed';
+import { ensureFine, ensureRange, fineKindOf } from '../services/marketFeed';
 
 /**
  * TradingView JS-API datafeed for a replay: bars never go past the replay cursor, new bars are
@@ -19,7 +19,6 @@ export interface ReplayFeedSource {
 }
 
 const RESOLUTIONS = TIMEFRAMES.map((t) => t.tv);
-const START_MS = keyToMs(DATA_START);
 
 const tvType = (s: SymbolInfo) => (s.group === 'forex' ? 'forex' : s.group === 'crypto' ? 'crypto' : s.group === 'index' ? 'index' : 'commodity');
 
@@ -30,15 +29,19 @@ export function symbolInfoFor(s: SymbolInfo) {
     full_name: s.id,
     description: s.description,
     type: tvType(s),
-    session: s.weekends ? '24x7' : '0000-0000:23456',
+    // crypto trades around the clock on UTC days; the rest Sunday 17:00 to Friday 17:00 New York, with
+    // trading days (and daily bars) ending at 17:00 New York, as at brokers
+    session: s.weekends ? '24x7' : '1700-1700',
     exchange: 'BacktestLab',
     listed_exchange: 'BacktestLab',
-    timezone: 'Etc/UTC',
+    timezone: s.weekends ? 'Etc/UTC' : 'America/New_York',
     format: 'price',
     pricescale: 10 ** s.digits,
     minmov: 1,
     has_intraday: true,
-    intraday_multipliers: ['5', '15', '30', '60', '240'],
+    intraday_multipliers: ['1', '5', '15', '30', '60', '240'],
+    has_seconds: true,
+    seconds_multipliers: ['1', '5', '15', '30'],
     has_daily: true,
     daily_multipliers: ['1'],
     has_weekly_and_monthly: false,
@@ -57,7 +60,10 @@ interface Sub {
   tf: Timeframe;
   onTick: (bar: any) => void;
   onReset: () => void;
+  /** newest bar time (sec) sent */
   lastSec: number;
+  /** cursor at the last push (a daily bar can carry a later date than the cursor) */
+  lastCursor: number;
 }
 
 export function createReplayDatafeed(src: ReplayFeedSource) {
@@ -111,12 +117,17 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
     ) {
       const tf = tfFromTv(resolution);
       const cursor = src.cursor();
-      const toMs = Math.min(period.to * 1000, cursor);
+      // history goes back to the symbol's first data (scrolling reaches years before the session start)
+      const START_MS = keyToMs(dataStartOf(symbolInfo.name));
+      // The chart's own clock (from getServerTime) lags the replay; the first request always runs to the
+      // replay position, so the forming bar is current. Older pages end where the chart asks.
+      const endMs = period.firstDataRequest ? Infinity : period.to * 1000;
+      const toMs = Math.min(endMs, cursor);
       const answer = () => {
-        let candles = candlesBetween(symbolInfo.name, tf, period.from * 1000, period.to * 1000, cursor);
+        let candles = candlesBetween(symbolInfo.name, tf, period.from * 1000, endMs, cursor);
         if (candles.length < period.countBack && toMs > START_MS) {
           // reach further back over weekends and holidays so the chart gets the bars it asked for
-          candles = getCandles(symbolInfo.name, tf, toMs, period.countBack).filter((c) => c.time * 1000 < period.to * 1000);
+          candles = getCandles(symbolInfo.name, tf, toMs, period.countBack).filter((c) => c.time * 1000 < endMs);
         }
         const key = `${symbolInfo.name}:${tf}`;
         const last = candles[candles.length - 1];
@@ -127,14 +138,20 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
         setTimeout(answer);
         return;
       }
-      // real data: load the requested range (with room for weekends) before answering
+      // real data: load the requested range (with room for weekends) before answering; minute and
+      // second charts also need the 1-minute days / 1-second hours of it. A page of minutes always
+      // loads at least 4 days (at most 30), so a page over a weekend still finds Friday's candles
+      // and older pages keep coming; seconds load a few hours at most.
       const fromMs = Math.min(period.from * 1000, toMs - period.countBack * TF_MS[tf] * 1.45);
-      void ensureRange([symbolInfo.name], Math.max(START_MS, fromMs - DAY_MS), toMs).finally(answer);
+      const kind = fineKindOf(tf);
+      const fineFrom = kind === 's1' ? Math.max(fromMs, toMs - 6 * HOUR_MS) : Math.max(toMs - 30 * DAY_MS, Math.min(fromMs, toMs - 4 * DAY_MS));
+      const fine = kind ? ensureFine(kind, [symbolInfo.name], Math.max(START_MS, fineFrom), toMs) : Promise.resolve(true);
+      void Promise.all([ensureRange([symbolInfo.name], Math.max(START_MS, fromMs - DAY_MS), toMs), fine]).finally(answer);
     },
 
     subscribeBars(symbolInfo: any, resolution: string, onTick: (bar: any) => void, guid: string, onReset: () => void) {
       const tf = tfFromTv(resolution);
-      subs.set(guid, { symbol: symbolInfo.name, tf, onTick, onReset, lastSec: delivered.get(`${symbolInfo.name}:${tf}`) ?? 0 });
+      subs.set(guid, { symbol: symbolInfo.name, tf, onTick, onReset, lastSec: delivered.get(`${symbolInfo.name}:${tf}`) ?? 0, lastCursor: src.cursor() });
     },
 
     unsubscribeBars(guid: string) {
@@ -142,12 +159,13 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
     },
 
     getTimescaleMarks(symbolInfo: any, from: number, to: number, onData: (marks: any[]) => void, resolution: string) {
-      const step = TF_MS[tfFromTv(resolution)];
+      const tf = tfFromTv(resolution);
+      const sym = SYMBOL_MAP[symbolInfo.name];
       const cursor = src.cursor();
       const byBar = new Map<number, NewsEvent[]>();
       for (const e of src.news()) {
         if (e.time > cursor || e.time < from * 1000 || e.time > to * 1000) continue;
-        const b = Math.floor(e.time / step) * step;
+        const b = sym ? candleTime(sym, tf, e.time) : Math.floor(e.time / TF_MS[tf]) * TF_MS[tf];
         if (!byBar.has(b)) byBar.set(b, []);
         byBar.get(b)!.push(e);
       }
@@ -176,16 +194,13 @@ export function createReplayDatafeed(src: ReplayFeedSource) {
     const cursor = src.cursor();
     let ok = true;
     for (const sub of subs.values()) {
-      const tfSec = TF_MS[sub.tf] / 1000;
-      const gapBars = Math.ceil((cursor / 1000 - sub.lastSec) / tfSec);
-      if (sub.lastSec && cursor / 1000 < sub.lastSec) {
+      const gapBars = Math.ceil((cursor - sub.lastCursor) / TF_MS[sub.tf]);
+      // moved back, nothing sent yet, or too far ahead: the chart reloads
+      if (cursor < sub.lastCursor || !sub.lastSec || gapBars > 600) {
         ok = false;
         continue;
       }
-      if (gapBars > 600) {
-        ok = false;
-        continue;
-      }
+      sub.lastCursor = cursor;
       const recent = getCandles(sub.symbol, sub.tf, cursor, Math.max(2, gapBars + 2));
       for (const c of recent) {
         if (c.time < sub.lastSec) continue;

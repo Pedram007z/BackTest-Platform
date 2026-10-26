@@ -26,13 +26,16 @@ interface Props {
   /** The other end of a date range, shaded for context. */
   rangeWith?: DayKey | '';
   placeholder?: string;
+  /** Days between min and max that cannot be picked either (e.g. no chart data), with why. */
+  isDisabled?: (key: DayKey) => boolean;
+  disabledReason?: string;
 }
 
 /**
  * Date field whose panel picks the year and month first (two selects), then a day of that month.
  * Works in the Jalali or Gregorian calendar; the stored value is always a Gregorian day key.
  */
-export function DatePicker({ id, value, onChange, min, max, rangeWith, placeholder = 'روز / ماه / سال' }: Props) {
+export function DatePicker({ id, value, onChange, min, max, rangeWith, placeholder = 'روز / ماه / سال', isDisabled, disabledReason }: Props) {
   const [open, setOpen] = useState(false);
   const [cal, setCal] = useState<CalendarKind>(lastCalendar);
   const initial = fromKey(cal, value || max);
@@ -167,7 +170,8 @@ export function DatePicker({ id, value, onChange, min, max, rangeWith, placehold
             ))}
             {cells.map((key, i) => {
               if (!key) return <span key={`e${i}`} />;
-              const disabled = key < min || key > max;
+              const blocked = key >= min && key <= max && !!isDisabled?.(key);
+              const disabled = key < min || key > max || blocked;
               const selected = key === value;
               const inRange = lo && hi && key > lo && key < hi;
               const isOther = key === rangeWith;
@@ -176,6 +180,7 @@ export function DatePicker({ id, value, onChange, min, max, rangeWith, placehold
                   key={key}
                   type="button"
                   disabled={disabled}
+                  title={blocked ? disabledReason : undefined}
                   onClick={() => {
                     onChange(key);
                     setOpen(false);
@@ -183,6 +188,7 @@ export function DatePicker({ id, value, onChange, min, max, rangeWith, placehold
                   className={clsx(
                     'num h-8 rounded-md text-[13px] transition',
                     disabled && 'cursor-not-allowed text-faint/50',
+                    blocked && 'line-through decoration-faint/60',
                     !disabled && !selected && 'hover:bg-surface',
                     selected && 'bg-accent font-bold text-white',
                     inRange && !selected && 'bg-accent/15 text-ink',

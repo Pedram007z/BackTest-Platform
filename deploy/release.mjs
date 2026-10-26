@@ -25,8 +25,12 @@ const run = (cmd, cwd = root, env = {}) => {
 rmSync(out, { recursive: true, force: true });
 mkdirSync(join(out, 'server'), { recursive: true });
 
-if (!existsSync(join(root, 'public', 'charting_library'))) {
-  console.log('Note: TradingView library not installed (npm run setup:charts); the chart page will use its built-in engine.');
+const charts = existsSync(join(root, 'public', 'charting_library', 'charting_library.standalone.js'));
+if (!charts) {
+  console.log(
+    '\n!! TradingView Charting Library is not installed: the replay will use the built-in chart (no drawing tools or indicators menu).' +
+      '\n   Install it first with: npm run setup:charts -- path/to/charting_library-master.zip\n',
+  );
 }
 
 run('npm ci --no-audit --no-fund');
@@ -39,7 +43,7 @@ run('npm test', server);
 run('npm run build', server);
 cpSync(join(server, 'dist', 'server.mjs'), join(out, 'server', 'server.mjs'));
 cpSync(join(server, '.env.example'), join(out, 'server', 'env.example'));
-for (const f of ['install.sh', 'backtestlab.service', 'nginx-site.conf', 'relay-nginx.conf', 'check-sources.sh']) cpSync(join(root, 'deploy', f), join(out, f));
+for (const f of ['backtestlab.service', 'nginx-site.conf', 'relay-nginx.conf', 'check-sources.sh', 'make-admin.sh', 'import-market-data.sh']) cpSync(join(root, 'deploy', f), join(out, f));
 cpSync(join(root, 'DEPLOY.md'), join(out, 'DEPLOY.md'));
 writeFileSync(join(out, 'VERSION.txt'), `built ${new Date().toISOString()} for ${siteUrl}\n`);
 
@@ -51,4 +55,6 @@ try {
 } catch {
   /* no tar: upload the folder instead */
 }
-console.log(`\nDone: ${out}${archive ? `\nArchive: ${archive}` : ''}\nNext: upload it with the Node .tar.xz and run  sudo bash install.sh  in it on the server (DEPLOY.md).`);
+console.log(
+  `\nDone: ${out}${archive ? `\nArchive: ${archive}` : ''}\nChart: ${charts ? 'TradingView Charting Library' : 'built-in (TradingView library not installed)'}\nNext: DEPLOY.md, step 3.`,
+);

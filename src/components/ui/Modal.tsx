@@ -13,15 +13,34 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
+/** Open dialogs, newest last: Escape closes only the one on top (a confirm box over an editor, say). */
+const escapeStack: (() => void)[] = [];
+
+/** Close the dialog with Escape while it is open and on top of any others. */
+export function useEscapeClose(onClose: () => void, open = true) {
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    if (!open) return;
+    const entry = () => close.current();
+    escapeStack.push(entry);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && escapeStack[escapeStack.length - 1] === entry) entry();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      escapeStack.splice(escapeStack.indexOf(entry), 1);
+    };
+  }, [open]);
+}
+
 export function Modal({ open, onClose, title, children, footer, headerExtra, size = 'md' }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  useEscapeClose(onClose, open);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     // focus the first field
@@ -29,11 +48,10 @@ export function Modal({ open, onClose, title, children, footer, headerExtra, siz
       panelRef.current?.querySelector<HTMLElement>('input, textarea, button[data-autofocus]')?.focus();
     }, 30);
     return () => {
-      document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
       clearTimeout(t);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

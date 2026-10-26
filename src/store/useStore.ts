@@ -2,11 +2,14 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { getSession, type Session as AuthSession } from '../lib/auth';
 import { addDays, keyToMs, localDayKey } from '../lib/calendar';
-import { BAR_MS, SYMBOL_MAP, bars5m, pointValueUsd, priceAt, roundToTick } from '../lib/market';
-import { closeLots, followIdeal, lotsForRisk, processBar, type FillEvent } from '../lib/trading';
+import { BAR_MS, SYMBOL_MAP, pointValueUsd, priceAt, replayBars, roundToTick } from '../lib/market';
+import { closeLots, exitPriceAt, followIdeal, lotsForRisk, processBar, sessionCommission, sessionSpread, type FillEvent } from '../lib/trading';
 import type { ChartPane, Checklist, GoToPreset, JournalEntry, LayoutId, NewsFilters, OrderType, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
 import { local } from '../lib/storage';
 import { buildSeed, type SeedData } from './seed';
+import type { WorkspaceBase } from '../services/workspace';
+import { DEFAULT_CHART_TZ } from '../lib/timezone';
+import type { ChartStyleOverrides } from '../chart/style';
 
 export const uid = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -42,6 +45,17 @@ export interface PlaceOrderInput {
 
 export const DEFAULT_NEWS_FILTERS: NewsFilters = { currencies: [], showPast: true, showFuture: true, impacts: ['high'] };
 
+/**
+ * Where this browser stands with the account's data on the server (services/workspaceSync). Saved with
+ * the data itself, so the two always match after a reload.
+ */
+export interface SyncMeta {
+  /** The server's copy as last agreed (null: this browser has not synced with the account yet). */
+  base: WorkspaceBase | null;
+  /** Changes sent whose answer has not come back: `base` is what the server has once they arrive. */
+  inflight?: { pid: string; base: WorkspaceBase };
+}
+
 interface State {
   user: UserProfile;
   strategies: Strategy[];
@@ -53,10 +67,17 @@ interface State {
   goToPresets: GoToPreset[];
   newsFilters: NewsFilters;
   theme: Theme;
+  /** IANA time zone of the chart's axis, the replay clock and Go To. */
+  chartTz: string;
+  /** The chart's colours the user changed (chart/style.ts); the rest follow the theme. */
+  chartStyle: ChartStyleOverrides;
   sidebarCollapsed: boolean;
   hasDemoData: boolean;
+  sync?: SyncMeta;
 
   setTheme: (t: Theme) => void;
+  setChartTz: (tz: string) => void;
+  setChartStyle: (style: ChartStyleOverrides) => void;
   toggleSidebar: () => void;
   updateUser: (patch: Partial<UserProfile>) => void;
 
@@ -155,9 +176,13 @@ export const useStore = create<State>()(
       goToPresets: [],
       newsFilters: DEFAULT_NEWS_FILTERS,
       theme: initialTheme(),
+      chartTz: DEFAULT_CHART_TZ,
+      chartStyle: {},
       sidebarCollapsed: false,
 
       setTheme: (theme) => set({ theme }),
+      setChartTz: (chartTz) => set({ chartTz }),
+      setChartStyle: (chartStyle) => set({ chartStyle }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       updateUser: (patch) => set((s) => ({ user: { ...s.user, ...patch } })),
 
@@ -216,7 +241,10 @@ export const useStore = create<State>()(
         const state = get();
         const session = state.sessions.find((s) => s.id === input.sessionId);
         if (!session) return null;
-        const market = priceAt(input.symbol, session.cursor);
+        // charts show the bid; buys fill on the ask (bid + the session's spread)
+        const spread = sessionSpread(session, input.symbol);
+        const commissionPerLot = sessionCommission(session, input.symbol);
+        const market = priceAt(input.symbol, session.cursor) + (input.side === 'buy' ? spread : 0);
         const isMarket = input.orderType === 'market';
         const entry = roundToTick(input.symbol, isMarket ? market : input.entry);
         // a market order keeps the stop and target distances the trader drew
@@ -242,6 +270,8 @@ export const useStore = create<State>()(
           pointValue,
           risk: Math.round(Math.abs(entry - sl) * pointValue * lots * 100) / 100,
           riskPct: input.riskPct,
+          ...(spread > 0 ? { spread } : {}),
+          ...(commissionPerLot > 0 ? { commissionPerLot } : {}),
           placedTime: session.cursor,
           openTime: session.cursor,
           partials: [],
@@ -283,7 +313,8 @@ export const useStore = create<State>()(
         if (!trade || trade.status !== 'open') return null;
         const session = state.sessions.find((s) => s.id === trade.sessionId);
         if (!session) return null;
-        const price = priceAt(trade.symbol, session.cursor);
+        // a buy closes on the bid, a sell on the ask
+        const price = exitPriceAt(trade, priceAt(trade.symbol, session.cursor));
         const next = closeLots(trade, lots ?? trade.lots, price, session.cursor, 'manual');
         set((s) => ({ trades: s.trades.map((t) => (t.id === id ? next : t)) }));
         return next;
@@ -306,7 +337,7 @@ export const useStore = create<State>()(
           const following = t.status === 'closed' && !t.idealDone;
           if (!live && !following) return t;
           let trade = t;
-          for (const bar of bars5m(t.symbol, from, nextCursor)) {
+          for (const bar of replayBars(t.symbol, from, nextCursor)) {
             if (trade.status === 'open' || trade.status === 'pending') {
               if (trade.status === 'pending' && bar.time < trade.placedTime) continue;
               trade = processBar(trade, bar, events);
@@ -360,6 +391,8 @@ export const useStore = create<State>()(
       name: storeKey(bootSession?.userId),
       storage: createJSONStorage(() => local),
       version: STORE_VERSION,
+      // an account's sync state comes only from its own saved data (never left over from another account)
+      merge: (persisted, current) => ({ ...current, ...(persisted as Partial<State>), sync: (persisted as Partial<State> | undefined)?.sync }),
       migrate: (persisted: any, version) => {
         if (!persisted) return persisted;
         if (version < 3) {
@@ -444,5 +477,15 @@ export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'de
     }
   }
   if (raw) void useStore.persist.rehydrate();
-  else useStore.setState({ ...freshData(account), goToPresets: [], newsFilters: DEFAULT_NEWS_FILTERS, theme, sidebarCollapsed });
+  else
+    useStore.setState({
+      ...freshData(account),
+      goToPresets: [],
+      newsFilters: DEFAULT_NEWS_FILTERS,
+      chartTz: DEFAULT_CHART_TZ,
+      chartStyle: {},
+      theme,
+      sidebarCollapsed,
+      sync: undefined,
+    });
 }

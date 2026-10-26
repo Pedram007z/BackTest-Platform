@@ -21,16 +21,18 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { AnnouncementPopup } from '../components/AnnouncementPopup';
 import { Link } from '../components/ui/AppLink';
 import { GradientBars, SymbolBars } from '../components/charts/Charts';
+import { MarketsSection } from '../components/landing/MarketsSection';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
-import { Logo } from '../components/layout/Layout';
+import { BlogTeaser } from '../components/landing/BlogTeaser';
+import { Logo } from '../components/brand/Brand';
 import { fmtDayLong } from '../lib/calendar';
 import { faDigits, fmtNum, fmtPct } from '../lib/format';
-import { fmtPhone } from '../lib/auth';
-import { DATA_START, GROUP_LABELS, SYMBOLS, TIMEFRAMES, type SymbolGroup } from '../lib/market';
+import { DATA_START, GROUP_LABELS, SYMBOLS, TIMEFRAMES } from '../lib/market';
 import { backend } from '../services';
+import { hasServer } from '../services/api';
 import { DEFAULT_PLANS } from '../services/localBackend';
 import type { Plan } from '../services/types';
 import { useAuth } from '../store/useAuth';
@@ -117,14 +119,14 @@ const FAQ = [
   },
   {
     q: 'کدام بازارها پشتیبانی می‌شوند؟',
-    a: `${fmtNum(SYMBOLS.length)} نماد: جفت‌ارزهای اصلی، فرعی و اگزوتیک فارکس، طلا و نقره، نفت و گاز، شاخص‌های آمریکا، اروپا و آسیا و ارزهای دیجیتال اصلی؛ با تایم‌فریم‌های ۵ دقیقه تا روزانه.`,
+    a: `${fmtNum(SYMBOLS.length)} نماد: جفت‌ارزهای اصلی، فرعی و اگزوتیک فارکس، طلا و نقره، نفت و گاز، شاخص‌های آمریکا، اروپا و آسیا و ارزهای دیجیتال اصلی؛ با تایم‌فریم‌های ۱ ثانیه تا روزانه.`,
   },
   { q: 'ثبت‌نام چطور است؟', a: 'فقط با شماره موبایل. کد تأیید با پیامک می‌آید و نیازی به ایمیل یا رمز عبور نیست.' },
   {
     q: 'پرداخت چطور انجام می‌شود؟',
     a: 'با همه‌ی کارت‌های عضو شتاب از طریق درگاه‌های شاپرکی (زرین‌پال، زیبال و…). تمدید خودکار نداریم؛ هر وقت خواستی پلن بعدی را بخر و روزهای باقی‌مانده‌ات به آن اضافه می‌شود.',
   },
-  { q: 'به نصب برنامه نیاز دارم؟', a: 'نه. همه‌چیز در مرورگر اجرا می‌شود؛ روی کامپیوتر، تبلت و موبایل.' },
+  { q: 'به نصب برنامه نیاز دارم؟', a: 'نه. همه‌چیز در مرورگر اجرا می‌شود؛ روی کامپیوتر، تبلت و موبایل. اگر بخواهید، اپلیکیشن اندروید را نصب کنید یا سایت را از منوی مرورگر روی صفحه‌ی اصلی گوشی اضافه کنید. داده‌هایتان در حساب شما ذخیره می‌شود و در همه‌ی دستگاه‌ها یکی است.' },
   { q: 'ساعت‌ها و تاریخ‌ها به چه وقتی است؟', a: 'ساعت‌ها به وقت تهران و تاریخ‌ها شمسی نمایش داده می‌شوند. انتخاب تاریخ جلسه را می‌توانی با تقویم شمسی یا میلادی انجام بدهی.' },
 ];
 
@@ -170,26 +172,12 @@ function Price({ plan, monthly }: { plan: Plan; monthly?: number }) {
 
 export default function Landing() {
   const { theme, setTheme } = useStore();
-  const navigate = useNavigate();
   const session = useAuth((s) => s.session);
-  const loginDemo = useAuth((s) => s.loginDemo);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [menu, setMenu] = useState(false);
   // signed-in visitors go straight to their dashboard
   const startTo = session ? '/dashboard' : '/signup';
   const startLabel = session ? 'ورود به داشبورد' : 'شروع رایگان';
 
-  const openDemo = async () => {
-    if (session) return navigate('/dashboard');
-    setDemoLoading(true);
-    try {
-      await loginDemo();
-      navigate('/dashboard');
-    } catch {
-      setDemoLoading(false);
-      navigate('/login');
-    }
-  };
   const [faq, setFaq] = useState<number | null>(0);
   // Prices come from the admin panel; the defaults show until they load.
   const [plans, setPlans] = useState<Plan[]>(() => DEFAULT_PLANS.filter((p) => p.active));
@@ -201,8 +189,6 @@ export default function Landing() {
   }, []);
   const monthly = plans.find((p) => p.priceToman > 0 && Math.round(p.durationDays / 30) === 1)?.priceToman;
   const planTo = session ? '/billing' : '/signup';
-
-  const groups = Object.keys(GROUP_LABELS) as SymbolGroup[];
 
   return (
     <div className="min-h-full bg-bg">
@@ -216,6 +202,11 @@ export default function Landing() {
                 {n.label}
               </button>
             ))}
+            {hasServer && (
+              <a href="/blog" className="rounded-lg px-3 py-2 text-sm text-muted transition hover:text-ink">
+                بلاگ
+              </a>
+            )}
           </nav>
           <div className="ms-auto flex items-center gap-1.5">
             <button type="button" className="icon-btn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label={theme === 'dark' ? 'حالت روشن' : 'حالت تیره'}>
@@ -249,6 +240,11 @@ export default function Landing() {
                 {n.label}
               </button>
             ))}
+            {hasServer && (
+              <a href="/blog" className="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-muted hover:bg-raised hover:text-ink">
+                بلاگ
+              </a>
+            )}
             <div className={clsx('mt-2 grid gap-2', session ? 'grid-cols-1' : 'grid-cols-2')}>
               {!session && (
                 <Link to="/login" className="btn-soft">
@@ -290,13 +286,7 @@ export default function Landing() {
               <Link to={startTo} className="btn-primary rounded-full px-6 py-3 text-[15px]">
                 {startLabel} <ArrowLeft size={17} />
               </Link>
-              {!session && (
-                <button type="button" onClick={openDemo} disabled={demoLoading} className="btn-soft rounded-full px-6 py-3 text-[15px]">
-                  {demoLoading ? 'در حال ورود…' : 'دیدن داشبورد نمونه'}
-                </button>
-              )}
             </div>
-            <p className="mt-4 text-xs text-faint">{session ? `وارد شده با ${fmtPhone(session.phone)}` : 'ثبت‌نام فقط با شماره موبایل • بدون کارت بانکی • پلن رایگان همیشگی'}</p>
           </div>
           <ReplayDemo />
         </div>
@@ -307,7 +297,7 @@ export default function Landing() {
         <dl className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 py-8 sm:px-6 md:grid-cols-4">
           {[
             { v: fmtNum(SYMBOLS.length), l: `نماد در ${fmtNum(Object.keys(GROUP_LABELS).length)} بازار` },
-            { v: fmtNum(TIMEFRAMES.length), l: 'تایم‌فریم، از ۵ دقیقه تا روزانه' },
+            { v: fmtNum(TIMEFRAMES.length), l: 'تایم‌فریم، از ۱ ثانیه تا روزانه' },
             { v: faDigits(DATA_START.slice(0, 4)), l: `شروع داده‌ی تاریخی (${fmtDayLong(DATA_START)})` },
             { v: '۴', l: 'چارت هم‌زمان در یک صفحه' },
           ].map((s) => (
@@ -381,9 +371,9 @@ export default function Landing() {
                 </li>
               ))}
             </ul>
-            <button type="button" onClick={openDemo} disabled={demoLoading} className="btn-soft mt-8 rounded-full px-5 py-2.5">
-              {session ? 'باز کردن داشبورد' : 'باز کردن داشبورد نمونه'} <ArrowLeft size={15} />
-            </button>
+            <Link to={startTo} className="btn-soft mt-8 rounded-full px-5 py-2.5">
+              {session ? 'باز کردن داشبورد' : 'شروع رایگان'} <ArrowLeft size={15} />
+            </Link>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -437,25 +427,7 @@ export default function Landing() {
       </section>
 
       {/* Markets */}
-      <section id="markets" className="scroll-mt-20 bg-side/60 py-24">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <SectionHead eyebrow="بازارها" title="بازارهایی که معامله می‌کنی" text="داده‌ی تاریخی از دی ۱۳۹۳ تا دیروز، با کندل‌های ۵ دقیقه تا روزانه." />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {groups.map((g) => (
-              <div key={g} className="card p-5">
-                <h3 className="mb-3 text-sm font-bold">{GROUP_LABELS[g]}</h3>
-                <ul className="flex flex-wrap gap-1.5">
-                  {SYMBOLS.filter((s) => s.group === g).map((s) => (
-                    <li key={s.id} className="rounded-md bg-raised px-2 py-1 text-xs font-bold" dir="ltr" title={s.name}>
-                      {s.id}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <MarketsSection />
 
       {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-24 sm:px-6">
@@ -530,6 +502,9 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Latest blog posts (with the server) */}
+      <BlogTeaser />
+
       {/* Final CTA */}
       <section className="mx-auto max-w-6xl px-4 py-24 sm:px-6">
         <div
@@ -562,6 +537,13 @@ export default function Landing() {
                   </button>
                 </li>
               ))}
+              {hasServer && (
+                <li>
+                  <a href="/blog" className="hover:text-ink">
+                    بلاگ
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
           <div>
@@ -586,6 +568,7 @@ export default function Landing() {
           © ۱۴۰۵ بک‌تست‌لب. بک‌تست نتیجه‌ی آینده را تضمین نمی‌کند؛ معامله در بازارهای مالی ریسک از دست دادن سرمایه دارد.
         </div>
       </footer>
+      <AnnouncementPopup where="site" />
     </div>
   );
 }

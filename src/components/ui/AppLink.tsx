@@ -2,7 +2,8 @@ import { forwardRef } from 'react';
 import { Link as RouterLink, NavLink as RouterNavLink, useLocation, useNavigate, useResolvedPath, type LinkProps, type NavLinkProps } from 'react-router-dom';
 
 /**
- * In-app links. In the regular build these are React Router's own. The hosted single-file preview
+ * In-app links. In the regular build they are React Router's own with `reloadDocument`: a click loads the
+ * new page from the server (a full page load, see lib/nav). The hosted single-file preview
  * runs inside claude.ai, which takes over clicks on anything with an href and opens it as a separate
  * web page (an empty one). There the links render without an href and navigate on click or Enter.
  */
@@ -68,5 +69,12 @@ const PreviewNavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(function Prev
   );
 });
 
-export const Link = (PREVIEW ? PreviewLink : RouterLink) as typeof RouterLink;
-export const NavLink = (PREVIEW ? PreviewNavLink : RouterNavLink) as typeof RouterNavLink;
+const ReloadLink = forwardRef<HTMLAnchorElement, LinkProps>(function ReloadLink(props, ref) {
+  return <RouterLink ref={ref} reloadDocument {...props} />;
+});
+const ReloadNavLink = forwardRef<HTMLAnchorElement, NavLinkProps>(function ReloadNavLink(props, ref) {
+  return <RouterNavLink ref={ref} reloadDocument {...props} />;
+});
+
+export const Link = (PREVIEW ? PreviewLink : ReloadLink) as typeof RouterLink;
+export const NavLink = (PREVIEW ? PreviewNavLink : ReloadNavLink) as typeof RouterNavLink;

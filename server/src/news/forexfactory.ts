@@ -15,6 +15,17 @@ export interface NewsEvent {
   forecast?: string;
   previous?: string;
   allDay?: boolean;
+  /** from the official release schedule (schedule.ts): the time only, no values */
+  scheduled?: boolean;
+  /** the exact time was not published (shown at noon local time) */
+  tentative?: boolean;
+}
+
+/** ForexFactory answered with Cloudflare's bot check instead of the calendar page. */
+export class CalendarBlockedError extends UpstreamError {
+  constructor() {
+    super('ForexFactory درخواست را مسدود کرد (Cloudflare)', 403);
+  }
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -83,7 +94,7 @@ function closing(text: string, open: number): number {
 export function parseCalendarPage(html: string): NewsEvent[] {
   const at = html.indexOf('calendarComponentStates[1]');
   if (at < 0) {
-    if (/Just a moment|cf-chl|challenge-platform/i.test(html)) throw new UpstreamError('ForexFactory درخواست را مسدود کرد (Cloudflare)');
+    if (/Just a moment|cf-chl|challenge-platform/i.test(html)) throw new CalendarBlockedError();
     throw new UpstreamError('ForexFactory: ساختار صفحه‌ی تقویم شناخته نشد');
   }
   const daysAt = html.indexOf('days:', at);
@@ -141,8 +152,8 @@ export async function fetchWeekPage(start: number): Promise<NewsEvent[]> {
   const res = await fetchWithTimeout(url, { headers: HEADERS });
   const html = await res.text();
   if (!res.ok && !html.includes('calendarComponentStates')) {
-    const blocked = /Just a moment|cf-chl|challenge-platform/i.test(html);
-    throw new UpstreamError(blocked ? 'ForexFactory درخواست را مسدود کرد (Cloudflare)' : `ForexFactory: HTTP ${res.status}`, res.status);
+    if (/Just a moment|cf-chl|challenge-platform/i.test(html)) throw new CalendarBlockedError();
+    throw new UpstreamError(`ForexFactory: HTTP ${res.status}`, res.status);
   }
   return parseCalendarPage(html);
 }

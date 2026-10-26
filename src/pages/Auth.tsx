@@ -1,23 +1,26 @@
 import clsx from 'clsx';
 import { ArrowRight, CircleAlert, LoaderCircle, MessageSquareText, Moon, Pencil, Phone, ShieldCheck, Sun, TrendingUp, User } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { GoTo, safeNext, takeNotice, toastNext } from '../lib/nav';
 import { Link } from '../components/ui/AppLink';
 import { ReplayDemo } from '../components/landing/ReplayDemo';
-import { Logo } from '../components/layout/Layout';
+import { Logo } from '../components/brand/Brand';
 import { fmtPhone, nameError, phoneError } from '../lib/auth';
 import { faDigits, toLatinDigits } from '../lib/format';
-import { getCandles, synthetic } from '../lib/market';
+import { SYMBOL_MAP } from '../lib/market';
+import { useShowcase } from '../services/marketFeed';
 import { BackendError, backend, type OtpRequest } from '../services';
 import { useAuth } from '../store/useAuth';
-import { toast, useStore } from '../store/useStore';
+import { useStore } from '../store/useStore';
 
+/** Only in the in-memory preview build; the regular build uses ?next= and lib/nav's notice. */
 interface LocationState {
   from?: string;
   notice?: string;
 }
 
-function Alert({ tone, children }: { tone: 'error' | 'info'; children: ReactNode }) {
+export function Alert({ tone, children }: { tone: 'error' | 'info'; children: ReactNode }) {
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
@@ -89,14 +92,12 @@ const TICKERS = ['EURUSD', 'GBPUSD', 'XAUUSD', 'NAS100', 'BTCUSD', 'USDJPY', 'US
 
 /** Left half on large screens: a live replay, a ticker strip and two figures. */
 function MarketPanel() {
+  // real 24-hour changes from the server; without one (or before they load) just the symbols
+  const showcase = useShowcase();
   const quotes = useMemo(() => {
-    const at = Date.UTC(2023, 4, 3, 22);
-    return TICKERS.map((s) => {
-      const c = synthetic(() => getCandles(s, '1D', at, 2));
-      const chg = c.length === 2 ? ((c[1].close - c[0].close) / c[0].close) * 100 : 0;
-      return { s, chg };
-    });
-  }, []);
+    const bySymbol = new Map(showcase?.quotes.map((q) => [q.symbol, q]));
+    return TICKERS.map((s) => ({ s, chg: bySymbol.get(s)?.change, price: bySymbol.get(s)?.price }));
+  }, [showcase]);
   return (
     <aside className="relative hidden min-h-[100dvh] flex-col overflow-hidden border-r border-line/60 bg-side lg:flex">
       <div
@@ -120,9 +121,14 @@ function MarketPanel() {
           {[...quotes, ...quotes].map((q, i) => (
             <span key={i} className="flex items-center gap-2">
               <b className="text-ink">{q.s}</b>
-              <span className={clsx('num font-semibold', q.chg >= 0 ? 'text-gain' : 'text-loss')}>
-                {q.chg >= 0 ? '▲' : '▼'} {Math.abs(q.chg).toFixed(2)}%
-              </span>
+              {q.price !== undefined && <span className="num text-muted">{q.price.toLocaleString('en-US', { maximumFractionDigits: SYMBOL_MAP[q.s]?.digits ?? 5 })}</span>}
+              {q.chg === undefined ? (
+                <span className="text-faint">{SYMBOL_MAP[q.s]?.name}</span>
+              ) : (
+                <span className={clsx('num font-semibold', q.chg >= 0 ? 'text-gain' : 'text-loss')}>
+                  {q.chg >= 0 ? '▲' : '▼'} {Math.abs(q.chg).toFixed(2)}%
+                </span>
+              )}
             </span>
           ))}
         </div>
@@ -150,7 +156,7 @@ function MarketPanel() {
         <ul className="grid grid-cols-3 gap-4 text-xs text-muted">
           {[
             ['+۷۰', 'نماد فارکس، شاخص و کریپتو'],
-            ['۶', 'تایم‌فریم از ۵ دقیقه'],
+            ['۱۱', 'تایم‌فریم از ۱ ثانیه'],
             ['۱۳۹۳', 'شروع داده‌ی تاریخی'],
           ].map(([v, l]) => (
             <li key={l}>
@@ -173,7 +179,10 @@ export default function AuthPage() {
   const { theme, setTheme } = useStore();
   const signup = location.pathname.startsWith('/signup');
   const state = (location.state ?? {}) as LocationState;
-  const from = state.from && !/^\/(login|signup)/.test(state.from) ? state.from : '/dashboard';
+  // where to go after signing in: /login?next=/billing
+  const next = safeNext(new URLSearchParams(location.search).get('next') ?? state.from);
+  const keepNext = next !== '/dashboard' ? `?next=${encodeURIComponent(next)}` : '';
+  const [notice] = useState(() => state.notice ?? takeNotice());
 
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
@@ -207,7 +216,7 @@ export default function AuthPage() {
     return () => ac.abort();
   }, [step]);
 
-  if (session) return <Navigate to={from} replace />;
+  if (session) return <GoTo to={next} />;
 
   const sendCode = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -250,7 +259,7 @@ export default function AuthPage() {
     setError(null);
     try {
       const res = await verifyOtp(phone, value, otp.isNew ? name.trim() : undefined, remember);
-      toast(res.isNew ? `خوش آمدید ${res.user.name}! حساب شما ساخته شد.` : `خوش آمدید ${res.user.name}`);
+      toastNext(res.isNew ? `خوش آمدید ${res.user.name}! حساب شما ساخته شد.` : `خوش آمدید ${res.user.name}`);
     } catch (x) {
       setError({ text: x instanceof BackendError ? x.message : 'ورود انجام نشد. دوباره تلاش کنید.', field: x instanceof BackendError ? x.field : 'code' });
       if (x instanceof BackendError && x.field === 'code') setCode('');
@@ -265,7 +274,7 @@ export default function AuthPage() {
     setError(null);
     try {
       await loginDemo();
-      toast('وارد حساب نمایشی شدید');
+      toastNext('وارد حساب نمایشی شدید');
     } catch (x) {
       setError({ text: x instanceof BackendError ? x.message : 'ورود به حساب نمایشی انجام نشد.' });
       setLoading(null);
@@ -298,12 +307,14 @@ export default function AuthPage() {
         </div>
 
         <div className="mx-auto my-auto w-full max-w-[400px] py-10">
-          <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-ink">{step === 'code' ? <ShieldCheck size={24} /> : <Phone size={22} />}</span>
+          <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent-ink">
+            {step === 'code' ? <ShieldCheck size={24} /> : <Phone size={22} />}
+          </span>
           <h1 className="font-display text-[26px] font-bold">{title}</h1>
           <p className="mt-2 text-[14px] leading-7 text-muted">{subtitle}</p>
 
           <div className="mt-7 flex flex-col gap-4">
-            {state.notice && !error && <Alert tone="info">{state.notice}</Alert>}
+            {notice && !error && <Alert tone="info">{notice}</Alert>}
             {error && <Alert tone="error">{error.text}</Alert>}
 
             {step === 'phone' ? (
@@ -457,7 +468,7 @@ export default function AuthPage() {
 
           <p className="mt-8 text-center text-[13px] text-muted">
             {signup ? 'قبلاً ثبت‌نام کرده‌اید؟ ' : 'حساب ندارید؟ '}
-            <Link to={signup ? '/login' : '/signup'} state={state.from ? { from: state.from } : undefined} className="font-semibold text-accent-ink hover:underline">
+            <Link to={(signup ? '/login' : '/signup') + keepNext} className="font-semibold text-accent-ink hover:underline">
               {signup ? 'وارد شوید' : 'رایگان ثبت‌نام کنید'}
             </Link>
           </p>

@@ -1,7 +1,8 @@
 import clsx from 'clsx';
-import { Ban, Search, ShieldCheck, Trash2, UserCog } from 'lucide-react';
+import { Ban, Fingerprint, LineChart, Search, ShieldCheck, Trash2, UserCog } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Field, Loading, PageHeader, Pager, act, dateTime, useLoad } from '../../components/admin/kit';
+import { Link } from '../../components/ui/AppLink';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { ConfirmDialog, Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/controls';
@@ -177,10 +178,10 @@ export default function AdminUsers() {
         {!list.data ? (
           <Loading />
         ) : (
-          <table className="w-full min-w-[900px] text-[13px]">
+          <table className="w-full min-w-[1040px] text-[13px]">
             <thead className="bg-raised/40">
               <tr>
-                {['کاربر', 'موبایل', 'پلن', 'پایان اشتراک', 'وضعیت', 'عضویت', 'آخرین ورود', ''].map((h) => (
+                {['کاربر', 'موبایل', 'پلن', 'پایان اشتراک', 'وضعیت', 'عضویت', 'آخرین ورود', 'آخرین IP', ''].map((h) => (
                   <th key={h} className="th">
                     {h}
                   </th>
@@ -207,8 +208,22 @@ export default function AdminUsers() {
                     <td className="td">{u.status === 'banned' ? <Badge tone="loss">مسدود</Badge> : expired ? <Badge tone="amber">منقضی</Badge> : <Badge tone="gain">فعال</Badge>}</td>
                     <td className="td num text-muted">{dateTime(u.createdAt)}</td>
                     <td className="td num text-muted">{u.lastLoginAt ? dateTime(u.lastLoginAt) : '—'}</td>
+                    <td className="td num text-muted" dir="ltr" style={{ textAlign: 'right' }}>
+                      {u.lastIp || '—'}
+                    </td>
                     <td className="td">
                       <div className="flex justify-end gap-1">
+                        <Link to={`/admin/backtests/${encodeURIComponent(u.id)}`} className="icon-btn h-8 w-8" aria-label={`بک‌تست‌های ${u.name}`} title="بک‌تست‌ها و دستگاه‌ها">
+                          <LineChart size={15} />
+                        </Link>
+                        <Link
+                          to={`/admin/activity?userId=${encodeURIComponent(u.id)}`}
+                          className="icon-btn h-8 w-8"
+                          aria-label={`ورود و خروج‌های ${u.name}`}
+                          title="ورود و خروج‌ها"
+                        >
+                          <Fingerprint size={15} />
+                        </Link>
                         <button type="button" className="icon-btn h-8 w-8" onClick={() => setEditing(u)} aria-label={`ویرایش ${u.name}`} title="ویرایش">
                           <UserCog size={15} />
                         </button>

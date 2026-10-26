@@ -54,23 +54,22 @@ export default function Dashboard() {
     <div className="mx-auto max-w-[1180px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
       {/* Header */}
       <header className="relative mb-7 flex flex-wrap items-start justify-between gap-4">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-6 left-0 h-32 w-full max-w-[34rem]"
-          style={{ background: 'radial-gradient(ellipse 55% 60% at 25% 35%, rgb(var(--accent) / 0.16), transparent 70%)' }}
-        />
         <div className="relative">
           <h1 className="text-2xl font-bold">{user.name}</h1>
           <p className="mt-0.5 text-sm text-faint">{fmtDayLong(today, 'jalali', true)}</p>
         </div>
         <div className="relative flex items-center gap-3">
-          <div className="text-end">
-            <p className="text-sm font-bold">
-              {streak > 0 ? `${fmtNum(streak)} روز پشت سر هم بک‌تست گرفته‌اید!` : 'رکورد روزانه‌ی شما صفر است'}
-            </p>
+          {/* a soft glow centred on the streak, fading the same way on both sides */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-x-10 -inset-y-6"
+            style={{ background: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgb(var(--accent) / 0.2), transparent 100%)' }}
+          />
+          <div className="relative text-end">
+            <p className="text-sm font-bold">{streak > 0 ? `${fmtNum(streak)} روز پشت سر هم بک‌تست گرفته‌اید!` : 'رکورد روزانه‌ی شما صفر است'}</p>
             <p className="text-xs text-muted">هر روز بک‌تست بگیرید تا رکوردتان صفر نشود.</p>
           </div>
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber/15 text-amber">
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-amber/15 text-amber">
             <Flame size={22} />
           </span>
         </div>

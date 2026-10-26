@@ -13,12 +13,14 @@ import {
   Minimize2,
   Minus,
   NotebookPen,
+  Palette,
   Plus,
   Send,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useGo } from '../lib/nav';
 import { Link } from '../components/ui/AppLink';
 import { loadTradingView } from '../chart/tvLoader';
 import type { ChartEngine, DraftOrder, EngineCallbacks } from '../chart/types';
@@ -33,17 +35,25 @@ import { Modal } from '../components/ui/Modal';
 import { Meter } from '../components/ui/controls';
 import { Popover } from '../components/ui/Popover';
 import { useNews } from '../hooks/useNews';
+import { usePlan } from '../hooks/usePlan';
+import { LockMark, UpgradeModal } from '../components/plan/Locked';
+import type { PlanFeature } from '../services/plan';
 import { DAY_MS, fmtDay, fmtDayLong, fmtMarketTime, msToKey } from '../lib/calendar';
 import { faDigits, fmtNum, fmtUsd, toLatinDigits } from '../lib/format';
-import { SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
+import { BAR_MS, HOUR_MS, MIN_MS, SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
 import { currenciesFor, filterNews } from '../lib/news';
 import { saveShot } from '../lib/shots';
+import { layoutsFromServer, pullLayouts } from '../services/layoutSync';
 import { sessionBalance, sessionEndMs, sessionFloating, sessionProgress, sessionRemainingDays } from '../lib/stats';
 import { local } from '../lib/storage';
-import { fmtTehran } from '../lib/timezone';
-import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, tickOf } from '../lib/trading';
+import { dayKeyIn, fmtClock, fmtOffset, tzName } from '../lib/timezone';
+import { TimezoneMenu } from '../components/replay/TimezoneMenu';
+import { ChartSettings } from '../components/replay/ChartSettings';
+import { resolveChartStyle } from '../chart/style';
+import { dirOf, fmtLots, lotsForRisk, orderTitle, previewOrder, sessionSpread, tickOf } from '../lib/trading';
 import type { ChartPane as Pane, JournalEntry, LayoutId, Side, Trade } from '../lib/types';
-import { ensureRange, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
+import { ensureFine, ensureRange, fineReady, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
+import { hasServer } from '../services/api';
 import { toast, useStore, useUi } from '../store/useStore';
 
 interface Draft {
@@ -125,10 +135,15 @@ const RISK_KEY = 'backtest:risk-pct';
 
 export default function Replay() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const go = useGo();
   const session = useStore((s) => s.sessions.find((x) => x.id === id));
   const allTrades = useStore((s) => s.trades);
   const theme = useStore((s) => s.theme);
+  const chartTz = useStore((s) => s.chartTz);
+  const setChartTz = useStore((s) => s.setChartTz);
+  const chartStyleChanges = useStore((s) => s.chartStyle);
+  const chartStyle = useMemo(() => resolveChartStyle(theme, chartStyleChanges), [theme, chartStyleChanges]);
+  const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
   const checklists = useStore((s) => s.checklists);
   const newsFilters = useStore((s) => s.newsFilters);
   const setNewsFilters = useStore((s) => s.setNewsFilters);
@@ -152,6 +167,17 @@ export default function Replay() {
     };
   }, []);
   const engineKind: EngineKind = enginePref === 'auto' && tv ? 'tradingview' : 'lightweight';
+  // drawings and indicators saved on the user's other devices are brought here before the charts open
+  const [layoutsReady, setLayoutsReady] = useState(() => !layoutsFromServer());
+  useEffect(() => {
+    if (!id || !layoutsFromServer()) return;
+    let alive = true;
+    setLayoutsReady(false);
+    void pullLayouts(id).finally(() => alive && setLayoutsReady(true));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
   const engines = useRef(new Map<number, ChartEngine>());
   const register = useCallback((i: number, e: ChartEngine | null) => {
     if (e) engines.current.set(i, e);
@@ -215,20 +241,29 @@ export default function Replay() {
   }, []);
 
   const jumpTo = useCallback(
-    (target: number) => {
+    (target: number, fineTried = false) => {
       const st = useStore.getState();
       const s = st.sessions.find((x) => x.id === id);
       if (!s) return;
       const end = sessionEndMs(s);
       const next = Math.min(end, target);
       if (next <= s.cursor) return;
-      // orders fill on the bars in between, so they have to be loaded first
-      if (!rangeReady(s.symbols, s.cursor, next)) {
+      // orders fill on the bars in between, so they have to be loaded first; a step inside a 5-minute
+      // bar also waits once for the 1-minute / 1-second data (without it the 5-minute bar is used)
+      const fine = fineTried
+        ? []
+        : ([...(next % BAR_MS || s.cursor % BAR_MS ? ['m1'] : []), ...(next % MIN_MS || s.cursor % MIN_MS ? ['s1'] : [])] as ('m1' | 's1')[]).filter(
+            (k) => !fineReady(k, s.symbols, s.cursor, next),
+          );
+      if (!rangeReady(s.symbols, s.cursor, next) || fine.length) {
         if (waitingForData.current) return;
         waitingForData.current = true;
-        void ensureRange(s.symbols, s.cursor - DAY_MS, next + 3 * DAY_MS).then((ok) => {
+        void Promise.all([
+          ensureRange(s.symbols, s.cursor - DAY_MS, next + 3 * DAY_MS),
+          ...fine.map((k) => ensureFine(k, s.symbols, s.cursor, next + (k === 'm1' ? DAY_MS : HOUR_MS))),
+        ]).then(([ok]) => {
           waitingForData.current = false;
-          if (ok) jumpTo(target);
+          if (ok) jumpTo(target, true);
           else {
             setPlaying(false);
             toast('داده‌ی بازار این بازه هنوز دریافت نشده؛ کمی بعد دوباره تلاش کنید', 'error');
@@ -291,7 +326,11 @@ export default function Replay() {
   const [positionsOpen, setPositionsOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
 
-  const news = useNews(session?.cursor ?? 0);
+  // the free plan: no journal, analytics or economic calendar (a click asks to upgrade)
+  const { free } = usePlan();
+  const [upgrade, setUpgrade] = useState<PlanFeature | null>(null);
+  const openJournal = (id: 'draft' | string) => (free ? setUpgrade('journal') : setJournalFor(id));
+  const news = useNews(session?.cursor ?? 0, !free);
 
   if (!session || !active) {
     return (
@@ -312,7 +351,9 @@ export default function Replay() {
   const floating = sessionFloating(session, trades);
   const activeSym = SYMBOL_MAP[active.symbol];
 
-  const draftPrice = draft ? priceAt(draft.symbol, cursor) : 0;
+  // charts show the bid; a buy's market price is the ask (bid + the session's spread)
+  const askOffset = (symbol: string, side: Side) => (side === 'buy' ? sessionSpread(session, symbol) : 0);
+  const draftPrice = draft ? priceAt(draft.symbol, cursor) + askOffset(draft.symbol, draft.side) : 0;
   const preview = draft ? previewOrder(draft, draftPrice, balance, riskPct, cursor) : null;
   const draftForChart: (DraftOrder & { symbol: string }) | null =
     draft && preview ? { ...draft, type: preview.type, rr: preview.rr, riskUsd: preview.riskUsd, rewardUsd: preview.rewardUsd, lots: preview.lots } : null;
@@ -330,10 +371,12 @@ export default function Replay() {
     if (ended) return;
     if (draft && draft.side !== side && draft.symbol === active.symbol) {
       // flip the drawn position to the other side, keeping the distances
-      setDraft({ ...draft, side, sl: 2 * draft.entry - draft.sl, tp: 2 * draft.entry - draft.tp });
+      // a market order moves between the ask (buy) and the bid (sell)
+      const entry = preview?.type === 'market' ? draft.entry + askOffset(draft.symbol, side) - askOffset(draft.symbol, draft.side) : draft.entry;
+      setDraft({ ...draft, side, entry, sl: entry + (draft.entry - draft.sl), tp: entry - (draft.tp - draft.entry) });
       return;
     }
-    const price = priceAt(active.symbol, cursor);
+    const price = priceAt(active.symbol, cursor) + askOffset(active.symbol, side);
     const d = defaultStop(active.symbol, active.timeframe);
     const dir = dirOf(side);
     setDraft({
@@ -347,7 +390,8 @@ export default function Replay() {
   };
 
   const sessionChecklist = checklists.find((c) => c.id === (draftJournal?.checklistId ?? (draftJournal ? undefined : session.checklistId)));
-  const missingRequired = sessionChecklist?.items.filter((i) => i.required && !(draftJournal?.checked ?? []).includes(i.id)) ?? [];
+  // required checklist items are ticked in the journal, which the free plan does not include
+  const missingRequired = free ? [] : (sessionChecklist?.items.filter((i) => i.required && !(draftJournal?.checked ?? []).includes(i.id)) ?? []);
 
   const place = () => {
     if (!draft || !preview) return;
@@ -463,7 +507,7 @@ export default function Replay() {
       {/* toolbar */}
       {!expanded && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-line/70 bg-side px-2 py-2 sm:px-3">
-          <button type="button" className="icon-btn" onClick={() => navigate(`/sessions?id=${session.id}`)} aria-label="بازگشت به جلسه" title="بازگشت">
+          <button type="button" className="icon-btn" onClick={() => go(`/sessions?id=${session.id}`)} aria-label="بازگشت به جلسه" title="بازگشت">
             <ArrowRight size={18} />
           </button>
           <div className="min-w-0 max-w-[14rem]">
@@ -473,12 +517,33 @@ export default function Replay() {
               <span className="num text-[11px] text-faint">{fmtNum(remaining)} روز باقی‌مانده</span>
             </div>
           </div>
-          <Link to={`/journal?session=${session.id}`} className="btn-ghost py-1.5">
-            <NotebookPen size={15} /> ژورنال
-          </Link>
-          <Link to={`/analytics?session=${session.id}`} className="btn-ghost hidden py-1.5 sm:inline-flex">
-            <BarChart3 size={15} /> آنالیز
-          </Link>
+          {!hasServer && (
+            <span
+              className="rounded-lg bg-amber/15 px-2 py-1 text-[11px] font-semibold text-amber"
+              title="این نسخه بدون سرور API اجرا می‌شود و قیمت‌ها نمونه‌ی ساختگی هستند. برای داده‌ی واقعی تاریخی، سایت را همراه سرور نصب کنید (DEPLOY.md)."
+            >
+              داده‌ی نمونه
+            </span>
+          )}
+          {free ? (
+            <>
+              <button type="button" className="btn-ghost py-1.5" onClick={() => setUpgrade('journal')}>
+                <NotebookPen size={15} /> ژورنال <LockMark />
+              </button>
+              <button type="button" className="btn-ghost hidden py-1.5 sm:inline-flex" onClick={() => setUpgrade('analytics')}>
+                <BarChart3 size={15} /> آنالیز <LockMark />
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to={`/journal?session=${session.id}`} className="btn-ghost py-1.5">
+                <NotebookPen size={15} /> ژورنال
+              </Link>
+              <Link to={`/analytics?session=${session.id}`} className="btn-ghost hidden py-1.5 sm:inline-flex">
+                <BarChart3 size={15} /> آنالیز
+              </Link>
+            </>
+          )}
           <button
             type="button"
             className="icon-btn"
@@ -496,15 +561,16 @@ export default function Replay() {
           <div className="ms-auto flex flex-wrap items-center gap-1.5">
             <span
               className="num hidden rounded-xl bg-raised px-2.5 py-1.5 text-[12px] text-muted md:inline"
-              title={`${new Date(cursor).toISOString().slice(0, 16).replace('T', ' ')} UTC`}
+              title={`${new Date(cursor).toISOString().slice(0, 16).replace('T', ' ')} UTC · ${chartTz} (${fmtOffset(cursor, chartTz)})`}
             >
-              {fmtDayLong(msToKey(cursor + 3.5 * 3_600_000), 'jalali', true)} · <b className="text-ink">{fmtTehran(cursor)}</b> تهران
+              {fmtDayLong(dayKeyIn(cursor, chartTz), 'jalali', true)} · <b className="text-ink">{fmtClock(cursor, chartTz)}</b> {tzName(chartTz)}
             </span>
             <GoToMenu
               cursor={cursor}
               endMs={endMs}
               symbols={session.symbols}
               disabled={ended}
+              tz={chartTz}
               onJump={(t, label) => {
                 setPlaying(false);
                 jumpTo(t);
@@ -513,11 +579,19 @@ export default function Replay() {
             />
             <button
               type="button"
-              onClick={() => setNewsOpen((v) => !v)}
-              aria-pressed={newsOpen}
-              className={clsx('btn-soft py-1.5', newsOpen && 'border-accent/60 text-accent-ink')}
+              onClick={() => (free ? setUpgrade('calendar') : setNewsOpen((v) => !v))}
+              aria-pressed={newsOpen && !free}
+              className={clsx('btn-soft py-1.5', newsOpen && !free && 'border-accent/60 text-accent-ink')}
             >
-              <CalendarDays size={15} /> تقویم اقتصادی
+              <CalendarDays size={15} /> تقویم اقتصادی {free && <LockMark />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartSettingsOpen(true)}
+              className="btn-soft py-1.5"
+              title="تنظیمات چارت: رنگ کندل‌ها، پس‌زمینه، شبکه و متن"
+            >
+              <Palette size={15} /> <span className="hidden sm:inline">تنظیمات چارت</span>
             </button>
             <Popover
               align="end"
@@ -578,7 +652,12 @@ export default function Replay() {
               layoutDef.count > 1 && 'auto-rows-[minmax(240px,1fr)] overflow-y-auto md:overflow-hidden',
             )}
           >
-            {panes.slice(0, layoutDef.count).map((p, i) => (
+            {!layoutsReady && (
+              <div className="flex items-center justify-center bg-bg text-muted" role="status">
+                <LoaderCircle size={22} className="animate-spin" aria-label="در حال بارگذاری ترسیم‌های چارت" />
+              </div>
+            )}
+            {layoutsReady && panes.slice(0, layoutDef.count).map((p, i) => (
               <div key={i} className={clsx('min-h-0', layoutDef.cells[i])}>
                 <ChartPane
                   index={i}
@@ -588,11 +667,16 @@ export default function Replay() {
                   cursor={cursor}
                   theme={theme}
                   sessionSymbols={session.symbols}
+                  sessionId={session.id}
+                  sessionStart={session.startDate}
                   showHistory={showHistory}
                   dataVersion={dataVersion}
                   draft={draftForChart}
                   trades={trades}
                   news={chartNews}
+                  spread={sessionSpread(session, p.symbol)}
+                  timezone={chartTz}
+                  chartStyle={chartStyle}
                   active={i === activePane}
                   multi={layoutDef.count > 1}
                   callbacks={callbacksFor(i)}
@@ -627,9 +711,10 @@ export default function Replay() {
             disabled={ended}
           />
         </div>
-        {newsOpen && (
+        {newsOpen && !free && (
           <div className="fixed inset-x-0 bottom-0 top-1/3 z-40 lg:static lg:z-auto">
             <NewsPanel
+              tz={chartTz}
               events={news.events}
               source={news.source}
               loading={news.loading}
@@ -669,8 +754,8 @@ export default function Replay() {
             R:R <b className="text-ink">{preview.rr.toFixed(2)}</b> · ریسک <b className="text-loss">{fmtUsd(preview.riskUsd)}</b> ·{' '}
             <b className="text-ink">{fmtLots(preview.lots, draft.symbol)}</b> لات
           </span>
-          <button type="button" className="btn-soft py-1.5" onClick={() => setJournalFor('draft')}>
-            <NotebookPen size={15} /> ذخیره ژورنال {draftJournal && <span className="h-1.5 w-1.5 rounded-full bg-gain" />}
+          <button type="button" className="btn-soft py-1.5" onClick={() => openJournal('draft')}>
+            <NotebookPen size={15} /> ذخیره ژورنال {free ? <LockMark /> : draftJournal && <span className="h-1.5 w-1.5 rounded-full bg-gain" />}
           </button>
           <button type="button" className="btn-primary py-1.5" onClick={place} disabled={!!preview.problem || !market.ready}>
             <Send size={15} className="-scale-x-100" /> ثبت معامله
@@ -709,6 +794,7 @@ export default function Replay() {
             {positionsOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
             <span className="num">پوزیشن‌ها ({fmtNum(trades.filter((t) => t.status === 'open' || t.status === 'pending').length)})</span>
           </button>
+          <TimezoneMenu cursor={cursor} tz={chartTz} onChange={setChartTz} />
         </dl>
 
         <div className="ms-auto flex flex-wrap items-center gap-2">
@@ -767,6 +853,7 @@ export default function Replay() {
       {positionsOpen && (
         <div className="anim-up h-[min(42vh,320px)] shrink-0 border-t border-line/70 bg-side">
           <PositionsPanel
+            tz={chartTz}
             trades={trades}
             cursor={cursor}
             showHistory={showHistory}
@@ -776,7 +863,7 @@ export default function Replay() {
               useStore.getState().cancelOrder(t.id);
               toast('سفارش لغو شد', 'info');
             }}
-            onJournal={(t) => setJournalFor(t.id)}
+            onJournal={(t) => openJournal(t.id)}
           />
         </div>
       )}
@@ -821,6 +908,8 @@ export default function Replay() {
         }
       />
 
+      <UpgradeModal open={!!upgrade} onClose={() => setUpgrade(null)} feature={upgrade ?? undefined} />
+      <ChartSettings open={chartSettingsOpen} onClose={() => setChartSettingsOpen(false)} />
       {shot && (
         <Modal
           open
@@ -832,7 +921,7 @@ export default function Replay() {
               <a href={shot} download={`${active.symbol}-${fmtDay(msToKey(cursor)).replace(/\//g, '-')}.jpg`} className="btn-soft">
                 دانلود تصویر
               </a>
-              {draft && (
+              {draft && !free && (
                 <button
                   type="button"
                   className="btn-primary"

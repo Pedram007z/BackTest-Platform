@@ -6,6 +6,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -19,6 +20,8 @@ import { fmtCompact, fmtNum, fmtPct, fmtUsd } from '../../lib/format';
 /* All charts render left-to-right inside `.chart-ltr`, as in the original design. */
 
 const tick = (p: ChartPalette) => ({ fill: p.axis, fontSize: 11 });
+/** 1.2K with its sign: +1.2K / −1.2K */
+const signedCompact = (v: unknown) => (typeof v === 'number' ? `${v > 0 ? '+' : ''}${fmtCompact(v)}` : '');
 
 function TipBox({ title, rows, p }: { title: string; rows: { label: string; value: string; color?: string }[]; p: ChartPalette }) {
   return (
@@ -207,11 +210,14 @@ export function PnlBars({
     title: row.title ?? row.label,
     rows: [{ label: 'سود / زیان', value: fmtUsd(row.pnl, 2, true), color: row.pnl >= 0 ? p.gain : p.loss }],
   }));
+  // Every bar stands on the baseline (its size is the amount); green is profit, red is loss, and the
+  // signed amount is written on the bar.
+  const radius = (vertical ? [0, 4, 4, 0] : [4, 4, 0, 0]) as [number, number, number, number];
 
   return (
     <div className="chart-ltr" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout={layout} margin={{ top: 8, right: 10, left: vertical ? 0 : -4, bottom: 0 }} barCategoryGap="26%">
+        <BarChart data={data} layout={layout} margin={{ top: vertical ? 8 : 20, right: vertical ? 44 : 10, left: vertical ? 0 : -4, bottom: 0 }} barCategoryGap="26%">
           <CartesianGrid vertical={vertical} horizontal={!vertical} stroke={p.grid} strokeDasharray="4 4" />
           {vertical ? (
             <>
@@ -224,17 +230,12 @@ export function PnlBars({
               <YAxis tick={tick(p)} tickLine={false} axisLine={false} tickFormatter={fmtCompact} width={54} />
             </>
           )}
-          {vertical ? <ReferenceLine x={0} stroke={p.axis} strokeOpacity={0.7} /> : <ReferenceLine y={0} stroke={p.axis} strokeOpacity={0.7} />}
           <Tooltip cursor={{ fill: p.cursor }} content={tip} />
-          <Bar isAnimationActive={false} dataKey="pnl" maxBarSize={vertical ? 22 : 30} radius={vertical ? [0, 4, 4, 0] : [4, 4, 0, 0]}>
+          <Bar isAnimationActive={false} dataKey={(d: { pnl: number }) => Math.abs(d.pnl)} maxBarSize={vertical ? 22 : 30} radius={radius}>
             {data.map((d) => (
-              <Cell
-                key={d.label}
-                fill={d.pnl >= 0 ? p.gain : p.loss}
-                // round the outer end of negative bars too
-                radius={(d.pnl >= 0 ? (vertical ? [0, 4, 4, 0] : [4, 4, 0, 0]) : vertical ? [4, 0, 0, 4] : [0, 0, 4, 4]) as any}
-              />
+              <Cell key={d.label} fill={d.pnl >= 0 ? p.gain : p.loss} />
             ))}
+            <LabelList dataKey="pnl" position={vertical ? 'right' : 'top'} formatter={signedCompact} style={{ fill: p.axis, fontSize: 10 }} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>

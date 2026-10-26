@@ -22,6 +22,10 @@ export interface NewsEvent {
   forecast?: string;
   previous?: string;
   allDay?: boolean;
+  /** from the official release schedule (schedule.ts): the time only, no values */
+  scheduled?: boolean;
+  /** the exact time was not published (shown at noon local time) */
+  tentative?: boolean;
 }
 
 export const NEWS_CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD', 'CNY'] as const;

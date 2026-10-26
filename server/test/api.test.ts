@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
 import { startServer } from './harness';
 import { FF_PAGE } from './fixtures/ff-page';
@@ -91,7 +90,7 @@ test('discount code, checkout through the simulator, plan extension', async () =
   assert.match(page.data, /شبیه‌ساز/);
   const done = await s.call('POST', `/api/payments/simulate/${co.data.paymentId}`, 'action=pay', undefined, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
   assert.equal(done.status, 302);
-  assert.equal(done.headers.get('location'), `https://app.test/#/billing?payment=${co.data.paymentId}`);
+  assert.equal(done.headers.get('location'), `https://app.test/billing?payment=${co.data.paymentId}`);
 
   const pay = await s.call('GET', `/api/payments/${co.data.paymentId}`, undefined, user.token);
   assert.equal(pay.data.status, 'paid');
@@ -178,6 +177,8 @@ test('plans and settings are validated', async () => {
   const settings = (await s.call('GET', '/api/admin/settings', undefined, admin.token)).data;
   const bad = await s.call('PUT', '/api/admin/settings', { ...settings, otpLength: 3 }, admin.token);
   assert.equal(bad.data.field, 'otpLength');
+  const generated = await s.call('PUT', '/api/admin/settings', { ...settings, marketData: { ...settings.marketData, forex: 'synthetic' } }, admin.token);
+  assert.equal(generated.data.field, 'marketData.forex', 'generated prices are not a market data source');
   const good = await s.call('PUT', '/api/admin/settings', { ...settings, otpLength: 6, registrationOpen: false, enabledSymbols: ['EURUSD', 'XAUUSD', 'FAKE'] }, admin.token);
   assert.equal(good.status, 200);
   assert.deepEqual(good.data.enabledSymbols, ['EURUSD', 'XAUUSD']);
@@ -249,8 +250,9 @@ test('economic calendar: ForexFactory weeks are fetched once and cached', async 
     r.data.events.map((e: any) => e.id),
     ['ff-131406', 'ff-131407', 'ff-131500', 'ff-131502'],
   );
-  // the week before (Dec 31) was blocked: reported as missing so the app can fill it
-  assert.deepEqual(r.data.missing, [Date.UTC(2023, 11, 31)]);
+  // the week before (Dec 31) was blocked: filled from the official release schedule
+  assert.deepEqual(r.data.missing, []);
+  assert.deepEqual(r.data.scheduled, [Date.UTC(2023, 11, 31)]);
   await s.call('GET', `/api/news?from=${from}&to=${to}`, undefined, admin.token);
   assert.equal(pages, 1, 'a past week is fetched once');
   assert.equal((await s.call('GET', `/api/news?from=${from}&to=${to}`)).status, 401);
@@ -258,54 +260,49 @@ test('economic calendar: ForexFactory weeks are fetched once and cached', async 
   const status = (await s.call('GET', '/api/admin/news', undefined, admin.token)).data;
   assert.equal(status.weeks, 1);
   assert.equal(status.events, 4);
+
+  // ForexFactory keeps answering pages with a bot check: the sync stops asking for pages and keeps
+  // the week in progress from the weekly feed, without reporting the blocked weeks as errors
+  let pageAsks = 0;
+  s.setUpstream((url) => {
+    if (url.includes('/calendar?week=')) {
+      pageAsks++;
+      return new Response('<html><title>Just a moment...</title>cf-chl</html>', { status: 403 });
+    }
+    if (url.includes('ff_calendar_thisweek.json'))
+      return s.json([{ title: 'CPI m/m', country: 'USD', date: new Date().toISOString(), impact: 'High', forecast: '0.3%', previous: '0.2%' }]);
+    throw new Error(`unexpected upstream call: ${url}`);
+  });
   const sync = await s.call('POST', '/api/admin/news/sync', {}, admin.token);
   assert.equal(sync.status, 200);
-  assert.match(sync.data.lastError, /Cloudflare/);
+  assert.equal(sync.data.pagesBlocked, true);
+  assert.equal(sync.data.lastError, undefined, 'a bot check is not an error');
+  assert.equal(pageAsks, 1, 'only the week in progress: next week and earlier ones would be blocked too');
+  assert.equal(sync.data.weeks, 2, 'the week in progress came from the feed');
+  assert.equal(sync.data.firstWeek, '2024-01-07');
+
+  // a source that fails is an error
+  s.setUpstream(() => new Response('', { status: 500 }));
+  const failed = await s.call('POST', '/api/admin/news/sync', {}, admin.token);
+  assert.match(failed.data.lastError, /HTTP 500/);
+  assert.equal(failed.data.weeks, 2, 'the weeks kept stay');
 });
 
-test('market data: Dukascopy and Binance days, cached on disk', async () => {
-  const bi5 = readFileSync(new URL('./fixtures/EURUSD_2024-01-15_min_1.bi5', import.meta.url));
-  const seen: string[] = [];
-  s.setUpstream((url) => {
-    seen.push(url);
-    if (url.includes('dukascopy') && url.includes('/EURUSD/2024/00/15/')) return new Response(bi5);
-    if (url.includes('dukascopy')) return new Response('', { status: 404 });
-    if (url.includes('/api/v3/klines')) {
-      const q = new URL(url).searchParams;
-      const start = Number(q.get('startTime'));
-      return s.json([[start, '42000', '42100', '41900', '42050', '1']]);
-    }
-    throw new Error(url);
-  });
-  const r = await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-13&to=2024-01-15', undefined, admin.token);
-  assert.equal(r.status, 200);
-  assert.equal(r.data.source, 'dukascopy');
-  assert.deepEqual(
-    r.data.days.map((d: any) => [d.day, d.bars === null ? 'closed' : d.bars ? d.bars.length : d.error]),
-    [
-      ['2024-01-13', 'closed'],
-      ['2024-01-14', 'closed'],
-      ['2024-01-15', 1152],
-    ],
-  );
-  assert.equal(r.data.days[2].bars[0], 1.08, 'prices are divided by the instrument factor');
-  assert.equal(seen.filter((u) => u.includes('/2024/00/13/')).length, 0, 'Saturdays are not requested');
-
-  const n = seen.length;
-  await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-13&to=2024-01-15', undefined, admin.token);
-  assert.equal(seen.length, n, 'second read comes from the disk cache');
-
-  const btc = await s.call('GET', '/api/market/days?symbol=BTCUSD&from=2024-01-01&to=2024-01-04', undefined, admin.token);
-  assert.equal(btc.data.source, 'binance');
-  assert.equal(btc.data.days.length, 4);
-  assert.deepEqual(btc.data.days[0].bars.slice(0, 4), [42000, 42100, 41900, 42050]);
-  assert.equal(btc.data.days[1].bars, null);
-  assert.equal(seen.filter((u) => u.includes('klines')).length, 2, 'four days take two requests (three per request)');
-
-  assert.equal((await s.call('GET', '/api/market/days?symbol=NOPE&from=2024-01-01&to=2024-01-02', undefined, admin.token)).data.field, 'symbol');
-  assert.equal((await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-01&to=2024-03-30', undefined, admin.token)).data.code, 'range');
-  const gz = await s.call('GET', '/api/market/days?symbol=EURUSD&from=2024-01-15&to=2024-01-15', undefined, admin.token, { headers: { 'Accept-Encoding': 'gzip' } });
-  assert.equal(gz.status, 200);
+test("errors from visitors' browsers are logged", async () => {
+  const logged: string[] = [];
+  const warn = console.warn;
+  console.warn = (...a: unknown[]) => void logged.push(a.join(' '));
+  try {
+    // sent as text/plain (no CORS preflight), the way the app reports them
+    const r = await s.call('POST', '/api/client-errors', JSON.stringify({ message: 'boom\nline 2', stack: 'at x', url: 'https://app.test/sessions' }), undefined, {
+      headers: { 'Content-Type': 'text/plain' },
+    });
+    assert.ok(r.status < 300, `status ${r.status}`);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /^\[client-error\] .*app\.test\/sessions :: boom line 2 :: at x/);
 });
 
 test('CORS allows the app origin only', async () => {

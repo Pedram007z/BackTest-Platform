@@ -1,14 +1,16 @@
 import clsx from 'clsx';
 import { CalendarDays, Info, LoaderCircle, X } from 'lucide-react';
-import { fmtDayLong, msToKey } from '../../lib/calendar';
+import { fmtDayLong } from '../../lib/calendar';
 import { CURRENCY_COUNTRY, IMPACT_LABEL, NEWS_CURRENCIES, newsTitleFa, type NewsEvent } from '../../lib/news';
-import { fmtTehran } from '../../lib/timezone';
+import { dayKeyIn, fmtClock, tzName } from '../../lib/timezone';
 import type { Impact, NewsFilters } from '../../lib/types';
 import type { NewsSource } from '../../hooks/useNews';
 import { Flag } from '../ui/Flag';
 import { Toggle } from '../ui/controls';
 
 const IMPACT_DOT: Record<Impact, string> = { high: 'bg-loss', medium: 'bg-amber', low: 'bg-[#e8d44d]', holiday: 'bg-faint' };
+const SCHEDULE_NOTE =
+  'زمان انتشار خبرها از تقویم رسمی هر نهاد (بانک‌های مرکزی، آمار آمریکا، Eurostat، ZEW و ONS): خبرهای پراهمیت و متوسط دلار، یورو و پوند. عدد واقعی، پیش‌بینی و قبلی برای این بازه در دسترس نیست.';
 
 interface Props {
   events: NewsEvent[];
@@ -18,12 +20,14 @@ interface Props {
   filters: NewsFilters;
   /** currencies of the session's symbols, used when no country is picked */
   autoCurrencies: string[];
+  /** The chart's time zone: days and times are shown in it. */
+  tz: string;
   onFilters: (patch: Partial<NewsFilters>) => void;
   onClose: () => void;
 }
 
 /** Economic calendar beside the chart. Actual numbers stay hidden until the replay reaches the release. */
-export function NewsPanel({ events, source, loading, cursor, filters, autoCurrencies, onFilters, onClose }: Props) {
+export function NewsPanel({ events, source, loading, cursor, filters, autoCurrencies, tz, onFilters, onClose }: Props) {
   const picked = filters.currencies.length ? filters.currencies : autoCurrencies;
   const toggleCcy = (c: string) => {
     const base = filters.currencies.length ? filters.currencies : autoCurrencies;
@@ -37,7 +41,7 @@ export function NewsPanel({ events, source, loading, cursor, filters, autoCurren
     .filter((e) => Math.abs(e.time - cursor) < 10 * 86_400_000);
   const days = new Map<string, NewsEvent[]>();
   for (const e of visible) {
-    const k = msToKey(e.time);
+    const k = dayKeyIn(e.time, tz);
     if (!days.has(k)) days.set(k, []);
     days.get(k)!.push(e);
   }
@@ -140,7 +144,8 @@ export function NewsPanel({ events, source, loading, cursor, filters, autoCurren
                       <span className={clsx('h-2 w-2 shrink-0 rounded-sm', IMPACT_DOT[e.impact])} title={IMPACT_LABEL[e.impact]} />
                       <Flag currency={e.currency} size={15} />
                       <span className="font-bold text-ink">{e.currency}</span>
-                      <span className="num">{e.allDay ? 'کل روز' : `${fmtTehran(e.time)} تهران`}</span>
+                      <span className="num">{e.allDay ? 'کل روز' : `${fmtClock(e.time, tz)} ${tzName(tz)}`}</span>
+                      {e.tentative && <span title="ساعت دقیق این خبر اعلام نشده است">(ساعت حدودی)</span>}
                       {e.id === nextId && <span className="ms-auto rounded bg-accent px-1.5 text-[10px] font-bold text-white">بعدی</span>}
                     </div>
                     <p className="mt-0.5 text-[13px] font-medium leading-6">{newsTitleFa(e.title)}</p>
@@ -162,9 +167,11 @@ export function NewsPanel({ events, source, loading, cursor, filters, autoCurren
       </div>
       <p className="flex items-start gap-1.5 border-t border-line/70 px-4 py-2.5 text-[11px] leading-5 text-faint">
         <Info size={13} className="mt-0.5 shrink-0" />
-        {source === 'forexfactory'
-          ? 'داده از تقویم ForexFactory. عدد واقعی (A) هر خبر فقط بعد از رسیدن بازپخش به زمان انتشار نمایش داده می‌شود.'
-          : 'داده‌ی نمونه بر اساس زمان‌بندی واقعی انتشارها؛ اعداد ساختگی هستند. برای داده‌ی ForexFactory سرور برنامه را راه‌اندازی کنید.'}
+        {source === 'sample'
+          ? 'داده‌ی نمونه بر اساس زمان‌بندی واقعی انتشارها؛ اعداد ساختگی هستند. برای داده‌ی ForexFactory سرور برنامه را راه‌اندازی کنید.'
+          : source === 'schedule'
+            ? SCHEDULE_NOTE
+            : `داده از تقویم ForexFactory. عدد واقعی (A) هر خبر فقط بعد از رسیدن بازپخش به زمان انتشار نمایش داده می‌شود.${events.some((e) => e.scheduled) ? ' هفته‌هایی که این داده را ندارند از تقویم رسمی پر شده‌اند (فقط زمان انتشار).' : ''}`}
       </p>
     </aside>
   );

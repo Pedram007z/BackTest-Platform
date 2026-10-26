@@ -1,35 +1,73 @@
 import { PALETTES } from '../hooks/useChartTheme';
-import { SYMBOL_MAP, TF_MS, TIMEFRAMES, tfFromTv } from '../lib/market';
-import { orderTitleEn } from '../lib/trading';
+import { SYMBOL_MAP, TF_MS, TIMEFRAMES, candleTime, knownPriceAt, roundToTick, stepCursor, tfFromTv } from '../lib/market';
+import { commissionFor, orderTitleEn } from '../lib/trading';
+import { DEFAULT_CHART_TZ, isTimeZone, tzOffset } from '../lib/timezone';
+import { defaultChartStyle, withOpacity, type ChartStyle } from './style';
 import type { Trade } from '../lib/types';
+import { createNavButtons } from './navButtons';
 import { createReplayDatafeed } from './tvDatafeed';
 import { TV_LIBRARY_PATH } from './tvLoader';
+import { layoutSaved } from '../services/layoutSync';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
+
+/** TradingView's Bid and Ask line colours. */
+const BID_ASK = { bid: '#2962ff', ask: '#f23645' };
 
 /**
  * Replay chart on TradingView Advanced Charts. One widget per pane. Prices come from the replay
  * datafeed; the position tool is TradingView's own long/short position drawing; open positions
- * are position lines (with the close X) and stop / target are draggable order lines.
+ * are position lines (with the close X) and stop / target are draggable order lines. The drawing
+ * toolbar and the indicators work as in TradingView; each pane's drawings and indicators are saved
+ * per session (in this browser and, with the API server, on the server: services/layoutSync) and come
+ * back when the session is opened again.
  */
 
 type Any = any; // the library's own typings are not part of this repository
 
 const tvRes = (tf: string) => TIMEFRAMES.find((t) => t.id === tf)?.tv ?? '15';
 
-function overrides(theme: 'dark' | 'light') {
-  const p = PALETTES[theme];
+const LAYOUT_PREFIX = 'btl:tv-layout:';
+function readLayout(key: string | undefined): object | undefined {
+  if (!key) return undefined;
+  try {
+    const raw = localStorage.getItem(LAYOUT_PREFIX + key);
+    return raw ? (JSON.parse(raw) as object) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function writeLayout(key: string, layout: object) {
+  try {
+    localStorage.setItem(LAYOUT_PREFIX + key, JSON.stringify(layout));
+    layoutSaved('tv', key);
+  } catch {
+    /* storage full or blocked: drawings stay for this visit */
+  }
+}
+
+/** The library's chart properties for the user's chart colours («تنظیمات چارت»). */
+function overrides(st: ChartStyle) {
+  const grid = withOpacity(st.gridColor, st.gridOpacity);
+  const none = 'rgba(0,0,0,0)';
   return {
-    'paneProperties.backgroundType': 'solid',
-    'paneProperties.background': theme === 'dark' ? '#120f1c' : '#ffffff',
-    'paneProperties.vertGridProperties.color': theme === 'dark' ? 'rgba(46,40,66,0.55)' : 'rgba(226,221,239,0.8)',
-    'paneProperties.horzGridProperties.color': theme === 'dark' ? 'rgba(46,40,66,0.55)' : 'rgba(226,221,239,0.8)',
-    'scalesProperties.textColor': p.axis,
-    'mainSeriesProperties.candleStyle.upColor': p.candleUp,
-    'mainSeriesProperties.candleStyle.downColor': p.candleDown,
-    'mainSeriesProperties.candleStyle.borderUpColor': p.candleUp,
-    'mainSeriesProperties.candleStyle.borderDownColor': p.candleDown,
-    'mainSeriesProperties.candleStyle.wickUpColor': p.candleUp,
-    'mainSeriesProperties.candleStyle.wickDownColor': p.candleDown,
+    'paneProperties.backgroundType': st.bgType === 'gradient' ? 'gradient' : 'solid',
+    'paneProperties.background': st.bg,
+    'paneProperties.backgroundGradientStartColor': st.bg,
+    'paneProperties.backgroundGradientEndColor': st.bgType === 'gradient' ? st.bg2 : st.bg,
+    'paneProperties.vertGridProperties.color': st.vertGrid ? grid : none,
+    'paneProperties.horzGridProperties.color': st.horzGrid ? grid : none,
+    'paneProperties.crossHairProperties.color': st.crosshairColor,
+    'scalesProperties.textColor': st.textColor,
+    'scalesProperties.fontSize': st.fontSize,
+    'mainSeriesProperties.candleStyle.drawBody': st.body,
+    'mainSeriesProperties.candleStyle.drawBorder': st.borders,
+    'mainSeriesProperties.candleStyle.drawWick': st.wick,
+    'mainSeriesProperties.candleStyle.upColor': st.upColor,
+    'mainSeriesProperties.candleStyle.downColor': st.downColor,
+    'mainSeriesProperties.candleStyle.borderUpColor': st.borderUpColor,
+    'mainSeriesProperties.candleStyle.borderDownColor': st.borderDownColor,
+    'mainSeriesProperties.candleStyle.wickUpColor': st.wickUpColor,
+    'mainSeriesProperties.candleStyle.wickDownColor': st.wickDownColor,
   };
 }
 
@@ -42,12 +80,17 @@ interface Lines {
 
 export function createTvEngine(container: HTMLElement, initial: EngineState, cb: EngineCallbacks, TV: Any): ChartEngine {
   let state = initial;
+  /** the user's chart colours (theme defaults for what they did not change) */
+  const look = () => state.style ?? defaultChartStyle(state.theme);
   let ready = false;
   let destroyed = false;
   let chart: Any = null;
   let draftId: Any = null;
   let draftSide: DraftOrder['side'] | null = null;
   let applyingDraft = false;
+  /** the chart's right margin (bars) before a position tool made room for itself */
+  let offsetBefore: number | null = null;
+  const DRAFT_BARS = 40;
   const lines = new Map<string, Lines>();
   const executions = new Map<string, Any[]>();
   let newsShapes = new Map<string, Any>();
@@ -65,6 +108,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
   container.style.position = 'relative';
   container.append(host);
 
+  const savedLayout = readLayout(state.layoutKey);
   const widget = new TV.widget({
     container: host,
     library_path: TV_LIBRARY_PATH,
@@ -72,8 +116,11 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     datafeed: feed.datafeed,
     symbol: state.symbol,
     interval: tvRes(state.timeframe),
+    ...(savedLayout ? { saved_data: savedLayout } : {}),
+    auto_save_delay: 2,
     autosize: true,
     theme: state.theme === 'dark' ? 'dark' : 'light',
+    // the user's zone is applied once the chart is ready (tvZone); this one is always available
     timezone: 'Asia/Tehran',
     disabled_features: [
       'header_compare',
@@ -84,13 +131,62 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       'popup_hints',
       'display_market_status',
       'use_localstorage_for_settings',
+      // its navigation buttons sit under the replay bar; ours (below) keep clear of it
+      'control_bar',
     ],
+    enabled_features: ['seconds_resolution'],
     favorites: { intervals: TIMEFRAMES.map((t) => t.tv) },
-    loading_screen: { backgroundColor: state.theme === 'dark' ? '#120f1c' : '#ffffff', foregroundColor: '#7c5cff' },
-    overrides: overrides(state.theme),
+    loading_screen: { backgroundColor: look().bg, foregroundColor: '#7c5cff' },
+    overrides: overrides(look()),
   });
 
   const tick = () => 10 ** -(SYMBOL_MAP[state.symbol]?.digits ?? 2);
+
+  // ---------- navigation buttons (zoom, scroll, reset) ----------
+  /** the library's left toolbar, price axis and time axis, roughly */
+  const TOOLBAR_W = 52;
+  const PRICE_AXIS_W = 64;
+  const TIME_AXIS_H = 28;
+  const nav = createNavButtons({
+    container,
+    paneBox: () => ({ x: TOOLBAR_W, w: container.clientWidth - TOOLBAR_W - PRICE_AXIS_W, h: container.clientHeight - TIME_AXIS_H }),
+    colors: () => {
+      const p = PALETTES[state.theme];
+      return { surface: p.surface, text: p.text, border: p.grid };
+    },
+    actions: {
+      zoom(factor) {
+        if (!ready || destroyed) return;
+        const ts = chart.getTimeScale();
+        ts.setBarSpacing(Math.min(80, Math.max(0.5, ts.barSpacing() / factor)));
+      },
+      scroll(dir, share) {
+        if (!ready || destroyed) return;
+        const ts = chart.getTimeScale();
+        const visible = ts.width() / ts.barSpacing();
+        const step = Math.max(1, Math.round(visible * share));
+        const maxOffset = Math.max(ts.defaultRightOffset().value(), visible / 2);
+        ts.setRightOffset(Math.min(maxOffset, ts.rightOffset() + dir * step));
+      },
+      reset() {
+        if (!ready || destroyed) return;
+        feed.resetAll();
+        chart.resetData();
+        chart.executeActionById('chartReset');
+      },
+    },
+  });
+  nav.applyTheme();
+
+  /** the bar `n` trading bars after the one starting at `fromSec` (weekends skipped: the library rejects points there) */
+  function barsAhead(fromSec: number, n: number): number {
+    const sym = SYMBOL_MAP[state.symbol];
+    const tf = state.timeframe;
+    if (!sym) return fromSec + (n * TF_MS[tf]) / 1000;
+    let end = fromSec * 1000 + TF_MS[tf];
+    for (let i = 0; i < n; i++) end = stepCursor(end, tf, [state.symbol]);
+    return candleTime(sym, tf, end - 1) / 1000;
+  }
 
   // ---------- draft position tool ----------
   function readDraft() {
@@ -114,6 +210,14 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       if (draftId) chart.removeEntity(draftId);
       draftId = null;
       draftSide = null;
+      if (offsetBefore !== null) {
+        try {
+          chart.getTimeScale().setRightOffset(offsetBefore);
+        } catch {
+          /* older library */
+        }
+        offsetBefore = null;
+      }
       return;
     }
     const t = tick();
@@ -128,22 +232,64 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     applyingDraft = true;
     try {
       if (!draftId) {
-        draftId = chart.createShape(
-          { time, price: d.entry },
+        // room on the right so the tool is wide enough to grab its entry, stop and target
+        try {
+          const scale = chart.getTimeScale();
+          if (offsetBefore === null) offsetBefore = scale.rightOffset();
+          if (scale.rightOffset() < DRAFT_BARS + 8) scale.setRightOffset(DRAFT_BARS + 8);
+        } catch {
+          /* older library */
+        }
+        const right = barsAhead(time, DRAFT_BARS);
+        draftId = chart.createMultipointShape(
+          [
+            { time, price: d.entry },
+            { time: right, price: d.entry },
+          ],
           {
             shape: d.side === 'buy' ? 'long_position' : 'short_position',
             disableUndo: true,
             disableSave: true,
             zOrder: 'top',
-            overrides: { stopLevel, profitLevel, profitBackground: 'rgba(38,194,129,0.2)', stopBackground: 'rgba(242,84,102,0.2)', accountSize: 0 },
+            overrides: {
+              stopLevel,
+              profitLevel,
+              profitBackground: 'rgba(38,194,129,0.22)',
+              stopBackground: 'rgba(242,84,102,0.22)',
+              linewidth: 2,
+              accountSize: 0,
+            },
           },
         );
         draftSide = d.side;
+        // the library starts the tool one bar wide and finishes creating it a little later:
+        // then widen it into the room made above (checked a few times, kept once it holds)
+        const id = draftId;
+        for (const delay of [150, 500, 1200]) {
+          setTimeout(() => {
+            if (destroyed || draftId !== id || !id) return;
+            try {
+              const shape = chart.getShapeById(id);
+              const [pt, end] = shape.getPoints();
+              if (end && end.time - pt.time >= (right - time) / 2) return;
+              applyingDraft = true;
+              shape.setPoints([pt, { time: right, price: pt.price }]);
+            } catch {
+              /* removed meanwhile */
+            } finally {
+              applyingDraft = false;
+            }
+          }, delay);
+        }
       } else {
         const shape = chart.getShapeById(draftId);
-        const pt = shape.getPoints()[0];
+        const [pt, end] = shape.getPoints();
         const props = shape.getProperties();
-        if (Math.abs(pt.price - d.entry) > t / 2) shape.setPoints([{ time: pt.time, price: d.entry }]);
+        if (Math.abs(pt.price - d.entry) > t / 2)
+          shape.setPoints([
+            { time: pt.time, price: d.entry },
+            { time: end?.time ?? pt.time, price: d.entry },
+          ]);
         if (props.stopLevel !== stopLevel || props.profitLevel !== profitLevel) shape.setProperties({ stopLevel, profitLevel });
       }
     } catch {
@@ -168,6 +314,48 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       .setQuantityBackgroundColor(color)
       .setQuantityTextColor('#ffffff');
     return l;
+  }
+
+  // ---------- time zone (picked under the chart) ----------
+  /** The library knows about 90 zones: another zone shows as one with the same offset at the replay time (or UTC). */
+  function tvZone(tz: string): string {
+    try {
+      const list: { id: string }[] = chart.getTimezoneApi().availableTimezones();
+      if (list.some((z) => z.id === tz)) return tz;
+      if (tz === 'UTC') return 'Etc/UTC';
+      const off = tzOffset(state.cursor, tz);
+      return list.find((z) => z.id.includes('/') && isTimeZone(z.id) && tzOffset(state.cursor, z.id) === off)?.id ?? 'Etc/UTC';
+    } catch {
+      return 'Etc/UTC';
+    }
+  }
+  function applyTimezone() {
+    try {
+      const want = tvZone(state.timezone ?? DEFAULT_CHART_TZ);
+      const api = chart.getTimezoneApi();
+      if (api.getTimezone().id !== want) api.setTimezone(want);
+    } catch {
+      /* timezone API not available */
+    }
+  }
+
+  // ---------- Bid and Ask lines (when the session has a spread) ----------
+  let bidAsk: { bid: Any; ask: Any } | null = null;
+  function syncBidAsk() {
+    const spread = state.spread ?? 0;
+    const bid = knownPriceAt(state.symbol, state.cursor);
+    if (!(spread > 0) || bid === null) {
+      bidAsk?.bid.remove();
+      bidAsk?.ask.remove();
+      bidAsk = null;
+      return;
+    }
+    // the labels sit apart, since the two lines are often a pixel or two from each other
+    const make = (color: string, text: string, at: number) =>
+      styleLine(chart.createOrderLine(), color).setText(text).setQuantity('').setCancellable(false).setEditable(false).setLineStyle(0).setLineLength(at);
+    bidAsk ??= { bid: make(BID_ASK.bid, 'Bid', 92), ask: make(BID_ASK.ask, 'Ask', 100) };
+    bidAsk.bid.setPrice(bid);
+    bidAsk.ask.setPrice(roundToTick(state.symbol, bid + spread));
   }
 
   function syncTrades() {
@@ -220,7 +408,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
         l = { entry, sl, tp, status: t.status };
         lines.set(t.id, l);
       }
-      const usd = (price: number) => (price - t.entry) * (t.side === 'buy' ? 1 : -1) * t.pointValue * t.lots;
+      const usd = (price: number) => (price - t.entry) * (t.side === 'buy' ? 1 : -1) * t.pointValue * t.lots - commissionFor(t, t.lots);
       l.entry
         .setPrice(t.entry)
         .setQuantity(String(t.lots))
@@ -246,17 +434,19 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     }
     for (const t of wanted) {
       if (executions.has(t.id)) continue;
+      const sym = SYMBOL_MAP[t.symbol];
       const step = TF_MS[state.timeframe];
+      const barOf = (time: number) => (sym ? candleTime(sym, state.timeframe, time) : Math.floor(time / step) * step) / 1000;
       const open = chart
         .createExecutionShape()
-        .setTime(Math.floor(t.openTime / step) * (step / 1000))
+        .setTime(barOf(t.openTime))
         .setPrice(t.entry)
         .setDirection(t.side)
         .setArrowColor(t.side === 'buy' ? p.gain : p.loss)
         .setTooltip(`${t.side.toUpperCase()} ${t.lots} @ ${t.entry}`);
       const close = chart
         .createExecutionShape()
-        .setTime(Math.floor(((t.closeTime ?? t.openTime) - 1) / step) * (step / 1000))
+        .setTime(barOf((t.closeTime ?? t.openTime) - 1))
         .setPrice(t.exit ?? t.entry)
         .setDirection(t.side === 'buy' ? 'sell' : 'buy')
         .setArrowColor((t.pnl ?? 0) >= 0 ? p.gain : p.loss)
@@ -306,8 +496,10 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     state = next;
     if (!ready || destroyed) return;
     if (prev.theme !== next.theme) {
-      void widget.changeTheme(next.theme).then(() => widget.applyOverrides(overrides(next.theme)));
-    }
+      void widget.changeTheme(next.theme).then(() => widget.applyOverrides(overrides(look())));
+      nav.applyTheme();
+    } else if (prev.style !== next.style) widget.applyOverrides(overrides(look()));
+    if (prev.timezone !== next.timezone) applyTimezone();
     if (prev.symbol !== next.symbol && chart.symbol() !== next.symbol) chart.setSymbol(next.symbol);
     if (prev.timeframe !== next.timeframe && tfFromTv(chart.resolution()) !== next.timeframe) chart.setResolution(tvRes(next.timeframe));
     if (prev.cursor !== next.cursor || prev.dataVersion !== next.dataVersion) {
@@ -318,6 +510,11 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     }
     syncDraft();
     syncTrades();
+    try {
+      syncBidAsk();
+    } catch {
+      /* order lines not available */
+    }
     syncNews();
   }
 
@@ -325,6 +522,9 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     if (destroyed) return;
     ready = true;
     chart = widget.activeChart();
+    applyTimezone();
+    // a saved chart layout carries its own colours: the user's chart settings win
+    widget.applyOverrides(overrides(look()));
     chart.onSymbolChanged().subscribe(null, () => {
       const sym = String(chart.symbol()).split(':').pop()!;
       if (sym !== state.symbol) cb.onSymbolChange(sym);
@@ -338,8 +538,17 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       if (id === draftId && type === 'remove') draftId = null;
     });
     widget.subscribe('mouse_down', () => cb.onActivate?.());
+    // keep the pane's drawings and indicators (our own lines and markers are not saved)
+    widget.subscribe('onAutoSaveNeeded', () => {
+      const key = state.layoutKey;
+      if (key && !destroyed) widget.save((layout: object) => writeLayout(key, layout));
+    });
+    // a restored layout brings its own symbol and timeframe: the session's win
+    if (String(chart.symbol()).split(':').pop() !== state.symbol) chart.setSymbol(state.symbol);
+    if (tfFromTv(chart.resolution()) !== state.timeframe) chart.setResolution(tvRes(state.timeframe));
     marksSig = '';
     update(state);
+    nav.place();
   });
 
   return {
@@ -361,6 +570,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     },
     destroy() {
       destroyed = true;
+      nav.destroy();
       try {
         widget.remove();
       } catch {

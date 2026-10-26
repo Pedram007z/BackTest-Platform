@@ -16,19 +16,30 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import { PALETTES } from '../hooks/useChartTheme';
-import { SYMBOL_MAP, TF_MS, dayIndexOf, getCandles, isTradingDay, roundToTick, type Candle } from '../lib/market';
+import { createNavButtons, lwNavActions } from './navButtons';
+import { DAY_MS } from '../lib/calendar';
+import { SYMBOL_MAP, TF_MS, candleTime, dayIndexOf, getCandles, isTradingDay, roundToTick, type Candle } from '../lib/market';
 import { IMPACT_LABEL, newsTitleFa, type NewsEvent } from '../lib/news';
-import { fmtTehran } from '../lib/timezone';
-import { dirOf, openPnl, orderTitleEn } from '../lib/trading';
+import { DEFAULT_CHART_TZ, fmtClock, tzName, wallTime } from '../lib/timezone';
+import { commissionFor, dirOf, openPnl, orderTitleEn } from '../lib/trading';
 import type { Trade } from '../lib/types';
+import { ensureFine, ensureRange, fineKindOf } from '../services/marketFeed';
+import { readLwLayout, writeLwLayout } from './drawings';
+import { createDrawingLayer } from './lwDrawings';
+import { createIndicatorLayer } from './lwIndicators';
+import { defaultChartStyle, isLightColor, withOpacity } from './style';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
 
 /**
  * Replay chart on lightweight-charts with a DOM overlay for what the library does not draw:
- * the long/short position tool, draggable stop and target labels, and calendar flags.
+ * the long/short position tool, draggable stop and target labels, and calendar flags. Drawing
+ * tools (lwDrawings) and indicators (lwIndicators) are kept per session pane in this browser.
  */
 
+/** Candles loaded when a chart opens; scrolling to the left edge loads more, back to `historyFrom`. */
 const HISTORY = 500;
+/** The most candles the chart keeps (a year of 1-minute candles fits; second charts stop earlier). */
+const MAX_HISTORY = 400_000;
 const FUTURE = 90;
 
 type DragTarget =
@@ -46,14 +57,23 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, style: Partial<CSSSty
 
 const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
+/** TradingView's Bid and Ask line colours. */
+const BID_ASK = { bid: '#2962ff', ask: '#f23645' };
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 export function createLwEngine(container: HTMLElement, initial: EngineState, cb: EngineCallbacks): ChartEngine {
   let state = initial;
   let pal = PALETTES[state.theme];
 
   container.style.position = 'relative';
-  const chartEl = el('div', { position: 'absolute', inset: '0' });
+  // z-index 0 keeps the library's layered canvases under the drawings and the overlay
+  const chartEl = el('div', { position: 'absolute', inset: '0', zIndex: '0' });
   const overlay = el('div', { position: 'absolute', inset: '0', pointerEvents: 'none', overflow: 'hidden', direction: 'ltr', fontFamily: 'var(--font-ui)' });
   const legend = el('div', { position: 'absolute', left: '10px', top: '8px', fontSize: '12px', pointerEvents: 'none', direction: 'ltr', whiteSpace: 'nowrap', zIndex: '3' });
+  const ohlc = el('div');
+  legend.append(ohlc);
   container.append(chartEl, overlay, legend);
   const activate = () => cb.onActivate?.();
   container.addEventListener('pointerdown', activate);
@@ -62,7 +82,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     autoSize: true,
     layout: { background: { type: ColorType.Solid, color: 'transparent' }, fontFamily: 'Vazirmatn Variable, Vazirmatn, Tahoma, sans-serif', fontSize: 11, attributionLogo: false },
     crosshair: { mode: CrosshairMode.Normal },
-    timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 0, shiftVisibleRangeOnNewBar: false },
+    timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 0, shiftVisibleRangeOnNewBar: false, fixLeftEdge: true },
     rightPriceScale: { scaleMargins: { top: 0.12, bottom: 0.12 } },
     localization: { locale: 'en-US' },
   });
@@ -72,8 +92,19 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   const markers: ISeriesMarkersPluginApi<Time> = createSeriesMarkers(series, []);
 
   let candles: Candle[] = [];
+  /** candles to show: grows as the user scrolls back */
+  let wanted = HISTORY;
+  /** older history is being loaded; or there is none to load (both reset with the symbol or timeframe) */
+  let extending = false;
+  let exhausted = false;
+  /** empty bar times after the last candle (room for drawings, news and the position tool) */
+  let future: number[] = [];
   let loadedKey = '';
+  /** Cursor of the last load: a daily candle can carry a later date than the cursor (Sunday evening is Monday). */
+  let loadedCursor = 0;
   let priceLines: IPriceLine[] = [];
+  /** entry / stop / target labels of the position tool on the price axis */
+  let draftLines: IPriceLine[] = [];
   let drag: DragTarget | null = null;
   let dragPrices: { entry: number; sl: number; tp: number } | null = null;
   let lineDrag: { tradeId: string; field: 'entry' | 'sl' | 'tp'; price: number } | null = null;
@@ -84,18 +115,127 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   const fmt = (p: number) => p.toFixed(digits());
   const tfSec = () => TF_MS[state.timeframe] / 1000;
 
+  // ---------- time axis and crosshair in the chart's time zone ----------
+  const chartTz = () => state.timezone ?? DEFAULT_CHART_TZ;
+  /** wall time of a bar: in the chart's zone for intraday bars; daily and longer bars keep their trading date */
+  function axisTime(time: Time) {
+    const sec = typeof time === 'number' ? time : 0;
+    const daily = tfSec() >= 86_400;
+    return { ...wallTime(sec * 1000, daily ? 'UTC' : chartTz()), s: Math.floor(sec) % 60, daily };
+  }
+  const two = (n: number) => String(n).padStart(2, '0');
+  function applyTimeFormat() {
+    chart.applyOptions({
+      localization: {
+        locale: 'en-US',
+        timeFormatter: (time: Time) => {
+          const w = axisTime(time);
+          const date = `${WEEKDAYS[new Date(Date.UTC(w.y, w.m - 1, w.d)).getUTCDay()]} ${w.d} ${MONTHS[w.m - 1]} '${two(w.y % 100)}`;
+          return w.daily ? date : `${date}   ${two(w.hh)}:${two(w.mm)}${tfSec() < 60 ? `:${two(w.s)}` : ''}`;
+        },
+      },
+      timeScale: {
+        // tick types: 0 year, 1 month, 2 day of month, 3 time, 4 time with seconds
+        tickMarkFormatter: (time: Time, type: number) => {
+          const w = axisTime(time);
+          if (type === 0) return String(w.y);
+          if (type === 1) return MONTHS[w.m - 1];
+          if (type === 2) return String(w.d);
+          return `${two(w.hh)}:${two(w.mm)}${type === 4 ? `:${two(w.s)}` : ''}`;
+        },
+      },
+    });
+  }
+
+  // ---------- drawings and indicators (saved per session pane) ----------
+  const layout = readLwLayout(state.layoutKey);
+  const colors = () => ({ text: pal.text, surface: pal.surface, grid: pal.grid, gain: pal.gain, loss: pal.loss });
+  const drawings = createDrawingLayer(
+    {
+      container,
+      before: overlay,
+      chart,
+      series,
+      times: () => (future.length ? candles.map((c) => c.time).concat(future) : candles.map((c) => c.time)),
+      candles: () => candles,
+      stepSec: () => tfSec(),
+      digits: () => digits(),
+      pip: () => SYMBOL_MAP[state.symbol]?.pip ?? 1,
+      roundPrice: (p) => roundToTick(state.symbol, p),
+      colors,
+      paneHeight: () => plotBox().h,
+      plotWidth: () => chart.timeScale().width(),
+      onChange: (all) => {
+        layout.drawings = all;
+        writeLwLayout(state.layoutKey, layout);
+      },
+    },
+    state.symbol,
+    layout.drawings,
+  );
+  const indicators = createIndicatorLayer(
+    {
+      chart,
+      container,
+      legend,
+      digits: () => digits(),
+      colors,
+      onChange: (list) => {
+        layout.indicators = list;
+        writeLwLayout(state.layoutKey, layout);
+      },
+      onSettings: (id) => cb.onIndicatorSettings?.(id),
+    },
+    layout.indicators,
+  );
+  const nav = createNavButtons({
+    container,
+    paneBox: () => plotBox(),
+    colors: () => ({ surface: pal.surface, text: pal.text, border: pal.grid }),
+    actions: lwNavActions(
+      chart,
+      () => candles.length,
+      () => future.length,
+      () => resetView(),
+    ),
+  });
+
   // ---------- theme ----------
+  /** the user's chart colours (theme defaults for what they did not change) */
+  const look = () => state.style ?? defaultChartStyle(state.theme);
   function applyTheme() {
     pal = PALETTES[state.theme];
+    const st = look();
+    const grid = withOpacity(st.gridColor, st.gridOpacity);
+    const none = 'rgba(0,0,0,0)';
     chart.applyOptions({
-      layout: { textColor: pal.axis },
-      grid: { vertLines: { color: pal.grid + '70' }, horzLines: { color: pal.grid + '70' } },
+      layout: {
+        textColor: st.textColor,
+        fontSize: st.fontSize,
+        background: st.bgType === 'gradient' ? { type: ColorType.VerticalGradient, topColor: st.bg, bottomColor: st.bg2 } : { type: ColorType.Solid, color: st.bg },
+      },
+      grid: { vertLines: { visible: st.vertGrid, color: grid }, horzLines: { visible: st.horzGrid, color: grid } },
       rightPriceScale: { borderColor: pal.grid },
       timeScale: { borderColor: pal.grid },
-      crosshair: { vertLine: { labelBackgroundColor: pal.accent }, horzLine: { labelBackgroundColor: pal.accent } },
+      crosshair: {
+        vertLine: { color: st.crosshairColor, labelBackgroundColor: pal.accent },
+        horzLine: { color: st.crosshairColor, labelBackgroundColor: pal.accent },
+      },
     });
-    series.applyOptions({ upColor: pal.candleUp, downColor: pal.candleDown, wickUpColor: pal.candleUp, wickDownColor: pal.candleDown });
-    legend.style.color = pal.text;
+    series.applyOptions({
+      upColor: st.body ? st.upColor : none,
+      downColor: st.body ? st.downColor : none,
+      borderVisible: st.borders,
+      borderUpColor: st.borderUpColor,
+      borderDownColor: st.borderDownColor,
+      wickVisible: st.wick,
+      wickUpColor: st.wickUpColor,
+      wickDownColor: st.wickDownColor,
+    });
+    // the legend sits on the chart's background: the theme's text, unless the background is the other way round
+    const lightBg = isLightColor(st.bg);
+    legend.style.color = lightBg === (state.theme === 'light') ? pal.text : lightBg ? '#131722' : '#e8e6f0';
+    nav.applyTheme();
   }
 
   // ---------- data ----------
@@ -112,21 +252,40 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     return out;
   }
 
-  function loadData() {
+  function setFuture(lastSec: number) {
+    const f = futureTimes(lastSec);
+    future = f.map((x) => x.time);
+    spacer.setData(f);
+  }
+
+  function loadData(force = false) {
     const key = `${state.symbol}:${state.timeframe}:${state.dataVersion}`;
     const lastSec = candles[candles.length - 1]?.time ?? 0;
-    const behind = state.cursor / 1000 < lastSec;
+    const behind = state.cursor < loadedCursor;
     const farJump = state.cursor / 1000 - lastSec > tfSec() * 300;
     const ts = chart.timeScale();
+    loadedCursor = state.cursor;
 
-    if (key !== loadedKey || behind || farJump || candles.length === 0) {
+    if (force || key !== loadedKey || behind || farJump || candles.length === 0) {
       const sameSeries = key.split(':').slice(0, 2).join(':') === loadedKey.split(':').slice(0, 2).join(':');
-      candles = getCandles(state.symbol, state.timeframe, state.cursor, HISTORY);
+      if (!sameSeries) {
+        wanted = HISTORY;
+        exhausted = false;
+      }
+      const view = ts.getVisibleLogicalRange();
+      const oldFirst = candles[0]?.time;
+      candles = getCandles(state.symbol, state.timeframe, state.cursor, wanted);
       series.applyOptions({ priceFormat: { type: 'price', precision: digits(), minMove: 1 / 10 ** digits() } });
+      chart.applyOptions({ timeScale: { secondsVisible: tfSec() < 60 } });
       series.setData(candles.map((c) => ({ ...c, time: c.time as UTCTimestamp })));
-      spacer.setData(futureTimes(candles[candles.length - 1]?.time ?? state.cursor / 1000));
-      const n = candles.length;
-      if (!sameSeries || !loadedKey || farJump || behind) ts.setVisibleLogicalRange({ from: Math.max(0, n - 120), to: n + 28 });
+      setFuture(candles[candles.length - 1]?.time ?? state.cursor / 1000);
+      indicators.setBars(candles);
+      if (!sameSeries || !loadedKey || farJump || behind) defaultView();
+      else if (view && oldFirst !== undefined) {
+        // older candles came in front: keep the same candles in view
+        const shift = firstIndexAtOrAfter(oldFirst);
+        if (shift > 0) ts.setVisibleLogicalRange({ from: view.from + shift, to: view.to + shift } as LogicalRange);
+      }
       loadedKey = key;
       return;
     }
@@ -144,21 +303,87 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       series.update({ ...c, time: c.time as UTCTimestamp });
     }
     const added = candles.length - 1 - prevLast;
-    if (added > 0) spacer.setData(futureTimes(candles[candles.length - 1].time));
+    if (added > 0) setFuture(candles[candles.length - 1].time);
+    indicators.setBars(candles);
     if (range && added > 0 && following) ts.setVisibleLogicalRange({ from: range.from + added, to: range.to + added } as LogicalRange);
+  }
+
+  /** index of the first candle at or after `sec` */
+  function firstIndexAtOrAfter(sec: number) {
+    let lo = 0;
+    let hi = candles.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (candles[mid].time < sec) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /**
+   * Scrolled to the left edge: load the history before the first candle (twice as many candles each
+   * time) until the chart reaches `historyFrom`, a year before the session start.
+   */
+  function extendHistory() {
+    if (extending || exhausted || destroyed || !candles.length || wanted >= MAX_HISTORY) return;
+    const firstMs = candles[0].time * 1000;
+    if (firstMs <= state.historyFrom) return;
+    const series0 = `${state.symbol}:${state.timeframe}`;
+    const next = Math.min(MAX_HISTORY, wanted * 2);
+    const tfMs = TF_MS[state.timeframe];
+    // weekends and holidays: ask for half as much time again
+    const fromMs = Math.max(state.historyFrom, firstMs - (next - candles.length) * tfMs * 1.5 - DAY_MS);
+    const kind = fineKindOf(state.timeframe);
+    extending = true;
+    void Promise.all([ensureRange([state.symbol], fromMs - DAY_MS, firstMs), kind ? ensureFine(kind, [state.symbol], fromMs, firstMs) : true]).finally(() => {
+      extending = false;
+      if (destroyed || `${state.symbol}:${state.timeframe}` !== series0) return;
+      wanted = next;
+      loadData(true);
+      // nothing older came: no more history (before the symbol's data, or not downloaded)
+      if (candles[0] && candles[0].time * 1000 >= firstMs) exhausted = true;
+      drawTrades();
+      render();
+    });
+  }
+  chart.timeScale().subscribeVisibleLogicalRangeChange((r) => {
+    if (r && r.from < 30) extendHistory();
+  });
+
+  /** the starting view: the last 120 candles with room on the right */
+  function defaultView() {
+    const n = candles.length;
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 120), to: n + 28 });
+  }
+
+  /** the navigation bar's reset: candles loaded again, the starting view, every price scale fitted */
+  function resetView() {
+    if (destroyed) return;
+    loadedKey = '';
+    loadData();
+    setLegend(candles[candles.length - 1]);
+    chart.panes().forEach((_, i) => {
+      try {
+        chart.priceScale('right', i).applyOptions({ autoScale: true });
+      } catch {
+        /* a pane without a right scale */
+      }
+    });
+    drawTrades();
+    render();
   }
 
   // ---------- legend ----------
   function setLegend(c: Candle | undefined) {
     const sym = SYMBOL_MAP[state.symbol];
     if (!c || !sym) {
-      legend.textContent = '';
+      ohlc.textContent = '';
       return;
     }
     const up = c.close >= c.open;
-    const col = up ? pal.candleUp : pal.candleDown;
+    const col = up ? look().upColor : look().downColor;
     const chg = ((c.close - c.open) / c.open) * 100;
-    legend.innerHTML =
+    ohlc.innerHTML =
       `<b style="font-weight:700">${sym.ticker}</b> <span style="opacity:.6">· ${state.timeframe} · BacktestLab</span>&nbsp;&nbsp;` +
       ['O', 'H', 'L', 'C'].map((k, i) => `<span style="opacity:.6">${k}</span><span style="color:${col}">${fmt([c.open, c.high, c.low, c.close][i])}</span>`).join(' ') +
       ` <span style="color:${col}">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span>`;
@@ -166,6 +391,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   chart.subscribeCrosshairMove((p) => {
     const d = p.time !== undefined ? (p.seriesData.get(series) as Candle | undefined) : undefined;
     setLegend(d && 'open' in d ? d : candles[candles.length - 1]);
+    indicators.crosshair(p.time !== undefined ? p : null);
   });
 
   // ---------- trade lines (library price lines) + history markers ----------
@@ -191,13 +417,23 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       );
       if (tp > 0) priceLines.push(series.createPriceLine({ price: tp, color: pal.gain, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: '' }));
     }
+    // with a spread: Bid (the candles' price) and Ask lines, like TradingView's
+    const spread = state.spread ?? 0;
+    const last = candles[candles.length - 1]?.close;
+    series.applyOptions({ priceLineVisible: !(spread > 0), lastValueVisible: !(spread > 0) });
+    if (spread > 0 && last !== undefined) {
+      const line = (price: number, color: string, title: string) =>
+        series.createPriceLine({ price, color, lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, axisLabelColor: color, axisLabelTextColor: '#fff', title });
+      priceLines.push(line(roundToTick(state.symbol, last + spread), BID_ASK.ask, 'Ask'), line(last, BID_ASK.bid, 'Bid'));
+    }
     const list: SeriesMarker<Time>[] = [];
-    const step = TF_MS[state.timeframe];
+    const sym = SYMBOL_MAP[state.symbol];
+    const barOf = (t: number) => (sym ? candleTime(sym, state.timeframe, t) : Math.floor(t / TF_MS[state.timeframe]) * TF_MS[state.timeframe]) / 1000;
     const first = candles[0]?.time ?? 0;
     for (const t of state.trades) {
       if (t.status === 'pending' || t.status === 'cancelled') continue;
       if (t.status === 'closed' && !state.showHistory) continue;
-      const openSec = (Math.floor(t.openTime / step) * step) / 1000;
+      const openSec = barOf(t.openTime);
       if (openSec >= first && t.openTime <= state.cursor)
         list.push({
           time: openSec as UTCTimestamp,
@@ -207,7 +443,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
           size: 1,
         });
       if (t.status === 'closed' && t.closeTime) {
-        const closeSec = (Math.floor((t.closeTime - 1) / step) * step) / 1000;
+        const closeSec = barOf(t.closeTime - 1);
         if (closeSec >= first)
           list.push({
             time: closeSec as UTCTimestamp,
@@ -224,9 +460,10 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   }
 
   // ---------- overlay ----------
+  /** the candles' pane (indicator panes sit below it) */
   function plotBox() {
     const ts = chart.timeScale();
-    return { w: ts.width(), h: container.clientHeight - ts.height() };
+    return { w: ts.width(), h: chart.panes()[0]?.getHeight() ?? container.clientHeight - ts.height() };
   }
 
   const y = (price: number) => series.priceToCoordinate(price);
@@ -273,7 +510,18 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
         const d = price - startPrice;
         dragPrices = { entry: roundToTick(state.symbol, s.entry + d), sl: roundToTick(state.symbol, s.sl + d), tp: roundToTick(state.symbol, s.tp + d) };
       } else {
-        dragPrices = { ...(dragPrices ?? s), [drag.field]: price };
+        const cur = dragPrices ?? s;
+        const dir = dirOf(state.draft?.side ?? 'buy');
+        const tick = 10 ** -digits();
+        let p = price;
+        // the stop stays on the losing side of the entry and the target on the winning side
+        if (drag.field === 'sl' && dir * (cur.entry - p) <= 0) p = cur.entry - dir * tick;
+        if (drag.field === 'tp' && dir * (p - cur.entry) <= 0) p = cur.entry + dir * tick;
+        if (drag.field === 'entry') {
+          if (dir * (p - cur.sl) <= 0) p = cur.sl + dir * tick;
+          if (dir * (cur.tp - p) <= 0) p = cur.tp - dir * tick;
+        }
+        dragPrices = { ...cur, [drag.field]: roundToTick(state.symbol, p) };
       }
       cb.onDraftChange(dragPrices);
     } else {
@@ -297,8 +545,8 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     const prices = dragPrices ?? { entry: d.entry, sl: d.sl, tp: d.tp };
     const { w } = plotBox();
     const lx = lastBarX();
-    const x0 = Math.max(0, Math.min(w - 120, (lx ?? w * 0.7) + 4));
-    const width = Math.max(110, Math.min(220, w - x0 - 6));
+    const x0 = Math.max(0, Math.min(w - 160, (lx ?? w * 0.7) + 6));
+    const width = Math.max(150, Math.min(300, w - x0 - 8));
     return { prices, x0, width, ye: y(prices.entry), ys: y(prices.sl), yt: y(prices.tp) };
   }
 
@@ -319,22 +567,28 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     return c;
   }
 
-  function handleBar(top: number, left: number, width: number, color: string, onDown: (e: PointerEvent) => void, title: string) {
-    const h = el('div', { position: 'absolute', left: `${left}px`, top: `${top - 5}px`, width: `${width}px`, height: '10px', cursor: 'ns-resize', pointerEvents: 'auto' });
+  function handleBar(top: number, left: number, width: number, color: string, onDown: (e: PointerEvent) => void, title: string, field: string) {
+    const h = el('div', { position: 'absolute', left: `${left}px`, top: `${top - 7}px`, width: `${width}px`, height: '14px', cursor: 'ns-resize', pointerEvents: 'auto' });
     h.title = title;
-    const line = el('div', { position: 'absolute', left: '0', right: '0', top: '4px', height: '2px', background: color });
-    const knob = el('div', {
-      position: 'absolute',
-      left: '-5px',
-      top: '0px',
-      width: '10px',
-      height: '10px',
-      borderRadius: '50%',
-      background: '#fff',
-      border: `2px solid ${color}`,
-      boxSizing: 'border-box',
-    });
-    h.append(line, knob);
+    h.dataset.draftHandle = field;
+    const line = el('div', { position: 'absolute', left: '0', right: '0', top: '6px', height: '2px', background: color });
+    h.append(line);
+    for (const side of ['left', 'right'] as const) {
+      h.append(
+        el('div', {
+          position: 'absolute',
+          [side]: '-6px',
+          top: '1px',
+          width: '12px',
+          height: '12px',
+          borderRadius: '50%',
+          background: '#fff',
+          border: `2px solid ${color}`,
+          boxSizing: 'border-box',
+          boxShadow: '0 1px 3px rgba(0,0,0,.35)',
+        }),
+      );
+    }
     h.addEventListener('pointerdown', onDown);
     return h;
   }
@@ -390,9 +644,9 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     mid.style.top = `${ye}px`;
     mid.style.pointerEvents = 'none';
     frag.append(
-      handleBar(yt, x0, width, pal.gain, (e) => startDrag(e, { kind: 'draft', field: 'tp', startY: 0, start }), 'حد سود'),
-      handleBar(ys, x0, width, pal.loss, (e) => startDrag(e, { kind: 'draft', field: 'sl', startY: 0, start }), 'حد ضرر'),
-      handleBar(ye, x0, width, pal.line, (e) => startDrag(e, { kind: 'draft', field: 'entry', startY: 0, start }), 'قیمت ورود'),
+      handleBar(yt, x0, width, pal.gain, (e) => startDrag(e, { kind: 'draft', field: 'tp', startY: 0, start }), 'حد سود (TP): برای جابه‌جایی بکشید', 'tp'),
+      handleBar(ys, x0, width, pal.loss, (e) => startDrag(e, { kind: 'draft', field: 'sl', startY: 0, start }), 'حد ضرر (SL): برای جابه‌جایی بکشید', 'sl'),
+      handleBar(ye, x0, width, pal.line, (e) => startDrag(e, { kind: 'draft', field: 'entry', startY: 0, start }), 'قیمت ورود: برای سفارش لیمیت یا استاپ بکشید', 'entry'),
       tpLabel,
       slLabel,
       mid,
@@ -467,7 +721,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
         if (field === 'tp' && !(p > 0)) continue;
         const py = y(p);
         if (py === null) continue;
-        const usd = (p - t.entry) * dirOf(t.side) * t.pointValue * t.lots;
+        const usd = (p - t.entry) * dirOf(t.side) * t.pointValue * t.lots - commissionFor(t, t.lots);
         const c = chip(`${field.toUpperCase()}  ${money(usd)}`, field === 'sl' ? pal.loss : pal.gain);
         c.style.right = `${chart.priceScale('right').width() + 8}px`;
         c.style.top = `${py - 10}px`;
@@ -501,7 +755,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       const past = ev.time <= state.cursor;
       row.innerHTML =
         `<div style="display:flex;gap:6px;align-items:center"><span style="width:8px;height:8px;border-radius:2px;background:${IMPACT_COLOR[ev.impact]}"></span>` +
-        `<b>${ev.currency}</b><span style="opacity:.7">${fmtTehran(ev.time)} تهران · ${IMPACT_LABEL[ev.impact]}</span></div>` +
+        `<b>${ev.currency}</b><span style="opacity:.7">${fmtClock(ev.time, chartTz())} ${tzName(chartTz())} · ${IMPACT_LABEL[ev.impact]}</span></div>` +
         `<div>${newsTitleFa(ev.title)}</div>` +
         (ev.forecast || ev.previous || ev.actual
           ? `<div style="opacity:.75;direction:ltr;text-align:right">A: ${past ? (ev.actual ?? '—') : '—'} · F: ${ev.forecast ?? '—'} · P: ${ev.previous ?? '—'}</div>`
@@ -510,8 +764,9 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     }
     const r = anchor.getBoundingClientRect();
     const cr = container.getBoundingClientRect();
+    const or = overlay.getBoundingClientRect();
     card.style.left = `${Math.max(4, Math.min(cr.width - 304, r.left - cr.left - 110))}px`;
-    card.style.bottom = `${cr.bottom - r.top + 6}px`;
+    card.style.bottom = `${or.bottom - r.top + 6}px`;
     overlay.append(card);
     hoverCard = card;
   }
@@ -524,10 +779,11 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     if (!state.news.length) return;
     const ts = chart.timeScale();
     const { h, w } = plotBox();
+    const sym = SYMBOL_MAP[state.symbol];
     const step = TF_MS[state.timeframe];
     const groups = new Map<number, NewsEvent[]>();
     for (const ev of state.news) {
-      const b = Math.floor(ev.time / step) * step;
+      const b = sym ? candleTime(sym, state.timeframe, ev.time) : Math.floor(ev.time / step) * step;
       if (!groups.has(b)) groups.set(b, []);
       groups.get(b)!.push(ev);
     }
@@ -536,7 +792,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       const x = ts.timeToCoordinate((bucket / 1000) as UTCTimestamp);
       if (x === null || x < 0 || x > w) continue;
       const top = events.sort((a, b) => order.indexOf(a.impact) - order.indexOf(b.impact))[0];
-      const future = bucket > state.cursor;
+      const future = events.every((e) => e.time > state.cursor);
       if (future) {
         frag.append(el('div', { position: 'absolute', left: `${x}px`, top: '0', height: `${h}px`, borderLeft: `1px dashed ${IMPACT_COLOR[top.impact]}`, opacity: '0.7' }));
       }
@@ -573,11 +829,40 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     const ts = chart.timeScale();
     const r = ts.getVisibleLogicalRange();
     const ps = series.priceToCoordinate(candles[candles.length - 1]?.close ?? 0);
-    return `${r?.from.toFixed(3)}|${r?.to.toFixed(3)}|${ps}|${container.clientWidth}x${container.clientHeight}|${ts.width()}`;
+    return `${r?.from.toFixed(3)}|${r?.to.toFixed(3)}|${ps}|${container.clientWidth}x${container.clientHeight}|${ts.width()}|${plotBox().h}|${chart.panes().length}`;
+  }
+
+  /** the position tool's prices on the price axis */
+  function syncDraftLines() {
+    for (const l of draftLines) series.removePriceLine(l);
+    draftLines = [];
+    const d = state.draft;
+    if (!d) return;
+    const p = dragPrices ?? { entry: d.entry, sl: d.sl, tp: d.tp };
+    const line = (price: number, color: string, title: string) =>
+      series.createPriceLine({ price, color, lineVisible: false, axisLabelVisible: true, axisLabelColor: color, axisLabelTextColor: '#fff', title, lineWidth: 1 });
+    draftLines.push(line(p.tp, pal.gain, 'TP'), line(p.sl, pal.loss, 'SL'), line(p.entry, pal.accent, ''));
+  }
+
+  /** a new position tool gets room right of the last candle */
+  function makeRoom() {
+    const ts = chart.timeScale();
+    const lx = lastBarX();
+    const { w } = plotBox();
+    const range = ts.getVisibleLogicalRange();
+    const spacing = ts.options().barSpacing;
+    const need = Math.min(320, w * 0.4);
+    if (lx === null || !range || lx < w - need) return;
+    const shift = Math.ceil((lx - (w - need)) / spacing);
+    ts.setVisibleLogicalRange({ from: range.from + shift, to: range.to + shift } as LogicalRange);
   }
 
   function render() {
     if (destroyed) return;
+    syncDraftLines();
+    // the overlay covers the candles' pane only (indicator panes sit below it)
+    overlay.style.bottom = 'auto';
+    overlay.style.height = `${plotBox().h}px`;
     const keepCard = hoverCard;
     overlay.replaceChildren();
     const frag = document.createDocumentFragment();
@@ -586,6 +871,9 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     renderDraft(frag);
     overlay.append(frag);
     if (keepCard) overlay.append(keepCard);
+    drawings.render();
+    indicators.place();
+    nav.place();
     lastSig = signature();
   }
 
@@ -607,12 +895,14 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       out.width = Math.round(shot.width * scale);
       out.height = Math.round(shot.height * scale);
       const ctx = out.getContext('2d')!;
-      ctx.fillStyle = pal.bg;
+      ctx.fillStyle = look().bg;
       ctx.fillRect(0, 0, out.width, out.height);
       ctx.drawImage(shot, 0, 0, out.width, out.height);
-      // the canvas has the candles; add the position tool and trade lines from the overlay
+      // the canvas has the candles; add the drawings, the position tool and trade lines from the overlays
       const dpr = shot.width / Math.max(1, container.clientWidth);
       ctx.scale(scale * dpr, scale * dpr);
+      const art = await drawings.image();
+      if (art) ctx.drawImage(art, 0, 0);
       const d = state.draft;
       if (d) {
         const g = draftGeometry(d);
@@ -658,12 +948,16 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   function update(next: EngineState) {
     const prev = state;
     state = next;
-    if (prev.theme !== next.theme || !loadedKey) applyTheme();
+    if (prev.symbol !== next.symbol) drawings.setSymbol(next.symbol);
+    const draftOpened = !!next.draft && (!prev.draft || prev.symbol !== next.symbol);
+    if (prev.theme !== next.theme || prev.style !== next.style || !loadedKey) applyTheme();
+    if (prev.timezone !== next.timezone || prev.timeframe !== next.timeframe || !loadedKey) applyTimeFormat();
     if (!loadedKey || prev.symbol !== next.symbol || prev.timeframe !== next.timeframe || prev.cursor !== next.cursor || prev.dataVersion !== next.dataVersion) {
       loadData();
       setLegend(candles[candles.length - 1]);
     }
     if (!drag) drawTrades();
+    if (draftOpened) makeRoom();
     render();
   }
 
@@ -674,10 +968,15 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     kind: 'lightweight',
     update,
     screenshot,
+    drawings,
+    indicators,
     destroy() {
       destroyed = true;
       cancelAnimationFrame(raf);
       container.removeEventListener('pointerdown', activate);
+      nav.destroy();
+      drawings.destroy();
+      indicators.destroy();
       chart.remove();
       container.replaceChildren();
     },

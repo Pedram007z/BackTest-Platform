@@ -1,10 +1,35 @@
 <!doctype html>
-<html lang="fa" dir="rtl" class="dark">
+<html lang="fa" dir="rtl" class="dark notranslate" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0d0b14" />
+    <meta name="google" content="notranslate" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="application-name" content="بک‌تست‌لب" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="بک‌تست‌لب" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>بک‌تست‌لب</title>
+    <style>
+      html { background: #0d0b14; }
+      html.light { background: #f6f4fb; }
+    </style>
+    <script>
+      // the last theme used (saved by the app), so a page load does not flash the other one
+      try {
+        var t = localStorage.getItem('btl:theme');
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.classList.remove('light', 'dark');
+          document.documentElement.classList.add(t);
+          document.documentElement.setAttribute('data-theme', t);
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,9 @@
 import type { Timeframe } from '../lib/market';
 import type { NewsEvent } from '../lib/news';
 import type { OrderType, Side, Trade } from '../lib/types';
+import type { DrawingApi } from './lwDrawings';
+import type { IndicatorApi } from './lwIndicators';
+import type { ChartStyle } from './style';
 
 /**
  * Both chart engines (TradingView Advanced Charts and the built-in lightweight-charts engine)
@@ -39,6 +42,16 @@ export interface EngineState {
   news: NewsEvent[];
   /** Bumps when remote market data arrives, so the engine reloads bars. */
   dataVersion: number;
+  /** How far back the chart must reach when scrolled (UTC ms): a year before the session start, or the symbol's first data. */
+  historyFrom: number;
+  /** Where the chart's own layout (drawings, indicators) is kept: one per session and pane. */
+  layoutKey?: string;
+  /** Ask − bid for this symbol in the session (price units). Above 0, the chart shows Bid and Ask lines. */
+  spread?: number;
+  /** IANA time zone of the time axis and crosshair (the user's choice under the chart). */
+  timezone?: string;
+  /** The chart's colours (the theme's, with the user's changes from «تنظیمات چارت»). */
+  style?: ChartStyle;
 }
 
 export interface EngineCallbacks {
@@ -52,6 +65,8 @@ export interface EngineCallbacks {
   onNewsClick?: (event: NewsEvent) => void;
   /** The pane was clicked (multi-chart layouts follow the active pane). */
   onActivate?: () => void;
+  /** Built-in chart: the gear next to an indicator in the legend. */
+  onIndicatorSettings?: (id: string) => void;
 }
 
 export interface ChartEngine {
@@ -59,6 +74,9 @@ export interface ChartEngine {
   update(state: EngineState): void;
   /** JPEG data URL of the chart with its drawings. */
   screenshot(): Promise<string | null>;
+  /** Built-in chart only (TradingView has its own toolbar and indicators). */
+  drawings?: DrawingApi;
+  indicators?: IndicatorApi;
   destroy(): void;
 }
 

@@ -5,6 +5,7 @@ import { useChartTheme } from '../../hooks/useChartTheme';
 import { fmtMarketTime } from '../../lib/calendar';
 import { fmtR, fmtUsd } from '../../lib/format';
 import { getCandles, synthetic, type Candle } from '../../lib/market';
+import { useShowcase } from '../../services/marketFeed';
 
 const SYMBOL = 'EURUSD';
 const TOTAL = 170;
@@ -22,28 +23,66 @@ interface DemoTrade {
   win: boolean;
 }
 
-/** Find a long trade in the sample whose outcome lands inside the animation. */
+/** Find a long trade in the sample whose outcome lands inside the animation (stop sized to the candles' range). */
 function planTrade(c: Candle[]): DemoTrade | null {
-  for (let i = START_VISIBLE + 4; i < TOTAL - 30; i++) {
-    const entry = c[i].close;
-    const risk = 0.0011;
-    const sl = entry - risk;
-    const tp = entry + risk * 2;
-    for (let j = i + 1; j < Math.min(TOTAL, i + 45); j++) {
-      if (c[j].low <= sl) break;
-      if (c[j].high >= tp) return { index: i, entry, sl, tp, exitIndex: j, win: true };
+  const range = c.slice(0, START_VISIBLE).reduce((sum, x) => sum + x.high - x.low, 0) / START_VISIBLE;
+  for (const k of [2, 1.5, 1]) {
+    const risk = range * k;
+    for (let i = START_VISIBLE + 4; i < TOTAL - 30; i++) {
+      const entry = c[i].close;
+      const sl = entry - risk;
+      const tp = entry + risk * 2;
+      for (let j = i + 1; j < Math.min(TOTAL, i + 45); j++) {
+        if (c[j].low <= sl) break;
+        if (c[j].high >= tp) return { index: i, entry, sl, tp, exitIndex: j, win: true };
+      }
     }
   }
   return null;
 }
 
+/**
+ * Candles for the animation: real EURUSD 15-minute candles from the server (Dukascopy), or, in the
+ * demo build without a server, generated ones shown as a sample. null while loading.
+ */
+function useDemoCandles(): { candles: Candle[]; real: boolean } | null {
+  const showcase = useShowcase();
+  return useMemo(() => {
+    if (showcase === undefined) return null;
+    const out: Candle[] = [];
+    for (const [t, o, h, l, c] of showcase?.sample?.bars ?? []) {
+      const time = Math.floor(t / 900) * 900;
+      const last = out[out.length - 1];
+      if (last && last.time === time) {
+        last.high = Math.max(last.high, h);
+        last.low = Math.min(last.low, l);
+        last.close = c;
+      } else out.push({ time, open: o, high: h, low: l, close: c });
+    }
+    if (out.length >= TOTAL) return { candles: out.slice(-TOTAL), real: true };
+    return { candles: synthetic(() => getCandles(SYMBOL, '15m', Date.UTC(2023, 4, 3, 22), TOTAL)), real: false };
+  }, [showcase]);
+}
+
 /** Self-playing candle-by-candle replay used in the landing hero. Always left-to-right. */
 export function ReplayDemo() {
+  const data = useDemoCandles();
+  if (!data)
+    return (
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-pop" aria-busy="true">
+        <div className="h-[53px] border-b border-line/70" />
+        <div className="h-[260px] animate-pulse bg-raised/40 sm:h-[320px]" />
+        <div className="h-[45px] border-t border-line/70" />
+      </div>
+    );
+  return <ReplayDemoPlayer candles={data.candles} real={data.real} />;
+}
+
+function ReplayDemoPlayer({ candles, real }: { candles: Candle[]; real: boolean }) {
   const p = useChartTheme();
   const canvas = useRef<HTMLCanvasElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const reduced = useMemo(() => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, []);
-  const candles = useMemo(() => synthetic(() => getCandles(SYMBOL, '15m', Date.UTC(2023, 4, 3, 22), TOTAL)), []);
   const trade = useMemo(() => planTrade(candles), [candles]);
   const [n, setN] = useState(() => (reduced && trade ? Math.min(TOTAL, trade.exitIndex + 3) : START_VISIBLE));
   const [playing, setPlaying] = useState(!reduced);
@@ -188,11 +227,22 @@ export function ReplayDemo() {
           EURUSD
         </span>
         <span className="rounded bg-raised px-1.5 py-0.5 text-[11px] font-semibold text-muted">۱۵ دقیقه</span>
-        <span className="num ms-auto hidden text-[11px] text-faint sm:inline">زمان بازار: {fmtMarketTime(last.time * 1000 + 15 * 60_000)}</span>
+        {real ? (
+          <span className="num ms-auto hidden text-[11px] text-faint sm:inline">زمان بازار: {fmtMarketTime(last.time * 1000 + 15 * 60_000)}</span>
+        ) : (
+          <span className="ms-auto rounded bg-amber/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber" title="این نسخه بدون سرور اجرا می‌شود؛ قیمت‌ها نمونه‌ی ساختگی هستند.">
+            داده‌ی نمونه
+          </span>
+        )}
       </div>
 
       <div ref={wrap} className="chart-ltr relative h-[260px] sm:h-[320px]">
-        <canvas ref={canvas} className="absolute inset-0 h-full w-full" aria-label="نمایش بازپخش کندل به کندل EURUSD" role="img" />
+        <canvas
+          ref={canvas}
+          className="absolute inset-0 h-full w-full"
+          aria-label={real ? 'نمایش بازپخش کندل به کندل EURUSD' : 'نمایش بازپخش کندل به کندل با داده‌ی نمونه'}
+          role="img"
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line/70 px-4 py-3 text-xs">

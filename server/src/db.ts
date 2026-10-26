@@ -5,11 +5,15 @@ import {
   GATEWAY_NAMES,
   SMS_PROVIDER_NAMES,
   type AccountUser,
+  type Announcement,
   type AuditEntry,
+  type CardToCardSettings,
   type DiscountCode,
   type GatewayConfig,
   type GatewayId,
+  type LoginEvent,
   type Payment,
+  type PaymentCard,
   type Plan,
   type SiteSettings,
   type SmsLog,
@@ -49,6 +53,16 @@ export interface StoredPayment extends Payment {
   gatewayMessage?: string;
 }
 
+/** An uploaded picture or video (the file is DATA_DIR/media/<id>). */
+export interface StoredMedia {
+  id: string;
+  kind: 'image' | 'video';
+  mime: string;
+  size: number;
+  name: string;
+  createdAt: number;
+}
+
 export interface Db {
   version: 1;
   /** Secret for code hashes; generated on first start. */
@@ -58,6 +72,9 @@ export interface Db {
   payments: StoredPayment[];
   discounts: DiscountCode[];
   gateways: GatewayConfig[];
+  /** cards that receive card-to-card payments */
+  cards: PaymentCard[];
+  cardToCard: CardToCardSettings;
   sms: SmsSettings;
   smsLogs: SmsLog[];
   tickets: Ticket[];
@@ -66,6 +83,25 @@ export interface Db {
   otps: Record<string, OtpRecord>;
   /** sha256(token) → session */
   sessions: Record<string, AuthSessionRecord>;
+  /** user id → admin username and password hash (never sent to the app) */
+  credentials: Record<string, AdminCredential>;
+  /** admin sign-in address key made by the server when .env has no ADMIN_LOGIN_KEY */
+  adminGateKey?: string;
+  /** sign-ins and sign-outs, newest first */
+  loginLog: LoginEvent[];
+  /** messages shown to visitors as a popup */
+  announcements: Announcement[];
+  media: StoredMedia[];
+  /** QVeris credits this server spent on the last day it used them (UTC), and the balance it last saw */
+  qverisUsage?: { day: string; credits: number; calls: number; remaining?: number; remainingAt?: number };
+}
+
+export interface AdminCredential {
+  username: string;
+  hash: string;
+  /** the ADMIN_PASSWORD_HASH this came from, so a changed .env value is applied once */
+  fromEnv?: string;
+  updatedAt: number;
 }
 
 export const DEFAULT_PLANS: Plan[] = [
@@ -75,7 +111,7 @@ export const DEFAULT_PLANS: Plan[] = [
     description: 'برای شروع و آشنایی با بک‌تست',
     priceToman: 0,
     durationDays: 3650,
-    features: ['۱ جلسه‌ی فعال', '۵ نماد فارکس', 'تایم‌فریم ۱۵ دقیقه به بالا', 'ژورنال و چک‌لیست'],
+    features: ['۱ جلسه‌ی بک‌تست', '۵ نماد فارکس', 'تایم‌فریم ۱۵ دقیقه به بالا', 'چک‌لیست معامله'],
     active: true,
     sort: 0,
   },
@@ -85,7 +121,14 @@ export const DEFAULT_PLANS: Plan[] = [
     description: 'همه‌ی امکانات، پرداخت ماه به ماه',
     priceToman: 690_000,
     durationDays: 30,
-    features: ['جلسه‌ی نامحدود', 'بیش از ۷۰ نماد فارکس، شاخص و کریپتو', 'چارت TradingView و ۴ چارت هم‌زمان', 'تقویم اقتصادی ForexFactory', 'آنالیز کامل و مونت‌کارلو'],
+    features: [
+      'جلسه‌ی نامحدود',
+      'بیش از ۷۰ نماد فارکس، شاخص و کریپتو',
+      'چارت TradingView و ۴ چارت هم‌زمان',
+      'ژورنال معاملات',
+      'تقویم اقتصادی ForexFactory',
+      'آنالیز کامل و مونت‌کارلو',
+    ],
     active: true,
     sort: 1,
   },
@@ -125,7 +168,11 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   marketData: { forex: 'dukascopy', index: 'dukascopy', metal: 'dukascopy', energy: 'dukascopy', crypto: 'binance' },
   enabledSymbols: [],
   newsAutoSync: true,
+  marketAutoDownload: true,
+  qveris: { dailyCredits: 300, live: false, liveMinutes: 60 },
 };
+
+export const DEFAULT_CARD_TO_CARD: CardToCardSettings = { enabled: false, payMinutes: 30, note: '' };
 
 const GATEWAY_ORDER: GatewayId[] = ['zarinpal', 'zibal', 'idpay', 'nextpay', 'payir'];
 
@@ -158,6 +205,8 @@ function fresh(): Db {
     payments: [],
     discounts: [],
     gateways: defaultGateways(),
+    cards: [],
+    cardToCard: { ...DEFAULT_CARD_TO_CARD },
     sms: defaultSms(),
     smsLogs: [],
     tickets: [],
@@ -165,19 +214,39 @@ function fresh(): Db {
     audit: [],
     otps: {},
     sessions: {},
+    credentials: {},
+    loginLog: [],
+    announcements: [],
+    media: [],
   };
 }
+
+/** The free plan card's old wording, for plans saved before the journal left the free plan. */
+const FREE_FEATURE_FIXES: Record<string, string> = { '۱ جلسه‌ی فعال': '۱ جلسه‌ی بک‌تست', 'ژورنال و چک‌لیست': 'چک‌لیست معامله' };
 
 /** Fill keys added in later versions so older files keep working. */
 function upgrade(d: Partial<Db>): Db {
   const base = fresh();
   const out = { ...base, ...d } as Db;
-  out.settings = { ...base.settings, ...(d.settings ?? {}), marketData: { ...base.settings.marketData, ...(d.settings?.marketData ?? {}) } };
+  out.settings = {
+    ...base.settings,
+    ...(d.settings ?? {}),
+    marketData: { ...base.settings.marketData, ...(d.settings?.marketData ?? {}) },
+    qveris: { ...base.settings.qveris, ...(d.settings?.qveris ?? {}) },
+  };
+  // generated prices are no longer offered: markets that used them get their real source
+  for (const g of Object.keys(out.settings.marketData) as (keyof typeof out.settings.marketData)[]) {
+    if (out.settings.marketData[g] === 'synthetic') out.settings.marketData[g] = base.settings.marketData[g];
+  }
+  out.cardToCard = { ...base.cardToCard, ...(d.cardToCard ?? {}) };
   out.gateways = GATEWAY_ORDER.map((id) => d.gateways?.find((g) => g.id === id) ?? base.gateways.find((g) => g.id === id)!);
   const sms = d.sms ?? base.sms;
   out.sms = { ...sms, providers: base.sms.providers.map((p) => sms.providers.find((x) => x.id === p.id) ?? p) };
   out.otps = d.otps ?? {};
   out.sessions = d.sessions ?? {};
+  // the free plan no longer includes the journal: its card stops saying so (a text the admin changed is kept)
+  const free = out.plans.find((p) => p.id === 'free');
+  if (free) free.features = free.features.map((f) => FREE_FEATURE_FIXES[f] ?? f);
   return out;
 }
 
@@ -185,11 +254,12 @@ const FILE = () => join(config.dataDir, 'db.json');
 let state: Db | null = null;
 let timer: NodeJS.Timeout | null = null;
 
-export function loadDb(): Db {
+/** Read the database (`write: false` leaves the data folder as it is: the download command). */
+export function loadDb({ write = true } = {}): Db {
   mkdirSync(config.dataDir, { recursive: true });
   const file = FILE();
   state = existsSync(file) ? upgrade(JSON.parse(readFileSync(file, 'utf8'))) : fresh();
-  flush();
+  if (write) flush();
   return state;
 }
 
@@ -222,5 +292,6 @@ export function prune() {
   for (const [k, s] of Object.entries(d.sessions)) if (s.expiresAt < now) delete d.sessions[k];
   d.smsLogs = d.smsLogs.slice(0, 5000);
   d.audit = d.audit.slice(0, 2000);
+  d.loginLog = d.loginLog.slice(0, 10_000);
   save();
 }

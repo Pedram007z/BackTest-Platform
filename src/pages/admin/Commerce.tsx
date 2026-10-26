@@ -1,7 +1,8 @@
 import clsx from 'clsx';
-import { Pencil, Plus, PlugZap, Search, Trash2, Undo2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, PlugZap, Search, Trash2, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Field, Loading, PageHeader, Pager, act, dateTime, tomanFmt, useLoad } from '../../components/admin/kit';
+import { Link } from '../../components/ui/AppLink';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { ConfirmDialog, Modal } from '../../components/ui/Modal';
 import { Select, Toggle } from '../../components/ui/controls';
@@ -9,7 +10,7 @@ import { addDays, fmtDayLong, localDayKey } from '../../lib/calendar';
 import { fmtPhone } from '../../lib/auth';
 import { faDigits, fmtNum, toLatinDigits } from '../../lib/format';
 import { backend } from '../../services';
-import { GATEWAY_NAMES, type DiscountCode, type GatewayConfig, type GatewayId, type Payment, type Plan } from '../../services/types';
+import { PAYMENT_METHOD_NAMES, type DiscountCode, type GatewayConfig, type GatewayId, type Payment, type PaymentMethod, type Plan } from '../../services/types';
 
 const num = (s: string) => Number(toLatinDigits(s).replace(/[^\d]/g, '')) || 0;
 
@@ -157,9 +158,10 @@ export function AdminPlans() {
 }
 
 // ---------- payments ----------
-const PAY_STATUS: Record<Payment['status'], [string, 'gain' | 'amber' | 'loss' | 'muted']> = {
+const PAY_STATUS: Record<Payment['status'], [string, 'gain' | 'amber' | 'loss' | 'muted' | 'accent']> = {
   paid: ['موفق', 'gain'],
   pending: ['در انتظار', 'amber'],
+  review: ['در انتظار تأیید', 'accent'],
   failed: ['ناموفق', 'loss'],
   refunded: ['مسترد', 'muted'],
 };
@@ -167,7 +169,7 @@ const PAY_STATUS: Record<Payment['status'], [string, 'gain' | 'amber' | 'loss' |
 export function AdminPayments() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | Payment['status']>('all');
-  const [gateway, setGateway] = useState<'all' | GatewayId>('all');
+  const [gateway, setGateway] = useState<'all' | PaymentMethod>('all');
   const [page, setPage] = useState(1);
   const [refund, setRefund] = useState<Payment | null>(null);
   const { data, loading, reload } = useLoad(() => backend.admin.payments({ q, status, gateway, page, pageSize: 15 }), [q, status, gateway, page]);
@@ -205,7 +207,7 @@ export function AdminPayments() {
               setGateway(v);
               setPage(1);
             }}
-            options={[{ value: 'all', label: 'همه‌ی درگاه‌ها' }, ...Object.entries(GATEWAY_NAMES).map(([k, l]) => ({ value: k as GatewayId, label: l }))]}
+            options={[{ value: 'all', label: 'همه‌ی روش‌ها' }, ...Object.entries(PAYMENT_METHOD_NAMES).map(([k, l]) => ({ value: k as PaymentMethod, label: l }))]}
           />
         </div>
       </div>
@@ -234,11 +236,14 @@ export function AdminPayments() {
                     </p>
                   </td>
                   <td className="td">{p.planName}</td>
-                  <td className="td num font-semibold">{tomanFmt(p.amountToman)}</td>
+                  <td className="td num font-semibold">
+                    {tomanFmt(p.amountToman)}
+                    {p.transfer && <p className="text-[11px] font-normal text-faint">کد {faDigits(String(p.transfer.code).padStart(3, '0'))}</p>}
+                  </td>
                   <td className="td" dir="ltr" style={{ textAlign: 'right' }}>
                     {p.discountCode ?? '—'}
                   </td>
-                  <td className="td">{GATEWAY_NAMES[p.gateway]}</td>
+                  <td className="td">{PAYMENT_METHOD_NAMES[p.gateway]}</td>
                   <td className="td num text-[11px] text-muted" dir="ltr" style={{ textAlign: 'right' }}>
                     {p.authority ?? '—'}
                   </td>
@@ -252,6 +257,11 @@ export function AdminPayments() {
                         <Undo2 size={13} /> استرداد
                       </button>
                     )}
+                    {p.transfer && (p.status === 'review' || p.status === 'pending') && (
+                      <Link to="/admin/cards" className="btn-soft px-2 py-1 text-[12px]">
+                        بررسی <ArrowLeft size={13} />
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -264,7 +274,7 @@ export function AdminPayments() {
         open={!!refund}
         onClose={() => setRefund(null)}
         title="ثبت استرداد وجه"
-        message={`تراکنش ${refund ? tomanFmt(refund.amountToman) : ''} ${refund?.userName ?? ''} مسترد علامت بخورد؟ برگشت پول از پنل درگاه انجام می‌شود؛ این‌جا فقط وضعیت ثبت می‌شود.`}
+        message={`تراکنش ${refund ? tomanFmt(refund.amountToman) : ''} ${refund?.userName ?? ''} مسترد علامت بخورد؟ ${refund?.transfer ? 'پول را خودتان به کارت پرداخت‌کننده برگردانید' : 'برگشت پول از پنل درگاه انجام می‌شود'}؛ این‌جا فقط وضعیت ثبت می‌شود.`}
         confirmLabel="ثبت استرداد"
         onConfirm={async () => {
           if (refund && (await act(backend.admin.refundPayment(refund.id), 'استرداد ثبت شد'))) void reload();
@@ -283,7 +293,7 @@ export function AdminDiscounts() {
     <>
       <PageHeader
         title="کدهای تخفیف"
-        text="درصد تخفیف، سقف استفاده و تاریخ انقضا."
+        text="درصد تخفیف، سقف استفاده، تاریخ انقضا و محدودیت اولین خرید."
         onReload={reload}
         loading={loading}
         actions={
@@ -311,8 +321,13 @@ export function AdminDiscounts() {
                 const expired = !!d.expiresAt && d.expiresAt < today;
                 return (
                   <tr key={d.id} className="border-t border-line/50">
-                    <td className="td font-bold" dir="ltr" style={{ textAlign: 'right' }}>
-                      {d.code}
+                    <td className="td">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold" dir="ltr">
+                          {d.code}
+                        </span>
+                        {d.firstPurchaseOnly && <Badge tone="accent">فقط اولین خرید</Badge>}
+                      </div>
                     </td>
                     <td className="td num">{faDigits(d.percent)}٪</td>
                     <td className="td num">
@@ -392,6 +407,12 @@ export function AdminDiscounts() {
             <label className="flex items-center gap-2 text-sm">
               <Toggle checked={editing.active} onChange={(active) => setEditing({ ...editing, active })} label="فعال" /> فعال
             </label>
+            <div className="sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Toggle checked={!!editing.firstPurchaseOnly} onChange={(firstPurchaseOnly) => setEditing({ ...editing, firstPurchaseOnly })} label="فقط برای اولین خرید" /> فقط برای اولین خرید
+              </label>
+              <p className="mt-1 text-[11px] leading-5 text-muted">فقط کاربری که تا حالا هیچ خرید موفقی نداشته (خرید بازگشت‌داده‌شده هم حساب می‌شود) می‌تواند از این کد استفاده کند.</p>
+            </div>
           </div>
         </Modal>
       )}
