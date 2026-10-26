@@ -161,6 +161,37 @@ test('users: search, ban signs out, self-protection, audit trail', async () => {
   assert.equal(audit.data[0].actor, 'مدیر سایت');
 });
 
+test('admin changes a mobile number: checked, unique, audited; the account keeps its sessions', async () => {
+  user = await s.signIn('09351234567'); // the ban above signed this account out
+  const put = (phone: unknown, token = admin.token) => s.call('PUT', `/api/admin/users/${user.user.id}`, { phone }, token);
+  assert.equal((await put('09301112233', user.token)).status, 403, 'admins only');
+  const bad = await put('0912');
+  assert.equal(bad.data.code, 'bad_phone');
+  assert.equal(bad.data.field, 'phone');
+  assert.equal((await put('09120000001')).data.code, 'phone_taken', "another account's number");
+  assert.equal(s.db().users.find((u: any) => u.id === user.user.id).phone, '09351234567', 'a refused change leaves the account as it was');
+
+  // the old number has a code waiting; it stops working with the change
+  s.db().otps['09351234567'] = { hash: 'x', expiresAt: Date.now() + 60_000, sentAt: Date.now(), tries: 0 };
+  const ok = await put('+98 ۹۳۰ ۱۱۱ ۲۲۳۳');
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  assert.equal(ok.data.phone, '09301112233');
+  assert.equal(s.db().otps['09351234567'], undefined);
+  assert.equal((await s.call('GET', '/api/me', undefined, user.token)).data.phone, '09301112233', 'still signed in, with the new number');
+  const found = await s.call('GET', '/api/admin/users?q=09301112233', undefined, admin.token);
+  assert.deepEqual(
+    found.data.items.map((u: any) => u.id),
+    [user.user.id],
+  );
+  assert.equal((await s.call('GET', '/api/admin/users?q=09351234567', undefined, admin.token)).data.total, 0);
+  assert.equal((await put('09301112233')).status, 200, 'the same number again is not a change');
+  const audit = (await s.call('GET', '/api/admin/audit', undefined, admin.token)).data.filter((a: any) => a.action === 'تغییر شماره موبایل');
+  assert.equal(audit.length, 1);
+  assert.match(audit[0].target, /09351234567 → 09301112233/);
+
+  await put('09351234567');
+});
+
 test('plans and settings are validated', async () => {
   const plan = await s.call(
     'PUT',

@@ -6,8 +6,11 @@ import { defaultChartStyle, withOpacity, type ChartStyle } from './style';
 import type { Trade } from '../lib/types';
 import { createNavButtons } from './navButtons';
 import { createReplayDatafeed } from './tvDatafeed';
+import { createTvSessions, sessionsStudy } from './tvSessions';
 import { TV_LIBRARY_PATH } from './tvLoader';
 import { layoutSaved } from '../services/layoutSync';
+import { TV_FAVORITE_KEYS } from '../services/workspace';
+import { useStore } from '../store/useStore';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
 
 /** TradingView's Bid and Ask line colours. */
@@ -68,6 +71,24 @@ function overrides(st: ChartStyle) {
     'mainSeriesProperties.candleStyle.borderDownColor': st.borderDownColor,
     'mainSeriesProperties.candleStyle.wickUpColor': st.wickUpColor,
     'mainSeriesProperties.candleStyle.wickDownColor': st.wickDownColor,
+  };
+}
+
+/**
+ * The library's own favorites (the star beside each drawing tool, and the floating bar of the starred
+ * ones) belong to the account: kept in useStore.tvFavorites, which the server syncs. Its other settings
+ * are not kept (they are in memory for this visit), as before.
+ */
+function favoritesAdapter() {
+  const keys = new Set<string>(TV_FAVORITE_KEYS);
+  return {
+    initialSettings: { ...useStore.getState().tvFavorites },
+    setValue(key: string, value: string) {
+      if (keys.has(key)) useStore.getState().setTvFavorite(key, value);
+    },
+    removeValue(key: string) {
+      if (keys.has(key)) useStore.getState().setTvFavorite(key, null);
+    },
   };
 }
 
@@ -134,13 +155,25 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       // its navigation buttons sit under the replay bar; ours (below) keep clear of it
       'control_bar',
     ],
-    enabled_features: ['seconds_resolution'],
+    // the stars and the floating favorites bar (use_localstorage_for_settings, off above, would turn them off too)
+    enabled_features: ['seconds_resolution', 'items_favoriting'],
     favorites: { intervals: TIMEFRAMES.map((t) => t.tv) },
+    settings_adapter: favoritesAdapter(),
+    // «Sessions (High / Low)» in the Indicators dialog (tvSessions.ts)
+    custom_indicators_getter: () => Promise.resolve([sessionsStudy()]),
     loading_screen: { backgroundColor: look().bg, foregroundColor: '#7c5cff' },
     overrides: overrides(look()),
   });
 
   const tick = () => 10 ** -(SYMBOL_MAP[state.symbol]?.digits ?? 2);
+
+  // the sessions indicator's boxes
+  const sessions = createTvSessions({
+    chart: () => (ready && !destroyed ? chart : null),
+    symbol: () => state.symbol,
+    timeframe: () => state.timeframe,
+    cursor: () => state.cursor,
+  });
 
   // ---------- navigation buttons (zoom, scroll, reset) ----------
   /** the library's left toolbar, price axis and time axis, roughly */
@@ -516,6 +549,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       /* order lines not available */
     }
     syncNews();
+    if (prev.cursor !== next.cursor || prev.dataVersion !== next.dataVersion || prev.symbol !== next.symbol || prev.timeframe !== next.timeframe) sessions.schedule();
   }
 
   widget.onChartReady(() => {
@@ -538,6 +572,11 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
       if (id === draftId && type === 'remove') draftId = null;
     });
     widget.subscribe('mouse_down', () => cb.onActivate?.());
+    // the sessions indicator: added, removed, shown, hidden, its settings changed, or the view moved
+    widget.subscribe('study_event', () => sessions.schedule());
+    widget.subscribe('study_properties_changed', () => sessions.schedule());
+    chart.onVisibleRangeChanged().subscribe(null, () => sessions.schedule());
+    chart.onDataLoaded().subscribe(null, () => sessions.schedule());
     // keep the pane's drawings and indicators (our own lines and markers are not saved)
     widget.subscribe('onAutoSaveNeeded', () => {
       const key = state.layoutKey;
@@ -570,6 +609,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     },
     destroy() {
       destroyed = true;
+      sessions.destroy();
       nav.destroy();
       try {
         widget.remove();

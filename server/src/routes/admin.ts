@@ -194,6 +194,16 @@ export function adminRoutes(r: Router) {
       const b = ctx.body;
       const me = ctx.user!;
       const before = { ...u };
+      // the sign-in number: checked before anything changes, since it can be refused
+      let phone: string | undefined;
+      if (b.phone !== undefined) {
+        const p = typeof b.phone === 'string' ? normalizePhone(b.phone) : null;
+        if (!p) throw badRequest('bad_phone', 'شماره موبایل درست نیست. نمونه: ۰۹۱۲۱۲۳۴۵۶۷', 'phone');
+        if (p !== u.phone) {
+          if (db().users.some((x) => x.id !== u.id && x.phone === p)) throw badRequest('phone_taken', 'این شماره برای حساب دیگری ثبت شده است.', 'phone');
+          phone = p;
+        }
+      }
       if (b.name !== undefined) u.name = str(b.name, 'name', { min: 2, max: 60, label: 'نام' });
       if (b.role !== undefined) {
         const role = oneOf(b.role, ['user', 'admin'] as const, 'role');
@@ -218,13 +228,21 @@ export function adminRoutes(r: Router) {
         u.planEndsAt = b.planEndsAt;
       }
       if (b.note !== undefined) u.note = str(b.note, 'note', { max: 500, label: 'یادداشت' }) || undefined;
+      if (phone) {
+        // codes already sent to either number stop working; signed-in devices stay signed in
+        const d = db();
+        delete d.otps[before.phone];
+        delete d.otps[phone];
+        u.phone = phone;
+        audit(ctx, 'تغییر شماره موبایل', `${u.name}: ${before.phone || '—'} → ${phone}`);
+      }
 
       if (u.status !== before.status) {
         if (u.status === 'banned') dropSessions(u.id);
         audit(ctx, u.status === 'banned' ? 'مسدود کردن کاربر' : 'رفع مسدودی کاربر', u.name);
       } else if (u.planEndsAt !== before.planEndsAt || u.planId !== before.planId) audit(ctx, 'تغییر اشتراک', `${u.name}: تا ${faDay(u.planEndsAt)}`);
       else if (u.role !== before.role) audit(ctx, u.role === 'admin' ? 'دادن دسترسی مدیر' : 'گرفتن دسترسی مدیر', u.name);
-      else audit(ctx, 'ویرایش کاربر', u.name);
+      else if (!phone) audit(ctx, 'ویرایش کاربر', u.name);
       save();
       return clone(u);
     }),

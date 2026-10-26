@@ -1,3 +1,5 @@
+import { defaultSessionsConfig, sessionsToParams } from './sessions';
+
 /**
  * Indicators for the built-in chart: pure functions over the bars the replay has shown so far
  * (never later ones), and the catalog the indicators menu offers. Values before an indicator has
@@ -146,7 +148,7 @@ export function atr(bars: OhlcBar[], length: number): number[] {
 }
 
 // ---------- catalog ----------
-export type IndicatorType = 'sma' | 'ema' | 'bb' | 'donchian' | 'rsi' | 'macd' | 'stoch' | 'atr';
+export type IndicatorType = 'sma' | 'ema' | 'bb' | 'donchian' | 'rsi' | 'macd' | 'stoch' | 'atr' | 'sessions';
 
 export interface IndicatorParam {
   key: string;
@@ -285,6 +287,17 @@ export const INDICATORS: IndicatorDef[] = [
     levels: [80, 50, 20],
   },
   {
+    // boxes, not lines: drawn by lwSessions.ts; set up in its own dialog (SessionsSettings)
+    type: 'sessions',
+    short: 'Sessions',
+    name: 'Trading Sessions (High / Low)',
+    nameFa: 'سشن‌های معاملاتی (سقف و کف)',
+    overlay: true,
+    params: [],
+    defaults: sessionsToParams(defaultSessionsConfig()).params,
+    plots: [],
+  },
+  {
     type: 'atr',
     short: 'ATR',
     name: 'Average True Range',
@@ -314,7 +327,7 @@ export function newIndicator(type: IndicatorType): IndicatorConfig {
     id: `${type}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
     type,
     params: { ...def.defaults },
-    colors: Object.fromEntries(def.plots.map((p) => [p.key, p.color])),
+    colors: type === 'sessions' ? sessionsToParams(defaultSessionsConfig()).colors : Object.fromEntries(def.plots.map((p) => [p.key, p.color])),
   };
 }
 
@@ -343,6 +356,8 @@ export function computeIndicator(cfg: IndicatorConfig, bars: OhlcBar[]): Record<
       return stochastic(bars, L('k'), L('smooth'), L('d'));
     case 'atr':
       return { value: atr(bars, L('length')) };
+    case 'sessions':
+      return {};
   }
 }
 

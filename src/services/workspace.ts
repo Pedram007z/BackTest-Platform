@@ -36,8 +36,36 @@ export interface WorkspacePrefs {
   chartTz?: string;
   /** The chart's colours the user changed ({}: the theme's). */
   chartStyle?: ChartStyleOverrides;
+  /** Built-in chart: the starred drawing tools, in the order they were starred (the floating favorites bar). */
+  favTools?: string[];
+  /** TradingView chart: the library's own favorites (starred drawing tools and their floating bar), by its setting key. */
+  tvFavorites?: Record<string, string>;
 }
-export const WS_PREFS = ['avatar', 'theme', 'newsFilters', 'hasDemoData', 'chartTz', 'chartStyle'] as const satisfies readonly (keyof WorkspacePrefs)[];
+export const WS_PREFS = ['avatar', 'theme', 'newsFilters', 'hasDemoData', 'chartTz', 'chartStyle', 'favTools', 'tvFavorites'] as const satisfies readonly (keyof WorkspacePrefs)[];
+
+/** The TradingView library's settings that hold favorites; its other settings are not kept. */
+export const TV_FAVORITE_KEYS = [
+  'chart.favoriteDrawings',
+  'chart.favoriteDrawingsPosition',
+  'ChartFavoriteDrawingToolbarWidget.visible',
+  'chart.favoriteLibraryIndicators',
+] as const;
+const FAV_TOOL = /^[a-z0-9_]{1,40}$/;
+
+export function cleanFavTools(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return [...new Set(v.filter((x): x is string => typeof x === 'string' && FAV_TOOL.test(x)))].slice(0, 80);
+}
+
+export function cleanTvFavorites(v: unknown): Record<string, string> | undefined {
+  if (!isObj(v)) return undefined;
+  const out: Record<string, string> = {};
+  for (const k of TV_FAVORITE_KEYS) {
+    const x = (v as Record<string, unknown>)[k];
+    if (typeof x === 'string' && x.length <= 4000) out[k] = x;
+  }
+  return out;
+}
 export type WsPref = (typeof WS_PREFS)[number];
 
 export interface WorkspaceData {
@@ -311,6 +339,10 @@ function cleanPref(k: WsPref, v: unknown): unknown {
     case 'chartStyle':
       // {} is kept too: it means "back to the theme's colours" on every device
       return cleanChartStyle(v) ?? (isObj(v) ? {} : undefined);
+    case 'favTools':
+      return cleanFavTools(v);
+    case 'tvFavorites':
+      return cleanTvFavorites(v);
   }
 }
 

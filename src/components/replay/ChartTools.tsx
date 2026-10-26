@@ -24,16 +24,18 @@ import {
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { TOOLS, TOOL_GROUPS, TOOL_SPECS, styleOf, withDefaults, type Drawing, type DrawingStyle, type DrawingType, type LineDash, type ToolId } from '../../chart/drawings';
-import { INDICATORS, INDICATOR_MAP, SOURCES, type IndicatorConfig, type Source } from '../../chart/indicators';
+import { INDICATORS, INDICATOR_MAP, SOURCES, type IndicatorConfig, type IndicatorType, type Source } from '../../chart/indicators';
 import type { DrawingApi, DrawingUiState } from '../../chart/lwDrawings';
 import type { IndicatorApi } from '../../chart/lwIndicators';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { toLatinDigits } from '../../lib/format';
-import { toast } from '../../store/useStore';
+import { toast, useStore } from '../../store/useStore';
 import { Modal } from '../ui/Modal';
 import { Select } from '../ui/controls';
 import { DrawingSettings } from './DrawingSettings';
 import { ColorButton, DASHES, DashIcon, FloatingPanel } from './drawingControls';
+import { useFavBar, useFavTools } from './FavoritesBar';
+import { SessionsSettings } from './SessionsSettings';
 import { ToolIcon } from './drawingIcons';
 
 export { ToolIcon } from './drawingIcons';
@@ -68,6 +70,8 @@ function ToolButton({ active, title, onClick, children, className }: { active?: 
 /** a toolbar group: its last used tool, and a flyout with every tool of the group in sections */
 function Group({ group, ui, api }: { group: (typeof TOOL_GROUPS)[number]; ui: DrawingUiState; api: DrawingApi }) {
   const tools = group.tools;
+  const fav = useStore((s) => s.favTools);
+  const toggleFav = useStore((s) => s.toggleFavTool);
   const [last, setLast] = useState<DrawingType>(tools[0]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -107,7 +111,7 @@ function Group({ group, ui, api }: { group: (typeof TOOL_GROUPS)[number]; ui: Dr
         createPortal(
           <div
             ref={menu}
-            className="anim-pop fixed z-50 w-72 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface p-1 shadow-pop"
+            className="anim-pop fixed z-50 w-80 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface p-1 shadow-pop"
             style={{ left: rect.right + 8, top, maxHeight: want }}
             dir="rtl"
             role="menu"
@@ -116,26 +120,36 @@ function Group({ group, ui, api }: { group: (typeof TOOL_GROUPS)[number]; ui: Dr
             {group.sections.map((sec) => (
               <div key={sec.name} className="py-0.5">
                 {group.sections.length > 1 && <p className="px-2 pb-0.5 pt-1.5 text-[11px] font-bold text-faint">{sec.name}</p>}
-                {sec.tools.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => pick(t)}
-                    className={clsx(
-                      'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-start text-[13px] hover:bg-raised',
-                      ui.tool === t && 'bg-accent/10 text-accent-ink',
-                    )}
-                  >
-                    <span className="text-muted" dir="ltr">
-                      <ToolIcon id={t} />
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{TOOLS[t].name}</span>
-                    <span className="max-w-[7.5rem] truncate text-[11px] text-faint" dir="ltr">
-                      {TOOLS[t].hint.split(' · ')[0]}
-                    </span>
-                  </button>
-                ))}
+                {sec.tools.map((t) => {
+                  const starred = fav.includes(t);
+                  return (
+                    <div key={t} className={clsx('group/row flex items-center rounded-lg hover:bg-raised', ui.tool === t && 'bg-accent/10 text-accent-ink')}>
+                      <button type="button" role="menuitem" onClick={() => pick(t)} className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-1.5 text-start text-[13px]">
+                        <span className="text-muted" dir="ltr">
+                          <ToolIcon id={t} />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{TOOLS[t].name}</span>
+                        <span className="max-w-[6.5rem] truncate text-[11px] text-faint" dir="ltr">
+                          {TOOLS[t].hint.split(' · ')[0]}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleFav(t)}
+                        aria-pressed={starred}
+                        aria-label={starred ? `حذف ${TOOLS[t].name} از ابزارهای محبوب` : `افزودن ${TOOLS[t].name} به ابزارهای محبوب`}
+                        title={starred ? 'حذف از محبوب‌ها' : 'افزودن به محبوب‌ها'}
+                        data-fav-star={t}
+                        className={clsx(
+                          'me-1 grid h-7 w-7 shrink-0 place-items-center rounded-md transition hover:bg-surface',
+                          starred ? 'text-amber' : 'text-faint opacity-0 focus-visible:opacity-100 group-hover/row:opacity-100',
+                        )}
+                      >
+                        <Star size={15} className={starred ? 'fill-current' : undefined} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>,
@@ -206,6 +220,30 @@ function DrawingsList({ api, ui }: { api: DrawingApi; ui: DrawingUiState }) {
   );
 }
 
+/** shows or hides the floating favorites bar (FavoritesBar) */
+function FavoritesToggle() {
+  const count = useFavTools().length;
+  const hidden = useFavBar((s) => s.hidden);
+  const set = useFavBar((s) => s.set);
+  const shown = count > 0 && !hidden;
+  return (
+    <ToolButton
+      active={shown}
+      title={
+        count
+          ? hidden
+            ? 'نمایش نوار ابزارهای محبوب'
+            : 'پنهان کردن نوار ابزارهای محبوب'
+          : 'ابزارهای محبوب: در منوی هر گروه، ستاره‌ی کنار ابزار را بزنید تا در نواری روی چارت بیاید'
+      }
+      onClick={() => count && set({ hidden: !hidden })}
+      className={clsx(!count && 'opacity-50')}
+    >
+      <Star size={18} strokeWidth={1.7} className={shown ? 'fill-current' : undefined} />
+    </ToolButton>
+  );
+}
+
 /** The column of drawing tools on the chart's left side. */
 export function DrawingToolbar({ api }: { api: DrawingApi }) {
   const ui = useUi(api);
@@ -224,6 +262,7 @@ export function DrawingToolbar({ api }: { api: DrawingApi }) {
       {TOOL_GROUPS.map((g) => (
         <Group key={g.id} group={g} ui={ui} api={api} />
       ))}
+      <FavoritesToggle />
       <span className="my-1 h-px w-6 bg-line" />
       <ToolButton active={ui.magnet} title={ui.magnet ? 'آهنربا روشن: نقطه‌ها روی باز، سقف، کف یا بسته‌ی کندل می‌نشینند' : 'آهنربا'} onClick={() => api.setMagnet(!ui.magnet)}>
         <Magnet size={18} strokeWidth={1.7} />
@@ -470,7 +509,7 @@ export function SelectedDrawingBar({ api }: { api: DrawingApi }) {
 }
 
 // ---------- indicators ----------
-export function IndicatorsDialog({ api, open, onClose }: { api: IndicatorApi; open: boolean; onClose: () => void }) {
+export function IndicatorsDialog({ api, open, onClose, onAdded }: { api: IndicatorApi; open: boolean; onClose: () => void; onAdded?: (id: string, type: IndicatorType) => void }) {
   const [q, setQ] = useState('');
   useEffect(() => {
     if (open) setQ('');
@@ -488,9 +527,10 @@ export function IndicatorsDialog({ api, open, onClose }: { api: IndicatorApi; op
             <button
               type="button"
               onClick={() => {
-                api.add(d.type);
+                const id = api.add(d.type);
                 toast(`${d.nameFa} اضافه شد`);
                 onClose();
+                onAdded?.(id, d.type);
               }}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-start hover:bg-raised"
             >
@@ -516,6 +556,7 @@ export function IndicatorSettings({ api, id, onClose }: { api: IndicatorApi; id:
   const cfg = api.list().find((c) => c.id === id);
   const [d, setD] = useState<IndicatorConfig | null>(cfg ? structuredClone(cfg) : null);
   if (!cfg || !d) return null;
+  if (cfg.type === 'sessions') return <SessionsSettings api={api} cfg={cfg} onClose={onClose} />;
   const def = INDICATOR_MAP[d.type];
   const setParam = (k: string, v: number | string) => setD({ ...d, params: { ...d.params, [k]: v } });
   const valid = def.params.every(

@@ -10,6 +10,7 @@ import type { NewsEvent } from '../../lib/news';
 import type { ChartPane as Pane, Trade } from '../../lib/types';
 import { Popover } from '../ui/Popover';
 import { DrawingToolbar, IndicatorSettings, IndicatorsDialog, SelectedDrawingBar } from './ChartTools';
+import { FavoritesBar } from './FavoritesBar';
 
 export type EngineKind = 'tradingview' | 'lightweight';
 
@@ -191,10 +192,19 @@ export function ChartPane(props: Props) {
         {tools.drawings && <DrawingToolbar api={tools.drawings} />}
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           <div ref={host} className="chart-ltr relative min-h-0 flex-1" />
+          {tools.drawings && <FavoritesBar api={tools.drawings} />}
           {tools.drawings && <SelectedDrawingBar api={tools.drawings} />}
         </div>
       </div>
-      {tools.indicators && <IndicatorsDialog api={tools.indicators} open={indicatorsOpen} onClose={() => setIndicatorsOpen(false)} />}
+      {tools.indicators && (
+        <IndicatorsDialog
+          api={tools.indicators}
+          open={indicatorsOpen}
+          onClose={() => setIndicatorsOpen(false)}
+          // the sessions need their hours checked: their dialog opens right away
+          onAdded={(id, type) => type === 'sessions' && setEditing(id)}
+        />
+      )}
       {tools.indicators && editing && <IndicatorSettings key={editing} api={tools.indicators} id={editing} onClose={() => setEditing(null)} />}
     </div>
   );

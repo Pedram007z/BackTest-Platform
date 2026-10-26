@@ -1,6 +1,8 @@
 import { HistogramSeries, LineSeries, LineStyle, type IChartApi, type ISeriesApi, type MouseEventParams, type Time, type UTCTimestamp } from 'lightweight-charts';
 import type { Candle } from '../lib/market';
 import { INDICATOR_MAP, computeIndicator, indicatorTitle, newIndicator, type IndicatorConfig, type IndicatorType } from './indicators';
+import { createSessionsLayer } from './lwSessions';
+import { sessionsFromParams } from './sessions';
 
 /**
  * Indicators on the built-in chart: overlays share the candles' pane, oscillators get a pane each
@@ -9,7 +11,8 @@ import { INDICATOR_MAP, computeIndicator, indicatorTitle, newIndicator, type Ind
 
 export interface IndicatorApi {
   list(): IndicatorConfig[];
-  add(type: IndicatorType): void;
+  /** returns the new indicator's id */
+  add(type: IndicatorType): string;
   update(cfg: IndicatorConfig): void;
   remove(id: string): void;
   subscribe(fn: () => void): () => void;
@@ -17,7 +20,13 @@ export interface IndicatorApi {
 
 export interface IndicatorHost {
   chart: IChartApi;
+  /** the candles (the sessions boxes are drawn against its price scale) */
+  series: ISeriesApi<'Candlestick'>;
   container: HTMLElement;
+  /** length of one bar in seconds */
+  barSec(): number;
+  /** the candles' pane: plot width and height */
+  plotBox(): { w: number; h: number };
   /** the main legend (symbol and OHLC): overlay indicators are listed under it */
   legend: HTMLElement;
   digits(): number;
@@ -58,9 +67,13 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
   const overlayLegend = document.createElement('div');
   host.legend.append(overlayLegend);
 
+  const sessions = createSessionsLayer(host);
+  const syncSessions = () => sessions.setConfigs(live.filter((l) => l.cfg.type === 'sessions' && !l.cfg.hidden).map((l) => sessionsFromParams(l.cfg.params, l.cfg.colors)));
+
   const notify = () => listeners.forEach((f) => f());
   const changed = () => {
     host.onChange(live.map((l) => l.cfg));
+    syncSessions();
     renderLegends();
     notify();
   };
@@ -92,7 +105,8 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
       const s = plot.histogram ? host.chart.addSeries(HistogramSeries, opts, pane) : host.chart.addSeries(LineSeries, { ...opts, lineWidth: def.overlay ? 2 : 1.5 } as never, pane);
       l.series.set(plot.key, s);
     }
-    const first = l.series.get(def.plots.find((x) => !x.histogram)?.key ?? def.plots[0].key);
+    // (the sessions indicator has no lines: its boxes are drawn by lwSessions)
+    const first = def.plots.length ? l.series.get(def.plots.find((x) => !x.histogram)?.key ?? def.plots[0].key) : undefined;
     for (const level of def.levels ?? [])
       first?.createPriceLine({ price: level, color: host.colors().grid, lineStyle: LineStyle.Dashed, lineWidth: 1, axisLabelVisible: false, title: '' });
     if (!def.overlay) host.chart.panes()[pane]?.setStretchFactor(0.32);
@@ -237,6 +251,7 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
   }
 
   function place() {
+    sessions.render();
     const top = host.container.getBoundingClientRect().top;
     for (const l of live) {
       const box = paneLegends.get(l.cfg.id);
@@ -255,6 +270,7 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
       if (INDICATOR_MAP[type].overlay) build(l);
       else rebuild();
       changed();
+      return l.cfg.id;
     },
     update(cfg) {
       const l = live.find((x) => x.cfg.id === cfg.id);
@@ -281,6 +297,7 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
     },
     setBars(next) {
       bars = next;
+      sessions.setBars(next);
       for (const l of live) fill(l);
       renderLegends();
     },
@@ -294,6 +311,7 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
     place,
     destroy() {
       clearAll();
+      sessions.destroy();
       overlayLegend.remove();
       for (const box of paneLegends.values()) box.remove();
       listeners.clear();
@@ -302,5 +320,6 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
 
   for (const cfg of initial) if (INDICATOR_MAP[cfg.type]) live.push({ cfg: structuredClone(cfg), series: new Map(), values: {} });
   for (const l of live) build(l);
+  syncSessions();
   return api;
 }
