@@ -106,3 +106,12 @@ f[0-9]/voice/*.log
 f[0-9]/*.mp4
 f[0-9]/*.png
 f[0-9]/chunks/
+# k-reels (k1…): screen frames (rebuilt with <reel>/capture/ and f1's captures), voice cuts, music, mix, renders, chunks, covers
+k[0-9]/screens/
+k[0-9]/*.wav
+k[0-9]/voice/*.wav
+k[0-9]/voice/*.log
+k[0-9]/*/*.mp4
+k[0-9]/*/*.png
+k[0-9]/*/*.log
+k[0-9]/*/chunks/

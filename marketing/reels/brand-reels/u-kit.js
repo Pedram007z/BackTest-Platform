@@ -116,13 +116,14 @@ function kineticWords(s, t) {
   s.groups.forEach((g, gi) => {
     const next = s.groups[gi + 1], gEnd = next ? ws(next.at) - 0.08 : s.t1 + 0.4;
     if (g.hideK) return;                                     // said on the symbol's own cards in this look
-    if (t < ws(g.at) - 0.3 && s !== SC[0]) return; if (t > gEnd) return;
+    const opening = s === SC[0] && gi === 0;                  // the reel's first words are on screen from the first frame
+    if (t < ws(g.at) - 0.3 && !opening) return; if (t > gEnd) return;
     const gOut = next ? k01(t, gEnd - 0.1, 0.1) : 0;
     g.lines.forEach((ln) => {
       const gap = measure(' ', ln.size) * 1.45, wds = ln.toks.map(([x]) => measure(x, ln.size)), total = wds.reduce((a, b) => a + b, 0) + gap * (ln.toks.length - 1);
       const sc = Math.min(1, (ln.max ?? 940) / total); let right = CX + (total * sc) / 2;
       ln.toks.forEach(([x, wi, o = {}], j) => {
-        const st = s === SC[0] && ln === g.lines[0] ? -1 : ws(wIdx(wi)) - 0.05, d = t - st, wpx = wds[j] * sc;
+        const st = opening && ln === g.lines[0] ? -1 : ws(wIdx(wi)) - 0.05, d = t - st, wpx = wds[j] * sc;
         if (d < 0) { right -= wpx + gap * sc; return; }
         const k = pop(d, 22, 0.62), a = cl(d / 0.08) * (1 - gOut), s2 = st < 0 ? 1 : lerp(0.8, 1, k);
         cv.save(); cv.globalAlpha = a; cv.translate(right - wpx / 2, ln.y); cv.scale(sc * s2, sc * s2);
@@ -140,7 +141,7 @@ function kineticFrame(t) {
     const nextBg = SC.slice(i + 1).find((x) => x.wipe !== 'none'); if (nextBg && t > nextBg.t0 + WIPE) return;
     const k = wipeK(s, t); if (k <= 0) return;
     cv.save(); if (k < 1) clipTo(s, k);
-    if (s.wipe !== 'none') bgFill(s.bg);
+    if (s.wipe !== 'none' || i === 0) bgFill(s.bg);
     const nx = SC[i + 1], live = t < s.t1 + (nx && (nx.wipe === 'none' || nx.wipe === 'cut') ? 0 : WIPE);
     if (live && s.art && ART[s.art]) { const p = s.kpos ?? [CX, 1090, 0.92], bgk = s.bg === 'split' || s.bg === 'splitR' ? 'ink' : GROUND[s.bg] ?? 'ink';
       at(p[0], p[1], p[2], 1, () => ART[s.art](t, THEME[s.th ?? bgk], s)); }
@@ -223,6 +224,7 @@ window.seek = (t) => {
 window.cover = () => { cv.setTransform(1, 0, 0, 1, 0, 0); cv.globalAlpha = 1; if (COVER) COVER(); };
 window.addEventListener('load', async () => {
   await Promise.all(['700', '800', '900'].map((w) => document.fonts.load(`${w} 100px Vazirmatn`, 'آبپ۱A')));
-  await Promise.all([loadImg('icon', window.LOGO.icon), loadImg('word', window.LOGO.word), loadImg('wordL', window.LOGO.wordL)]);
+  await Promise.all([loadImg('icon', window.LOGO.icon), loadImg('word', window.LOGO.word), loadImg('wordL', window.LOGO.wordL), ...Object.entries(window.IMGS || {}).map(([k, src]) => loadImg(k, src))]);
+  const miss = Object.keys(window.IMGS || {}).filter((k) => !IMG[k]); if (miss.length) console.error('missing images: ' + miss.join(', '));
   window.seek(0); window.ready = true;
 });

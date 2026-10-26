@@ -834,3 +834,40 @@ and the replay sequences scaled to 1920 px.
 3. `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 mix.wav 3`.
 
 The caption, the DM reply and the facts on screen are in `f1/caption.md`.
+
+---
+
+## k1: «پراپ تریدرها چطوری به برداشت رسیدن؟», kinetic (`k1/`, the user's voice)
+
+The u-kit kinetic look: colour blocks wipe on the beat and the words land as they're spoken. Each line has its own
+symbol:
+- the road to a payout;
+- a «secret strategy» stamped «نیست»;
+- a line that never breaks the rule's floor;
+- the two rule gauges;
+- a challenge account diving through its limit and burning (an example).
+
+From there the reel turns to real material:
+- **The fee:** the challenge fee, with the cursor stopping short of «پرداخت».
+- **A real test:** the gold breakout test from z1, its deepest drawdown and its 14 losses in a row.
+- **The risk ladder:** that same trade sequence replayed at 2%, 1%, 0.5% and 0.25% risk against a «مثلاً ۱۰٪» limit,
+  with drawdowns of 59%, 33.6%, 17.8% and 9.1%.
+- **Real BacktestLab screens:** a session with a 100,000 balance, the replay, and the analytics' Monte Carlo drawdown.
+- **The ending:** pass-then-buy, then the «پراپ» comment and the DM.
+
+**Engine change (u-kit):**
+- **Opening scene:** only the first group shows on the opening frame, and that scene fills its own background even
+  with no wipe. u1–u3 are unchanged.
+- **Images:** pages can load pictures listed in `<reel>/images.json`, through `mkpage_u.py`.
+
+**Rebuild** (in `k1/`):
+1. `python3 voice/build.py`, `python3 data.py` (it reads `../z1/data.json`), and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k1 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 4`.
+
+`k1/screens/` holds the frames, which aren't in git:
+- `k-session.jpg` and `k-montecarlo.jpg` come from `capture/capk1.mjs`;
+- `d-*.jpg` are f1's replay frames.
+
+The caption, the DM reply and the facts on screen are in `k1/caption.md`.
