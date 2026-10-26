@@ -4,6 +4,7 @@ import { startServer } from './harness';
 import {
   applyPatch,
   baseOf,
+  cleanPatch,
   diffWorkspace,
   emptyWorkspace,
   firstSyncPatch,
@@ -302,4 +303,16 @@ test('deleting an account deletes its saved data', async () => {
   assert.equal((await s.call('DELETE', `/api/admin/users/${gone.user.id}`, undefined, admin.token)).status, 204);
   const again = await s.signIn('09130000000', 'حذفی');
   assert.equal((await get(again.token)).data.data, null);
+});
+
+test('favorite drawing tools: kept per account, only tool ids and the TradingView favorites settings', () => {
+  const patch = cleanPatch({
+    prefs: {
+      favTools: ['fib', 'gannbox', 'fib', 'not a tool!', 42, 'x'.repeat(60)],
+      tvFavorites: { 'chart.favoriteDrawings': '["LineToolFibRetracement"]', 'chartproperties': '{"paneProperties":{}}', 'ChartFavoriteDrawingToolbarWidget.visible': 'true' },
+    },
+  });
+  assert.deepEqual(patch.prefs?.favTools, ['fib', 'gannbox']);
+  assert.deepEqual(patch.prefs?.tvFavorites, { 'chart.favoriteDrawings': '["LineToolFibRetracement"]', 'ChartFavoriteDrawingToolbarWidget.visible': 'true' });
+  assert.equal(cleanPatch({ prefs: { favTools: 'fib', tvFavorites: [] } }).prefs, undefined, 'wrong shapes are left out');
 });

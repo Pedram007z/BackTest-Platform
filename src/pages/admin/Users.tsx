@@ -7,16 +7,21 @@ import { DatePicker } from '../../components/ui/DatePicker';
 import { ConfirmDialog, Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/controls';
 import { addDays, fmtDayLong, localDayKey } from '../../lib/calendar';
-import { fmtPhone } from '../../lib/auth';
+import { fmtPhone, phoneError } from '../../lib/auth';
 import { fmtNum } from '../../lib/format';
 import { backend } from '../../services';
-import type { AccountUser, Plan } from '../../services/types';
+import { normalizePhone, type AccountUser, type Plan } from '../../services/types';
 
 const PAGE = 15;
 
 function EditUser({ user, plans, onClose, onSaved }: { user: AccountUser; plans: Plan[]; onClose: () => void; onSaved: (u: AccountUser) => void }) {
   const [draft, setDraft] = useState(user);
+  const [phone, setPhone] = useState(user.phone);
   const [busy, setBusy] = useState(false);
+  // an account made by username and password may have no number; leaving it empty keeps it so
+  const phoneErr = !phone.trim() && !user.phone ? '' : phoneError(phone);
+  const newPhone = phone.trim() && !phoneErr ? normalizePhone(phone) : null;
+  const phoneChanged = !!newPhone && newPhone !== user.phone;
   const set = (p: Partial<AccountUser>) => setDraft((d) => ({ ...d, ...p }));
   const extend = (days: number) => {
     const base = draft.planEndsAt > localDayKey() ? draft.planEndsAt : localDayKey();
@@ -35,11 +40,20 @@ function EditUser({ user, plans, onClose, onSaved }: { user: AccountUser; plans:
           <button
             type="button"
             className="btn-primary"
-            disabled={busy || draft.name.trim().length < 2}
+            disabled={busy || draft.name.trim().length < 2 || !!phoneErr}
             onClick={async () => {
               setBusy(true);
               const u = await act(
-                backend.admin.updateUser(user.id, { name: draft.name.trim(), role: draft.role, status: draft.status, planId: draft.planId, planStartedAt: draft.planStartedAt, planEndsAt: draft.planEndsAt, note: draft.note }),
+                backend.admin.updateUser(user.id, {
+                  name: draft.name.trim(),
+                  ...(phoneChanged && newPhone ? { phone: newPhone } : {}),
+                  role: draft.role,
+                  status: draft.status,
+                  planId: draft.planId,
+                  planStartedAt: draft.planStartedAt,
+                  planEndsAt: draft.planEndsAt,
+                  note: draft.note,
+                }),
                 'کاربر ذخیره شد',
               );
               setBusy(false);
@@ -55,9 +69,29 @@ function EditUser({ user, plans, onClose, onSaved }: { user: AccountUser; plans:
         <Field label="نام" htmlFor="au-name">
           <input id="au-name" className="field" value={draft.name} onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field label="موبایل" htmlFor="au-phone" hint="شماره ورود قابل تغییر نیست.">
-          <input id="au-phone" className="field num" dir="ltr" value={fmtPhone(user.phone)} disabled />
-        </Field>
+        <div>
+          <label className="label" htmlFor="au-phone">
+            موبایل
+          </label>
+          <input
+            id="au-phone"
+            className={clsx('field num', phoneErr && 'border-loss')}
+            dir="ltr"
+            inputMode="tel"
+            autoComplete="off"
+            placeholder="09121234567"
+            value={phone}
+            aria-invalid={!!phoneErr}
+            aria-describedby="au-phone-hint"
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <p id="au-phone-hint" className={clsx('mt-1 text-[11px] leading-5', phoneErr ? 'text-loss' : phoneChanged ? 'text-amber' : 'text-faint')}>
+            {phoneErr ||
+              (phoneChanged
+                ? `از این پس با ${fmtPhone(newPhone!)} وارد می‌شود؛ ${user.phone ? `${fmtPhone(user.phone)} دیگر به این حساب راه ندارد` : 'ورود با نام کاربری هم می‌ماند'}.`
+                : 'شماره‌ای که کاربر با آن وارد می‌شود.')}
+          </p>
+        </div>
         <Field label="نقش" htmlFor="au-role">
           <Select
             id="au-role"
@@ -119,7 +153,7 @@ export default function AdminUsers() {
 
   return (
     <>
-      <PageHeader title="کاربران" text="جستجو، تغییر پلن و تمدید اشتراک، مسدودسازی و دسترسی مدیر." onReload={list.reload} loading={list.loading} />
+      <PageHeader title="کاربران" text="جستجو، تغییر شماره موبایل، تغییر پلن و تمدید اشتراک، مسدودسازی و دسترسی مدیر." onReload={list.reload} loading={list.loading} />
       <div className="card mb-4 grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto]">
         <div className="relative">
           <Search size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faint" />

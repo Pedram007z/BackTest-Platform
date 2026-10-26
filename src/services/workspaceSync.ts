@@ -66,7 +66,16 @@ function readLocal(): WorkspaceData {
     goToPresets: s.goToPresets,
     dailySeconds: s.dailySeconds,
     replayedMs: s.replayedMs,
-    prefs: { avatar: s.user.avatar, theme: s.theme, newsFilters: s.newsFilters, hasDemoData: s.hasDemoData, chartTz: s.chartTz, chartStyle: s.chartStyle },
+    prefs: {
+      avatar: s.user.avatar,
+      theme: s.theme,
+      newsFilters: s.newsFilters,
+      hasDemoData: s.hasDemoData,
+      chartTz: s.chartTz,
+      chartStyle: s.chartStyle,
+      favTools: s.favTools,
+      tvFavorites: s.tvFavorites,
+    },
   };
 }
 
@@ -83,6 +92,8 @@ function writeLocal(d: WorkspaceData, base: WorkspaceBase) {
     newsFilters: d.prefs.newsFilters ?? s.newsFilters,
     chartTz: d.prefs.chartTz ?? s.chartTz,
     chartStyle: d.prefs.chartStyle ?? s.chartStyle,
+    favTools: d.prefs.favTools ?? s.favTools,
+    tvFavorites: d.prefs.tvFavorites ?? s.tvFavorites,
     hasDemoData: d.prefs.hasDemoData ?? false,
     user: { ...s.user, avatar: d.prefs.avatar },
     sync: { base },
@@ -103,6 +114,8 @@ function dataChanged(s: ReturnType<typeof useStore.getState>, p: ReturnType<type
     s.newsFilters !== p.newsFilters ||
     s.chartTz !== p.chartTz ||
     s.chartStyle !== p.chartStyle ||
+    s.favTools !== p.favTools ||
+    s.tvFavorites !== p.tvFavorites ||
     s.hasDemoData !== p.hasDemoData ||
     s.user.avatar !== p.user.avatar
   );

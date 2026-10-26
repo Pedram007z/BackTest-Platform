@@ -176,7 +176,10 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
   const indicators = createIndicatorLayer(
     {
       chart,
+      series,
       container,
+      barSec: () => tfSec(),
+      plotBox: () => plotBox(),
       legend,
       digits: () => digits(),
       colors,

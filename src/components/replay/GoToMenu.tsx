@@ -17,6 +17,8 @@ interface Props {
   /** The chart's time zone: times here are shown in it, and new targets start in it. */
   tz: string;
   onJump: (target: number, label: string) => void;
+  /** Where the list opens: under the button (top bar) or above it (the bar under a maximized chart). */
+  side?: 'bottom' | 'top';
 }
 
 const HOUR = 3_600_000;
@@ -71,7 +73,7 @@ function Editor({ initial, chartTz, onSave, onCancel }: { initial: Partial<GoToP
   );
 }
 
-export function GoToMenu({ cursor, endMs, symbols, disabled, tz, onJump }: Props) {
+export function GoToMenu({ cursor, endMs, symbols, disabled, tz, onJump, side = 'bottom' }: Props) {
   const stored = useStore((s) => s.goToPresets);
   const add = useStore((s) => s.addGoToPreset);
   const update = useStore((s) => s.updateGoToPreset);
@@ -95,6 +97,7 @@ export function GoToMenu({ cursor, endMs, symbols, disabled, tz, onJump }: Props
   return (
     <Popover
       align="end"
+      side={side}
       panelClass="w-[min(92vw,380px)] p-3"
       onOpenChange={(v) => !v && setEditing(null)}
       button={({ open, toggle }) => (
@@ -123,7 +126,7 @@ export function GoToMenu({ cursor, endMs, symbols, disabled, tz, onJump }: Props
               </button>
             ))}
           </div>
-          <ul className="-mx-1 flex max-h-[min(50vh,360px)] flex-col overflow-y-auto">
+          <ul className={clsx('-mx-1 flex flex-col overflow-y-auto', side === 'top' ? 'max-h-[min(40vh,360px)]' : 'max-h-[min(50vh,360px)]')}>
             {presets.map((p) => {
               const next = nextOccurrence(cursor, p.time, p.tz, accept);
               const beyond = next <= cursor || next > endMs;

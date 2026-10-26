@@ -71,6 +71,10 @@ interface State {
   chartTz: string;
   /** The chart's colours the user changed (chart/style.ts); the rest follow the theme. */
   chartStyle: ChartStyleOverrides;
+  /** Built-in chart: starred drawing tools, shown in the floating favorites bar. */
+  favTools: string[];
+  /** TradingView chart: the library's favorites settings (services/workspace TV_FAVORITE_KEYS). */
+  tvFavorites: Record<string, string>;
   sidebarCollapsed: boolean;
   hasDemoData: boolean;
   sync?: SyncMeta;
@@ -78,6 +82,8 @@ interface State {
   setTheme: (t: Theme) => void;
   setChartTz: (tz: string) => void;
   setChartStyle: (style: ChartStyleOverrides) => void;
+  toggleFavTool: (tool: string) => void;
+  setTvFavorite: (key: string, value: string | null) => void;
   toggleSidebar: () => void;
   updateUser: (patch: Partial<UserProfile>) => void;
 
@@ -178,11 +184,22 @@ export const useStore = create<State>()(
       theme: initialTheme(),
       chartTz: DEFAULT_CHART_TZ,
       chartStyle: {},
+      favTools: [],
+      tvFavorites: {},
       sidebarCollapsed: false,
 
       setTheme: (theme) => set({ theme }),
       setChartTz: (chartTz) => set({ chartTz }),
       setChartStyle: (chartStyle) => set({ chartStyle }),
+      toggleFavTool: (tool) => set((s) => ({ favTools: s.favTools.includes(tool) ? s.favTools.filter((t) => t !== tool) : [...s.favTools, tool] })),
+      setTvFavorite: (key, value) =>
+        set((s) => {
+          if ((s.tvFavorites[key] ?? null) === value) return {};
+          const tvFavorites = { ...s.tvFavorites };
+          if (value === null) delete tvFavorites[key];
+          else tvFavorites[key] = value;
+          return { tvFavorites };
+        }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       updateUser: (patch) => set((s) => ({ user: { ...s.user, ...patch } })),
 
@@ -476,14 +493,19 @@ export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'de
       raw = legacy;
     }
   }
-  if (raw) void useStore.persist.rehydrate();
-  else
+  if (raw) {
+    // fields an older saved copy does not have must not keep the previous account's values
+    useStore.setState({ favTools: [], tvFavorites: {} });
+    void useStore.persist.rehydrate();
+  } else
     useStore.setState({
       ...freshData(account),
       goToPresets: [],
       newsFilters: DEFAULT_NEWS_FILTERS,
       chartTz: DEFAULT_CHART_TZ,
       chartStyle: {},
+      favTools: [],
+      tvFavorites: {},
       theme,
       sidebarCollapsed,
       sync: undefined,

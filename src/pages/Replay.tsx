@@ -280,6 +280,13 @@ export default function Replay() {
     [id, notify],
   );
 
+  /** «برو به»: a target from the menu (top bar, or under the maximized chart) */
+  const goTo = (t: number, label: string) => {
+    setPlaying(false);
+    jumpTo(t);
+    toast(`رفتید به: ${label}`, 'info');
+  };
+
   const step = useCallback(() => {
     const s = useStore.getState().sessions.find((x) => x.id === id);
     if (!s) return;
@@ -565,18 +572,7 @@ export default function Replay() {
             >
               {fmtDayLong(dayKeyIn(cursor, chartTz), 'jalali', true)} · <b className="text-ink">{fmtClock(cursor, chartTz)}</b> {tzName(chartTz)}
             </span>
-            <GoToMenu
-              cursor={cursor}
-              endMs={endMs}
-              symbols={session.symbols}
-              disabled={ended}
-              tz={chartTz}
-              onJump={(t, label) => {
-                setPlaying(false);
-                jumpTo(t);
-                toast(`رفتید به: ${label}`, 'info');
-              }}
-            />
+            <GoToMenu cursor={cursor} endMs={endMs} symbols={session.symbols} disabled={ended} tz={chartTz} onJump={goTo} />
             <button
               type="button"
               onClick={() => (free ? setUpgrade('calendar') : setNewsOpen((v) => !v))}
@@ -838,9 +834,16 @@ export default function Replay() {
             </button>
           </div>
           {expanded && (
-            <button type="button" onClick={() => setExpanded(false)} className="btn-soft py-1.5" title="خروج از حالت بزرگ (Esc)">
-              <Minimize2 size={15} /> خروج از بزرگ‌نمایی
-            </button>
+            <>
+              {/* the top bar is hidden while the chart fills the screen: Go To moves here */}
+              <span className="num hidden text-[12px] text-muted lg:inline" title={`${chartTz} (${fmtOffset(cursor, chartTz)})`}>
+                {fmtDayLong(dayKeyIn(cursor, chartTz), 'jalali', true)} · <b className="text-ink">{fmtClock(cursor, chartTz)}</b>
+              </span>
+              <GoToMenu cursor={cursor} endMs={endMs} symbols={session.symbols} disabled={ended} tz={chartTz} onJump={goTo} side="top" />
+              <button type="button" onClick={() => setExpanded(false)} className="btn-soft py-1.5" title="خروج از حالت بزرگ (Esc)">
+                <Minimize2 size={15} /> خروج از بزرگ‌نمایی
+              </button>
+            </>
           )}
           {!draft && (
             <span className="num text-[12px] text-muted" title="حجم بر اساس ریسک و حد ضرر پیش‌فرض (۱٫۵ برابر ATR) محاسبه می‌شود">

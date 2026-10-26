@@ -82,7 +82,7 @@ export type AnnouncementInput = Omit<Announcement, 'media' | 'version' | 'views'
 export interface AdminApi {
   stats(): Promise<AdminStats>;
   users(q: UserQuery): Promise<Page<AccountUser>>;
-  updateUser(id: string, patch: Partial<Pick<AccountUser, 'name' | 'role' | 'status' | 'planId' | 'planStartedAt' | 'planEndsAt' | 'note'>>): Promise<AccountUser>;
+  updateUser(id: string, patch: Partial<Pick<AccountUser, 'name' | 'phone' | 'role' | 'status' | 'planId' | 'planStartedAt' | 'planEndsAt' | 'note'>>): Promise<AccountUser>;
   deleteUser(id: string): Promise<void>;
   plans(): Promise<Plan[]>;
   savePlan(plan: Plan): Promise<Plan>;

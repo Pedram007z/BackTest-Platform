@@ -1007,11 +1007,23 @@ export const localBackend: Backend = {
       const u = db().users.find((x) => x.id === id);
       if (!u) throw new BackendError('not_found', 'کاربر پیدا نشد.');
       const before = { ...u };
-      Object.assign(u, patch);
+      let phone: string | undefined;
+      if (patch.phone !== undefined) {
+        const p = normalizePhone(patch.phone);
+        if (!p) throw new BackendError('bad_phone', 'شماره موبایل درست نیست. نمونه: ۰۹۱۲۱۲۳۴۵۶۷', 'phone');
+        if (p !== u.phone && db().users.some((x) => x.id !== u.id && x.phone === p)) throw new BackendError('phone_taken', 'این شماره برای حساب دیگری ثبت شده است.', 'phone');
+        if (p !== u.phone) phone = p;
+      }
+      Object.assign(u, patch, { phone: phone ?? before.phone });
+      if (phone) {
+        delete db().otps[before.phone];
+        delete db().otps[phone];
+      }
+      if (phone) log('تغییر شماره موبایل', `${u.name}: ${before.phone || '—'} → ${phone}`);
       if (patch.status && patch.status !== before.status) log(patch.status === 'banned' ? 'مسدود کردن کاربر' : 'رفع مسدودی کاربر', u.name);
       else if (patch.planEndsAt && patch.planEndsAt !== before.planEndsAt) log('تغییر اشتراک', `${u.name}: تا ${fmtDayLong(patch.planEndsAt)}`);
       else if (patch.role && patch.role !== before.role) log(patch.role === 'admin' ? 'دادن دسترسی مدیر' : 'گرفتن دسترسی مدیر', u.name);
-      else log('ویرایش کاربر', u.name);
+      else if (!phone) log('ویرایش کاربر', u.name);
       save();
       return clone(u);
     },
