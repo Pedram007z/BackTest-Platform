@@ -141,9 +141,10 @@ const wIdx = (x) => (Array.isArray(x) ? x[0] : x);
 function shotWords(s, t, cam) {
   if (!s.groups || !s.groups.length) return;
   const first = s === SHOTS[0], gStart = first ? -1 : ws(s.groups[0].at) - 0.4; if (t < gStart || t > s.t1 + (s.next ? s.next.md : 0.6)) return;
-  const sc = s.cam[2] / cam[2], aOut = s.next ? 1 - cub(k01(t, s.t1 + 0.05, s.next.md * 0.6)) : 1, aZ = (1 - k01(sc, 2.2, 2.5)) * cl((sc - 0.08) / 0.15);
+  // hud: the words stay put on the screen while the camera zooms (a shot with a strong push-in)
+  const sc = s.hud ? 1 : s.cam[2] / cam[2], aOut = s.next ? 1 - cub(k01(t, s.t1 + 0.05, s.next.md * 0.6)) : 1, aZ = (1 - k01(sc, 2.2, 2.5)) * cl((sc - 0.08) / 0.15);
   const a = aOut * aZ; if (a <= 0.003) return;
-  cv.save(); setPlate(s.cam, cam); cv.globalAlpha *= a;
+  cv.save(); if (s.hud) cv.setTransform(1, 0, 0, 1, SHAKE, 0); else setPlate(s.cam, cam); cv.globalAlpha *= a;
   if (s.scrim) { const g = cv.createLinearGradient(0, 120, 0, s.scrim); g.addColorStop(0, rgba(BG, 0.92)); g.addColorStop(0.7, rgba(BG, 0.75)); g.addColorStop(1, rgba(BG, 0)); cv.fillStyle = g; cv.fillRect(-200, 0, W + 400, s.scrim); }
   if (s.scrimB) { const g = cv.createLinearGradient(0, s.scrimB, 0, H); g.addColorStop(0, rgba(BG, 0)); g.addColorStop(0.3, rgba(BG, 0.8)); g.addColorStop(1, rgba(BG, 0.94)); cv.fillStyle = g; cv.fillRect(-200, s.scrimB, W + 400, H - s.scrimB + 200); }
   s.groups.forEach((g, gi) => {

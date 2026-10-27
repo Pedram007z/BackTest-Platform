@@ -871,3 +871,20 @@ From there the reel turns to real material:
 - `d-*.jpg` are f1's replay frames.
 
 The caption, the DM reply and the facts on screen are in `k1/caption.md`.
+
+## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
+
+The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
+real desktop platform: Indicators opened, "Sessions" typed and added, the boxes with each session's high and low, its settings,
+and the replay stepped from the London open while the London box grows. 22.5 s, 1080×1920, z-kit (with `hud` captions that stay
+put while the camera zooms into the dialog), an original 120 BPM score (`sound.py`, the drop on «اندیکاتور سشن‌ها»).
+
+```bash
+# with the platform running (npm run dev + the API server on its market store), from s1/capture/:
+node signup.mjs && node mksession.mjs && node cap.mjs <session id>   # screens/*.jpg (native 2×) and ../marks.json
+cd .. && python3 data.py && python3 sound.py && cd .. && python3 mkpage_z.py s1
+cd s1 && node render.cjs video story-hq.mp4 mix.wav 4
+```
+
+Captures use Chromium's own 2× (`--force-device-scale-factor=2`): with only Playwright's emulated `deviceScaleFactor: 2`,
+TradingView draws its canvas text twice too big (clipped axis labels).
