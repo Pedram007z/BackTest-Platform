@@ -115,6 +115,8 @@ k[0-9]/*/*.mp4
 k[0-9]/*/*.png
 k[0-9]/*/*.log
 k[0-9]/*/chunks/
+k[0-9]/chunks/
+k[0-9]/*.mp4
 # s-stories (s1…): screen captures (rebuilt with <story>/capture/), music, mix, render, chunks and cover
 s[0-9]/screens/
 s[0-9]/*.wav
