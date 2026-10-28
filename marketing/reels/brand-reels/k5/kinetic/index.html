@@ -389,7 +389,7 @@ function saveCluster(t) {
   at(540, P4, 1, 1, () => {
     const m = RR.modal || [496, 230, 448, 440], c = RR.clist || [793, 208, 361, 193];
     polaroid('smodal', m, 120, -170, 640, -0.04, 'قانون‌های استراتژی', k01(t, ws(61) - 0.2, 0.45));
-    polaroid('clist', c, -130, 330, 560, 0.05, 'چک‌لیست ورود', k01(t, ws(63) - 0.2, 0.45));
+    polaroid('clist', c, -150, 410, 560, 0.05, 'چک‌لیست ورود', k01(t, ws(63) - 0.2, 0.45));
     stampInk('ذخیره شد', 200, 0, 84, '#2B4C9B', -0.14, k01(t, ws(67) - 0.05, 0.22));
   });
 }
@@ -486,10 +486,10 @@ function frame(t) {
 window.seek = frame;
 window.cover = () => {
   frame(T.but + 0.7);
-  cv.setTransform(1, 0, 0, 1, 0, 0); cv.fillStyle = 'rgba(14,11,10,0.55)'; cv.fillRect(0, 0, W, 760);
+  cv.setTransform(1, 0, 0, 1, 0, 0); { const g = cv.createLinearGradient(0, 0, 0, 820); g.addColorStop(0, 'rgba(14,11,10,0.75)'); g.addColorStop(0.6, 'rgba(14,11,10,0.45)'); g.addColorStop(1, 'rgba(14,11,10,0)'); cv.fillStyle = g; cv.fillRect(0, 0, W, 820); }
   const s1 = 'نظرت چیه باهم', s2 = 'یه خودکشی کنیم؟';
-  [[s1, 300, '#F4F4F4'], [s2, 460, TC.R]].forEach(([s, y, c]) => { const w = measure(s, 100, 800) + 100; at(CX, y, 1, 1, () => { rrect(-w / 2, -85, w, 170, 10, '#121212'); txt(s, 0, 4, 100, c, { w: 800 }); }, y > 400 ? 0.015 : -0.015); });
-  at(CX, 640, 1, 1, () => { const s = 'پرونده: خودکشی مالی', w = measure(s, 54) + 70; rrect(-w / 2, -50, w, 100, 10, '#FBF5E6'); txt(s, 0, 4, 54, INK); });
+  [[s1, 330, '#F4F4F4'], [s2, 490, TC.R]].forEach(([s, y, c]) => { const w = measure(s, 100, 800) + 100; at(CX, y, 1, 1, () => { rrect(-w / 2, -85, w, 170, 10, '#121212'); txt(s, 0, 4, 100, c, { w: 800 }); }, y > 400 ? 0.015 : -0.015); });
+  at(772, 1470, 1, 1, () => { const s = 'پرونده: خودکشی مالی', w = measure(s, 40) + 56; rrect(-w / 2, -40, w, 80, 8, '#121212'); txt(s, 0, 3, 40, '#FBF5E6'); }, -0.05);
 };
 
 </script></body></html>
