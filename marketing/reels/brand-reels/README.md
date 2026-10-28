@@ -948,6 +948,42 @@ The score is 116 BPM in F major, with a bar landing on «توی بک‌تست‌
 
 `k3/screens/` isn't in git. The caption and the facts on screen are in `k3/caption.md`.
 
+## k4: «میخوای رو FX Replay بک‌تست بگیری ولی نمی‌تونی؟», kinetic (`k4/`, the user's voice)
+
+The kinetic look, 50.0 s, on the take's own speed. The opening is drawn:
+- a backtest window that won't open (a lock, no brand);
+- the key that opens it on «همینجاست»;
+- a foreign card, a VPN and a dollar price, each crossed out.
+
+From «بک‌تست‌لب» on, every line has a real screen from the dark-theme platform, with rings and labels on the spoken
+word:
+- the app in Persian, with its Jalali date and Tehran clock (s1);
+- the session window's «داده‌ی چارت: ۱۱ دی ۱۳۹۳ تا ۱۵ مهر ۱۴۰۵», then the gold replay with the future covered (f1);
+- the timeframe bar, 1m to D (s1);
+- the line, Fibonacci and indicators (f1);
+- «برو به» with London and New York (s1);
+- the news flags and their card in Tehran time (k4's own capture on the built-in chart);
+- spread, commission and a placed trade (f1);
+- the analytics of f1's 10-trade test, marked «نمونه»;
+- the billing page's Iranian gateways (f1).
+
+The score is 120 BPM in A minor, with a bar landing on «بک‌تست‌لب».
+
+**Captures** (`capture/`):
+- `mksession.mjs` makes a fresh gold session in the dark theme.
+- `cap.mjs <id>` captures the TradingView chart and the calendar panel, n0 and n1. These aren't used in the reel: the
+  TradingView chart draws no news markers in view.
+- `cap2.mjs <id>` captures the built-in chart's flags and hover card, n2 and n3.
+- The other screens come from `../f1/screens/` and `../s1/screens/`, through `images.json`.
+
+**Rebuild** (in `k4/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k4 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+`k4/screens/` isn't in git. The caption and the facts on screen are in `k4/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
