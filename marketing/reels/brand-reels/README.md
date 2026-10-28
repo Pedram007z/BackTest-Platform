@@ -912,6 +912,42 @@ The pictures come from other reels' folders (`images.json`), which aren't in git
 
 The caption and the facts on screen are in `k2/caption.md`.
 
+## k3: «کدوم پلتفرم بک‌تست‌گیری ایرانی تقویم اقتصادی داره…؟», kinetic in a light theme (`k3/`, the user's voice)
+
+The kinetic look on light grounds, 56.0 s. The grounds are pastels (paper, lilac, white, rose, mint, sky, lime). On them
+sit white cards, dark ink and violet, red and orange accents. The end card uses the light wordmark. In `story.js` every
+scene uses `th: 'paper'`, and the end card is the reel's own `endArtL`.
+
+The real screens are the platform's own light theme on the built-in chart. The session is gold on Friday 2 October 2026,
+the day NFP came out at 16:00 Tehran. The reel shows, in order:
+- the replay stepped through the release candle (a real spike of about 40 dollars), then its flag and hover card;
+- the flags on the chart, red for high impact and orange for medium;
+- the hover card with the Persian title and Tehran time, the time zone menu, and the same card in New York time;
+- the dashed line of the coming release as the replay walks toward it;
+- a locked «عدد واقعی» card (an illustration, no numbers);
+- the calendar beside the chart, with its Jalali dates and its country and impact filters;
+- the release candle with before / during / after marks;
+- the bio link and «اشتراک حرفه‌ای», since the calendar is locked on the free plan.
+
+The score is 116 BPM in F major, with a bar landing on «توی بک‌تست‌لب».
+
+**Captures** (`capture/`):
+1. Run the platform locally: the API server on the market store with `DATA_DIR`, and Vite with `VITE_API_URL`.
+2. Run `node mksession.mjs`. It makes a fresh gold session from 28 September 2026, because the replay keeps its cursor
+   between runs.
+3. Run `node cap.mjs <session id>`, which:
+   - switches the account to the light theme and the time zone to Tehran;
+   - turns on the medium-impact filter;
+   - captures `screens/` and writes `marks.json`.
+
+**Rebuild** (in `k3/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k3 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+`k3/screens/` isn't in git. The caption and the facts on screen are in `k3/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
