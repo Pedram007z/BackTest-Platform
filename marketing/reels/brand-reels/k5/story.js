@@ -21,7 +21,9 @@ let PAT = null;
 // ---------- the camera ----------
 const P1 = 1150, P2 = 2700, P3 = 4300, P4 = 5900, P5 = 7500, P6 = 9100, CTAX = 1760;
 const cardX = [870, 540, 210];               // the three index cards, right to left (۱ is read first)
-const winI = Math.max(0, RES.findIndex((c) => c.name === BEST));
+const NAMES = ['خرید در باز شدن لندن', 'فروش در باز شدن لندن', 'خرید در باز شدن نیویورک'];   // the cards' order (setup.mjs)
+const byName = (n) => RES.find((c) => c.name === n);
+const winI = Math.max(0, NAMES.indexOf(BEST));
 const KEYS = [
   [0, 540, P1 - 30, 1.04], [T.plan - 0.2, 540, P1 + 10, 1.0], [T.but - 0.1, 540, P1 + 30, 1.06], [ws(32) - 0.2, 540, P1 + 260, 0.98],
   [T.brand - 0.35, 540, P2, 1.0], [T.three - 0.3, 540, P3, 0.98], [T.save - 0.3, 540, P4, 0.95], [T.test - 0.3, 540, P5, 0.95],
@@ -128,11 +130,15 @@ function threeCards(t, verdict) {
     const kr = cub(k01(t, T.verdict - 0.2, 0.4));
     if (kr < 1) sticky('؟', x + 70, y + 120 + dyf, 110, 0.12, cub(k01(t, ws(53) - 0.1 + i * 0.12, 0.3)) * (1 - kr), YEL, 80);
     // the real result, printed from the strategies page, pinned over the card
-    const c = RES[i]; if (c && kr > 0) polaroid('strats', c.r, x, y + 30 + dyf, 320, rot * 0.6, '', kr);
+    const c = byName(NAMES[i]); if (c && kr > 0) polaroid('strats', c.r, x, y + 30 + dyf, 320, rot * 0.6, '', kr);
     if (c && kr > 0) {
       const win = i === winI, up = c.netNum >= 0, sx = x, sy = y + 160 + dyf;
       if (win) stampInk(up ? 'سود داد' : 'کمترین ضرر', sx, sy, 62, '#1E8E4F', -0.18, k01(t, ws(84) - 0.05, 0.22));
       else stampInk('اعصاب‌خردکن', sx, sy, 50, RED, 0.16, k01(t, ws(89) - 0.1 + (i === 2 ? 0.15 : 0), 0.22));
+      // its real numbers, on a tag under the card
+      const kt = pop(t - (win ? ws(85) : ws(90)) + 0.05, 13, 0.55);
+      if (kt > 0) at(x, y + 300 + dyf, cl(kt, 0, 1.15), cl(kt), () => { const l1 = `${up ? 'سود' : 'ضرر'} ${fa(Math.abs(Math.round(c.netNum)))} دلار`, l2 = `وین‌ریت ${c.win.replace('٫۰٪', '٪')} · ${fa(c.total)} معامله`, w = Math.max(measure(l1, 40), measure(l2, 26, 700)) + 50;
+        shadowed(() => rrect(-w / 2, -54, w, 108, 8, '#FBFAF6'), 16, 8, 0.45); txt(l1, 0, -14, 40, up ? '#1E8E4F' : RED); txt(l2, 0, 30, 26, INK, { w: 700 }); }, rot);
     }
     cv.restore();
   }
@@ -143,7 +149,7 @@ function threeCards(t, verdict) {
 }
 function saveCluster(t) {
   at(540, P4, 1, 1, () => {
-    const m = RR.modal || [470, 200, 500, 420], c = RR.clist || [260, 160, 420, 260];
+    const m = RR.modal || [496, 230, 448, 440], c = RR.clist || [793, 208, 361, 193];
     polaroid('smodal', m, 120, -170, 640, -0.04, 'قانون‌های استراتژی', k01(t, ws(61) - 0.2, 0.45));
     polaroid('clist', c, -130, 330, 560, 0.05, 'چک‌لیست ورود', k01(t, ws(63) - 0.2, 0.45));
     stampInk('ذخیره شد', 200, 0, 84, '#2B4C9B', -0.14, k01(t, ws(67) - 0.05, 0.22));
@@ -153,17 +159,19 @@ function testCluster(t) {
   const caps = ['خرید لندن', 'فروش لندن', 'خرید نیویورک'];
   at(540, P5, 1, 1, () => { ['rA', 'rB', 'rC'].forEach((key, i) => polaroid(key, [40, 150, 1150, 690], [250, 0, -250][i], [-180, 40, 260][i], 600, [0.06, -0.03, 0.05][i], caps[i], k01(t, [ws(70), ws(71), ws(72)][i] - 0.15, 0.45))); });
 }
+/** a ring on part of a photo, in the photo's own coordinates: r is the crop, q the part (CSS px of the capture) */
+function ringLocal(r, q, x0, y0, w, k, col = RED) { if (k <= 0) return; const sc = w / r[2], m = 10 * (1 - k) + 6; cv.save(); cv.globalAlpha *= k; rrect(x0 + (q[0] - r[0]) * sc - m, y0 + (q[1] - r[1]) * sc - m, q[2] * sc + 2 * m, q[3] * sc + 2 * m, 12, null, col, 6); cv.restore(); }
 function analyticsCluster(t) {
+  const rF = [470, 150, 560, 240], rW = [520, 155, 640, 295];
   at(540, P6, 1, 1, () => {
-    const f = RR.filter || [500, 160, 270, 40], rF = [f[0] - 330, f[1] - 30, 720, 330];
-    polaroid('anF', rF, 0, -210, 880, -0.03, 'آنالیز، استراتژی به استراتژی', k01(t, ws(77) - 0.2, 0.45));
-    polaroid('anW', [40, 330, 1110, 160], 0, 330, 900, 0.035, 'فقط: ' + BEST, k01(t, ws(81) - 0.15, 0.45));
+    polaroid('anF', rF, 0, -250, 860, -0.03, 'آنالیز، استراتژی به استراتژی', k01(t, ws(77) - 0.2, 0.45), { draw: (x0, y0, w) => ringLocal(rF, [598, 218, 270, 156], x0, y0, w, cub(k01(t, ws(79), 0.3))) });
+    polaroid('anW', rW, 0, 330, 880, 0.035, 'فقط: ' + BEST, k01(t, ws(81) - 0.15, 0.45), { draw: (x0, y0, w) => { ringLocal(rW, [884, 286, 194, 28], x0, y0, w, cub(k01(t, ws(81) + 0.2, 0.3))); ringLocal(rW, [1036, 396, 108, 48], x0, y0, w, cub(k01(t, ws(82), 0.3)), '#1E8E4F'); } });
   });
 }
 function ctaCluster(t) {
   at(CTAX, P3, 1, 1, () => {
     sticky('شروع رایگان', 0, -160, 520, -0.05, cub(k01(t, ws(97) - 0.1, 0.35)), YEL, 72);
-    const kt = cub(k01(t, ws(99) - 0.1, 0.35)); if (kt > 0) at(0, 260, 1, kt, () => { const s = 'لینک توی بیو', w = measure(s, 70) + 90; shadowed(() => rrect(-w / 2, -60, w * kt, 120, 12, '#151515'), 18, 8, 0.6); txt(s, 0, 4, 70, '#F2F2F2'); }, 0.03);
+    const kt = pop(t - ws(99) + 0.1, 13, 0.55); if (kt > 0) at(0, 260, cl(kt, 0, 1.15), cl(kt), () => { const s = 'لینک توی بیو', w = measure(s, 70) + 100; shadowed(() => rrect(-w / 2, -66, w, 132, 66, WHITE), 20, 10, 0.5); txt(s, 0, 4, 70, VIO); pin(w / 2 - 40, -40); }, 0.03);
     if (IMG.icon) { const ki = cub(k01(t, ws(99), 0.35)); if (ki > 0) at(0, 520, 1, ki, () => { shadowed(() => cv.drawImage(IMG.icon, -80, -80, 160, 160), 20, 8, 0.5); pin(0, -70); }); }
   });
 }
@@ -239,9 +247,9 @@ function frame(t) {
 }
 window.seek = frame;
 window.cover = () => {
-  frame(T.plan + 2.6);
-  cv.setTransform(1, 0, 0, 1, 0, 0); cv.fillStyle = 'rgba(14,11,10,0.55)'; cv.fillRect(0, 0, W, 760);
+  frame(T.but + 0.7);
+  cv.setTransform(1, 0, 0, 1, 0, 0); { const g = cv.createLinearGradient(0, 0, 0, 820); g.addColorStop(0, 'rgba(14,11,10,0.75)'); g.addColorStop(0.6, 'rgba(14,11,10,0.45)'); g.addColorStop(1, 'rgba(14,11,10,0)'); cv.fillStyle = g; cv.fillRect(0, 0, W, 820); }
   const s1 = 'نظرت چیه باهم', s2 = 'یه خودکشی کنیم؟';
-  [[s1, 300, '#F4F4F4'], [s2, 460, TC.R]].forEach(([s, y, c]) => { const w = measure(s, 100, 800) + 100; at(CX, y, 1, 1, () => { rrect(-w / 2, -85, w, 170, 10, '#121212'); txt(s, 0, 4, 100, c, { w: 800 }); }, y > 400 ? 0.015 : -0.015); });
-  at(CX, 640, 1, 1, () => { const s = 'پرونده: خودکشی مالی', w = measure(s, 54) + 70; rrect(-w / 2, -50, w, 100, 10, '#FBF5E6'); txt(s, 0, 4, 54, INK); });
+  [[s1, 330, '#F4F4F4'], [s2, 490, TC.R]].forEach(([s, y, c]) => { const w = measure(s, 100, 800) + 100; at(CX, y, 1, 1, () => { rrect(-w / 2, -85, w, 170, 10, '#121212'); txt(s, 0, 4, 100, c, { w: 800 }); }, y > 400 ? 0.015 : -0.015); });
+  at(772, 1470, 1, 1, () => { const s = 'پرونده: خودکشی مالی', w = measure(s, 40) + 56; rrect(-w / 2, -40, w, 80, 8, '#121212'); txt(s, 0, 3, 40, '#FBF5E6'); }, -0.05);
 };

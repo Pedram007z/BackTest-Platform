@@ -984,6 +984,46 @@ The score is 120 BPM in A minor, with a bar landing on «بک‌تست‌لب».
 
 `k4/screens/` isn't in git. The caption and the facts on screen are in `k4/caption.md`.
 
+## k5: «نظرت چیه باهم یه خودکشی کنیم؟», a case file on a corkboard (`k5/`, the user's voice)
+
+A new look, 42.9 s, on the take's own speed. One camera moves over a corkboard under a desk lamp:
+- the folder «پرونده: خودکشی مالی» opens on its «نقشه» list, which gets typed and ticked in red;
+- «لغو شد» is stamped across it on «اما»;
+- a red string leads to the brand card;
+- three index cards, one per strategy, then the save, test and analytics photos;
+- the camera flies back to the cards for the verdict.
+
+The captions are Dymo label tapes in screen space. The end card is dark, with «اول تست، بعد ترید».
+
+From «بک‌تست‌لب» on, every photo is the real platform in its light theme. These are k5's own captures on a local copy:
+- three strategies with their rules and a checklist;
+- three XAUUSD 1h sessions with 10 trades each, placed through the app's own buttons;
+- each strategy's card with its real results;
+- the analytics filtered to the winner.
+
+The stamps and the «برنده» ribbon follow those results (`results.json`). The score is a noir piece in D minor at 96
+BPM, with typewriter ticks, stamps and pin pops.
+
+`story.js` doesn't use u-kit's scenes. It calls `story({ scenes: [] })` and then sets its own `window.seek` and
+`window.cover`.
+
+**Captures** (`capture/`; the platform runs locally with the API server on its market store):
+1. `signup.mjs`.
+2. `setup.mjs` makes the strategies and the checklist.
+3. `mksessions.mjs` makes three sessions.
+4. `trade.mjs <id> <buy|sell> <london|newyork> 10`, once per session.
+5. `shots.mjs <idA> <idB> <idC>` writes `screens/*.jpg` and `results.json`.
+
+The account needs the pro plan, for three sessions and the analytics.
+
+**Rebuild** (in `k5/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k5 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+`k5/screens/` isn't in git. The caption and the facts on screen are in `k5/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
