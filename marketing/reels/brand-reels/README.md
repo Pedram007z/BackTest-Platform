@@ -872,6 +872,46 @@ From there the reel turns to real material:
 
 The caption, the DM reply and the facts on screen are in `k1/caption.md`.
 
+## k2: «مگه میشه با بک‌تست‌لب تمرین کنی و نتیجه نگیری؟», kinetic (`k2/`, the user's voice)
+
+k1's kinetic look, 55.3 s. The question gets an honest answer, «آره، میشه», and the arrow from «تمرین» to «نتیجه»
+snaps. Three wrong ways to practise follow, each tagged «اشتباه»:
+1. pressing play and buying and selling anywhere;
+2. a new rule after every loss;
+3. numbers nobody looks at.
+
+The arrow mends on «ولی اگه درست تمرین کنی», and the right way is shown in steps:
+- **Strategy:** a strategy card with its rules ticked.
+- **Replay (real screens):** s1's gold replay, with the future covered.
+- **Costs (real screens):** f1's spread and commission fields ringed.
+- **Before entry:** a checklist ticked and a journal note typed.
+- **Analytics (real screens):** f1's win rate, average RR and longest losing streak, one at a time, marked «نمونه».
+
+The ending:
+- «حس» crossed out against «عدد»;
+- «سود تضمینی» struck through on «نیست»;
+- a drawn curve («مثال») showing when a strategy works and when it doesn't;
+- the bio link tapped, and the end card.
+
+The score is 118 BPM in D minor, with a bar landing on «ولی».
+
+**Voice:**
+- `voice/build.py` cuts pauses to 0.18 s and speeds the voice up 12% with the pitch kept.
+- Whisper missed five words, «اینه که بدونی استراتژیت کی». They were placed by hand in `voice/t1.words.json`, from
+  the loudness trace.
+
+**Rebuild** (in `k2/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k2 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+The pictures come from other reels' folders (`images.json`), which aren't in git:
+- `../f1/screens/` (`c-session`, `h-analytics`, `h-analytics-2`);
+- `../s1/screens/f00–f36`.
+
+The caption and the facts on screen are in `k2/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
