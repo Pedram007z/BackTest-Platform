@@ -1182,33 +1182,52 @@ The score is B minor at 122 BPM.
 
 The caption and the facts on screen are in `k8/caption.md`.
 
-## dg1: «چالش ۱۰۰ معامله», a glass diagram reel (`dg1/`, the user's voice)
+## dg1: «چالش ۱۰۰ معامله», 3D glass objects in the logo's violet (`dg1/`, the user's voice)
 
-The challenge is one flowchart in the logo's violet, 46.9 s:
-- frosted-glass nodes with Lucide icons on violet squircles;
-- glowing connectors with particles flowing along them;
-- a dot grid under it, like graph paper.
+The look of the brand's glass slides, 46.9 s. Each step has one 3D glass hero on a plain dark-violet background:
+- a soft spotlight from the top and a glow under the hero;
+- a thin orbit ring with glass beads and a warm dot;
+- a few sparkles.
 
-Upcoming nodes wait as dashed outlines and light up on their word. The camera travels down the map node by node:
-1. The challenge, then «۴ قدم ساده».
-2. Step ۱: one strategy (three options, one kept).
-3. Step ۲: the rules, branching into entry, stop loss and take profit.
-4. Step ۳: a 0→100 counter, with «پول واقعی» struck and «بازار واقعی گذشته» ticked.
-5. Step ۴: «بدون تقلب», with the future hidden and the rules locked.
-6. A decision diamond splitting into «یه استراتژی که می‌شناسیش» and «۱۰۰ معامله‌ی بد، مجانی».
-7. Both join at «هر دوش برده».
-8. BacktestLab, then footprints to «قدم به قدم».
+The heroes are transmissive glass (three.js `MeshPhysicalMaterial`, violet attenuation) with an edge glow, and neon
+parts inside that bloom. Lucide icons are turned into neon tubes, and the BacktestLab icon is extruded from its own
+SVG. In order:
+1. a trophy;
+2. glass stairs («۴ قدم»);
+3. a crosshair tile with three beads, one kept;
+4. three tiles: entry, stop loss, take profit;
+5. a ring that fills 0→100;
+6. a shield with a check;
+7. a diamond that splits into «یه استراتژی که می‌شناسیش» and «۱۰۰ معامله‌ی بد، مجانی»;
+8. the trophy again («هر دوش برده»);
+9. the BacktestLab icon in glass;
+10. stairs with neon footprints («قدم به قدم»).
 
-Then the camera pulls back to the whole map, and the end card follows. The captions are typed on a glass plate at the
-top. The glass engine (the blurred background behind each panel, frost, rim, badges, pills, icons) is n1g's, copied
-into `scenes.js`. The score is C# minor at 116 BPM.
+The diagram: a glass tube with a neon core links the steps. It draws itself as each step comes and carries flowing
+light. The camera travels down it, then pulls back over the whole chain.
+
+On top, a 2D layer carries:
+- the step count and the brand;
+- the spoken line as a headline with its accent words in violet;
+- a small subline;
+- the labels and the 0→100 counter;
+- the end card.
+
+The score is C# minor at 116 BPM.
+
+The page has two canvases: WebGL for the glass, 2D for the text. Headless Chromium renders the WebGL with SwiftShader
+at about 1.5 s a frame, so the full render takes about 35 minutes on 4 workers. Neon parts inside the glass must be
+opaque materials: transmission only refracts opaque objects.
 
 **Rebuild** (in `dg1/`):
-1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
-2. `python3 page.py`.
-3. `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 mix.wav 3`.
+1. Install three.js r170 somewhere: `mkdir -p /tmp/t3 && (cd /tmp/t3 && npm init -y && npm install three@0.170.0)`.
+2. `THREE_DIR=/tmp/t3 sh vendor/bundle.sh`.
+3. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+4. `python3 page.py`.
+5. `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 mix.wav 4`.
 
-The caption and the notes are in `dg1/caption.md`.
+`vendor/three-bundle.js` and `index.html` aren't in git; they're rebuilt by those steps. The caption and the notes are
+in `dg1/caption.md`.
 
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 

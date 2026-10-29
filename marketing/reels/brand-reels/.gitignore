@@ -140,6 +140,9 @@ dg[0-9]/*.log
 dg[0-9]/chunks/
 dg[0-9]/voice/*.wav
 dg[0-9]/voice/*.log
+# dg1 bundles three.js (vendor/three-bundle.js, built by vendor/bundle.sh) into its page, so neither is kept
+dg[0-9]/vendor/three-bundle.js
+dg[0-9]/index.html
 # s-stories (s1…): screen captures (rebuilt with <story>/capture/), music, mix, render, chunks and cover
 s[0-9]/screens/
 s[0-9]/*.wav

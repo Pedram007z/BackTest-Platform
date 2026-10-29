@@ -22,8 +22,8 @@
 ## Facts on screen
 
 - **The take:** the user's recording (46.0 s), at its own speed with the pauses trimmed, so 46.9 s.
-- **Everything is drawn.** It's a flowchart: glass nodes with Lucide icons (ISC licence), connectors and a
-  0→100 counter. There are no platform screens and no prices in this reel.
+- **Everything is drawn.** It's 3D glass objects (three.js) with neon Lucide icons (ISC licence), the BacktestLab
+  icon extruded from the brand SVG, and a 0→100 counter. There are no platform screens and no prices in this reel.
 - **The four steps are the script's own.** They're true to the platform:
   - a session replays the real market;
   - the future stays hidden;
