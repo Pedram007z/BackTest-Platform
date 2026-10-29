@@ -132,6 +132,14 @@ t[0-9]/*/*.mp4
 t[0-9]/*/*.png
 t[0-9]/*/*.log
 t[0-9]/*/chunks/
+# dg-reels (dg1…): glass diagram reels. Voice cuts, music, mix, render, chunks, cover
+dg[0-9]/*.wav
+dg[0-9]/*.mp4
+dg[0-9]/*.png
+dg[0-9]/*.log
+dg[0-9]/chunks/
+dg[0-9]/voice/*.wav
+dg[0-9]/voice/*.log
 # s-stories (s1…): screen captures (rebuilt with <story>/capture/), music, mix, render, chunks and cover
 s[0-9]/screens/
 s[0-9]/*.wav

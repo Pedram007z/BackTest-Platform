@@ -1182,6 +1182,34 @@ The score is B minor at 122 BPM.
 
 The caption and the facts on screen are in `k8/caption.md`.
 
+## dg1: «چالش ۱۰۰ معامله», a glass diagram reel (`dg1/`, the user's voice)
+
+The challenge is one flowchart in the logo's violet, 46.9 s:
+- frosted-glass nodes with Lucide icons on violet squircles;
+- glowing connectors with particles flowing along them;
+- a dot grid under it, like graph paper.
+
+Upcoming nodes wait as dashed outlines and light up on their word. The camera travels down the map node by node:
+1. The challenge, then «۴ قدم ساده».
+2. Step ۱: one strategy (three options, one kept).
+3. Step ۲: the rules, branching into entry, stop loss and take profit.
+4. Step ۳: a 0→100 counter, with «پول واقعی» struck and «بازار واقعی گذشته» ticked.
+5. Step ۴: «بدون تقلب», with the future hidden and the rules locked.
+6. A decision diamond splitting into «یه استراتژی که می‌شناسیش» and «۱۰۰ معامله‌ی بد، مجانی».
+7. Both join at «هر دوش برده».
+8. BacktestLab, then footprints to «قدم به قدم».
+
+Then the camera pulls back to the whole map, and the end card follows. The captions are typed on a glass plate at the
+top. The glass engine (the blurred background behind each panel, frost, rim, badges, pills, icons) is n1g's, copied
+into `scenes.js`. The score is C# minor at 116 BPM.
+
+**Rebuild** (in `dg1/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 page.py`.
+3. `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 mix.wav 3`.
+
+The caption and the notes are in `dg1/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
