@@ -1024,6 +1024,35 @@ The account needs the pro plan, for three sessions and the analytics.
 
 `k5/screens/` isn't in git. The caption and the facts on screen are in `k5/caption.md`.
 
+## k6: «نظرت چیه باهم یه خودکشی کنیم؟», kinetic (`k6/`, the user's voice)
+
+The user's second take of k5's script (the same 102 words), cut in the kinetic look (u-kit), 42.5 s. The scenes:
+- **The hook:** an account's equity line climbs, then crashes on «خودکشی».
+- **The plan:** a card with «بک‌تست گرفتن» crossed out.
+- **Losing it:** on a red block, a stopwatch runs while the capital bar drains from ۱۰۰٪ to ۰٪.
+- **«اما اگه نخوایم»:** a «؟» that turns into a light bulb on «راه‌حل».
+- **The brand:** the logo, then the dashboard.
+- **The three strategies:** cards dealt, then shuffled face-down on «نمی‌دونی کدومش».
+- **Save, test, analytics:** the real screens, with rings on the spoken words.
+- **The verdict:** the real strategy cards, with the results as chips under each one («سود ۴۲۹ دلار», «ضرر ۶۱۳
+  دلار»).
+- **The winner:** the winner's card with a medal and «ورود به بازار».
+- **The end:** «شروع رایگان», the link, and the end card.
+
+The screens and the results are k5's: `images.json` points at `../k5/screens/`, and `results.json` is a copy. The
+score is E minor at 124 BPM, dark and tense until «بک‌تست‌لب», then the full groove.
+
+In Persian text, don't put «·» next to digits: «طلا · ۱ ساعته · ۱۰ معامله» renders with the digits out of order.
+Use commas, or words.
+
+**Rebuild** (in `k6/`; k5's screens must be on disk):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k6 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+The caption and the facts on screen are in `k6/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
