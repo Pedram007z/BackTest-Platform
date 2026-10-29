@@ -128,7 +128,7 @@ function worldB(t) {
     const flare = 1 + 0.6 * pop(t - ws(69), 8, 0.4) + 1.2 * past; cv.save(); cv.globalAlpha *= (1 - dissolve) * kpk; fig(700, 760, 0.62, { col: '#F2A33A', arm: 'up', lantern: kpk * flare }); cv.restore();
     if (dissolve > 0) for (let i = 0; i < 34; i++) { const a = rnd(i) * Math.PI * 2, r = dissolve * (60 + rnd(i * 3) * 320); circle(700 + Math.cos(a) * r, 640 + Math.sin(a) * r * 0.6 - dissolve * 160, 3 + rnd(i * 5) * 4, rgba('#FFD27A', (1 - dissolve) * 0.9 + 0.1)); } }
   // the candle city: grows from the path, then won't sit still
-  const grow = sm(t, T.markets - 0.1, 1.1), cw = 1000 / NB;
+  const grow = easeO(t, T.markets - 0.4, 0.9), cw = 1000 / NB;
   if (fog > 0) cv.filter = `blur(${fog * 7}px)`;
   const tops = [];
   for (let i = 0; i < NB; i++) { const g = cl(grow * 1.6 - i / NB * 0.6), osc = restless * (0.22 * Math.sin(t * 2.2 * fast + i * 1.7) + 0.12 * Math.sin(t * 3.7 * fast + i)), h = Math.max(40, CBASE[i] * (1 + osc)) * g;
@@ -212,7 +212,7 @@ function worldE(t) {
   cv.save(); cv.shadowColor = 'rgba(255,214,140,0.9)'; cv.shadowBlur = 40; txt(fa(yr), CX, 760, 250, ky >= 1 ? '#FFD27A' : '#FFFFFF', { dir: 'ltr' }); cv.restore();
   txt(ky > 0 ? `${fa(2015)} تا ${fa(yr)}` : 'سال‌ها تجربه‌ی بازار', CX, 920, 46, 'rgba(255,255,255,0.8)', { w: 700 });
   const kc = pop(t - ws(121) + 0.05, 12, 0.6); if (kc > 0) at(CX, (1 - cl(kc)) * 50, 1, cl(kc), () => { const w2 = 880, y2 = 1020; glowShot('c-session', RC, -440, y2, w2); ringIn(RC, [800, 755, 195, 24], -440, y2, w2, easeO(t, ws(124), 0.3), '#FFD27A'); txt('صفحه‌ی واقعی بک‌تست‌لب · ساخت جلسه', 0, y2 + 200, 28, 'rgba(255,255,255,0.7)', { w: 700 }); });
-  const kn = pop(t - ws(127) + 0.05, 12, 0.5); if (kn > 0) at(CX, 1420, cl(kn, 0, 1.2), cl(kn), () => { rrect(-230, -50, 460, 100, 50, '#FFD27A'); txt('نهایت استفاده', 0, 4, 50, '#1A1430'); });
+  const kn = pop(t - ws(127) + 0.05, 12, 0.5); if (kn > 0) at(CX, 1330, cl(kn, 0, 1.2), cl(kn), () => { rrect(-230, -50, 460, 100, 50, '#FFD27A'); txt('نهایت استفاده', 0, 4, 50, '#1A1430'); });
   // you, walking on with the lantern
   ridge(1700, 30, 0.006, 1.7, mixC(c[2], '#000000', 0.55)); const wx = lerp(-80, 520, k01(t, T.use, T.end - T.use)); fig(wx, 1712, 0.75, { col: '#8E7CFF', ph: t * 1.5, arm: 'up', lantern: 1 });
   cv.restore();
