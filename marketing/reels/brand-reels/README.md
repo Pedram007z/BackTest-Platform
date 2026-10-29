@@ -1119,6 +1119,42 @@ that script.
 
 The facts on screen are in `h1/caption.md`.
 
+## t1: «تاحالا بک‌تست‌لب به گوشت خورده؟ … اول بگم چی نیست», a typographic poster reel (`t1/`, the user's voice)
+
+A different kinetic look: the type is the picture, 49.0 s. The page is cream paper with black ink and one red.
+- Giant Vazirmatn is fitted to the frame's width.
+- Each word slides up through a mask on its spoken word and slides out at the cut.
+- Scenes cut hard on the beat, with black pages for «چی نیست», «تو» and «تجربه‌ی خودت».
+
+The beats:
+- «سیگنال», «پیش‌بینی» and «قول سود» are struck through and fall away.
+- A giant «۱» for «فقط یه کار».
+- «۲۰۱۵ — امروز» over the real data range.
+- «آینده» is redacted.
+- «تو» fills the page.
+- The trade's words over the real spread and commission fields.
+- The real gold replay.
+- «تصمیم» multiplies across the page, faster and faster.
+- «سیگنال‌فروشی» is struck through.
+- «تجربه‌ی خودت.»
+
+Around every page there's editorial furniture: the brand, the section label, the scene count, a red progress rule
+(right to left) and paper grain. The real screens are f1's, in black and white. The score is D minor at 118 BPM, with
+ticks, strike sounds and a drop to near-silence for «تجربه‌ی خودت».
+
+`story.js` doesn't use u-kit's scenes: it calls `story({ scenes: [] })` and sets its own `window.seek` and
+`window.cover`. Two helpers do the work:
+- `reveal()` slides a word through its mask.
+- `line()` sets a line's words on their own word times and fits the line to the frame.
+
+**Rebuild** (in `t1/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py t1 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+The caption and the facts on screen are in `t1/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the

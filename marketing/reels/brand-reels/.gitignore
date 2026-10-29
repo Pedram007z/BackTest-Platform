@@ -124,6 +124,14 @@ h[0-9]/*/*.mp4
 h[0-9]/*/*.png
 h[0-9]/*/*.log
 h[0-9]/*/chunks/
+# t-reels (t1…): typographic reels; screens come from f1. Voice cuts, music, mix, renders, chunks, covers
+t[0-9]/*.wav
+t[0-9]/voice/*.wav
+t[0-9]/voice/*.log
+t[0-9]/*/*.mp4
+t[0-9]/*/*.png
+t[0-9]/*/*.log
+t[0-9]/*/chunks/
 # s-stories (s1…): screen captures (rebuilt with <story>/capture/), music, mix, render, chunks and cover
 s[0-9]/screens/
 s[0-9]/*.wav
