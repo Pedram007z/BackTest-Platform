@@ -1155,6 +1155,33 @@ ticks, strike sounds and a drop to near-silence for «تجربه‌ی خودت»
 
 The caption and the facts on screen are in `t1/caption.md`.
 
+## k8: «تاحالا بک‌تست‌لب به گوشت خورده؟ … اول بگم چی نیست», kinetic (`k8/`, the user's voice, t1's cut)
+
+The default kinetic look (u-kit) on the same voice as t1, 49.0 s. The scenes:
+- **«به گوشت خورده؟»:** a mystery tile with sound rings.
+- **The reveal:** the brand.
+- **«چی نیست»:** a big ✕.
+- **The three things it isn't:** a phone signal, a crystal ball and a «سود تضمینی» badge, crossed out one by one.
+- **«فقط یه کار»:** a giant «۱» with a check.
+- **«از ۲۰۱۵ تا امروز»:** f1's real data range.
+- **«بدون اینکه بذاره آینده رو ببینی»:** the real gold replay with the future covered.
+- **«حالا تو تصمیم بگیر»:** Buy and Sell, and a cursor that picks.
+- **The trade:** f1's placed buy-stop with its entry and stop loss, and the real spread and commission.
+- **«بازار جلو می‌ره»:** the trade playing out.
+- **«یکی دیگه»:** a wall of ✓ and ✕ decisions.
+- **«تجربه‌ی خودت»:** a gift box opens on an «تجربه» medal.
+- **The end:** the free start and the end card.
+
+The score is B minor at 122 BPM.
+
+**Rebuild** (in `k8/`, after t1's voice):
+1. `python3 data.py` and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k8 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+The caption and the facts on screen are in `k8/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
