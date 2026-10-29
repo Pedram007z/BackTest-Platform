@@ -1053,6 +1053,72 @@ Use commas, or words.
 
 The caption and the facts on screen are in `k6/caption.md`.
 
+## k7: «دیدی وقتی درگیر یه دردسر بزرگ تو زندگیت میشی…», kinetic (`k7/`, the user's voice)
+
+The kinetic look (u-kit), 50.7 s. The take is played 6% faster (`ATEMPO` 1.06) with the pauses trimmed, and the cut is
+shared with h1. The scenes:
+- **«دردسر بزرگ»:** a storm with lightning over a small figure.
+- **The consolers:** their bubbles («غصه نخور», «درست میشه», «قوی باش», «بی‌خیال!») pop, then fall away on «کسی درکت
+  نمی‌کنه».
+- **«واقعاً درکت کنه»:** two puzzle pieces click.
+- **«راحت‌ترین شکل ممکن»:** a guide's straight line through a winding path, to the sun.
+- **The market:** a restless chart that blurs «بدون درکش».
+- **Seeking:** a magnifier finds the one «درک کامل».
+- **The past:** a ۲۰۱۵–۲۰۲۶ timeline.
+- **«بک‌تست‌لب… یاد بگیری»:** f1's real gold replay and the data range «۱۱ دی ۱۳۹۳ تا ۱۵ مهر ۱۴۰۵», then f1's
+  winners and losers.
+- **The repeat:** a past pattern repeats as a ghost line.
+- **«تو باشی»:** «باتجربه» is pinned on you.
+- **The end:** the follow card, a ۲۰۱۵→۲۰۲۶ year counter over the data range, and the end card.
+
+The score is F# minor at 104 BPM. The life story is soft (no drums), the beat comes in at «بازارای مالی», and it plays
+in full from «بک‌تست‌لب».
+
+**Rebuild** (in `k7/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k7 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+The caption and the facts on screen are in `k7/caption.md`.
+
+## h1: «دیدی وقتی درگیر یه دردسر بزرگ…», an illustrated film (`h1/`, the user's voice, k7's cut)
+
+A new style: a flat, illustrated short film instead of words on colour blocks. It has:
+- faceless figures in layered landscapes;
+- a sky whose mood follows the story (storm, dusk, dawn, night, violet);
+- film grain and a vignette;
+- the spoken words as subtitles at the top, word by word.
+
+The story:
+1. **Life:** you stand on a hill in a storm. The consolers come, talk and leave. The experienced one (amber coat)
+   arrives with an umbrella, then leads you down a golden path to the sunrise.
+2. **The market:** the path becomes a price line, and the land a candle city that won't sit still, then fog. Far off,
+   the experienced one stands on a peak with a lantern. Its light draws the market's past across the sky (۲۰۱۵ to
+   ۲۰۲۶), and the figure dissolves into it.
+3. **The app:** f1's real gold replay, the data range, and the winners and losers, on a glowing screen.
+4. **You:** the pattern repeats across a dawn valley. The lantern comes down to you, with someone below still in the
+   rain. Then the follow card.
+5. **The end:** the year counter over the data range while you walk on with the lantern, then the end card.
+
+The score is C minor at 84 BPM. It has:
+- a rain bed and thunder that fade as the sky warms;
+- pads and a pluck;
+- a low pulse for the market;
+- the full groove only for the app and for «تو باشی».
+
+`story.js` doesn't use u-kit's scenes. It draws five worlds (A–E), cross-dissolves between them, and sets its own
+`window.seek` and `window.cover`. The page is built by `mkpage_u.py` into `h1/kinetic/`; the folder name comes from
+that script.
+
+**Rebuild** (in `h1/`, after k7's voice):
+1. `python3 data.py` and `python3 sound.py`.
+2. `python3 ../mkpage_u.py h1 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 3`.
+
+The facts on screen are in `h1/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
