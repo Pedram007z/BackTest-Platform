@@ -1330,9 +1330,35 @@ It adds two cuts, at «حداقل یه بار» (`run`: five red dots light up o
 «حدس» struck out). Its sound is `LOOK=blocks python3 sound.py`, which writes `mix-blocks.wav`.
 
 **Rebuild** (in `k11/`, after the voice and `data.py`):
-1. `LOOK=blocks python3 sound.py` and `python3 blocks_page.py`.
+1. `LOOK=blocks python3 sound.py` and `python3 blocks_page.py blocks`.
 2. `REEL_DIR=blocks node render.cjs cover blocks/cover.png` and `REEL_DIR=blocks node render.cjs video
    blocks/reel-hq.mp4 mix-blocks.wav 4`.
+
+**The dashboard look** (`dash.js`, `dash/`): the same voice, math and real screens as one live prop-challenge window
+on a dark trading-terminal screen. The spoken words land above it; its title, status, counters and panel follow the
+story. A sample $10,000 account (labelled) with fixed risk on the start balance:
+- **The hook:** the 60% win rate glows, five losses take the account to $9,000 (−10%), and the status flips to «رد شد»
+  with a glitch and «چالش رد شد».
+- **«بیا یه حساب ساده کنیم»:** the account rewinds.
+- **The math:**
+  - the trade log of ten;
+  - expected vs real;
+  - the 200-trade heatmap and the 71.4% gauge;
+  - the losing-streak alert counting to five.
+- **At 2% risk:** −$200 a loss, the drawdown bar and the equity steps to the common 10% prop limit, then «حساب بسته شد».
+- **A diagnostic:** strategy «سالم», risk «خراب».
+- **At 1% risk:** a rewind, the risk field typed from 2% to 1%, and the same five losses stop at −5% while the status
+  stays «فعال».
+- **The real number:** the counters turn to «؟», then «حدس» against «بک‌تست».
+- **The real screens:** the window opens f1's real gold replay, then the real Analytics, ringed.
+- **The close:** the pre-challenge checklist and the end card.
+
+Its sound is `LOOK=dash python3 sound.py`, which writes `mix-dash.wav`.
+
+**Rebuild:**
+1. `LOOK=dash python3 sound.py` and `python3 blocks_page.py dash`.
+2. `REEL_DIR=dash node render.cjs cover dash/cover.png` and `REEL_DIR=dash node render.cjs video dash/reel-hq.mp4
+   mix-dash.wav 4`.
 
 The caption and the facts on screen are in `k11/caption.md`.
 
