@@ -1229,6 +1229,34 @@ opaque materials: transmission only refracts opaque objects.
 `vendor/three-bundle.js` and `index.html` aren't in git; they're rebuilt by those steps. The caption and the notes are
 in `dg1/caption.md`.
 
+## k9: «چالش ۱۰۰ معامله», kinetic (`k9/`, the user's voice, dg1's cut)
+
+The default kinetic look (u-kit) on the same voice as dg1, 46.9 s. Everything is drawn; there are no platform screens
+and no prices. A «قدم ۱ از ۴» tag with four dots marks each step of the challenge. The scenes:
+- **«یه چالش دارم»:** a trophy, then a track to the finish on «تا آخرش بری». «ترید مثل قبل» is struck out.
+- **«قانونش ساده‌ست»:** four numbered steps and «فقط ۴ قدم».
+- **«یه استراتژی انتخاب کن. فقط یکی»:** three strategy cards. A cursor picks one, and the other two fall away.
+- **«قانون‌هاشو بنویس»:** a sample chart (labelled «نمودار نمونه») with the entry, stop-loss and take-profit lines.
+  Under it, three rows are written in with a pen.
+- **«صد تا معامله باهاش بزن»:** a 10×10 grid that fills to ۱۰۰, in time with a tick run.
+- **«نه با پول واقعی، روی بازار واقعی گذشته»:** «پول واقعی» crossed out, «بازار واقعی گذشته» ticked.
+- **«بدون تقلب»:** a shield, the future hidden («پنهان») and the rules locked («قفل»).
+- **«آخر صد معامله»:** a fork into two «یا» endings.
+- **The first ending:** a «استراتژی تو» card that ticks «کجا جواب می‌ده», «کجا جواب نمی‌ده» and «بدترین روزش».
+- **The second ending:** a wall of bad trades stamped «مجانی», then a wallet left untouched («دست‌نخورده»).
+- **«هر دوش برده»:** the trophy with both endings ticked, and confetti.
+- **The close:** the brand; a stair climbed step by step on «قدم به قدم»; the free start; the end card.
+
+The score is G minor at 120 BPM.
+
+**Rebuild** (in `k9/`, after dg1's voice):
+1. `python3 data.py` and `python3 sound.py`. `data.py` adds three cuts of its own: `safe`, `know` and `bad`.
+2. `python3 ../mkpage_u.py k9 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 4`.
+
+The caption and the facts on screen are in `k9/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
