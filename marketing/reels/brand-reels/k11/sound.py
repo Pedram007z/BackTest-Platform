@@ -12,8 +12,11 @@
 #   - the slider's click, the challenge bought;
 #   - the free start, the end card.
 #   python3 sound.py → music.json, music.wav, mix.wav (−14 LUFS)
-import json, subprocess, wave
+#   LOOK=blocks python3 sound.py → music-blocks.json, music-blocks.wav, mix-blocks.wav: the colour-block look (blocks.js),
+#   with whooshes on its two extra cuts, the die's rattle on «حدس» and a pop as each of the five losses lights up.
+import json, os, subprocess, wave
 import numpy as np
+BL = os.environ.get('LOOK') == 'blocks'; SUF = '-blocks' if BL else ''
 D = json.load(open('data.json')); T = D['T']; DUR = D['dur']; Wd = D['w']; ws = lambda i: Wd[i][0]; we = lambda i: Wd[i][1]
 CH = {'Fm': [[174.61, 207.65, 261.63, 349.23], 43.65], 'Db': [[138.59, 174.61, 207.65, 277.18], 69.30],
       'Ab': [[155.56, 207.65, 261.63, 311.13], 51.91], 'Eb': [[155.56, 196.0, 233.08, 311.13], 77.78]}
@@ -32,6 +35,9 @@ F('pop', ws(33), f=1100, gain=0.22); F('downlifter', ws(34), d=0.6, gain=0.14); 
 # 200 trades; >70%; five in a row
 run(ws(38) - 0.05, ws(40) + 0.65 - ws(38), 50, 1700, 40, 0.12); F('bell', ws(45), f=1396.91, d=1.2, gain=0.24)
 F('impact', ws(51), size=0.6, gain=0.4); F('pop', ws(53), f=900, gain=0.26)
+if BL:
+    for k in ('run', 'guess'): F('whoosh', T[k], gain=0.24)
+    for j in range(5): F('pop', ws(51) - 0.05 + (ws(57) - ws(51) + 0.05) * j / 4, f=900 - 60 * j, gain=0.22)
 # 2% risk staircase; the prop limit; the account closed
 for i in range(5): F('pop', ws(63) - 0.05 + (ws(66) - ws(63) + 0.05) * i / 5, f=1100 - 120 * i, gain=0.22)
 F('downlifter', ws(68), d=0.7, gain=0.16); F('pop', ws(68), f=700, gain=0.26)
@@ -42,7 +48,7 @@ F('bell', ws(85), f=1760.0, d=1.0, gain=0.22); F('impact', ws(87), size=0.8, gai
 for i in range(5): F('pop', ws(93) + (ws(98) - ws(93)) * i / 5, f=1300 - 60 * i, gain=0.18)
 F('pop', ws(99), f=1400, gain=0.26); F('bell', ws(102), f=2093.0, d=1.4, gain=0.26)
 # guess vs backtest
-run(T['real'] + 0.1, ws(113) - T['real'] - 0.1, 16, 900, 0, 0.12); F('fail', ws(114), gain=0.18); F('bell', ws(117) + 0.05, f=1760.0, d=1.2, gain=0.24)
+run((T['guess'] if BL else T['real']) + 0.1, ws(113) - (T['guess'] if BL else T['real']) - 0.1, 8 if BL else 16, 900, 0, 0.12); F('fail', ws(114), gain=0.18); F('bell', ws(117) + 0.05, f=1760.0, d=1.2, gain=0.24)
 # the replay; the analytics rings
 F('impact', ws(123), size=0.6, gain=0.35); run(T['lab'] + 0.2, T['analytics'] - T['lab'] - 0.4, 10, 1900, 10, 0.07)
 F('pop', ws(139), f=1200, gain=0.28); F('pop', ws(145), f=1000, gain=0.24); F('pop', ws(146), f=1400, gain=0.28)
@@ -58,10 +64,10 @@ spec = {'seed': 163, 'dur': DUR, 'grid0': G0, 'bar': BAR, 'fade_from': DUR - 1.4
         'clap': [[T['four'], T['prop']], [T['twist'], DUR - 0.6]], 'dark': [[T['risk2'], T['twist']]],
         'arp': [[0, T['calc']], [T['real'], T['lab']], [T['end'], DUR]], 'hats': [[T['calc'], DUR - 1.0]],
         'outro_bass': [T['real'], T['lab']], 'rolls': [[T['twist'] - 0.6, T['twist'] - 0.03]], 'fx': fx, 'ticks': ticks}
-json.dump(spec, open('music.json', 'w'), indent=1)
-subprocess.run(['python3', '../../reelkit/soundgen.py', 'music.json', 'music.wav'], check=True)
+json.dump(spec, open(f'music{SUF}.json', 'w'), indent=1)
+subprocess.run(['python3', '../../reelkit/soundgen.py', f'music{SUF}.json', f'music{SUF}.wav'], check=True)
 SR = 48000; N = int(DUR * SR)
-w = wave.open('music.wav'); mus = np.frombuffer(w.readframes(w.getnframes()), np.int16).reshape(-1, 2) / 32768.0; w.close()
+w = wave.open(f'music{SUF}.wav'); mus = np.frombuffer(w.readframes(w.getnframes()), np.int16).reshape(-1, 2) / 32768.0; w.close()
 out = np.zeros((N, 2)); out[:min(N, len(mus))] = mus[:N]
 vw = wave.open('voice/vo.wav'); vo = np.frombuffer(vw.readframes(vw.getnframes()), np.int16) / 32768.0; vw.close()
 v = np.zeros(N); m_ = min(N, len(vo)); v[:m_] = vo[:m_]
@@ -70,10 +76,10 @@ act = np.convolve(act, np.ones(int(0.25 * SR)) / int(0.25 * SR), 'same'); out *=
 out /= np.abs(out).max() + 1e-9; out *= 0.4
 out += np.stack([v, v], 1) / (np.abs(v).max() + 1e-9) * 0.85
 out = np.tanh(out * 1.2) / np.tanh(1.2)
-w = wave.open('mix-raw.wav', 'wb'); w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(out * 0.97, -1, 1) * 32767).astype('<i2').tobytes()); w.close()
-m = subprocess.run(['ffmpeg', '-hide_banner', '-i', 'mix-raw.wav', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json', '-f', 'null', '-'], capture_output=True, text=True).stderr
+w = wave.open(f'mix-raw{SUF}.wav', 'wb'); w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((np.clip(out * 0.97, -1, 1) * 32767).astype('<i2').tobytes()); w.close()
+m = subprocess.run(['ffmpeg', '-hide_banner', '-i', f'mix-raw{SUF}.wav', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json', '-f', 'null', '-'], capture_output=True, text=True).stderr
 j = json.loads(m[m.rindex('{'):m.rindex('}') + 1])
 af = (f"loudnorm=I=-14:TP=-1.5:LRA=11:measured_I={j['input_i']}:measured_TP={j['input_tp']}:measured_LRA={j['input_lra']}"
       f":measured_thresh={j['input_thresh']}:offset={j['target_offset']}:linear=true,alimiter=limit=0.8:attack=2:release=40:level=0")
-subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', 'mix-raw.wav', '-af', af, '-ar', str(SR), 'mix.wav'], check=True)
-print('mix.wav', DUR, 's; input', j['input_i'], 'LUFS')
+subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', f'mix-raw{SUF}.wav', '-af', af, '-ar', str(SR), f'mix{SUF}.wav'], check=True)
+print(f'mix{SUF}.wav', DUR, 's; input', j['input_i'], 'LUFS')

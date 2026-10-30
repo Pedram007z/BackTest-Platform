@@ -1319,6 +1319,21 @@ The score is F minor at 122 BPM, with a bar landing on «ریسکت خراب ب�
 3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
    kinetic/reel-hq.mp4 mix.wav 4`.
 
+**The colour-block look** (`blocks.js`, `blocks/`): the same voice, math and real screens in q2's language (the
+«۲۰۰ درصد» reel, past 10k views):
+- full-bleed blocks wipe into each other on the beat: paper, ink, violet, lime, red, and the ink/paper split for
+  «خراب نبود / خراب بود» and «حدس / بک‌تست»;
+- huge words sit anywhere on the frame as they're spoken: «۶۰٪», «سوزوندم؟», «۷۰٪», «۵ تا ضرر», «۱۰٪», «چنده؟»;
+- there's one bold symbol per idea and a punch-in on the hard moments.
+
+It adds two cuts, at «حداقل یه بار» (`run`: five red dots light up one per word) and «با حدس» (`guess`: a die and
+«حدس» struck out). Its sound is `LOOK=blocks python3 sound.py`, which writes `mix-blocks.wav`.
+
+**Rebuild** (in `k11/`, after the voice and `data.py`):
+1. `LOOK=blocks python3 sound.py` and `python3 blocks_page.py`.
+2. `REEL_DIR=blocks node render.cjs cover blocks/cover.png` and `REEL_DIR=blocks node render.cjs video
+   blocks/reel-hq.mp4 mix-blocks.wav 4`.
+
 The caption and the facts on screen are in `k11/caption.md`.
 
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)

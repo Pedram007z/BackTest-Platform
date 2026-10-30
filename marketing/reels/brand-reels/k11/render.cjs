@@ -1,4 +1,4 @@
-// Renders k11 (REEL_DIR=kinetic) with Playwright (1080×1920).
+// Renders k11 (REEL_DIR=kinetic or REEL_DIR=blocks) with Playwright (1080×1920).
 //   node render.cjs stills <out-dir> [t …]            one PNG per time (default: every half second)
 //   node render.cjs video <out.mp4> <mix.wav> [workers=3]
 //        30 fps; each frame blends 3 subframes 1/180 s apart (t − 1/180, t, t + 1/180) with ffmpeg tmix for motion blur,
