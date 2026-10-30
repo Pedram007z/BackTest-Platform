@@ -1285,6 +1285,42 @@ The score is A minor at 108 BPM, with a bar landing on «هست».
 
 The caption and the facts on screen are in `k10/caption.md`.
 
+## k11: «وین‌ریت استراتژیم ۶۰ درصد بود… پس چرا چالش پراپمو سوزوندم؟», kinetic (`k11/`, the user's voice)
+
+The default kinetic look (u-kit), 51.8 s. It's built on what the two reels past 10k views share (k1 and q2):
+- a money question in the viewer's words, with its number huge from the first frame;
+- «بیا یه حساب ساده کنیم» and the math step by step;
+- the brand only as the way to the real number, from 36 s;
+- fast speech (×1.22, about 190 words a minute);
+- a new picture every 2–3 s.
+
+The scenes:
+- **The hook:** a 60% win-rate ring, then a prop challenge card that burns («سوخت»).
+- **«بیا یه حساب ساده کنیم»:** a calculator.
+- **«۴ تاش ضرره»:** ten trades, four of them losses.
+- **«مرتب پخش نمی‌کنه»:** the tiles evenly spread («انتظار»), then bunched («واقعیت»).
+- **«توی ۲۰۰ تا معامله…»:** 200 sample trades at 60%. The run of five losses is ringed, with the exact 71.4% noted.
+- **«با ریسک ۲ درصد…»:** a drawdown staircase to −10%.
+- **«حسابتو می‌بنده»:** on red, the common prop limit and «حساب بسته شد».
+- **«استراتژیت خراب نبود؛ ریسکت خراب بود»:** a ✓ card and a ✕ card.
+- **«با ریسک ۱ درصد…»:** the 1% staircase stops at −5%, «هنوز توی بازی».
+- **«با حدس… با بک‌تست…»:** a die crossed out, a backtest chart ticked.
+- **«توی بک‌تست‌لب…»:** f1's real gold replay.
+- **«آنالیزش بهت می‌گه…»:** the real Analytics losers box («بیشترین باخت‌های پیاپی») and the Monte Carlo card
+  («افت سرمایه در بدترین ۵٪»), ringed.
+- **«اول ریسکتو تنظیم کن، بعد پول چالش رو بده»:** a risk slider from 2% to 1%, then «خرید چالش».
+- **The close:** the free start and the end card.
+
+The score is F minor at 122 BPM, with a bar landing on «ریسکت خراب بود».
+
+**Rebuild** (in `k11/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k11 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 4`.
+
+The caption and the facts on screen are in `k11/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
