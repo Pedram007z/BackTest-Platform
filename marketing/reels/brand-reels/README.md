@@ -1257,6 +1257,34 @@ The score is G minor at 120 BPM.
 
 The caption and the facts on screen are in `k9/caption.md`.
 
+## k10: «سلام، منم، خودِ یک سال بعدت», kinetic (`k10/`, the user's voice)
+
+The default kinetic look (u-kit), 43.2 s. A message from your future self runs through the reel. The scenes:
+- **«سلام، منم»:** a notification from «خودِ یک سال بعدت» and a calendar that counts the months to a year.
+- **«امشب… بدون حد ضرر»:** a new position whose stop-loss field is left empty. The cursor clicks «باز کن».
+- **«مطمئنی این بار برمی‌گرده»:** a falling price with a dashed hope arrow back up.
+- **«برنمی‌گرده»:** on red, a hard cut; the fall goes on and the arrow drops away.
+- **«بک‌تست اتلاف وقته»:** an hourglass labelled «بک‌تست».
+- **«بازار دیگه مثل قبل نیست»:** «قبل» ≠ «الان», then «هست»: the same cards with «=».
+- **«همون ترس‌ها، همون طمع‌ها، همون الگوها»:** three tiles. «تاریخ‌های جدید» then shows the same pattern on a
+  timeline of years, labelled «الگوی نمونه».
+- **«اگه فقط یه کار»:** a giant «۱», then the future self typing.
+- **«با پول واقعیت یاد بگیری»:** a wallet whose bills fly off, «شهریه‌ی گرون».
+- **«روی گذشته‌ی واقعی بازار یاد بگیر»:** f1's real gold replay.
+- **«ممنون می‌شی»:** the calendar at «یک سال بعد», your reply «ممنونم ازت» and a heart.
+- **«خودِ آینده‌ت»:** a letter, signed.
+- **The close:** the brand, the free start and the end card.
+
+The score is A minor at 108 BPM, with a bar landing on «هست».
+
+**Rebuild** (in `k10/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k10 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 4`.
+
+The caption and the facts on screen are in `k10/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
