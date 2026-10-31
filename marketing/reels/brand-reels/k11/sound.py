@@ -14,11 +14,13 @@
 #   python3 sound.py → music.json, music.wav, mix.wav (−14 LUFS)
 #   LOOK=blocks python3 sound.py → music-blocks.json, music-blocks.wav, mix-blocks.wav: the colour-block look (blocks.js),
 #   with whooshes on its two extra cuts, the die's rattle on «حدس» and a pop as each of the five losses lights up.
+#   LOOK=note python3 sound.py → …-note: the notebook look (note.js): the same as blocks, plus a pen scratch for each mark
+#   drawn by hand.
 #   LOOK=dash python3 sound.py → …-dash: the dashboard look (dash.js): the same, plus the hook's five losses, two
 #   rewinds (falling tone and ticks), the risk field typed from 2% to 1%, and an alarm when the challenge fails.
 import json, os, subprocess, wave
 import numpy as np
-LOOK = os.environ.get('LOOK', ''); BL = LOOK in ('blocks', 'dash'); DS = LOOK == 'dash'; SUF = f'-{LOOK}' if LOOK else ''
+LOOK = os.environ.get('LOOK', ''); BL = LOOK in ('blocks', 'dash', 'note'); DS = LOOK == 'dash'; NT = LOOK == 'note'; SUF = f'-{LOOK}' if LOOK else ''
 D = json.load(open('data.json')); T = D['T']; DUR = D['dur']; Wd = D['w']; ws = lambda i: Wd[i][0]; we = lambda i: Wd[i][1]
 CH = {'Fm': [[174.61, 207.65, 261.63, 349.23], 43.65], 'Db': [[138.59, 174.61, 207.65, 277.18], 69.30],
       'Ab': [[155.56, 207.65, 261.63, 311.13], 51.91], 'Eb': [[155.56, 196.0, 233.08, 311.13], 77.78]}
@@ -39,6 +41,10 @@ run(ws(38) - 0.05, ws(40) + 0.65 - ws(38), 50, 1700, 40, 0.12); F('bell', ws(45)
 F('impact', ws(51), size=0.6, gain=0.4); F('pop', ws(53), f=900, gain=0.26)
 if BL:
     for k in ('run', 'guess'): F('whoosh', T[k], gain=0.24)
+if NT:   # the pen: a short scratch for each circle, box, equation, cross and check drawn by hand
+    for t0, d in ((0.05, 0.5), (ws(9) + 0.15, 0.4), (ws(9) + 0.05, 0.4), (ws(24) + 0.15, 0.4), (ws(35) + 0.3, 0.45), (ws(45) + 0.15, 0.5),
+                  (ws(61), 0.25), (ws(63), 0.25), (ws(68), 0.3), (ws(80), 0.5), (ws(85), 0.3), (ws(87), 0.35), (ws(91), 0.25), (ws(99), 0.3),
+                  (ws(114), 0.3), (ws(139), 0.45), (ws(146), 0.45), (ws(153), 0.25), (ws(158), 0.25)): run(t0, d, 9, 5200, 250, 0.035)
 if DS:
     for i in range(5): F('pop', ws(5) + (ws(9) - 0.1 - ws(5)) * i / 4, f=1000 - 90 * i, gain=0.2)
     for t0 in (ws(9), ws(80)):

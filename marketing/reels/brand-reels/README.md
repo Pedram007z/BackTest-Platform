@@ -1360,6 +1360,27 @@ Its sound is `LOOK=dash python3 sound.py`, which writes `mix-dash.wav`.
 2. `REEL_DIR=dash node render.cjs cover dash/cover.png` and `REEL_DIR=dash node render.cjs video dash/reel-hq.mp4
    mix-dash.wav 4`.
 
+**The notebook look** (`note.js`, `note/`): the same voice, math and real screens, worked out by hand in a squared
+notebook. The camera films one long page with a slight handheld wobble and scrolls to a fresh stretch on each new
+idea. The spoken words are written in blue ink as they're said, from right to left. Every mark is drawn by hand: red
+circles, underlines, boxes, arrows, checks and crosses. Key words get a highlighter.
+
+What's drawn on the page:
+- «۶۰٪» circled, a 60/40 pie, and a challenge card that burns;
+- ten boxes and the bunched losses;
+- 200 tally marks with «۷۰٪» boxed; the exact 71.4% and its assumption are in pencil;
+- «۲٪ × ۵ = ۱۰٪» with a hand-drawn drawdown staircase to the common prop limit, and «حساب بسته شد!»;
+- «۱٪ × ۵ = ۵٪» with the green staircase;
+- the real gold replay and the real Analytics, as printed photos taped onto the page and circled in red.
+
+Only Vazirmatn is used; the hand-made feel comes from the reveal, the tilt and the drawn marks. Its sound is
+`LOOK=note python3 sound.py`, which adds a pen scratch for each mark.
+
+**Rebuild:**
+1. `LOOK=note python3 sound.py` and `python3 blocks_page.py note`.
+2. `REEL_DIR=note node render.cjs cover note/cover.png` and `REEL_DIR=note node render.cjs video note/reel-hq.mp4
+   mix-note.wav 4`.
+
 The caption and the facts on screen are in `k11/caption.md`.
 
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
