@@ -1383,6 +1383,34 @@ Only Vazirmatn is used; the hand-made feel comes from the reveal, the tilt and t
 
 The caption and the facts on screen are in `k11/caption.md`.
 
+## k12: «نصف حسابمو باختم… حالا چند درصد سود کنم تا برگردم سر جام؟», kinetic (`k12/`, the user's voice)
+
+The default kinetic look (u-kit), 54.1 s, paced like the two reels past 10k views: ×1.22, about 190 words a minute,
+with the brand only from 37 s. The account is a tall bar out of $1,000 that runs through the math:
+- it's half gone from the first frame («−۵۰٪»);
+- «۵۰ درصد؟ نه.»;
+- $1,000 → $500 → +50% → $750, still $250 short (on red);
+- it has to double («+۱۰۰٪», «×۲»).
+
+Then:
+- **«هرچی ضرر بزرگ‌تر…»:** the curve of the gain needed shoots up.
+- **The table:** −10% → +11%, −30% → +43%, −80% → +400% (the last chip bursts out of the card).
+- **«فقط جلوشو می‌گیرن»:** a falling arrow is stopped by a «حد ضرر» bar.
+- **«تا کجا می‌ریزه؟»:** a drawdown sinks into the unknown.
+- **The real screens:** f1's gold replay, then the Analytics Monte Carlo (k1) with «افت سرمایه در بدترین ۵٪» and
+  «ریسک نصف شدن حساب» ringed («همون نصف حساب»).
+- **The close:** big risk (−50% → +100%) against small risk (−5% → +5.3%), then the free start.
+
+The score is B♭ minor at 124 BPM, with a bar landing on «۴۰۰ درصد».
+
+**Rebuild** (in `k12/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k12 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 4`.
+
+The caption and the facts on screen are in `k12/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the
