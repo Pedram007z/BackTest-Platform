@@ -21,7 +21,15 @@ def scaled(src, name, w):
     if not os.path.exists(out):
         im = Image.open(os.path.join(BR, src)).convert('RGB'); im = im.resize((w, round(im.height * w / im.width)), Image.LANCZOS); im.save(out, quality=90)
     return 'screens/' + name + '.jpg'
-imgs = {k: scaled(v, k, 1440 if k == 'tall' else 2160) for k, v in SRC.items()}
+imgs = {k: scaled(v, k, 2160) for k, v in SRC.items() if k != 'tall'}
+# the full Analytics page is 1440×4752 once scaled; headless Chromium crashes decoding it whole, so it's cut in 4 tiles
+def tiles(src, name, w, n):
+    out = [os.path.join(HERE, 'screens', f'{name}-{i}.jpg') for i in range(n)]
+    if not all(os.path.exists(o) for o in out):
+        im = Image.open(os.path.join(BR, src)).convert('RGB'); im = im.resize((w, round(im.height * w / im.width)), Image.LANCZOS); h = im.height
+        for i, o in enumerate(out): im.crop((0, round(h * i / n), w, round(h * (i + 1) / n))).save(o, quality=90)
+    return ['screens/' + os.path.basename(o) for o in out]
+imgs['tall'] = tiles(SRC['tall'], 'tall', 1440, 4)
 flip = [scaled(p, 'flip-%02d' % i, 1600) for i, p in enumerate(FLIP)]
 
 def icon(name):

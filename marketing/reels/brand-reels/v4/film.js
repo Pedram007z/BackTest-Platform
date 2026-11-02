@@ -36,8 +36,9 @@ const P = {};
 function plane(key) {
   if (P[key]) return P[key]; const [w, h] = SIZE[key] || [1600, 1000];
   const d = el('div', 'plane', persp, { width: w + 'px', height: h + 'px', left: CX - w / 2 + 'px', top: CY - h / 2 + 'px' });
-  const imgs = key === 'flip' ? window.FLIP.map((src) => el('img', '', d, null)).map((im, i) => ((im.src = window.FLIP[i]), im)) : [el('img', '', d, null)];
-  if (key !== 'flip') imgs[0].src = window.IMGS[key];
+  // the flipbook stacks its frames; the tall page is a column of tiles; every other screen is one picture
+  const src = key === 'flip' ? window.FLIP : [].concat(window.IMGS[key]), n = src.length, tiled = key === 'tall';
+  const imgs = src.map((u, i) => { const im = el('img', '', d, tiled ? { top: (100 * i) / n + '%', height: 100 / n + '%', bottom: 'auto' } : null); im.src = u; return im; });
   const gl = el('div', 'gl', d, null);
   return (P[key] = { d, imgs, gl, w, h, on: false });
 }
@@ -93,7 +94,7 @@ function overlays() {
 // a group: { at, lines: [[size 'bg' | 'md' | 'sm', [[text, word index or time, { c, strike, ul }], …]], …] }
 const G = [];
 const grp = (at, lines) => G.push({ at, lines });
-const wt = (i) => (Number.isInteger(i) ? ws(i) - 0.05 : i);
+const wt = (i) => (Number.isInteger(i) && i >= 0 ? ws(i) - 0.05 : i);   // a word index, or a time
 grp(-1, [['bg', [['ترید', -1], ['حرفه‌ای', -1, { c: VIO }]]], ['sm', [['از', 2], ['جایی', 3], ['شروع', 4], ['می‌شود', 5]]]]);
 grp(T.guess - 0.05, [['sm', [['که', 7]]], ['bg', [['حدس', 8, { strike: ws(10) }], ['زدن', 9, { strike: ws(10) + 0.08 }]]], ['md', [['تمام', 10], ['می‌شود.', 11]]]]);
 grp(T.we - 0.05, [['sm', [['ما', 13]]], ['bg', [['بستری', 14], ['جامع', 15, { c: VIO }]]]]);
