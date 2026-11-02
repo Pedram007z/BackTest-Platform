@@ -1411,6 +1411,71 @@ The score is B♭ minor at 124 BPM, with a bar landing on «۴۰۰ درصد».
 
 The caption and the facts on screen are in `k12/caption.md`.
 
+## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
+
+One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
+- `v1/voice/build.py` caps the pauses at 0.2 s, leaves short beats after each sentence and speeds the take up ×1.08
+  (pitch kept);
+- `v1/data.py` writes `v1/data.json`, which v2 copies and v3 and v4 read.
+
+`v1/sound.py` writes one score and mix per look into `v1/` (`LOOK=<kinetic|glass|type|film>`):
+- kinetic is A minor at 112 BPM;
+- glass is C♯ minor at 96 BPM;
+- type is D minor at 104 BPM, minimal;
+- film is E minor at 92 BPM, cinematic.
+
+The effects land on the same words in all four: «حرفه‌ای», «حدس», the brand, each feature, «یکپارچه» and «آماده».
+
+The script names two features the platform doesn't have yet: automated backtests and prop-rule simulation. No reel
+shows a screen for them; they appear only as words and icons (see `v1/caption.md`).
+
+The four looks:
+- **v1, kinetic** (u-kit, `v1/story.js`):
+  - a crosshair locking onto a candle, a die crossed out on «حدس», the brand;
+  - three tiles; the real chart with drawing tools and a «خودکار» tile; the real Analytics; a drawn prop-rules card;
+  - the real dashboard; four real screens merging into the four-chart layout on «یکپارچه»;
+  - Buy and Sell struck out on «صرفاً»; a checklist on «آماده شوید».
+- **v2, 3D glass** (dg1's engine, `v2/scenes.js`): one glass hero per line down a glass tube:
+  - a crosshair; a die with a rose cross; the icon in glass; a flask, play and a chart;
+  - a hand and a chip; a gauge; a shield; a target and a brain;
+  - four cubes merging into layers; a struck click; a badge.
+- **v3, a Swiss split-tone poster** (`v3/type.js`, 2D canvas). Off-white paper and black type, with fields of the
+  brand's violet sliding across the page. Type that crosses a field is redrawn in the field's tones (black → white,
+  violet → black), so one word can be set in two tones. Each word opens from the right on its spoken word, and a page
+  change wipes the whole page off to the left. The pages:
+  - «ترید / حرفه‌ای»; «حدس» struck through on «تمام»; a full violet page for the brand;
+  - a numbered list; «دستی» on paper and «خودکار» on violet;
+  - «ارزیابی» over abstract rules; «قوانین» with three «ماده» clauses; «سنجش عملکرد» on a ruler;
+  - an index of the keywords that collapses into one violet block «یک‌پارچه»;
+  - a violet page «قرار نیست صرفاً معامله کنید»; «آماده»; the end card.
+  The header, footer, page count and a violet progress rule frame every page. It's a different look from t1's
+  cream-and-red poster.
+- **v4, a product film** (`v4/film.js`, CSS 3D in the DOM). Real screens float on tilted planes in a dark violet
+  space. The camera drifts and pushes in, cuts on the words and whip-pans between features. A light sweep crosses each
+  screen; there's grain, a vignette and soft flashes. The words run as large subtitles at the bottom. The shots:
+  - f1's gold replay as a flipbook;
+  - the clean replay out of focus on «حدس زدن», pulled sharp on «تمام»;
+  - the brand; New session, k1's Monte Carlo, Analytics;
+  - the chart with tools; the win/loss and donut panels;
+  - a glass shield and three rule chips (no screen);
+  - the dashboard, a scroll down the full Analytics page, the journal;
+  - four screens converging into one stack;
+  - a placed order that turns grey on «صرفاً»; a planned position with a check on «آماده».
+
+**Rebuild:**
+1. In `v1/`: `python3 voice/build.py`, `python3 data.py`, and `LOOK=<look> python3 sound.py` for each look.
+2. **v1:** `python3 ../mkpage_u.py v1 kinetic`, then `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and
+   `REEL_DIR=kinetic node render.cjs video kinetic/reel-hq.mp4 mix-kinetic.wav 4`.
+3. **v2:** as dg1 (three.js r170 bundled by `vendor/bundle.sh`), then `python3 data.py`, `python3 page.py`,
+   `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 ../v1/mix-glass.wav 4`. Render it alone:
+   WebGL frames came out blank while another render ran.
+4. **v3:** `python3 page.py`, `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4
+   ../v1/mix-type.wav 4`.
+5. **v4:** `python3 page.py` (it also scales the screens into `screens/`, not in git), then `node render.cjs cover
+   cover.png` and `node render.cjs video reel-hq.mp4 ../v1/mix-film.wav 4`.
+
+The caption and the facts on screen are in `v1/caption.md`.
+
 ## s1: «اندیکاتور سشن‌ها» Instagram story (`s1/`, music only)
 
 The announcement «طبق درخواست کاربران عزیز بک‌تست‌لب، اندیکاتور سشن‌ها به لیست اندیکاتورها افزوده شد», then the indicator used on the

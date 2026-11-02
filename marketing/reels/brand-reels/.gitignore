@@ -163,3 +163,17 @@ s[0-9]/chunks/
 s[0-9]/*/*.mp4
 s[0-9]/*/*.png
 s[0-9]/*/chunks/
+# v1–v4: the manifesto reels (v1 kinetic, v2 glass, v3 type, v4 film); renders, mixes, v2's three.js bundle and v4's scaled screens
+v[0-9]/*.wav
+v[0-9]/*.mp4
+v[0-9]/*.png
+v[0-9]/*.log
+v[0-9]/chunks/
+v[0-9]/*/*.mp4
+v[0-9]/*/*.png
+v[0-9]/*/chunks/
+v[0-9]/voice/*.wav
+v[0-9]/voice/*.log
+v[0-9]/vendor/three-bundle.js
+v[0-9]/screens/
+v2/index.html
