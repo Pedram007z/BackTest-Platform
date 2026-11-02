@@ -15,8 +15,10 @@
 ## Facts on screen
 
 - **The take:** the user's recording of the manifesto (74 words), with the pauses cut to 0.2 s and short beats after
-  «حرفه‌ای», «تمام می‌شود», «فراهم کرده‌ایم», «پراپ‌فرم‌ها», «آگاهانه», «یکپارچه» and «معامله کنید». The voice is
-  ×1.08 with the pitch kept, so every reel is 34.2 s. Whisper's spellings («هرفعی», «پروپ فورم», «شبیحسازی») are
+  «حرفه‌ای», «تمام می‌شود», «فراهم کرده‌ایم», «پراپ‌فرم‌ها», «آگاهانه», «یکپارچه» and «معامله کنید». Each beat sits in
+  the real pause after its word, so every word sounds as recorded (the first cut put the beats at Whisper's word ends,
+  which clipped the end of «حرفه‌ای», «آگاهانه» and «یکپارچه»). The voice is ×1.08 with the pitch kept, so every reel
+  is 34.2 s. Whisper's spellings («هرفعی», «پروپ فورم», «شبیحسازی») are
   corrected on screen.
 - **Two lines of the script describe features the platform doesn't have yet:**
   - «بک‌تست خودکار»: BacktestLab's backtest is manual (bar-by-bar replay); the Landing FAQ says so;

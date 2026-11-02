@@ -15,26 +15,44 @@ async function open() {
   await p.goto(PAGE); await p.waitForFunction(() => window.ready === true, null, { timeout: 60000 }); return { b, p, errs };
 }
 const run = (cmd, args) => new Promise((ok, no) => { const c = spawn(cmd, args, { stdio: ['ignore', 'inherit', 'inherit'] }); c.on('close', (code) => (code ? no(new Error(cmd + ' ' + code)) : ok())); });
+/** One frame at time t as a PNG. If headless Chromium's page dies or hangs (its emulated GPU process did
+ *  while v4 went through WebGL), every frame is a pure function of t, so the page is opened again and the frame redone
+ *  (up to 5 times). */
+async function grab(w, t, tag) {
+  for (let tries = 0; ; tries++) {
+    let timer;
+    try {
+      // a dead GPU process can also leave a call waiting forever: give each frame 30 s
+      const late = new Promise((_, no) => { timer = setTimeout(() => no(new Error('frame timed out')), 30000); });
+      await Promise.race([w.p.evaluate((t) => window.seek(t), t), late]); const buf = await Promise.race([w.p.screenshot({ type: 'png', timeout: 30000 }), late]);
+      // a frame where the canvas wasn't shown is the flat page background: a tiny PNG (a real frame has grain: > 1 MB)
+      if (buf.length < 200000) throw new Error(`empty frame (${buf.length} bytes)`); clearTimeout(timer); return buf;
+    }
+    catch (e) {
+      clearTimeout(timer); if (tries >= 5) throw e; console.log(`${tag}: page reopened at t=${t.toFixed(3)} (${String(e.message).split('\n')[0]})`);
+      await w.b.close().catch(() => {}); Object.assign(w, await open());
+    }
+  }
+}
 async function chunk(k, a, b, file) {
-  const { b: br, p, errs } = await open();
+  const w = await open();
   const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', String(FPS * SUB), '-i', '-',
     '-vf', `tmix=frames=${SUB}:weights='1 1 1',select='eq(mod(n\\,${SUB})\\,${SUB - 1})',setpts=N/(${FPS}*TB)`, '-r', String(FPS),
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '4', '-pix_fmt', 'yuv444p', file], { stdio: ['pipe', 'inherit', 'inherit'] });
   const t0 = Date.now();
   for (let f = a; f < b; f++) for (let j = 0; j < SUB; j++) {
-    await p.evaluate((t) => window.seek(t), f / FPS + (j - (SUB - 1) / 2) / SUBRATE);
-    const buf = await p.screenshot({ type: 'png' }); if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once('drain', r));
+    const buf = await grab(w, f / FPS + (j - (SUB - 1) / 2) / SUBRATE, `worker ${k}`); if (!ff.stdin.write(buf)) await new Promise((r) => ff.stdin.once('drain', r));
     if (j === 0 && (f - a) % 120 === 0) console.log(`worker ${k}: frame ${f - a}/${b - a} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   }
-  ff.stdin.end(); await new Promise((r) => ff.on('close', r)); await br.close();
-  if (errs.length) console.log(`worker ${k} errors:`, JSON.stringify(errs.slice(0, 5)));
+  ff.stdin.end(); await new Promise((r) => ff.on('close', r)); await w.b.close();
+  if (w.errs.length) console.log(`worker ${k} errors:`, JSON.stringify(w.errs.slice(0, 5)));
 }
 (async () => {
   if (mode === 'stills') {
-    fs.mkdirSync(out, { recursive: true }); const { b, p, errs } = await open(), dur = await p.evaluate(() => window.DURATION);
+    fs.mkdirSync(out, { recursive: true }); const w = await open(), dur = await w.p.evaluate(() => window.DURATION);
     const times = rest.length ? rest.map(Number) : Array.from({ length: Math.floor(dur * 2) }, (_, i) => i / 2);
-    for (const t of times) { await p.evaluate((t) => window.seek(t), t); await p.screenshot({ path: path.join(out, `t${t.toFixed(3).padStart(6, '0')}.png`) }); }
-    console.log('errors:', JSON.stringify(errs)); await b.close();
+    for (const t of times) fs.writeFileSync(path.join(out, `t${t.toFixed(3).padStart(6, '0')}.png`), await grab(w, t, 'stills'));
+    console.log('errors:', JSON.stringify(w.errs)); await w.b.close();
   } else if (mode === 'cover') {
     const { b, p, errs } = await open(); await p.evaluate(() => window.cover()); await p.screenshot({ path: out, type: 'png' }); console.log('errors:', JSON.stringify(errs)); await b.close();
   } else if (mode === 'video') {

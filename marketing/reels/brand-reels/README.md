@@ -1415,7 +1415,9 @@ The caption and the facts on screen are in `k12/caption.md`.
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
 - `v1/voice/build.py` caps the pauses at 0.2 s, leaves short beats after each sentence and speeds the take up ×1.08
-  (pitch kept);
+  (pitch kept). Each beat goes into the real pause after its word, not at Whisper's word end: Whisper ends
+  «حرفه‌ای», «آگاهانه» and «یکپارچه» early, and beats there cut off their last sound. The script prints the level
+  around every beat to prove it sits in silence;
 - `v1/data.py` writes `v1/data.json`, which v2 copies and v3 and v4 read.
 
 `v1/sound.py` writes one score and mix per look into `v1/` (`LOOK=<kinetic|glass|type|film>`):
@@ -1450,8 +1452,10 @@ The four looks:
   - a violet page «قرار نیست صرفاً معامله کنید»; «آماده»; the end card.
   The header, footer, page count and a violet progress rule frame every page. It's a different look from t1's
   cream-and-red poster.
-- **v4, a product film** (`v4/film.js`, CSS 3D in the DOM). Real screens float on tilted planes in a dark violet
-  space. The camera drifts and pushes in, cuts on the words and whip-pans between features. A light sweep crosses each
+- **v4, a product film** (`v4/film.js`, one 2D canvas). Real screens float on tilted planes in a dark violet
+  space. Each screen is projected like a CSS perspective and drawn as a grid of triangles, each with the exact affine
+  transform of its corners, so no GPU is needed (WebGL and CSS 3D versions kept crashing headless Chromium's emulated
+  GPU here). The camera drifts and pushes in, cuts on the words and whip-pans between features. A light sweep crosses each
   screen; there's grain, a vignette and soft flashes. The words run as large subtitles at the bottom. The shots:
   - f1's gold replay as a flipbook;
   - the clean replay out of focus on «حدس زدن», pulled sharp on «تمام»;
@@ -1468,11 +1472,13 @@ The four looks:
    `REEL_DIR=kinetic node render.cjs video kinetic/reel-hq.mp4 mix-kinetic.wav 4`.
 3. **v2:** as dg1 (three.js r170 bundled by `vendor/bundle.sh`), then `python3 data.py`, `python3 page.py`,
    `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4 ../v1/mix-glass.wav 4`. Render it alone:
-   WebGL frames came out blank while another render ran.
+   WebGL frames came out blank while another render ran. Keep some disk free too: with the disk full, headless
+   Chromium's screenshots failed and its GPU process crashed.
 4. **v3:** `python3 page.py`, `node render.cjs cover cover.png` and `node render.cjs video reel-hq.mp4
    ../v1/mix-type.wav 4`.
 5. **v4:** `python3 page.py` (it also scales the screens into `screens/`, not in git), then `node render.cjs cover
-   cover.png` and `node render.cjs video reel-hq.mp4 ../v1/mix-film.wav 4`.
+   cover.png` and `node render.cjs video reel-hq.mp4 ../v1/mix-film.wav 4`. v4's `render.cjs` reopens the page and
+   redoes a frame if the page dies, hangs or returns an empty screenshot.
 
 The caption and the facts on screen are in `v1/caption.md`.
 

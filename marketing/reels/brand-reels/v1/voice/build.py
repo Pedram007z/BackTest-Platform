@@ -22,9 +22,13 @@ for wd in w:                                              # Whisper often starts
         if a < wd[1] <= b + 0.02 and a > wd[0]: wd[1] = a
 edits = [((a + b) / 2, (b - a) - MAXG) for a, b in sil if b - a > MAXG and a > 0.05]
 for i, d in EXTRA.items():
-    t = min(w[i][1] + 0.02, w[i + 1][0]) if i + 1 < len(w) else w[i][1] + 0.02
-    for a, b in sil:
-        if a - 0.15 <= t <= b: t = a + 0.04; break
+    # the beat goes into the first pause after the word. Whisper often ends a word early: a beat at its end cut off the
+    # last sound of «حرفه‌ای», «آگاهانه» and «یکپارچه». The next word starts where the voice comes back.
+    p = next(((a, b) for a, b in sil if w[i][1] - 0.1 <= a <= w[i][1] + 0.5), None)
+    if p:
+        t = p[0] + 0.04; w[i][1] = max(w[i][1], p[0])
+        if i + 1 < len(w) and w[i + 1][0] < p[1]: w[i + 1][0] = p[1]
+    else: t = min(w[i][1] + 0.02, w[i + 1][0]) if i + 1 < len(w) else w[i][1] + 0.02
     edits.append((t, -d))
 edits.sort()
 ins = [t for t, d in edits if d < 0]
@@ -59,4 +63,9 @@ T = {k: r(v) for k, v in T.items()}
 order = sorted(T, key=T.get)
 json.dump({'T': T, 'w': Wd, 'dur': T['dur']}, open('timing.json', 'w'))
 print('reel', T['dur'], 's; voice', round(len(y) / SR / ATEMPO, 2), 's')
+# every beat must sit in silence (the voice below −40 dB on both sides), or it would split a word
+for t, d in edits:
+    if d < 0:
+        e = [20 * np.log10(np.sqrt(np.mean(x[int(u * SR):int((u + 0.02) * SR)] ** 2)) + 1e-9) for u in (t - 0.03, t + 0.01)]
+        print(f'  beat {-d:.2f} s at {t:.2f} s: {e[0]:.0f} / {e[1]:.0f} dB' + ('' if max(e) < -40 else '  ← inside a word!'))
 print('  '.join(f'{k} {T[k]:.2f}' for k in order))
