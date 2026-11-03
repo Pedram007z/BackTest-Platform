@@ -11,6 +11,7 @@ import {
   type ISeriesApi,
   type ISeriesMarkersPluginApi,
   type LogicalRange,
+  type MouseEventParams,
   type SeriesMarker,
   type Time,
   type UTCTimestamp,
@@ -28,7 +29,7 @@ import { readLwLayout, writeLwLayout } from './drawings';
 import { createDrawingLayer } from './lwDrawings';
 import { createIndicatorLayer } from './lwIndicators';
 import { defaultChartStyle, isLightColor, withOpacity } from './style';
-import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
+import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState, PickOptions } from './types';
 
 /**
  * Replay chart on lightweight-charts with a DOM overlay for what the library does not draw:
@@ -168,6 +169,11 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       onChange: (all) => {
         layout.drawings = all;
         writeLwLayout(state.layoutKey, layout);
+      },
+      // the crosshair the layer sets over a drawing fires no crosshair event: the legend follows it here
+      onCrosshair: (time) => {
+        const c = time === null ? undefined : candles[firstIndexAtOrAfter(time)];
+        setLegend(c && c.time === time ? c : candles[candles.length - 1]);
       },
     },
     state.symbol,
@@ -964,6 +970,55 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     render();
   }
 
+  // ---------- rewind: pick a candle ----------
+  /**
+   * Like TradingView's «Select bar»: a line on the candle under the pointer and the candles after it
+   * dimmed; a click picks it. The chart still scrolls and zooms while picking. Red where the candle
+   * can't be picked (before the session's start, or the last one on the chart).
+   */
+  function pickTime(opts: PickOptions) {
+    const line = el('div', { position: 'absolute', top: '0', width: '0', borderLeft: '2px dashed #2962ff', display: 'none', zIndex: '4' });
+    const shade = el('div', { position: 'absolute', top: '0', right: '0', background: 'rgba(110,110,130,0.2)', display: 'none', zIndex: '4' });
+    overlay.append(shade, line);
+    const prevCursor = chartEl.style.cursor;
+    let hover: { open: number; ok: boolean } | null = null;
+    const candleAt = (time: Time | undefined) => {
+      if (typeof time !== 'number') return null;
+      const i = firstIndexAtOrAfter(time);
+      return candles[i]?.time === time ? candles[i] : null;
+    };
+    const allowed = (open: number) => open + TF_MS[state.timeframe] > opts.min && open + TF_MS[state.timeframe] < opts.max;
+    const move = (p: MouseEventParams<Time>) => {
+      const c = candleAt(p.time);
+      const x = c ? chart.timeScale().timeToCoordinate(c.time as UTCTimestamp) : null;
+      if (!c || x === null || !p.point) {
+        hover = null;
+        line.style.display = shade.style.display = 'none';
+        chartEl.style.cursor = prevCursor;
+        return;
+      }
+      const ok = allowed(c.time * 1000);
+      hover = { open: c.time * 1000, ok };
+      const { w, h } = plotBox();
+      const half = (chart.timeScale().options().barSpacing ?? 6) / 2;
+      Object.assign(line.style, { display: 'block', left: `${x - 1}px`, height: `${h}px`, borderLeftColor: ok ? '#2962ff' : '#f23645' });
+      Object.assign(shade.style, { display: ok ? 'block' : 'none', left: `${x + half}px`, width: `${Math.max(0, w - x - half)}px`, height: `${h}px` });
+      chartEl.style.cursor = ok ? 'pointer' : 'not-allowed';
+    };
+    const click = () => {
+      if (hover?.ok) opts.onPick(hover.open);
+    };
+    chart.subscribeCrosshairMove(move);
+    chart.subscribeClick(click);
+    return () => {
+      chart.unsubscribeCrosshairMove(move);
+      chart.unsubscribeClick(click);
+      line.remove();
+      shade.remove();
+      chartEl.style.cursor = prevCursor;
+    };
+  }
+
   applyTheme();
   update(initial);
 
@@ -971,6 +1026,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
     kind: 'lightweight',
     update,
     screenshot,
+    pickTime,
     drawings,
     indicators,
     destroy() {

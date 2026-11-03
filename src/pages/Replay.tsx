@@ -31,16 +31,16 @@ import { GoToMenu } from '../components/replay/GoToMenu';
 import { NewsPanel } from '../components/replay/NewsPanel';
 import { PlaybackBar, SPEEDS } from '../components/replay/PlaybackBar';
 import { PositionsPanel } from '../components/replay/PositionsPanel';
-import { Modal } from '../components/ui/Modal';
+import { ConfirmDialog, Modal } from '../components/ui/Modal';
 import { Meter } from '../components/ui/controls';
 import { Popover } from '../components/ui/Popover';
 import { useNews } from '../hooks/useNews';
 import { usePlan } from '../hooks/usePlan';
 import { LockMark, UpgradeModal } from '../components/plan/Locked';
 import type { PlanFeature } from '../services/plan';
-import { DAY_MS, fmtDay, fmtDayLong, fmtMarketTime, msToKey } from '../lib/calendar';
+import { DAY_MS, fmtDay, fmtDayLong, fmtMarketTime, keyToMs, msToKey } from '../lib/calendar';
 import { faDigits, fmtNum, fmtUsd, toLatinDigits } from '../lib/format';
-import { BAR_MS, HOUR_MS, MIN_MS, SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepCursor, type Timeframe } from '../lib/market';
+import { BAR_MS, HOUR_MS, MIN_MS, SYMBOL_MAP, atr, getDataVersion, onDataVersion, priceAt, roundToTick, stepBackCursor, stepCursor, type Timeframe } from '../lib/market';
 import { currenciesFor, filterNews } from '../lib/news';
 import { saveShot } from '../lib/shots';
 import { layoutsFromServer, pullLayouts } from '../services/layoutSync';
@@ -55,6 +55,7 @@ import type { ChartPane as Pane, JournalEntry, LayoutId, Side, Trade } from '../
 import { ensureFine, ensureRange, fineReady, onMarketError, rangeReady, useReplayData } from '../services/marketFeed';
 import { hasServer } from '../services/api';
 import { toast, useStore, useUi } from '../store/useStore';
+import { planRewind, type RewindPlan } from '../lib/rewind';
 
 interface Draft {
   symbol: string;
@@ -303,6 +304,56 @@ export default function Replay() {
     return () => clearInterval(t);
   }, [playing, speedIndex, step]);
 
+  // ---------- rewind: back one candle, or to a candle picked on the chart (never before the session's start) ----------
+  const [picking, setPicking] = useState(false);
+  const [rewindAsk, setRewindAsk] = useState<RewindPlan | null>(null);
+  const when = useCallback((t: number) => `${fmtDayLong(dayKeyIn(t, chartTz), 'jalali', true)}، ساعت ${fmtClock(t, chartTz)}`, [chartTz]);
+
+  const doRewind = useCallback(
+    (target: number) => {
+      const plan = useStore.getState().rewind(id ?? '', target);
+      if (!plan) return;
+      const gone = plan.removed.length;
+      toast(`برگشتید به ${when(plan.to)}${gone ? `؛ ${faDigits(gone)} سفارشِ بعد از آن حذف شد` : ''}`, 'info');
+    },
+    [id, when],
+  );
+
+  /** Rewind to `target`: asks first when orders would be removed or go back to an earlier state. */
+  const requestRewind = useCallback(
+    (target: number, loaded = false) => {
+      setPlaying(false);
+      setPicking(false);
+      const st = useStore.getState();
+      const s = st.sessions.find((x) => x.id === id);
+      if (!s) return;
+      if (s.cursor <= keyToMs(s.startDate)) {
+        toast('در شروع بازه‌ی این جلسه هستید؛ عقب‌تر از آن نمی‌شود رفت', 'info');
+        return;
+      }
+      const plan = planRewind(s, st.trades, target);
+      if (!plan) return;
+      // the bars from the checkpoint to the new cursor are replayed, so they have to be loaded first
+      if (plan.from !== null && !loaded && !rangeReady(s.symbols, plan.from, plan.to)) {
+        void ensureRange(s.symbols, plan.from - DAY_MS, plan.to + DAY_MS).then((ok) => {
+          if (ok) requestRewind(target, true);
+          else toast('داده‌ی بازار این بازه هنوز دریافت نشده؛ کمی بعد دوباره تلاش کنید', 'error');
+        });
+        return;
+      }
+      if (plan.removed.length || plan.changed.length) setRewindAsk(plan);
+      else doRewind(target);
+    },
+    [id, doRewind],
+  );
+
+  const stepBack = useCallback(() => {
+    const s = useStore.getState().sessions.find((x) => x.id === id);
+    if (!s) return;
+    const t = stepBackCursor(s.cursor, stepTf, s.symbols);
+    if (t !== null) requestRewind(t);
+  }, [id, stepTf, requestRewind]);
+
   // practice time while this page is visible
   useEffect(() => {
     const t = setInterval(() => {
@@ -353,6 +404,7 @@ export default function Replay() {
   const cursor = session.cursor;
   const endMs = sessionEndMs(session);
   const ended = cursor >= endMs;
+  const startMs = keyToMs(session.startDate);
   const balance = sessionBalance(session, trades);
   const realized = balance - session.balance;
   const floating = sessionFloating(session, trades);
@@ -493,11 +545,15 @@ export default function Replay() {
     if (e.code === 'Space') {
       e.preventDefault();
       if (!ended) setPlaying((p) => !p);
-    } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       step();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      stepBack();
     } else if (e.key === 'Escape') {
-      if (draft) setDraft(null);
+      if (picking) setPicking(false);
+      else if (draft) setDraft(null);
       else if (expanded) setExpanded(false);
     }
   };
@@ -678,6 +734,7 @@ export default function Replay() {
                   callbacks={callbacksFor(i)}
                   onPaneChange={(np) => changePane(i, np)}
                   register={register}
+                  pick={picking ? { min: startMs, max: cursor, onPick: (t) => requestRewind(t) } : null}
                 />
               </div>
             ))}
@@ -696,15 +753,33 @@ export default function Replay() {
               {market.ready ? 'در حال دریافت تاریخچه‌ی بازار…' : 'در حال دریافت داده‌ی بازار…'}
             </div>
           )}
+          {picking && (
+            <div
+              role="status"
+              className="absolute inset-x-0 top-12 z-20 mx-auto flex w-fit max-w-[92%] items-center gap-3 rounded-xl border border-accent/40 bg-raised px-4 py-2 text-xs font-semibold shadow-pop"
+            >
+              <span>روی کندلی کلیک کنید که بازپخش از بعد آن ادامه پیدا کند (تا شروع بازه‌ی جلسه).</span>
+              <button type="button" className="btn-ghost py-1 text-xs" onClick={() => setPicking(false)}>
+                انصراف (Esc)
+              </button>
+            </div>
+          )}
           <PlaybackBar
             playing={playing}
             onTogglePlay={() => setPlaying((p) => !p)}
             onStep={step}
+            onStepBack={stepBack}
+            onPick={() => {
+              setPlaying(false);
+              setPicking((p) => !p);
+            }}
+            picking={picking}
             speedIndex={speedIndex}
             onSpeedIndex={setSpeedIndex}
             stepTf={stepTf}
             onStepTf={setStepTf}
             disabled={ended}
+            atStart={cursor <= startMs}
           />
         </div>
         {newsOpen && !free && (
@@ -909,6 +984,23 @@ export default function Replay() {
               }
             : undefined
         }
+      />
+
+      <ConfirmDialog
+        open={!!rewindAsk}
+        title="برگشت در زمان"
+        confirmLabel="برگرد"
+        message={
+          rewindAsk && (
+            <>
+              بازپخش به {when(rewindAsk.to)} برمی‌گردد.
+              {rewindAsk.removed.length > 0 && <> {faDigits(rewindAsk.removed.length)} سفارشی که بعد از آن لحظه ثبت شده، با ژورنالش حذف می‌شود.</>}
+              {rewindAsk.changed.length > 0 && <> {faDigits(rewindAsk.changed.length)} معامله به وضعیتِ همان لحظه برمی‌گردد (دوباره باز یا در انتظار، با حد ضرر و سود آن موقع).</>}
+            </>
+          )
+        }
+        onConfirm={() => rewindAsk && doRewind(rewindAsk.to)}
+        onClose={() => setRewindAsk(null)}
       />
 
       <UpgradeModal open={!!upgrade} onClose={() => setUpgrade(null)} feature={upgrade ?? undefined} />

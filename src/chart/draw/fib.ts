@@ -100,10 +100,6 @@ export function fibRetracement(k: Kit) {
   const right = Math.max(a.x, b.x);
   horizontalLevels(k, rev ? p0 : p1, rev ? p1 - p0 : p0 - p1, left, right);
   trendPath(k, [a, b]);
-  if (k.interactive) {
-    const top = Math.min(a.y, b.y);
-    k.hitFill(svgEl('rect', { x: left, y: top, width: Math.max(4, right - left), height: Math.max(4, Math.abs(b.y - a.y)), fill: 'transparent' }, k.g));
-  }
   k.handle(a, 'p0');
   k.handle(b, 'p1');
 }
@@ -454,7 +450,6 @@ export function gannBox(k: Kit) {
       { close: true, width: 1, dash: 'dashed', hit: false },
     );
   }
-  if (k.interactive) k.hitFill(svgEl('rect', { x: left, y: top, width: Math.max(4, right - left), height: Math.max(4, bottom - top), fill: 'transparent' }, k.g));
   k.handle(a, 'p0');
   k.handle(b, 'p1');
   k.handle({ x: a.x, y: b.y }, 'c2');
@@ -511,8 +506,7 @@ export function gannSquare(k: Kit) {
       k.path(`M${O.x + sx * rx},${O.y}A${rx},${ry} 0 0 ${sx * sy > 0 ? 1 : 0} ${O.x},${O.y + sy * ry}`, { color: color(k, l), width: lw, dash: l.dash ?? 'solid' });
     }
   }
-  svgEl('rect', { x: left, y: top, width: right - left, height: bottom - top, fill: 'none', stroke: k.col, 'stroke-width': k.sw }, k.g);
-  if (k.interactive) k.hitFill(svgEl('rect', { x: left, y: top, width: Math.max(4, right - left), height: Math.max(4, bottom - top), fill: 'transparent' }, k.g));
+  k.hitEdges(svgEl('rect', { x: left, y: top, width: right - left, height: bottom - top, fill: 'none', stroke: k.col, 'stroke-width': k.sw }, k.g));
   k.handle(a, 'p0');
   k.handle(b, 'p1');
   if (d.type === 'gannsquare') {

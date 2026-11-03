@@ -5,6 +5,11 @@ import { styleOf, type Drawing, type DrawingStyle, type LineDash } from '../draw
  * Shared pieces of the drawing renderers: the view (time/price ↔ pixels), SVG helpers, text
  * measuring and the hit areas. Pointer events are delegated: every drawing is a `<g data-id>`,
  * its handles carry `data-h`, and the layer listens once on the SVG.
+ *
+ * Like TradingView, a drawing is grabbed by its lines and edges only (a 12 px band along them):
+ * inside a box, a range or a position the pointer stays the chart's, with its crosshair and price
+ * and time labels, and a press there scrolls the chart. Texts, notes, icons and flags are objects
+ * and are grabbed anywhere on them.
  */
 
 export interface Pt {
@@ -211,10 +216,8 @@ export class Kit {
       },
       this.g,
     );
-    if (o.hit !== false && this.interactive) {
-      if (fillHit) this.hitFill(el);
-      else if (stroke) this.hitPath(d);
-    }
+    // a closed, filled shape is grabbed by its outline too, not by its inside
+    if (o.hit !== false && this.interactive && (stroke || fillHit)) this.hitPath(d);
     return el;
   }
 
@@ -222,7 +225,7 @@ export class Kit {
   area(points: Pt[], fill: string, opacity: number, hit = false) {
     if (points.length < 3) return;
     const el = svgEl('polygon', { points: points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '), fill, 'fill-opacity': opacity }, this.g);
-    if (hit) this.hitFill(el);
+    if (hit) this.hitEdges(el);
     return el;
   }
 
@@ -279,8 +282,8 @@ export class Kit {
         },
         holder,
       );
-      if (o.hit) this.hitFill(r);
-    } else if (o.hit) this.hitFill(svgEl('rect', { x: left, y: top, width: w, height: h, fill: 'transparent' }, holder));
+      if (o.hit) this.hitBody(r);
+    } else if (o.hit) this.hitBody(svgEl('rect', { x: left, y: top, width: w, height: h, fill: 'transparent' }, holder));
     const rtl = lines.some(isRtl);
     lines.forEach((l, i) => {
       const t = svgEl(
@@ -341,16 +344,26 @@ export class Kit {
     if (this.interactive) this.hitD += d;
   }
 
-  hitFill(el: SVGElement) {
+  /** a box, zone or shape: grabbed by its outline (rect, polygon or path), never by its inside */
+  hitEdges(el: SVGElement) {
+    if (!this.interactive) return;
+    const n = (k: string) => Number(el.getAttribute(k) ?? 0);
+    if (el.tagName === 'rect') this.hitD += `M${n('x')},${n('y')}h${n('width')}v${n('height')}h${-n('width')}Z`;
+    else if (el.tagName === 'polygon') this.hitD += `M${(el.getAttribute('points') ?? '').trim().split(/\s+/).join('L')}Z`;
+    else if (el.tagName === 'path') this.hitD += el.getAttribute('d') ?? '';
+  }
+
+  /** an object (a text, note, icon, flag): grabbed anywhere on it */
+  hitBody(el: SVGElement) {
     if (!this.interactive) return;
     el.setAttribute('pointer-events', 'all');
-    el.setAttribute('cursor', 'move');
+    el.setAttribute('cursor', 'pointer');
   }
 
   /** the grabbable strokes, as one path under the handles */
   finish() {
     if (this.hitD) {
-      const hit = svgEl('path', { d: this.hitD, fill: 'none', stroke: 'transparent', 'stroke-width': 12, 'pointer-events': 'stroke', cursor: 'move' });
+      const hit = svgEl('path', { d: this.hitD, fill: 'none', stroke: 'transparent', 'stroke-width': 12, 'pointer-events': 'stroke', cursor: 'pointer' });
       const firstHandle = this.g.querySelector('.h');
       if (firstHandle) this.g.insertBefore(hit, firstHandle);
       else this.g.append(hit);

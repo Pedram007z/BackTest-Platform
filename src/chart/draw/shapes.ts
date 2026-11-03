@@ -253,7 +253,7 @@ export function note(k: Kit) {
     g,
   );
   svgEl('path', { d: `M${p.x - 4},${p.y - 6.5}L${p.x},${p.y}L${p.x + 4},${p.y - 6.5}Z`, fill: k.col }, g);
-  k.hitFill(icon);
+  k.hitBody(icon);
   tooltip(k, p.x, p.y - s - 12, textOf(k), g);
   k.handle(p, 'p0', k.col, 'move');
 }
@@ -272,7 +272,7 @@ export function pin(k: Kit) {
     g,
   );
   svgEl('circle', { cx: p.x, cy, r: 3.5, fill: '#fff' }, g);
-  k.hitFill(body);
+  k.hitBody(body);
   tooltip(k, p.x, cy - r - 6, textOf(k), g);
   k.handle(p, 'p0', k.col, 'move');
 }
@@ -375,6 +375,6 @@ export function flag(k: Kit) {
   const w = 18 * s;
   const h = 12 * s;
   const body = svgEl('path', { d: `M${p.x},${top}h${w}l${-5 * s},${h / 2}l${5 * s},${h / 2}h${-w}Z`, fill: k.col }, k.g);
-  k.hitFill(body);
+  k.hitBody(body);
   k.handle(p, 'p0', k.col, 'move');
 }

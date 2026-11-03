@@ -5,7 +5,7 @@ import { createLwEngine, tradesForChart } from '../../chart/lwEngine';
 import { createTvEngine } from '../../chart/tvEngine';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from '../../chart/types';
 import type { ChartStyle } from '../../chart/style';
-import { SYMBOL_MAP, TIMEFRAMES, historyStartMs, type Timeframe } from '../../lib/market';
+import { SYMBOL_MAP, TF_MS, TIMEFRAMES, candleEnd, historyStartMs, type Timeframe } from '../../lib/market';
 import type { NewsEvent } from '../../lib/news';
 import type { ChartPane as Pane, Trade } from '../../lib/types';
 import { Popover } from '../ui/Popover';
@@ -42,6 +42,11 @@ interface Props {
   callbacks: EngineCallbacks;
   onPaneChange: (pane: Pane) => void;
   register: (index: number, engine: ChartEngine | null) => void;
+  /**
+   * Rewind: pick a candle on this chart. `onPick` gets the new replay cursor, the end of the picked
+   * candle (it stays on the chart; the ones after it go). `min` is the session's start, `max` the cursor.
+   */
+  pick?: { min: number; max: number; onPick: (cursor: number) => void } | null;
 }
 
 /** One chart of the replay layout. The built-in engine gets its own symbol / timeframe strip. */
@@ -107,6 +112,25 @@ export function ChartPane(props: Props) {
   useEffect(() => {
     engine.current?.update(stateRef.current);
   });
+
+  // rewind: picking a candle on the chart
+  const pickRef = useRef(props.pick);
+  pickRef.current = props.pick;
+  const picking = !!props.pick;
+  useEffect(() => {
+    const e = engine.current;
+    const p = pickRef.current;
+    if (!picking || !e?.pickTime || !p) return;
+    return e.pickTime({
+      min: p.min,
+      max: p.max,
+      onPick: (open) => {
+        const { symbol, timeframe } = stateRef.current;
+        const sym = SYMBOL_MAP[symbol];
+        pickRef.current?.onPick(sym ? candleEnd(sym, timeframe, open) : open + TF_MS[timeframe]);
+      },
+    });
+  }, [picking, engineKind, tv]);
 
   const sym = SYMBOL_MAP[pane.symbol];
   return (

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { GripVertical, Pause, Play, StepForward } from 'lucide-react';
+import { GripVertical, Pause, Play, Scissors, StepBack, StepForward } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { faDigits } from '../../lib/format';
 import { TIMEFRAMES, type Timeframe } from '../../lib/market';
@@ -12,18 +12,27 @@ interface Props {
   playing: boolean;
   onTogglePlay: () => void;
   onStep: () => void;
+  /** One candle back (a rewind). */
+  onStepBack: () => void;
+  /** Pick a candle on the chart to replay from (a rewind). */
+  onPick: () => void;
+  picking: boolean;
   speedIndex: number;
   onSpeedIndex: (i: number) => void;
   stepTf: Timeframe;
   onStepTf: (tf: Timeframe) => void;
+  /** Forward is off: the session reached its end. */
   disabled: boolean;
+  /** Back is off: the replay is at the session's start. */
+  atStart: boolean;
 }
 
 /**
  * Floating replay controls: drag the grip to move the bar anywhere over the chart.
- * Step shows one more candle; play keeps stepping at the chosen speed.
+ * Step shows one more candle; play keeps stepping at the chosen speed. Back removes the last
+ * candle, and the scissors pick a candle on the chart to replay from (never before the session's start).
  */
-export function PlaybackBar({ playing, onTogglePlay, onStep, speedIndex, onSpeedIndex, stepTf, onStepTf, disabled }: Props) {
+export function PlaybackBar({ playing, onTogglePlay, onStep, onStepBack, onPick, picking, speedIndex, onSpeedIndex, stepTf, onStepTf, disabled, atStart }: Props) {
   const bar = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
 
@@ -83,19 +92,36 @@ export function PlaybackBar({ playing, onTogglePlay, onStep, speedIndex, onSpeed
       >
         <GripVertical size={16} />
       </button>
-      <button
-        type="button"
-        onClick={onTogglePlay}
-        disabled={disabled}
-        className={clsx('flex h-9 w-9 items-center justify-center rounded-xl text-white transition disabled:opacity-40', playing ? 'bg-amber' : 'bg-accent hover:brightness-110')}
-        aria-label={playing ? 'توقف پخش خودکار' : 'پخش خودکار'}
-        title={playing ? 'توقف (Space)' : 'پخش خودکار (Space)'}
-      >
-        {playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="-translate-x-[1px]" />}
-      </button>
-      <button type="button" onClick={onStep} disabled={disabled} className="icon-btn h-9 w-9" aria-label="نمایش کندل بعدی" title="کندل بعدی (→)">
-        <StepForward size={18} />
-      </button>
+      {/* time runs left to right on the chart, so do these */}
+      <div className="flex items-center gap-1" dir="ltr">
+        <button
+          type="button"
+          onClick={onPick}
+          disabled={atStart}
+          className={clsx('icon-btn h-9 w-9', picking && 'bg-accent/15 text-accent')}
+          aria-pressed={picking}
+          aria-label="انتخاب کندل برای بازپخش از آن"
+          title="برگشت: روی کندلی که می‌خواهید بازپخش از بعد آن ادامه پیدا کند کلیک کنید"
+        >
+          <Scissors size={17} />
+        </button>
+        <button type="button" onClick={onStepBack} disabled={atStart} className="icon-btn h-9 w-9" aria-label="برگشت یک کندل" title="کندل قبلی (←)">
+          <StepBack size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={onTogglePlay}
+          disabled={disabled}
+          className={clsx('flex h-9 w-9 items-center justify-center rounded-xl text-white transition disabled:opacity-40', playing ? 'bg-amber' : 'bg-accent hover:brightness-110')}
+          aria-label={playing ? 'توقف پخش خودکار' : 'پخش خودکار'}
+          title={playing ? 'توقف (Space)' : 'پخش خودکار (Space)'}
+        >
+          {playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="-translate-x-[1px]" />}
+        </button>
+        <button type="button" onClick={onStep} disabled={disabled} className="icon-btn h-9 w-9" aria-label="نمایش کندل بعدی" title="کندل بعدی (→)">
+          <StepForward size={18} />
+        </button>
+      </div>
       <div className="flex w-36 flex-col px-1.5 sm:w-44">
         <Slider label="سرعت پخش" min={0} max={SPEEDS.length - 1} value={speedIndex} onChange={onSpeedIndex} />
         <span className="num -mt-0.5 text-center text-[10px] text-muted">سرعت: {faDigits(speed)} کندل در ثانیه</span>

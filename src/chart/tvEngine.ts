@@ -11,7 +11,7 @@ import { TV_LIBRARY_PATH } from './tvLoader';
 import { layoutSaved } from '../services/layoutSync';
 import { TV_FAVORITE_KEYS } from '../services/workspace';
 import { useStore } from '../store/useStore';
-import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState } from './types';
+import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState, PickOptions } from './types';
 
 /** TradingView's Bid and Ask line colours. */
 const BID_ASK = { bid: '#2962ff', ask: '#f23645' };
@@ -590,9 +590,44 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     nav.place();
   });
 
+  /**
+   * Rewind: the library's own crosshair marks the candle; a click (press and release on the same
+   * candle, so a drag that scrolls the chart doesn't count) picks it.
+   */
+  function pickTime(opts: PickOptions) {
+    if (!ready || !chart) return () => {};
+    let at: number | null = null;
+    let downAt: number | null = null;
+    const move = (p: Any) => {
+      at = typeof p?.time === 'number' ? p.time * 1000 : null;
+    };
+    const down = () => {
+      downAt = at;
+    };
+    const up = () => {
+      if (at === null || at !== downAt) return;
+      const end = at + TF_MS[state.timeframe];
+      if (end > opts.min && end < opts.max) opts.onPick(at);
+    };
+    const c = chart;
+    c.crossHairMoved().subscribe(null, move);
+    widget.subscribe('mouse_down', down);
+    widget.subscribe('mouse_up', up);
+    return () => {
+      try {
+        c.crossHairMoved().unsubscribe(null, move);
+        widget.unsubscribe('mouse_down', down);
+        widget.unsubscribe('mouse_up', up);
+      } catch {
+        /* the widget is gone */
+      }
+    };
+  }
+
   return {
     kind: 'tradingview',
     update: (s) => update(s),
+    pickTime,
     async screenshot() {
       if (!ready) return null;
       try {
