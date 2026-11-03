@@ -63,6 +63,18 @@ export interface Session {
   lastOpenedAt?: number;
   /** Trading costs per symbol, set when the session is made (none: no spread, no commission). */
   costs?: Record<string, SymbolCosts>;
+  /** Where a rewind can go back to: one per replay position where the trader placed, changed, closed or cancelled an order (see the store's `rewind`). */
+  checkpoints?: ReplayCheckpoint[];
+}
+
+/**
+ * The session's trades right after an order action, at a replay position: the open and pending
+ * orders and the closed ones whose ideal-R follow-up still runs. The rest can't change any more.
+ * A rewind takes the last one before its target and replays the bars from there.
+ */
+export interface ReplayCheckpoint {
+  cursor: number;
+  live: Trade[];
 }
 
 /** A symbol's trading costs in a session. */

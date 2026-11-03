@@ -413,6 +413,7 @@ export function rect(k: Kit) {
   const y = Math.min(pts[0].y, pts[1].y);
   const h = Math.abs(pts[1].y - pts[0].y);
   const f = k.fill();
+  // grabbed by its four edges, not inside (the chart's crosshair and labels stay there)
   const r = svgEl(
     'rect',
     {
@@ -429,8 +430,7 @@ export function rect(k: Kit) {
     },
     k.g,
   );
-  if (f) k.hitFill(r);
-  else k.hitPath(`M${left},${y}h${right - left}v${h}h${left - right}Z`);
+  k.hitEdges(r);
   if (k.s('showMiddle')) k.line({ x: left, y: y + h / 2 }, { x: right, y: y + h / 2 }, { width: 1, dash: 'dashed', hit: false });
   boxText(k, left, y, right - left, h);
   k.handle(pts[0], 'p0');
@@ -472,7 +472,7 @@ export function text(k: Kit) {
     t.textContent = str;
     const w = str.length * size * 0.6 + 6;
     const hit = svgEl('rect', { x: p.x - 3, y: p.y - size, width: w, height: size + 6, fill: 'transparent' }, k.g);
-    k.hitFill(hit);
+    k.hitBody(hit);
     if (k.selected) svgEl('rect', { x: p.x - 3, y: p.y - size, width: w, height: size + 6, fill: 'none', stroke: k.col, 'stroke-dasharray': '3 3', class: 'h' }, k.g);
     return;
   }
@@ -501,8 +501,8 @@ export function position(k: Kit) {
   svgEl('line', { x1: x0, y1: yt, x2: x1, y2: yt, stroke: c.gain, 'stroke-width': 1.5 }, g);
   svgEl('line', { x1: x0, y1: ys, x2: x1, y2: ys, stroke: c.loss, 'stroke-width': 1.5 }, g);
   svgEl('line', { x1: x0, y1: ye, x2: x1, y2: ye, stroke: c.text, 'stroke-width': 1.5, opacity: 0.8 }, g);
-  k.hitFill(profit);
-  k.hitFill(loss);
+  k.hitEdges(profit);
+  k.hitEdges(loss);
   const midX = (x0 + x1) / 2;
   const pct = (val: number) => ((val / entry) * 100).toFixed(2);
   k.legacyLabel(
@@ -552,7 +552,7 @@ export function measure(k: Kit) {
     `${diff >= 0 ? '+' : ''}${diff.toFixed(v.digits)} (${((diff / d.points[0].price) * 100).toFixed(2)}%) ${(diff / v.pip).toFixed(1)} pips\n${bars} bars, ${legacyDuration(d.points[1].time - d.points[0].time)}`,
     mc,
   );
-  k.hitFill(box);
+  k.hitEdges(box);
   k.handle(pts[0], 'p0', mc);
   k.handle(pts[1], 'p1', mc);
 }

@@ -322,7 +322,7 @@ export function dateRange(k: Kit) {
     { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top), fill: f?.color ?? 'transparent', 'fill-opacity': f?.opacity },
     k.g,
   );
-  k.hitFill(box);
+  k.hitEdges(box);
   k.line({ x: a.x, y: top }, { x: a.x, y: bottom }, { width: 1, dash: 'solid' });
   k.line({ x: b.x, y: top }, { x: b.x, y: bottom }, { width: 1, dash: 'solid' });
   const my = (top + bottom) / 2;
@@ -355,7 +355,7 @@ export function priceRange(k: Kit) {
     { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top), fill: f?.color ?? 'transparent', 'fill-opacity': f?.opacity },
     k.g,
   );
-  k.hitFill(box);
+  k.hitEdges(box);
   k.line({ x: left, y: a.y }, { x: right, y: a.y }, { width: 1, dash: 'solid' });
   k.line({ x: left, y: b.y }, { x: right, y: b.y }, { width: 1, dash: 'solid' });
   const mx = (left + right) / 2;
@@ -382,7 +382,7 @@ export function barsPattern(k: Kit) {
   if (!bars.length) {
     const [a, b] = k.pts;
     const box = svgEl('rect', { x: Math.min(a.x, b.x), y: 0, width: Math.abs(b.x - a.x), height: v.H, fill: k.col, 'fill-opacity': 0.08 }, k.g);
-    k.hitFill(box);
+    k.hitEdges(box);
     k.pointHandles();
     return;
   }
@@ -442,7 +442,7 @@ export function barsPattern(k: Kit) {
   }
   if (line.length > 1) k.path(line.join(''), { width: k.sw, dash: 'solid' });
   if (k.interactive && minX <= maxX)
-    k.hitFill(svgEl('rect', { x: minX - bw, y: minY, width: Math.max(4, maxX - minX + 2 * bw), height: Math.max(4, maxY - minY), fill: 'transparent' }, k.g));
+    k.hitBody(svgEl('rect', { x: minX - bw, y: minY, width: Math.max(4, maxX - minX + 2 * bw), height: Math.max(4, maxY - minY), fill: 'transparent' }, k.g));
   k.handle(k.pts[0], 'body', k.col, 'move');
 }
 

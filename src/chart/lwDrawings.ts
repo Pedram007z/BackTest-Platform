@@ -28,6 +28,8 @@ export interface DrawingHost {
   paneHeight(): number;
   plotWidth(): number;
   onChange(all: Record<string, Drawing[]>): void;
+  /** the layer set the chart's crosshair to this bar time (null: cleared); the library sends no event for it */
+  onCrosshair?(time: number | null): void;
 }
 
 export interface DrawingUiState {
@@ -230,6 +232,25 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
   };
 
   /** pointer → bar time and price (magnet: the bar's nearest open / high / low / close) */
+  /**
+   * The chart's crosshair at the pointer, with its price and time labels. Over a drawing's edge or
+   * handle, and while one moves, the pointer events go to the SVG and not to the chart, so the
+   * crosshair is set from here (as in TradingView, it never disappears over a drawing).
+   */
+  function crosshairAt(x: number, y: number) {
+    const l = ts().coordinateToLogical(x);
+    const price = host.series.coordinateToPrice(y);
+    if (l === null || price === null) return;
+    const time = logicalToTime(Math.round(l));
+    if (Number.isInteger(timeToLogical(time))) {
+      host.chart.setCrosshairPosition(price as number, time as UTCTimestamp, host.series);
+      host.onCrosshair?.(time);
+    } else {
+      host.chart.clearCrosshairPosition();
+      host.onCrosshair?.(null);
+    }
+  }
+
   function pointAt(x: number, y: number): (Point & { logical: number }) | null {
     const l = ts().coordinateToLogical(x);
     const raw = host.series.coordinateToPrice(y);
@@ -628,6 +649,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     const d = find(drag.id);
     if (!d) return;
     const { x, y } = local(e);
+    crosshairAt(x, y);
     if (!drag.moved && Math.hypot(x - drag.startX, y - drag.startY) < 2) return;
     const free = d.type === 'brush' || d.type === 'highlighter' || ((d.type === 'curve' || d.type === 'doublecurve') && /^p[23]$/.test(drag.handle));
     const pt = pointAt(x, y);
@@ -799,6 +821,21 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     startDrag(e, d, h);
   };
   svg.addEventListener('pointerdown', onSvgDown);
+  /** over a drawing (an edge, a text, a handle): the crosshair follows the pointer */
+  const onSvgMove = (e: PointerEvent) => {
+    if (tool !== 'cursor' || drag || !(e.target as Element | null)?.closest?.('[data-id]')) return;
+    const { x, y } = local(e);
+    crosshairAt(x, y);
+  };
+  const onSvgOut = (e: PointerEvent) => {
+    const to = e.relatedTarget as Node | null;
+    if (!drag && (!to || !host.container.contains(to))) {
+      host.chart.clearCrosshairPosition();
+      host.onCrosshair?.(null);
+    }
+  };
+  svg.addEventListener('pointermove', onSvgMove);
+  svg.addEventListener('pointerout', onSvgOut);
 
   const onContainerDown = (e: PointerEvent) => {
     activeLayer = api;
@@ -1062,6 +1099,8 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       window.removeEventListener('keydown', onKey);
       host.container.removeEventListener('pointerdown', onContainerDown, true);
       svg.removeEventListener('pointerdown', onSvgDown);
+      svg.removeEventListener('pointermove', onSvgMove);
+      svg.removeEventListener('pointerout', onSvgOut);
       if (activeLayer === api) activeLayer = null;
       svg.remove();
       listeners.clear();

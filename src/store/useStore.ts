@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { getSession, type Session as AuthSession } from '../lib/auth';
 import { addDays, keyToMs, localDayKey } from '../lib/calendar';
-import { BAR_MS, SYMBOL_MAP, pointValueUsd, priceAt, replayBars, roundToTick } from '../lib/market';
-import { closeLots, exitPriceAt, followIdeal, lotsForRisk, processBar, sessionCommission, sessionSpread, type FillEvent } from '../lib/trading';
+import { BAR_MS, SYMBOL_MAP, pointValueUsd, priceAt, roundToTick } from '../lib/market';
+import { closeLots, exitPriceAt, lotsForRisk, sessionCommission, sessionSpread, type FillEvent } from '../lib/trading';
+import { planRewind, simulateTrade, withCheckpoint, type RewindPlan } from '../lib/rewind';
 import type { ChartPane, Checklist, GoToPreset, JournalEntry, LayoutId, NewsFilters, OrderType, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
 import { local } from '../lib/storage';
 import { buildSeed, type SeedData } from './seed';
@@ -111,6 +112,11 @@ interface State {
   deleteTrade: (tradeId: string) => void;
   /** Move a session's replay cursor forward, filling orders and settling stops / targets on the way. */
   advance: (sessionId: string, nextCursor: number) => FillEvent[];
+  /**
+   * Move a session's replay cursor back to `target` (never before the session's start): see `planRewind`.
+   * Returns what changed, or null when the cursor is already there.
+   */
+  rewind: (sessionId: string, target: number) => RewindPlan | null;
 
   addGoToPreset: (p: Omit<GoToPreset, 'id'>) => void;
   updateGoToPreset: (id: string, patch: Partial<GoToPreset>) => void;
@@ -297,18 +303,25 @@ export const useStore = create<State>()(
           executedAt: Date.now(),
           journal: input.journal,
         };
-        set((s) => ({ trades: [...s.trades, trade] }));
+        set((s) => afterAction(s, session.id, [...s.trades, trade]));
         return trade;
       },
 
       cancelOrder: (id) =>
-        set((s) => ({
-          trades: s.trades.map((t) => (t.id === id && t.status === 'pending' ? { ...t, status: 'cancelled', closedAt: Date.now() } : t)),
-        })),
+        set((s) =>
+          afterAction(
+            s,
+            s.trades.find((t) => t.id === id)?.sessionId,
+            s.trades.map((t) => (t.id === id && t.status === 'pending' ? { ...t, status: 'cancelled', closedAt: Date.now() } : t)),
+          ),
+        ),
 
       modifyTrade: (id, patch) =>
-        set((s) => ({
-          trades: s.trades.map((t) => {
+        set((s) =>
+          afterAction(
+            s,
+            s.trades.find((t) => t.id === id)?.sessionId,
+            s.trades.map((t) => {
             if (t.id !== id || (t.status !== 'open' && t.status !== 'pending')) return t;
             const next = { ...t };
             if (patch.sl !== undefined) next.sl = roundToTick(t.symbol, patch.sl);
@@ -322,7 +335,8 @@ export const useStore = create<State>()(
             }
             return next;
           }),
-        })),
+          ),
+        ),
 
       closePosition: (id, lots) => {
         const state = get();
@@ -333,13 +347,20 @@ export const useStore = create<State>()(
         // a buy closes on the bid, a sell on the ask
         const price = exitPriceAt(trade, priceAt(trade.symbol, session.cursor));
         const next = closeLots(trade, lots ?? trade.lots, price, session.cursor, 'manual');
-        set((s) => ({ trades: s.trades.map((t) => (t.id === id ? next : t)) }));
+        set((s) => afterAction(s, session.id, s.trades.map((t) => (t.id === id ? next : t))));
         return next;
       },
 
       saveJournal: (tradeId, entry) => set((s) => ({ trades: s.trades.map((t) => (t.id === tradeId ? { ...t, journal: { ...entry, updatedAt: Date.now() } } : t)) })),
       deleteJournal: (tradeId) => set((s) => ({ trades: s.trades.map((t) => (t.id === tradeId ? { ...t, journal: undefined } : t)) })),
-      deleteTrade: (tradeId) => set((s) => ({ trades: s.trades.filter((t) => t.id !== tradeId) })),
+      deleteTrade: (tradeId) =>
+        set((s) =>
+          afterAction(
+            s,
+            s.trades.find((t) => t.id === tradeId)?.sessionId,
+            s.trades.filter((t) => t.id !== tradeId),
+          ),
+        ),
 
       advance: (sessionId, nextCursor) => {
         const state = get();
@@ -347,23 +368,7 @@ export const useStore = create<State>()(
         if (!session || nextCursor <= session.cursor) return [];
         const from = session.cursor;
         const events: FillEvent[] = [];
-
-        const trades = state.trades.map((t) => {
-          if (t.sessionId !== sessionId) return t;
-          const live = t.status === 'open' || t.status === 'pending';
-          const following = t.status === 'closed' && !t.idealDone;
-          if (!live && !following) return t;
-          let trade = t;
-          for (const bar of replayBars(t.symbol, from, nextCursor)) {
-            if (trade.status === 'open' || trade.status === 'pending') {
-              if (trade.status === 'pending' && bar.time < trade.placedTime) continue;
-              trade = processBar(trade, bar, events);
-            } else if (trade.status === 'closed' && !trade.idealDone) {
-              trade = followIdeal(trade, bar);
-            } else break;
-          }
-          return trade;
-        });
+        const trades = state.trades.map((t) => (t.sessionId === sessionId ? simulateTrade(t, from, nextCursor, events) : t));
 
         set({
           trades,
@@ -371,6 +376,21 @@ export const useStore = create<State>()(
           replayedMs: state.replayedMs + (nextCursor - from),
         });
         return events;
+      },
+
+      rewind: (sessionId, target) => {
+        const state = get();
+        const session = state.sessions.find((s) => s.id === sessionId);
+        if (!session) return null;
+        const plan = planRewind(session, state.trades, target);
+        if (!plan) return null;
+        const after = new Map(plan.trades.map((t) => [t.id, t]));
+        set({
+          // the other sessions' trades and the order of the list stay as they are
+          trades: state.trades.flatMap((t) => (t.sessionId !== sessionId ? [t] : after.has(t.id) ? [after.get(t.id)!] : [])),
+          sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, cursor: plan.to, checkpoints: plan.checkpoints, lastOpenedAt: Date.now() } : s)),
+        });
+        return plan;
       },
 
       addGoToPreset: (p) => set((s) => ({ goToPresets: [...s.goToPresets, { ...p, id: uid('g') }] })),
@@ -428,6 +448,22 @@ export const useStore = create<State>()(
     },
   ),
 );
+
+/**
+ * The state after an order action in a session: the new trades and a checkpoint at the session's
+ * cursor with its live trades (without journals, which a rewind keeps from the current trade). One
+ * checkpoint per cursor: a later action at the same position replaces it.
+ */
+function afterAction(s: State, sessionId: string | undefined, trades: Trade[]): Partial<State> {
+  if (!sessionId) return { trades };
+  return {
+    trades,
+    sessions: s.sessions.map((x) => {
+      if (x.id !== sessionId) return x;
+      return { ...x, checkpoints: withCheckpoint(x, trades) };
+    }),
+  };
+}
 
 function sessionBalanceOf(session: Session, trades: Trade[]): number {
   return session.balance + trades.filter((t) => t.sessionId === session.id).reduce((sum, t) => sum + t.partials.reduce((a, p) => a + p.pnl, 0), 0);

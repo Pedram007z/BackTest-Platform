@@ -965,6 +965,19 @@ export function stepCursor(cursor: number, tf: Timeframe, symbolIds: string[]): 
   return next;
 }
 
+/**
+ * Replay cursor one step of `tf` back: the start of the last candle on the first symbol's chart (the
+ * one forming, or the last complete one), so that candle disappears. Null when there is none.
+ */
+export function stepBackCursor(cursor: number, tf: Timeframe, symbolIds: string[]): number | null {
+  const lead = symbolIds.find((id) => SYMBOL_MAP[id]);
+  if (!lead) return null;
+  const last = getCandles(lead, tf, cursor, 1)[0];
+  if (!last) return null;
+  const open = last.time * 1000;
+  return open < cursor ? open : null;
+}
+
 /** Average true range of the last `n` candles, used to place a sensible default stop. */
 export function atr(symbolId: string, tf: Timeframe, cursor: number, n = 14): number {
   const c = getCandles(symbolId, tf, cursor, n + 1);

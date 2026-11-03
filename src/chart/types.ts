@@ -74,10 +74,24 @@ export interface ChartEngine {
   update(state: EngineState): void;
   /** JPEG data URL of the chart with its drawings. */
   screenshot(): Promise<string | null>;
+  /**
+   * Rewind: pick a candle on the chart. The candle under the pointer is marked (in red where it can't
+   * be picked: it ends before `min` or not before `max`); a click on one that can hands its open
+   * time (UTC ms) to `onPick`. Returns the function that stops picking.
+   */
+  pickTime?(opts: PickOptions): () => void;
   /** Built-in chart only (TradingView has its own toolbar and indicators). */
   drawings?: DrawingApi;
   indicators?: IndicatorApi;
   destroy(): void;
+}
+
+export interface PickOptions {
+  /** the session's start (UTC ms): a candle that ends before it can't be picked */
+  min: number;
+  /** the replay cursor (UTC ms): only candles that end before it can be picked */
+  max: number;
+  onPick: (openMs: number) => void;
 }
 
 export type EngineFactory = (container: HTMLElement, state: EngineState, cb: EngineCallbacks) => ChartEngine;
