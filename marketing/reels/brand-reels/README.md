@@ -1466,6 +1466,38 @@ k13's on this cut's timing.
 
 The caption is in `k14/caption.md`.
 
+## k15: the neon cut of k13's voice (`k15/`, the user's voice)
+
+A new look on its own engine (`neon.js`, not u-kit), 39.9 s at ×1.2: one night room, a brick wall of neon signs over
+a casino table. There are no colour-block wipes: each spoken word is a neon tube that buzzes on when it is said (a few
+fast flickers, not on every word). The whole line hangs there unlit first, so the hook is readable on the first
+frame. Luck is the casino (a pink «شانس» sign, dice, chips, a shell game); strategy is a steady cyan sign.
+
+- **The hook:** the whole question as one sign, a stack of profit chips, then dice roll onto the felt.
+- **«یه شکلن»:** two identical stacks under «شانس» and «استراتژی»; cups drop over them and shuffle, and the signs turn
+  into «؟». **«هر دو سبزن»:** the cups lift and the room goes green.
+- **«با ۱۰ تا معامله…»:** ten winning chips dealt and a pink «؟».
+- **The sample simulation** (k13's, marked «شبیه‌سازی نمونه»): the first 10 trades as two tangled neon tubes over two
+  stacks of the same height; a mechanical counter rolling 10 → 200 while 200 chips stack up; 200 trades, where luck's
+  tube sputters and dies on «کم میاره» and strategy's stays lit.
+- **«بازار زنده»:** a clock spinning, calendar pages torn off, chips turned to cash.
+- **The real screens:** k13's gold replay on a monitor standing on the table, the planned sell ringed, the trade to its
+  target, the balance ringed; on «بدون ریسک» the real chips sit under a glass dome.
+- **The close:** strategy's curve and a neon check; luck's 10 trades with a «الان» pin and the unlit tube of what comes
+  after; on «تموم شد» luck's sign dies and the room blacks out (the hum stops), with only the words left in red; the
+  BacktestLab sign switches the lights back on for the free start.
+
+The score is F minor at 104 BPM (a night-lounge groove), with a mains hum that cuts out at the blackout and crackles
+where tubes die.
+
+**Rebuild** (in `k15/`):
+1. `python3 voice/build.py` (reads `../k13/voice/`), `python3 data.py`, and `python3 sound.py`.
+2. `python3 page.py`.
+3. `REEL_DIR=neon node render.cjs cover neon/cover.png` and `REEL_DIR=neon node render.cjs video neon/reel-hq.mp4
+   mix.wav 4`.
+
+The caption is in `k15/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
