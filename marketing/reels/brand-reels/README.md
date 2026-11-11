@@ -1411,6 +1411,39 @@ The score is B♭ minor at 124 BPM, with a bar landing on «۴۰۰ درصد».
 
 The caption and the facts on screen are in `k12/caption.md`.
 
+## k13: «سود می‌کنی چون استراتژی داری، یا چون هنوز شانست تموم نشده؟», kinetic (`k13/`, the user's voice)
+
+The default kinetic look (u-kit), 40.3 s, paced like the reels past 10k views: ×1.18, about 176 words a minute, with
+the brand only from 24 s. Luck is a pair of dice and a «شانس» battery that runs down; strategy is a card of rules.
+
+- **The hook:** the rules card with a profit, then the dice roll in and the battery drains.
+- **«یه شکلن» / «هر دو سبزن»:** two account cards that look the same whichever made the profit, then a full green
+  block.
+- **«با ۱۰ تا معامله‌ی خوب هم معلوم نمی‌شه»:** ten wins and still a question mark.
+- **The sample simulation** (marked «شبیه‌سازی نمونه»): the first 10 trades of two traders tangled together, the count
+  rolling from 10 to 200 over a grid of 200 trades, then the same two over 200 trades, where luck fades below its start
+  and the strategy keeps climbing.
+- **«بازار زنده»:** a counter stuck on «معامله‌ی ۳ از ۲۰۰», months of calendar pages, real money.
+- **The real screens:** the gold replay stepping, a planned sell (entry, stop, target), the trade played until it
+  closes at its target, and the balance after it, ringed.
+- **The close:** the strategy's curve with a check, the lucky trader's 10 trades with a «الان» pin before the curve
+  turns, the empty battery on red, then the free start.
+
+The score is D minor at 122 BPM, with a bar landing on «می‌مونه».
+
+**The captures (`k13/capture/`, Playwright against a local copy of the platform, as for f1):** start the API server on
+a copy of the market store (XAUUSD) and the app with `VITE_API_URL`, run f1's `signup.mjs` and `mksession.mjs`, then
+`cap.mjs <session id>` (the replay and a buy) and `cap2.mjs <session id> sell c` (the sell the reel shows). They write
+to the scratch `cap/` folder; `k13/screens/` holds the frames the reel uses, scaled to 1920 px (not in git).
+
+**Rebuild** (in `k13/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 ../mkpage_u.py k13 kinetic`.
+3. `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node render.cjs video
+   kinetic/reel-hq.mp4 mix.wav 4`.
+
+The caption and the facts on screen are in `k13/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
