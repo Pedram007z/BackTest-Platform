@@ -1444,6 +1444,28 @@ to the scratch `cap/` folder; `k13/screens/` holds the frames the reel uses, sca
 
 The caption and the facts on screen are in `k13/caption.md`.
 
+## k14: the full-frame cut of k13's voice (`k14/`, the user's voice)
+
+The same take, simulation and real screens as k13, on the same u-kit engine, rebuilt for the first three seconds and
+for watch time (the growth analysis in `../../instagram/`): 39.0 s at ×1.22, about 182 words a minute.
+
+- **The hook is one poster, whole on the first frame:** «سود می‌کنی چون», «استراتژی» on a lime panel, «یا», and
+  «چون هنوز شانست تموم نشده؟» on an amber panel. The words not yet said are fainter and land when spoken; the amber
+  panel lights up as it is said, the dice land on it and its «شانس» battery runs down. The cover is this poster.
+- **Every picture fills the frame** (each art draws on the whole canvas, `kpos [0, 0, 1]`):
+  - «جوابش سخته», «هر دو سبزن» and «تموم شد» are full-frame type;
+  - the two account cards slide into one on «یه شکلن»;
+  - the count 10 → 200 is a huge readout over a grid of 200 trades;
+  - the charts and the real screens run edge to edge.
+- **A thin bar at the top** shows how far the reel has run (`story.js` wraps `window.seek`).
+
+The voice is k13's take (`voice/build.py` reads `../k13/voice/`), the pictures are `../k13/screens/` and the score is
+k13's on this cut's timing.
+
+**Rebuild** (in `k14/`): as k13, with `python3 ../mkpage_u.py k14 kinetic`.
+
+The caption is in `k14/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
