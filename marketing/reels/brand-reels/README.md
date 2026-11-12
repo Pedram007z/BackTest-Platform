@@ -1528,6 +1528,39 @@ The score is C minor at 118 BPM, with a bar landing on «بهتره».
 
 The caption and the facts on screen are in `k16/caption.md`.
 
+## k17: «به استراتژیت اعتماد داری…», a talking trader character (`k17/`, the user's voice, k16's cut)
+
+An original trader character speaks the dialog, with motion graphics above him and word-by-word captions under him;
+27.3 s, on its own engine (`host.js`). He is a young trader in a charcoal hoodie with lime drawstrings and the logo on
+his chest, drawn in flat vector shapes (no real person's likeness):
+- **Face:** his mouth follows the voice (`vo.json` from `../char/voicefeat.py`: loudness → open, bright vs dark sounds
+  → wide, with teeth and tongue); he blinks, nods on the stressed words and tilts his head on the questions; his brows
+  rise on «می‌ترسی؟» and frown on «کار نمی‌کنه»; he smiles on «راحت», «فهمیدی» and at the end.
+- **Hands:** a two-bone arm with fingers that fold one by one. He shows an open palm, shrugs on «بیا ببینیم», counts
+  «۳» and then «۱، ۲، ۳» for the answers, jabs on «فهمیدی», opens both hands on «هر سه تاش», points up at the screen,
+  points down on «لینکش توی بیوئه» and waves at the end.
+
+The motion graphics:
+- **The hook:** «اعتماد داری… یا می‌ترسی؟» and a balance that tips from «اعتماد» to «ترس».
+- **«بیا ببینیم…»:** a magnifier sweeping over question marks.
+- **«سه تا جواب»:** a huge «۳» and three cards: a green check, an amber risk knob and a red cross.
+- **Each answer:** its card in the middle with a number badge. The knob turns down and three lot bars shrink on
+  «حجمتو»; a bill drops toward the cross and stops short, with a check, on «فهمیدی».
+- **«هر سه تاش…»:** the three cards hop, and a grey «ندونستن» card is struck through.
+- **«۵۰ تا معامله»:** a counter and 50 tiles; then the real gold replay (k13's screens) with the planned sell ringed.
+- **The close:** the logo, «شروعش رایگانه», an arrow down to the bio, and the end card.
+
+The score is A minor at 96 BPM, kept low under the voice.
+
+**Rebuild** (in `k17/`):
+1. `python3 ../char/voicefeat.py ../k16/voice/vo.wav vo.json --fps 30`, `python3 data.py` and `python3 sound.py`
+   (k16's voice must be built first).
+2. `python3 page.py`.
+3. `REEL_DIR=host node render.cjs cover host/cover.png` and `REEL_DIR=host node render.cjs video host/reel-hq.mp4
+   mix.wav 4`.
+
+The caption and the facts on screen are in `k17/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
