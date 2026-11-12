@@ -1498,6 +1498,36 @@ where tubes die.
 
 The caption is in `k15/caption.md`.
 
+## k16: «به استراتژیت اعتماد داری یا از بررسی کردنش می‌ترسی؟», 3D type in space (`k16/`, the user's voice)
+
+A new kinetic look on its own engine (`space.js`), 27.3 s at ×1.15: a light studio with a floor that runs to the
+horizon. Every word is a solid block of type. Each line hangs flat and grey first, and each word pops out in 3D
+(extruded toward the back, with a small hop) as it is said. The camera flies through space from one line to the next,
+so the last line rushes past it; dust in the air streaks by. The camera only moves (it never turns), so every plane
+facing it stays undistorted and the extrusion shows real sides and tops.
+
+- **The hook:** the whole question, readable on the first frame; a magnifier and a «؟» on the floor; «می‌ترسی؟» pops
+  out on a red plate.
+- **«بیا ببینیم…»:** question marks at three depths.
+- **«سه تا جواب»:** a huge «۳», and three tiles rise from the floor: a green check, an amber risk knob and a red cross.
+- **Each answer:** the camera pans to its tile; the knob turns down on «ریسک کمتر»; a bill drops toward the red tile on
+  «پولتو بگیره» and stops short on «فهمیدی», with a check.
+- **«هر سه تاش از ندونستن بهتره»:** the camera pulls back to all three; «ندونستن» is struck through, and a grey «؟»
+  behind them fades.
+- **«۵۰ تا معامله»:** 50 cubes drop onto the floor, and the camera glides over them to the real gold replay (k13's
+  screens), with the planned sell ringed on «تست».
+- **The close:** the logo as a solid block, «رایگانه» on a lime plate, then the end card.
+
+The score is C minor at 118 BPM, with a bar landing on «بهتره».
+
+**Rebuild** (in `k16/`):
+1. `python3 voice/build.py`, `python3 data.py`, and `python3 sound.py`.
+2. `python3 page.py`.
+3. `REEL_DIR=space node render.cjs cover space/cover.png` and `REEL_DIR=space node render.cjs video
+   space/reel-hq.mp4 mix.wav 4`.
+
+The caption and the facts on screen are in `k16/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
