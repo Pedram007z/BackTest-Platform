@@ -1561,6 +1561,31 @@ The score is A minor at 96 BPM, kept low under the voice.
 
 The caption and the facts on screen are in `k17/caption.md`.
 
+## k18: «به استراتژیت اعتماد داری…», the default kinetic look (`k18/`, the user's voice, k16's cut)
+
+The u-kit kinetic look of the reels past 10k views (k1, q2), 27.3 s: full-bleed colour blocks that wipe on the beat,
+huge words landing as they are spoken, one bold symbol per idea, the brand only at the end.
+
+- **The hook (ink):** a balance that tips from «اعتماد» to «ترس», on screen from the first frame.
+- **«بیا ببینیم…» (violet):** a magnifier sweeping over question marks.
+- **«سه تا جواب» (lime):** «۳» on a plate and three cards: a green check, an amber risk knob and a red cross.
+- **Each answer:**
+  - **paper:** the check with «ادامه بده»;
+  - **ink:** the knob turning down and three lot bars shrinking on «حجمتو»;
+  - **red:** a bill dropping toward the cross and stopping short, with a check on «فهمیدی».
+- **«هر سه تاش…» (violet):** «ندونستن» blurred in the words, the three cards hopping, a grey «؟» card fading.
+- **«۵۰ تا معامله» (lime):** 50 tiles filling.
+- **«توی بک‌تست‌لب تست کن» (ink):** the real gold replay (k13's screens) with the planned sell ringed.
+- **The close:** the free start, the end card.
+
+The score is E minor at 124 BPM, with a whoosh on every wipe.
+
+**Rebuild** (in `k18/`): `python3 data.py`, `python3 sound.py` (k16's voice must be built first), `python3
+../mkpage_u.py k18 kinetic`, then `REEL_DIR=kinetic node render.cjs cover kinetic/cover.png` and `REEL_DIR=kinetic node
+render.cjs video kinetic/reel-hq.mp4 mix.wav 4`.
+
+The caption and the facts on screen are in `k18/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
