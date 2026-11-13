@@ -1709,6 +1709,49 @@ then `REEL_DIR=iso node render.cjs cover iso/cover.png` and `REEL_DIR=iso node r
 
 The caption and the facts on screen are in `k22/caption.md`.
 
+## k23: «پراپ تریدرها چطوری به برداشت رسیدن؟», the 3D mascot (`k23/`, the user's k1 voice at normal speed)
+
+The user asked for this dialog as a reel with cv4's mascot. It's 53.6 s on the k1 take (`../k1/voice/t1.mp3`), with no
+speed-up; only silences longer than 0.4 s are shortened. It runs on cv4's three.js scene (the renderer, materials, the
+mascot's face and hands, the smooth hoodie body and the room), with the reel's logic added in `reel.js`.
+
+- **The set:** a night trading desk with city windows and chart monitors. The mascot sits right of centre. The props
+  for each beat appear on its left, at the spot it points to.
+- **The mascot acts:**
+  - its face changes per beat (thinking, a knowing smirk, calm, shocked, happy);
+  - it blinks, and nods on stressed words;
+  - its mouth follows the voice (`vo.json`, from `../char/voicefeat.py`);
+  - its arms move between poses (palm up, pointing, hand on chin, waving). The smooth body is rebuilt as they move,
+    so the arms stay grown into the hoodie.
+- **The beats:**
+  - **the hook:** «برداشت تأیید شد» and a stack of notes;
+  - **«رازش یه استراتژی عجیب نیست»:** a «استراتژی مخفی» box that gets stamped ✕ on «نیست»;
+  - **«قانون‌های چالش»:** a rules board, then the «حد ضرر روزانه» and «حداکثر افت» gauges filling up;
+  - **«کل چالش می‌سوزه»:** a «چالش پراپ» card that catches fire and reads «حساب بسته شد»;
+  - **«بدترین افت»:** a drawdown panel, and a row of red loss chips for «چند تا ضرر پشت‌سرهم»;
+  - **«ریسک هر معامله»:** a knob turning down until the worst day stays above the «حد قانون» line;
+  - **BacktestLab:** «حساب چالش» and «بازار واقعی، بدون دیدن آینده». The monitor shows k13's real gold replay, with a
+    «آینده» curtain. Then a «حداکثر افت» gauge with a «؟٪» badge, and the two steps «پاس توی بک‌تست‌لب», «بعد خرید چالش»;
+  - **the close:** the voice's CTA. «PROP» is typed into a comment box and a «لینک شروع رایگان» DM card is sent. Then the
+    end card says «شروعش رایگانه».
+- **On screen:** a two-line headline per beat, word-by-word subtitles from the whisper timing (spellings fixed: پراپ,
+  استراتژی, ضرر, تهیه, رایگان), and a lime progress bar. The cover is the hook frame with the headline alone.
+- **The look:** bloom, a shallow depth of field, and a colour grade (teal shadows, warm highlights, a vignette and
+  grain), with the rim light tinted per beat.
+- **The sound:** a soft G-major groove at 92 BPM, kept low under the voice, with a sound for each prop: the stamp, the
+  gauges ticking, the fire, the loss ticks, the knob, the checks, the typing and the send. It's mixed to −14 LUFS.
+
+**Rebuild** (in `k23/`):
+1. Build the bundle first: `../cv4/vendor/three-bundle.js` (see `../cv4/vendor/bundle.sh`).
+2. `python3 voice/build.py`, then `python3 ../char/voicefeat.py voice/vo.wav vo.json --fps 30`.
+3. `python3 data.py`, `python3 page.py`, `python3 sound.py`.
+4. `REEL_DIR=reel node render.cjs cover reel/cover.png` and `REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`.
+
+The page inlines k13's screens (`../k13/screens/`, which must be captured first) as data URLs, because WebGL can't
+use textures from `file://` pictures. That makes `reel/index.html` about 6 MB, so it is rebuilt rather than committed.
+
+The caption and the facts on screen are in `k23/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:

@@ -127,6 +127,8 @@ k[0-9][0-9]/*/*.log
 k[0-9][0-9]/*/chunks/
 k[0-9][0-9]/chunks/
 k[0-9][0-9]/*.mp4
+# k23: the page inlines k13's screens as data URLs (~6 MB), so it is rebuilt by page.py
+k23/reel/index.html
 # h-films (h1…): illustrated films; their voice and screens come from other reels (h1: ../k7/voice, ../f1/screens). Music,
 # mix, renders, chunks, covers
 h[0-9]/*.wav
