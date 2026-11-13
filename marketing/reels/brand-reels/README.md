@@ -1641,6 +1641,45 @@ mix.wav 4`.
 
 The caption and the facts on screen are in `k20/caption.md`.
 
+## k21: «به استراتژیت اعتماد داری…», a podcast with two characters (`k21/`, the user's voice at normal speed)
+
+Inspired by two reference reels the user sent: a minimal whiteboard explainer (a round-head character under short
+headlines and small outlined icons in green and red) and a two-character podcast at a round table that cuts between a
+wide shot and close-ups. Its own engine (`pod.js`), 34.2 s.
+
+The voice is the take at its normal speed. `voice/build.py` runs with ATEMPO 1.0 and MAXG longer than any pause, so
+nothing is sped up or cut.
+
+- **The room:** a cozy podcast room drawn in flat vector (a bookshelf, a window, plants, a rug, a round table with a
+  laptop, mugs and microphones on arms).
+  - **The host** (grey sweater, the BacktestLab logo on his chest) speaks with the user's voice. His mouth follows it
+    (`vo.json`), he nods on the stressed words, and his near hand opens on the key lines and points down at
+    «لینکش توی بیوئه».
+  - **The guest** (glasses, a rust sweater) is the trader who's afraid to test. He doesn't speak, only reacts: worried
+    on «می‌ترسی؟», thinking on «سه تا جواب», relieved on «راحت», a big smile on «فهمیدی», nodding on «بهتره».
+  - At the end both wave.
+- **The shots:**
+  - wide, medium two-shot, and close-ups of each, with hard cuts and a slow push in each;
+  - a laptop close-up for «توی بک‌تست‌لب تست کن» (the real gold replay, k13's screens, the planned sell ringed).
+- **The wall graphics:**
+  - a headline with an accent line in every section;
+  - tags «اعتماد ✓» and «ترس ✕», and a magnifier;
+  - three outlined answer cards;
+  - a check, a lot-size bar that shrinks, and a saved bill with a check;
+  - a checklist with «ندونستن» struck through and «از ندونستن بهتره»;
+  - 50 squares, «شروعش رایگانه», and the end card.
+
+The score is a soft groove in E♭ at 84 BPM, kept low.
+
+**Rebuild** (in `k21/`):
+1. `python3 voice/build.py`, `python3 ../char/voicefeat.py voice/vo.wav vo.json --fps 30`, `python3 data.py` and
+   `python3 sound.py`.
+2. `python3 page.py`.
+3. `REEL_DIR=pod node render.cjs cover pod/cover.png` and `REEL_DIR=pod node render.cjs video pod/reel-hq.mp4 mix.wav
+   4`.
+
+The caption and the facts on screen are in `k21/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
