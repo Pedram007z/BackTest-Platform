@@ -86,20 +86,22 @@ function trader(o) {
   hd.position.y = 0.05; hd.rotation.set(o.nod ?? 0.04, d * 0.2, d * (o.tilt ?? -0.06)); g.add(hd);
   // neck, hoodie, hood, drawstrings, logo
   g.add(mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.7, 32), M.skin, [0, -1.12, -0.05]));
-  const prof = [[0.42, -1.12], [0.9, -1.32], [1.45, -1.62], [1.78, -2.05], [1.88, -2.8], [1.86, -4.0], [1.8, -6.2]].map(([r, y]) => new THREE.Vector2(r, y));
+  const prof = [[0.42, -1.12], [0.95, -1.3], [1.55, -1.6], [1.86, -2.05], [1.92, -2.8], [1.9, -4.0], [1.84, -6.2]].map(([r, y]) => new THREE.Vector2(r, y));
   g.add(mesh(new THREE.LatheGeometry(prof, 64), M.hood, [0, 0, 0], [0, 0, 0], [1, 1, 0.64]));
   g.add(mesh(new THREE.TorusGeometry(0.62, 0.23, 24, 64), M.hood2, [0, -1.3, -0.05], [Math.PI / 2 + 0.25, 0, 0], [1.05, 0.82, 1]));
   [-1, 1].forEach((e) => { g.add(capsuleBetween(new V3(e * 0.2, -1.45, 1.0), new V3(e * 0.24, -2.55, 1.18), 0.04, M.lime)); g.add(mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.2, 16), std('#E9FF9E', 0.4), [e * 0.24, -2.68, 1.19])); });
   if (window.ICON_TEX) { const lg = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshStandardMaterial({ map: window.ICON_TEX, transparent: true, roughness: 0.5, emissive: '#FFFFFF', emissiveMap: window.ICON_TEX, emissiveIntensity: 0.25 })); lg.position.set(-d * 0.85, -2.45, 1.0); lg.rotation.y = -d * 0.5; g.add(lg); }
   // arms
   const pose = { [d]: o.near ?? 'down', [-d]: o.far ?? 'down' };
-  [-1, 1].forEach((a) => { const p = pose[a], sh = new V3(a * 1.55, -1.95, -0.05); let el, wr, dir;
+  [-1, 1].forEach((a) => { const p = pose[a], sh = new V3(a * (p === 'down' ? 1.62 : 1.35), -1.92, -0.04); let el, wr, dir;
     if (p === 'palm') { el = new V3(a * 2.25, -3.1, 1.0); wr = new V3(a * 2.45, -2.15, 1.95); }
     else if (p === 'point') { el = new V3(a * 2.25, -2.75, 1.0); wr = new V3(a * 2.75, -1.8, 1.9); dir = new V3(a * 1, 0.35, 0.25).normalize(); }
     else if (p === 'chin') { el = new V3(a * 0.95, -3.15, 1.75); wr = new V3(a * 0.34, -1.55, 1.45); dir = new V3(-a * 0.15, 1, 0.1).normalize(); }
     else if (p === 'desk') { el = new V3(a * 1.95, -3.3, 0.6); wr = new V3(a * 1.2, -3.35, 2.0); }
-    else { el = new V3(a * 1.98, -3.4, 0.15); wr = new V3(a * 1.95, -4.8, 0.35); }
-    g.add(capsuleBetween(sh, el, 0.37, M.hood)); g.add(sphere(0.36, M.hood, el.toArray(), [1, 1, 1])); g.add(capsuleBetween(el, wr, 0.32, M.hood2));
+    else { el = new V3(a * 2.02, -3.4, -0.02); wr = new V3(a * 1.98, -4.8, 0.08); }
+    // the shoulder: a rounded cap that grows out of the hoodie, so the sleeve is part of the body
+    g.add(sphere(0.5, M.hood, [a * 1.55, -2.0, -0.04], [1, 0.8, 0.8]));
+    g.add(capsuleBetween(sh, el, 0.39, M.hood)); g.add(sphere(0.37, M.hood, el.toArray(), [1, 1, 1])); g.add(capsuleBetween(el, wr, 0.34, M.hood));
     g.add(mesh(new THREE.TorusGeometry(0.28, 0.07, 12, 32), M.hood2, wr.toArray(), [0, 0, 0]).rotateOnAxis(new V3(1, 0, 0), Math.PI / 2));
     if (p === 'down') return;
     const hnd = hand(p, M); hnd.position.copy(wr); const fd = dir ?? new V3().subVectors(wr, el).normalize(); hnd.quaternion.setFromUnitVectors(new V3(0, 1, 0), fd);

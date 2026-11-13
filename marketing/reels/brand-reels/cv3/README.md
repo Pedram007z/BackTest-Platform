@@ -6,6 +6,9 @@ symbols. cv3 builds on cv2's three.js scene, and its symbols are cv2's. What it 
 - **The character is a clean mascot:** a smooth porcelain head, glossy oval eyes with catch-lights, strong simple
   brows and a small mouth that carry each expression, white mitten hands, and BacktestLab's violet hoodie with lime
   drawstrings and the logo.
+- **The arms are part of the body:** each sleeve grows from a rounded shoulder cap that blends into the hoodie, is
+  one fabric colour from shoulder to cuff, and an arm at rest hangs along the body's side (the user asked that the arms
+  not look stuck on).
 - **A different room per cover** (`theme`):
   - `city`: a big night-city window and monitors;
   - `monitors`: a wall of chart screens;
