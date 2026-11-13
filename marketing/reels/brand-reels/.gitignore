@@ -180,3 +180,8 @@ v2/index.html
 
 # cv1: reel covers; the rendered JPEGs are rebuilt with node render.cjs
 cv1/out/
+
+# cv2: 3D covers; three.js is bundled into the page (vendor/three-bundle.js, built by vendor/bundle.sh) and the JPEGs are rebuilt
+cv[0-9]/vendor/three-bundle.js
+cv[0-9]/out/
+cv2/page/
