@@ -1680,6 +1680,35 @@ The score is a soft groove in E♭ at 84 BPM, kept low.
 
 The caption and the facts on screen are in `k21/caption.md`.
 
+## k22: «به استراتژیت اعتماد داری…» — «سه مسیر», a floating isometric world (`k22/`, the user's voice at normal speed)
+
+The user asked for something inspired by their two reference reels, not copied (k21 was too close to them). This one
+takes only their principles: one relatable character, one idea per beat, short labels and a calm, clear pace. The look
+is new, on its own engine (`iso.js`), 34.2 s on the take at its normal speed (k21's cut).
+
+- **The world:** floating isometric islands with plank bridges in a lavender-to-peach sky.
+- **The trader:** small, in a violet hoodie with a lime backpack (his strategy). He stands scared before a scanner
+  gate marked «بررسی», with a «؟» thought bubble. On «بیا ببینیم» the gate opens and he walks to the hub.
+- **«سه تا جواب»:** he splits into three tinted copies, each walking a bridge to its own island while the camera
+  glides from one to the next:
+  - **green «۱ ادامه»:** a flag goes up, confetti on «راحت»;
+  - **amber «۲ حجم کمتر»:** his backpack shrinks on «حجمتو»;
+  - **red «۳ توقف»:** he walks to the cliff with his money and a barrier drops before he goes over, a check on «فهمیدی».
+- **«هر سه تاش از ندونستن بهتره»:** a wide shot of the three islands. A fourth copy wanders into a foggy «ندونستن؟»
+  island, which gets a red ✕ and sinks.
+- **«۵۰ تا معامله»:** 50 tiles drop in to build a bridge, and he walks over it to the BacktestLab building. Its
+  billboard shows the real gold replay (k13's screens), with the planned sell ringed on «تست».
+- **The close:** a thumbs-up and a jump, «شروعش رایگانه», and the end card.
+
+The words come as cartoon stickers (a thick outline and an offset shadow). The labels avoid a «·» next to Persian
+digits. The sound is a light C-major groove at 100 BPM with footsteps and the world's sounds.
+
+**Rebuild** (in `k22/`): `python3 data.py`, `python3 page.py`, `python3 sound.py` (k21's voice must be built first),
+then `REEL_DIR=iso node render.cjs cover iso/cover.png` and `REEL_DIR=iso node render.cjs video iso/reel-hq.mp4 mix.wav
+4`.
+
+The caption and the facts on screen are in `k22/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
