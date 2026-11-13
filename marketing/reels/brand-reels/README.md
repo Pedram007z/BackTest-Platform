@@ -1615,6 +1615,32 @@ pulse in D minor at 112 BPM.
 
 The caption and the facts on screen are in `k19/caption.md`.
 
+## k20: «به استراتژیت اعتماد داری…», a DM chat (`k20/`, the user's voice, k16's cut)
+
+A new look on its own engine (`chat.js`), 27.3 s: an Instagram-style direct-message thread with «بک‌تست‌لب», in dark
+mode.
+
+- **The voice is the coach's messages.**
+  - Each sentence arrives as a bubble after a typing indicator, and the header says «در حال نوشتن…».
+  - Its words light up as they are said.
+  - The thread scrolls as new messages come.
+- **The viewer types back** in the composer and sends: «راستش… یه کم می‌ترسم 😬», «و اگه کلاً بررسیش نکنم؟», «رفتم
+  ببینم 🔥». These are written for the reel, not spoken.
+- **The hook:** the profile header and the hook's two messages, readable on the first frame.
+- **«سه تا جواب داره»:** a poll card whose rows fill green, amber and red as each answer is said (the knob turns
+  down on «کمتر»). Then a «ندونستن» row slides in, is struck through, and a «بهتره!» stamp lands.
+- **«۵۰ تا معامله»:** a «چالش این هفته» card whose 50 squares fill.
+- **«توی بک‌تست‌لب تست کن»:** a link preview with the real gold replay (k13's screens), the planned sell ringed.
+- **The close:** a heart reaction, the viewer's reply, and a profile card («شروعش رایگانه»، «لینک توی بیو»).
+
+The sound is chat sounds (incoming pops, keyboard ticks, send whooshes) over a soft lo-fi groove in F at 90 BPM.
+
+**Rebuild** (in `k20/`): `python3 data.py`, `python3 page.py`, `python3 sound.py` (k16's voice must be built first),
+then `REEL_DIR=chat node render.cjs cover chat/cover.png` and `REEL_DIR=chat node render.cjs video chat/reel-hq.mp4
+mix.wav 4`.
+
+The caption and the facts on screen are in `k20/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
