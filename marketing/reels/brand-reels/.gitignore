@@ -177,3 +177,6 @@ v[0-9]/voice/*.log
 v[0-9]/vendor/three-bundle.js
 v[0-9]/screens/
 v2/index.html
+
+# cv1: reel covers; the rendered JPEGs are rebuilt with node render.cjs
+cv1/out/
