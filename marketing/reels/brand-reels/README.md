@@ -1586,6 +1586,35 @@ render.cjs video kinetic/reel-hq.mp4 mix.wav 4`.
 
 The caption and the facts on screen are in `k18/caption.md`.
 
+## k19: «به استراتژیت اعتماد داری…», a split-flap board (`k19/`, the user's voice, k16's cut)
+
+A new look on its own engine (`board.js`), 27.3 s: two split-flap boards on a dark wall, like an airport's. Each unit
+is a real flap (the top half falls over the bottom one, about the hinge). Words span units and flip unit by unit, right
+to left, running through a few random letters before they land.
+
+- **The top board carries the spoken words.**
+  - Each word lands as it is said.
+  - The last line's words flip away when a new line starts.
+  - The hook's question is on the board from the first frame, and each word lights up as it is said.
+- **The lower board is the status table:**
+  - the strategy's status flipping between «اعتماد» and «ترس» until «می‌ترسی؟», then «بررسی — نشده» with a red light;
+  - for the answers, rows with a number, the answer, a status and a light: green «کار می‌کنه — ادامه», amber «ریسک
+    کمتر — حجم کم», red «کار نمی‌کنه — توقف» that flips to «به‌موقع» on «فهمیدی»;
+  - «ندونستن — نامعلوم» that flips to «لغو» on «بهتره»;
+  - two big flaps counting up to «۵۰»;
+  - the real gold replay (k13's screens, a wider crop) inside the board;
+  - «بک‌تست‌لب», «شروع رایگان», «لینک توی بیو» with an arrow, and the logo at the end.
+
+The sound is the board's own clatter: every flip is a click (`clicks.cjs` dumps them to `clicks.json`), over a minimal
+pulse in D minor at 112 BPM.
+
+**Rebuild** (in `k19/`):
+1. `python3 data.py`, `python3 page.py`, `node clicks.cjs`, `python3 sound.py` (k16's voice must be built first).
+2. `REEL_DIR=board node render.cjs cover board/cover.png` and `REEL_DIR=board node render.cjs video board/reel-hq.mp4
+   mix.wav 4`.
+
+The caption and the facts on screen are in `k19/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
