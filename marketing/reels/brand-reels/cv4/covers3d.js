@@ -8,7 +8,7 @@
 // posed per cover. The room (a night-city window, monitors with candles, shelves, plants, a warm lamp, a glossy desk)
 // is lit by a key light, two coloured rim lights and the symbol's own glow, then put through depth of field and bloom.
 // window.render(i) draws cover i (1080×1920); the hook is drawn on the 2D canvas on top.
-const { THREE, RoundedBoxGeometry, RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass, BokehPass, OutputPass, GTAOPass, ShaderPass } = window.T3;
+const { THREE, RoundedBoxGeometry, RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass, BokehPass, OutputPass, GTAOPass, ShaderPass, MarchingCubes } = window.T3;
 const W = 1080, H = 1920, CX = 540;
 const V3 = THREE.Vector3;
 const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -88,32 +88,56 @@ function trader(o) {
   const hd = new THREE.Group(); hd.add(sphere(HR, M.skin, [0, 0, 0], [1, 1.02, 0.97])); face(hd, M, o.face, o.look ?? [d * 0.8, 0]);
   hd.position.y = -0.12; hd.rotation.set(o.nod ?? 0.05, d * 0.2, d * (o.tilt ?? -0.07)); g.add(hd);
   // a short neck hidden in the hood, the slim hoodie body
-  g.add(mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.3, 24), M.skin, [0, -1.02, -0.08]));
-  const prof = [[0.28, -0.98], [0.62, -1.06], [0.9, -1.2], [1.08, -1.42], [1.17, -1.75], [1.18, -2.2], [1.13, -3.0], [1.08, -4.0], [1.05, -5.5]].map(([r, y]) => new THREE.Vector2(r, y));
-  g.add(mesh(new THREE.LatheGeometry(prof, 72), M.hood, [0, 0, 0], [0, 0, 0], [1, 1, 0.74]));
+  g.add(mesh(new THREE.CylinderGeometry(0.21, 0.24, 0.4, 24), M.skin, [0, -0.92, -0.04]));
+
   // the hood: a thick collar around the neck and the folded hood on the back
-  g.add(mesh(new THREE.TorusGeometry(0.36, 0.14, 20, 48), M.hood2, [0, -1.08, -0.02], [Math.PI / 2 + 0.3, 0, 0], [1.1, 0.85, 1]));
-  g.add(sphere(0.62, M.hood2, [0, -1.15, -0.55], [1.15, 0.7, 0.6]));
+  g.add(mesh(new THREE.TorusGeometry(0.36, 0.15, 20, 48), M.hood2, [0, -1.02, -0.03], [Math.PI / 2 + 0.22, 0, 0], [1.12, 0.86, 1]));
+  g.add(sphere(0.6, M.hood2, [0, -1.12, -0.72], [1.15, 0.72, 0.6]));
   // drawstrings and the logo
-  [-1, 1].forEach((e) => { g.add(capsuleBetween(new V3(e * 0.12, -1.22, 0.62), new V3(e * 0.15, -1.95, 0.76), 0.025, M.lime)); g.add(mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.12, 12), std('#E9FF9E', 0.4), [e * 0.15, -2.03, 0.77])); });
-  if (window.ICON_TEX) { const lg = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.MeshStandardMaterial({ map: window.ICON_TEX, transparent: true, roughness: 0.5, emissive: '#FFFFFF', emissiveMap: window.ICON_TEX, emissiveIntensity: 0.2 })); lg.position.set(-d * 0.5, -1.75, 0.74); lg.rotation.y = -d * 0.45; g.add(lg); }
+  [-1, 1].forEach((e) => { const pts = [-1.16, -1.4, -1.65, -1.92].map((y, k) => new V3(e * (0.12 + k * 0.01), y, frontZ(e * 0.13, y) + 0.03)); g.add(tube(pts.map((p) => p.toArray()), 0.024, M.lime)); g.add(mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.12, 12), std('#E9FF9E', 0.4), [e * 0.15, -2.0, frontZ(e * 0.15, -2.0) + 0.04])); });
+  if (window.ICON_TEX) { const lg = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.MeshStandardMaterial({ map: window.ICON_TEX, transparent: true, roughness: 0.5, emissive: '#FFFFFF', emissiveMap: window.ICON_TEX, emissiveIntensity: 0.2 })); lg.position.set(-d * 0.48, -1.72, frontZ(0.48, -1.72) + 0.02); lg.rotation.y = -d * Math.asin(Math.min(0.9, 0.48 / torsoR(-1.72))) * 0.9; g.add(lg); }
   // arms: slim sleeves that grow out of the shoulders, white hands
   const pose = { [d]: o.near ?? 'down', [-d]: o.far ?? 'down' };
-  [-1, 1].forEach((a) => { const p = pose[a], sh = new V3(a * 0.98, -1.6, -0.02); let el, wr, dir;
+  const arms = [];
+  [-1, 1].forEach((a) => { const p = pose[a], sh = new V3(a * 0.76, -1.45, -0.02); let el, wr, dir;
     if (p === 'palm') { el = new V3(a * 1.5, -2.5, 0.45); wr = new V3(a * 1.75, -1.85, 1.05); }
     else if (p === 'point') { el = new V3(a * 1.48, -2.4, 0.5); wr = new V3(a * 1.88, -1.7, 1.15); dir = new V3(a * 1, 0.35, 0.25).normalize(); }
     else if (p === 'chin') { el = new V3(a * 0.7, -2.65, 0.95); wr = new V3(a * 0.22, -1.25, 0.92); dir = new V3(-a * 0.15, 1, 0.12).normalize(); }
     else if (p === 'desk') { el = new V3(a * 1.2, -2.6, 0.45); wr = new V3(a * 0.75, -2.65, 1.3); }
-    else { el = new V3(a * 1.27, -2.75, 0.0); wr = new V3(a * 1.22, -3.85, 0.12); }
-    g.add(sphere(0.24, M.hood, [a * 1.02, -1.62, -0.02], [0.9, 1.0, 0.9]));
-    g.add(capsuleBetween(sh, el, 0.21, M.hood)); g.add(sphere(0.205, M.hood, el.toArray(), [1, 1, 1])); g.add(capsuleBetween(el, wr, 0.19, M.hood));
+    else { el = new V3(a * 1.27, -2.7, 0.04); wr = new V3(a * 1.25, -3.85, 0.14); }
+    arms.push([sh, el, wr]);
     g.add(mesh(new THREE.TorusGeometry(0.16, 0.045, 12, 32), M.hood2, wr.toArray(), [0, 0, 0]).rotateOnAxis(new V3(1, 0, 0), Math.PI / 2));
     if (p === 'down') return;
     const hnd = hand(p, M); hnd.position.copy(wr); const fd = dir ?? new V3().subVectors(wr, el).normalize(); hnd.quaternion.setFromUnitVectors(new V3(0, 1, 0), fd);
     if (p === 'palm') hnd.rotateY(-a * 1.2), hnd.rotateX(-0.5); if (p === 'point') hnd.rotateY(a * 0.6); if (p === 'desk') hnd.rotateX(-1.2);
     g.add(hnd); });
+  g.add(hoodieBody(arms, M.hood));
   g.scale.setScalar(1.3); g.position.set(o.side * 1.7, -0.1, 0); g.rotation.y = d * 0.16;
   return g;
+}
+
+/**
+ * The hoodie's body and both sleeves as one smooth surface: a signed distance field (the torso's profile, flattened
+ * front to back, and a capsule per arm segment), joined with a smooth minimum, so each sleeve grows out of the shoulder
+ * like a set-in sleeve. The upper arms blend into the shoulders; the forearms only join at the elbow.
+ */
+const TORSO = [[0.26, -0.98], [0.56, -1.05], [0.8, -1.18], [0.95, -1.4], [1.03, -1.72], [1.04, -2.2], [1.0, -3.0], [0.96, -4.0], [0.93, -5.5]];
+const ZF = 0.74;   // the torso's depth against its width
+const frontZ = (x, y) => ZF * Math.sqrt(Math.max(0, torsoR(y) ** 2 - x * x));
+function torsoR(y) { if (y > TORSO[0][1]) return 0; for (let i = 1; i < TORSO.length; i++) if (y >= TORSO[i][1]) { const [r0, y0] = TORSO[i - 1], [r1, y1] = TORSO[i]; return r0 + (r1 - r0) * (y - y0) / (y1 - y0); } return TORSO[TORSO.length - 1][0]; }
+const smin = (a, b, k) => { const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / k)); return b + (a - b) * h - k * h * (1 - h); };
+function capsuleD(px, py, pz, a, b, r) { const bx = b.x - a.x, by = b.y - a.y, bz = b.z - a.z, ax = px - a.x, ay = py - a.y, az = pz - a.z; const t = Math.max(0, Math.min(1, (ax * bx + ay * by + az * bz) / (bx * bx + by * by + bz * bz))); const dx = ax - bx * t, dy = ay - by * t, dz = az - bz * t; return Math.sqrt(dx * dx + dy * dy + dz * dz) - r; }
+function hoodieBody(arms, mat) {
+  const RES = 160, C = new V3(0, -2.72, 0.22), HALF = new V3(2.3, 1.9, 1.38);
+  const mc = new MarchingCubes(RES, mat, false, false, 700000); mc.isolation = 0;
+  const f = mc.field, hs = mc.halfsize;
+  for (let z = 0; z < RES; z++) { const pz = C.z + ((z - hs) / hs) * HALF.z;
+    for (let y = 0; y < RES; y++) { const py = C.y + ((y - hs) / hs) * HALF.y, r = torsoR(py);
+      for (let x = 0; x < RES; x++) { const px = C.x + ((x - hs) / hs) * HALF.x;
+        const q = Math.sqrt(px * px + (pz / ZF) * (pz / ZF)); let d = py > TORSO[0][1] ? Math.max(q - 0.28, py - TORSO[0][1]) : (q - r) * 0.82;
+        for (const [sh, el, wr] of arms) { d = smin(d, capsuleD(px, py, pz, sh, el, 0.2), 0.17); d = smin(d, capsuleD(px, py, pz, el, wr, 0.18), 0.03); }
+        f[x + y * RES + z * RES * RES] = -d; } } }
+  mc.update(); mc.position.copy(C); mc.scale.copy(HALF); mc.castShadow = true; mc.receiveShadow = true; return mc;
 }
 
 // ---------- the room ----------
