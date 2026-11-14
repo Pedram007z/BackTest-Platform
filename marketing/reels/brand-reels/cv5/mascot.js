@@ -2,6 +2,9 @@
 // a little wider than the shoulders, a short visible neck, slim arms and legs, a thin dark outline), now in a dark navy
 // hoodie with subtle purple details, black casual pants and simple sneakers. The scene code (renderer, materials, text,
 // the rooms, the symbols, the grade and the hook) is cv4's.
+// The body is soft, like a painted 3D illustration: the hoodie with its sleeves, and the pants with the sneakers, are
+// each one rounded surface (signed distance fields), painted with vertex colours, lit with wrapped diffuse light and
+// finished with a Kuwahara filter.
 // window.view(i) draws VIEWS[i] (1080×1920): the turnaround, the poses and two covers.
 const { THREE, RoundedBoxGeometry, RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass, BokehPass, OutputPass, GTAOPass, ShaderPass, MarchingCubes } = window.T3;
 const W = 1080, H = 1920, CX = 540;
