@@ -1787,6 +1787,43 @@ tally ticks, the stamp, the coin, the grid, the counter and the end bell. It's m
 
 The replay screens are `../k13/screens/` (captured by k13). The caption and the facts on screen are in `k24/caption.md`.
 
+## k25: «چند بار باید ضرر کنی…» (dialog #5, «عدد توقف»), kinetic typography in real 3D (`k25/`, the user's voice at normal speed)
+
+The user recorded dialog #5 with the new BacktestLab introduction and asked for a great kinetic reel in 3D. It's
+52.0 s on the 48.6 s take, with nothing sped up or cut. It runs on its own three.js engine (`type3d.js`).
+
+- **Real extruded Persian type.** Each word is drawn on a canvas, so the browser shapes it like any Persian text. Its
+  alpha is traced into outlines (marching squares, simplified, sorted into shapes and holes by nesting) and extruded
+  with a bevel. So the letters have true depth, sides and lighting.
+- **How the words move:** each word flips out of the dark as it is said. Key words stand on a raised coloured plate.
+  In the hook, the whole question is on screen from the first frame and each word lights up and steps forward.
+- **Stations:** the ideas sit at stations scattered through a dark, dusty space. The camera swoops from one to the next
+  and sways slowly while it's there. There's soft bloom, depth of field, grain and a vignette.
+- **A 3D object for each idea:**
+  - red loss cubes tumbling into a pile;
+  - a note card writing itself, then a red cross on «نه وسط ضرر»;
+  - fear's «ولش کن!» and hope's «یکی دیگه، جبران می‌شه!» bubbles;
+  - a stop sign spinning in on «توقف»;
+  - an example equity line drawing in 3D and crossing a red «بیشترین افت بک‌تست» plane, labelled «مثال», then a pause
+    sign and a magnifier;
+  - a big «؟»;
+  - three floating panels for the steps: a drawn strategy card, then the real replay and the real placed trade (k13's
+    screens);
+  - a simple analytics sketch with «؟» for both values;
+  - a 3D follow button pressed on «فالو کن»;
+  - the end card.
+- **The sound:** a D-minor groove at 96 BPM, low under the voice, with a whoosh per swoop and a sound per move. It's
+  mixed to −14 LUFS.
+
+**Rebuild** (in `k25/`):
+1. Build the bundle first: `../cv4/vendor/three-bundle.js`.
+2. `python3 voice/build.py`, `python3 data.py`, `python3 page.py`, `python3 sound.py`.
+3. `REEL_DIR=reel node render.cjs cover reel/cover.png` and `REEL_DIR=reel node render.cjs video reel/reel-hq.mp4
+   mix.wav 4`.
+
+`reel/index.html` inlines the screens as data URLs (about 4.5 MB), so it is rebuilt rather than committed. The caption
+and the facts on screen are in `k25/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
