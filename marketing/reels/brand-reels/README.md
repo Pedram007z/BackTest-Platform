@@ -1752,6 +1752,41 @@ use textures from `file://` pictures. That makes `reel/index.html` about 6 MB, s
 
 The caption and the facts on screen are in `k23/caption.md`.
 
+## k24: «چند بار باید ضرر کنی تا بفهمی استراتژی‌ات ایراد داره؟», kinetic typography (`k24/`, the user's voice at normal speed)
+
+The user recorded dialog #1 («جواب: هیچ عددی») and asked for a great kinetic reel. It's 42.1 s on the 39.0 s take,
+with nothing sped up or cut. It runs on its own engine (`kinetic.js`, one 2D canvas). Big Persian words slam in as
+they are spoken: a block grows behind the key words, with a ghost trail and a punch-in. The background flips colour
+on every idea with a wipe (slash, iris, rise or a flash cut), under film grain and a soft vignette.
+
+- **The hook:** the whole question is on screen from the first frame. Each word lights up as it's said, and red loss
+  chips pile into a tower.
+- **«سه بار؟ پنج بار؟ ده بار؟»:** a big number rolls ۳ → ۵ → ۱۰ over tally marks drawn stroke by stroke.
+- **«با شمردن ضرر هیچ‌وقت نمی‌فهمی»:** the tally is scribbled out and stamped with a red cross.
+- **«حتی یه استراتژی سالم هم ضرر پشت‌سرهم می‌ده»:** a strategy card gets a green check, then five losses slide in.
+- **«با وین‌ریت ۵۰٪»:** a coin spins between a win and a loss.
+- **«توی ۱۰۰ تا معامله… یه جا ۵ تا ضرر پشت‌سرهم»:** a 10 × 10 grid of simulated trades fills right to left. Its one
+  five-loss streak is ringed and zoomed while the rest dims.
+  - The grid is a fair coin (seed 89 in `data.py`) and is labelled «شبیه‌سازی نمونه».
+  - The voice's claim is plain probability: at a 50% win rate, the chance of a run of five losses somewhere in 100
+    trades is about 81%.
+- **«سؤال درست اینه»:** a lime flip.
+- **«…برای استراتژی من عادیه؟»:** a ruler with a «عادی» zone and a «زنگ خطر» zone; the line between them is «؟».
+- **«این عدد رو… از بک‌تست درمیاری»:** a «رکورد ضرر پشت‌سرهم» counter spins and stops on «؟». No record is invented.
+- **«توی بک‌تست‌لب روی بازار واقعی گذشته پیداش کن»:** k13's real gold replay plays in a browser card with a «گذشته»
+  rewind chip.
+- **The close:** «شروعش رایگانه»; «لینکش توی بیو» with a bouncing arrow; then the end card.
+
+The sound is an A-minor groove at 100 BPM, low under the voice, with a sound for each move: the wipes, the chips, the
+tally ticks, the stamp, the coin, the grid, the counter and the end bell. It's mixed to −14 LUFS.
+
+**Rebuild** (in `k24/`):
+1. `python3 voice/build.py`, `python3 data.py`, `python3 page.py`, `python3 sound.py`.
+2. `REEL_DIR=reel node render.cjs cover reel/cover.png` and `REEL_DIR=reel node render.cjs video reel/reel-hq.mp4
+   mix.wav 4`. The video renders in 2-second segments and resumes if stopped.
+
+The replay screens are `../k13/screens/` (captured by k13). The caption and the facts on screen are in `k24/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
