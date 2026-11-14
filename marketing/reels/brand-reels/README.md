@@ -1859,6 +1859,52 @@ sound per label and move, and it's mixed to −14 LUFS.
 
 The caption and the facts on screen are in `k26/caption.md`.
 
+## k27: «نکنه استراتژی سوددهت فقط توی ذهنت سوددهه؟» (dialog #2), kinetic typography (`k27/`, the user's voice at normal speed)
+
+On k24's engine (big words slamming in on the voice, colour-flip wipes, grain and punch-ins), 43.9 s on the 40.8 s take,
+with nothing sped up. There's one graphic per idea:
+- the hook from the first frame, with a thought cloud holding a perfect rising line;
+- a sample chart («نمودار نمونه») sliding in;
+- the buy at the low and the sell at the high, ringed in marker («اینجا می‌خریدم، اینجا می‌فروختم»);
+- the future lit, then curtained with «؟» («اون موقع نمی‌دونستی»);
+- three placeholder strategies all stamped «سودده» under an open eye;
+- an eye closing for «آینده رو نبینی»;
+- the logo;
+- the «برو به» calendar flipping back to the replay's real date, then the real gold replay with the future curtained and
+  the buy and sell buttons waiting;
+- twenty tiles for the week, with «سودده؟» flipping between ✓ and ✗;
+- the close and the end card.
+
+The sound is an F♯-minor groove at 102 BPM, mixed to −14 LUFS. To rebuild, run (in `k27/`): `python3 voice/build.py`,
+`python3 data.py`, `python3 page.py`, `python3 sound.py`, then `render.cjs` (cover, then video). The caption and the
+facts on screen are in `k27/caption.md`.
+
+## k28: the same take as a cinematic 3D chart world (`k28/`)
+
+A new style on its own three.js engine (`world.js`), with no presenter. The camera flies through a landscape of solid,
+lit 3D candles: a sample chart, labelled «نمودار نمونه». Along the chart it looks diagonally, so a whole swing recedes
+into depth in the tall frame.
+
+- **The hook:** a perfect equity line of light «in your head», with sparkles and an extruded «سودده؟», under a big hook
+  title.
+- **The chart:** the camera dives down to the chart as the candles rise from the floor in a wave.
+- **Hindsight:** a buy flag at the low and a sell flag at the high, each with a beam of light.
+- **«اون موقع نمی‌دونستی»:** a «now» line, and slices of lilac mist swallow the future. The candles sink as the fog's
+  front passes them, and an extruded «آینده؟» floats in it.
+- **The fog lifts** for «هر استراتژی‌ای سودده به نظر میاد»: a wide shot shows three glowing placeholder lines, each
+  ending on a «سودده» medallion. Then the fog slams back for «آینده رو نبینی».
+- **BacktestLab:** a giant screen rises showing the real gold replay (k13's screens). A 3D calendar flips back to its
+  real date. Face on, the replay runs on the screen while the 3D candles come out of the fog below it, and 3D buy and
+  sell buttons rise for «تصمیم بگیری».
+- **The close:** twenty numbered tokens drop for the week's challenge under a «؟». Then come extruded «شروعش رایگانه!»
+  and the end card.
+- **On screen:** word-by-word subtitles run on a pill near the bottom.
+- **The sound:** a slow C-minor bed at 84 BPM with cinematic hits, mixed to −14 LUFS.
+
+To rebuild, run (in `k28/`, after k27's voice): `python3 page.py`, `python3 sound.py`, then `render.cjs`.
+`reel/index.html` inlines the screens (about 4.4 MB), so it is rebuilt rather than committed. The caption and the facts
+on screen are in `k28/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
