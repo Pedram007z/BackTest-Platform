@@ -1905,6 +1905,33 @@ To rebuild, run (in `k28/`, after k27's voice): `python3 page.py`, `python3 soun
 `reel/index.html` inlines the screens (about 4.4 MB), so it is rebuilt rather than committed. The caption and the facts
 on screen are in `k28/caption.md`.
 
+## k29: the same take as a UI motion study (`k29/`)
+
+The user shared a UI motion study and asked for a great reel on the latest take, inspired by it. Only its principles
+were taken: one object on a light ground that keeps morphing into the next (size, corners and colour, with a short
+motion blur at speed), a cursor driving it, and a calm monochrome look. The components and the story are BacktestLab's
+own. It runs on its own engine (`ui.js`, one 2D canvas) at 60 fps.
+
+- **The hook:** a question bar types «استراتژی من سودده‌ست؟» and its results answer «توی ذهنت: سودده ✓» and «توی تست:
+  تست نشده».
+- **The chart:** a «باز کردن چارت» button is clicked and opens a chart card (a sample, «نمودار نمونه»). The cursor
+  marks «خرید» at the low and «فروش» at the high.
+- **The future:** a «نمایش آینده» switch is on, then clicked off, and the future turns into a dashed «؟».
+- **«هر استراتژی‌ای سودده به نظر میاد»:** three placeholder strategies all flip to «سودده ✓».
+- **«آینده رو نبینی»:** a «با آینده | بدون آینده» control slides to «بدون آینده».
+- **BacktestLab:** the icon, then a Farvardin 1404 date picker clicked on the 25th, the replay's real date.
+- **The replay:** a dark replay card plays the real gold replay, with the future curtained off. Then «خرید» and «فروش»
+  buttons appear.
+- **The week:** a counter fills to twenty trades, with «سودده؟» still loading.
+- **The close:** a «شروع رایگان» button loads, ticks and opens to «لینک توی بیو». Then the end card.
+- **On screen:** the spoken line sits above the object, word by word.
+- **The sound:** a soft D-major bed at 90 BPM with the UI's own sounds (keys, swishes, clicks, ticks and a chime), mixed
+  to −14 LUFS.
+
+To rebuild, run (in `k29/`, after k27's voice): `python3 page.py`, `python3 sound.py`, `REEL_DIR=reel node render.cjs cover
+reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts
+on screen are in `k29/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
