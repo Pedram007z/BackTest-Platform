@@ -117,9 +117,9 @@ state(T(78), 920, 640, 48, CARD, (t, a, b) => { cv.save(); cv.globalAlpha *= a; 
   cv.restore(); });
 // 10 · «شروع رایگان»: loading, a tick, then «لینک توی بیو»
 state(T(91), 640, 160, 80, INK, (t, a, b) => { cv.save(); cv.globalAlpha *= a; txt('شروع رایگان', 0, 4, 58, '#FFFFFF'); cv.restore(); });
-state(T(92) + 0.1, 160, 160, 80, INK, (t, a, b) => { cv.save(); cv.globalAlpha *= a; if (t < T(92) + 0.75) { cv.strokeStyle = '#FFFFFF'; cv.lineWidth = 7; cv.lineCap = 'round'; cv.beginPath(); cv.arc(0, 0, 30, t * 8, t * 8 + 4.2); cv.stroke(); }
-  else { const k = oBack(k01(t, T(92) + 0.75, 0.3)); cv.strokeStyle = LIME; cv.lineWidth = 9; cv.lineCap = cv.lineJoin = 'round'; cv.beginPath(); cv.moveTo(-22 * k, 2); cv.lineTo(-6 * k, 18 * k); cv.lineTo(24 * k, -16 * k); cv.stroke(); } cv.restore(); });
-state(T(93), 700, 160, 80, CARD, (t, a, b) => { cv.save(); cv.globalAlpha *= a; txt('لینک توی بیو', 44, 4, 58, INK); const bb = Math.abs(Math.sin((t - T(93)) * 6)) * 8; cv.fillStyle = VIO; cv.beginPath(); cv.moveTo(-210, -22 - bb); cv.lineTo(-184, 6 - bb); cv.lineTo(-198, 6 - bb); cv.lineTo(-198, 28 - bb); cv.lineTo(-222, 28 - bb); cv.lineTo(-222, 6 - bb); cv.lineTo(-236, 6 - bb); cv.closePath(); cv.fill(); cv.restore(); });
+state(T(92) + 0.1, 160, 160, 80, INK, (t, a, b) => { cv.save(); cv.globalAlpha *= a; if (t < T(92) + 0.5) { cv.strokeStyle = '#FFFFFF'; cv.lineWidth = 7; cv.lineCap = 'round'; cv.beginPath(); cv.arc(0, 0, 30, t * 8, t * 8 + 4.2); cv.stroke(); }
+  else { const k = oBack(k01(t, T(92) + 0.5, 0.25)); cv.strokeStyle = LIME; cv.lineWidth = 9; cv.lineCap = cv.lineJoin = 'round'; cv.beginPath(); cv.moveTo(-22 * k, 2); cv.lineTo(-6 * k, 18 * k); cv.lineTo(24 * k, -16 * k); cv.stroke(); } cv.restore(); });
+state(Math.max(T(93), T(92) + 0.95), 700, 160, 80, CARD, (t, a, b) => { cv.save(); cv.globalAlpha *= a; txt('لینک توی بیو', 44, 4, 58, INK); const bb = Math.abs(Math.sin((t - T(93)) * 6)) * 8; cv.fillStyle = VIO; cv.beginPath(); cv.moveTo(-210, -22 - bb); cv.lineTo(-184, 6 - bb); cv.lineTo(-198, 6 - bb); cv.lineTo(-198, 28 - bb); cv.lineTo(-222, 28 - bb); cv.lineTo(-222, 6 - bb); cv.lineTo(-236, 6 - bb); cv.closePath(); cv.fill(); cv.restore(); });
 // the end card
 state(END, 320, 320, 90, VIO, (t, a, b) => { if (IMG.icon) { cv.save(); cv.globalAlpha *= a; cv.drawImage(IMG.icon, -b.w / 2, -b.h / 2, b.w, b.h); cv.restore(); } }, 860);
 

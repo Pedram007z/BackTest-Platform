@@ -12,14 +12,14 @@ F = lambda kind, t, **k: fx.append({'type': kind, 't': round(t, 3), **k})
 run = lambda t0, d, n, f=2200, step=0, level=0.12: ticks.append({'start': round(t0, 3), 'dur': round(d, 3), 'count': int(n), 'f': f, 'step': step, 'level': level})
 T = lambda i: ws(i) - 0.07
 run(0.25, 1.6, 20, 3400, 0, 0.035)                                                                     # typing the question
-for t0 in [T(4), T(7), T(11) + 0.18, T(24), T(36), T(47), T(54), T(58), T(64), T(76), T(78), T(91), T(92) + 0.1, T(93), END]:
+for t0 in [T(4), T(7), T(11) + 0.18, T(24), T(36), T(47), T(54), T(58), T(64), T(76), T(78), T(91), T(92) + 0.1, max(T(93), T(92) + 0.95), END]:
     F('whoosh', t0 - 0.02, gain=0.06)                                                                  # a soft swish per morph
 for t0 in [T(11), T(33), T(53), T(61), T(67), T(92)]:
     F('pop', t0, f=2400, gain=0.16)                                                                    # the cursor's clicks
 F('pop', T(18), f=1300, gain=0.12); F('pop', T(21), f=1100, gain=0.12)
 for i in range(3): F('pop', T(43) + i * 0.16, f=1500 + 120 * i, gain=0.12)
 run(T(80), 1.4, 20, 2000, 12, 0.05)                                                                    # the twenty trades
-F('bell', T(92) + 0.75, f=1567.98, d=0.9, gain=0.16); F('bell', T(54) + 0.1, f=1174.66, d=1.0, gain=0.12)
+F('bell', T(92) + 0.5, f=1567.98, d=0.9, gain=0.16); F('bell', T(54) + 0.1, f=1174.66, d=1.0, gain=0.12)
 F('bell', END + 0.2, f=880.0, d=2.2, gain=0.22)
 BAR = round(60 / 90 * 4, 4); G0 = round(ws(7) % BAR, 4)
 spec = {'seed': 2929, 'dur': DUR, 'grid0': G0, 'bar': BAR, 'fade_from': DUR - 1.6, 'chords': CH, 'prog': ['D', 'Bm', 'G', 'A'],
