@@ -2,8 +2,8 @@
 // on the user's take at its normal speed (three.js).
 // Every word is solid extruded type: the browser shapes the Persian word on a canvas, its outline is traced (marching
 // squares), and the outline is extruded with a bevel. So the letters have true depth, sides and lighting. Each word
-// flips out of the dark as it is said; key words stand on a raised coloured plate. The ideas sit at stations scattered
-// through a dark space, and the camera swoops from one to the next:
+// flips out of the dark as it is said; key words stand on a raised coloured plate. The ideas sit at stations on a slow
+// spiral round the camera, and the camera whips round from one to the next:
 //   - the hook: the whole question on screen from the first frame, each word lighting up and stepping forward as it is
 //     said, red loss cubes tumbling into a pile;
 //   - «جواب این سؤال باید قبل از اولین معامله نوشته شده باشه، نه وسط ضرر»: a note card writing itself, then a red
@@ -119,14 +119,18 @@ function animToken(T, t) {
 
 // ---------- the stations ----------
 const STATIONS = [], ALL = [];
+// the stations stand on a slow spiral around the camera's axis, each facing it: the camera turns from one to the next
+// (a whip pan with a pull back), so it never flies through a station
+const R = DIST;
 function station(i, at, lines, build, o = {}) {
-  const g = new THREE.Group(), P = new V3(Math.sin(i * 1.7) * 7, Math.cos(i * 1.1) * 2.2, -i * 12), yaw = (i % 2 ? 1 : -1) * 0.32;
-  g.position.copy(P); g.rotation.y = yaw; scene.add(g);
+  const a = i * 0.8, y = -i * 1.4, g = new THREE.Group(), P = new V3(Math.sin(a) * R, y, -Math.cos(a) * R);
+  g.position.copy(P); g.rotation.y = -a; scene.add(g);
   const toks = lines.flatMap((ln) => buildLine(ln, g, o.karaoke)), upd = build ? build(g) : null;
-  const S = { i, at, g, P, yaw, toks, upd, karaoke: o.karaoke, dist: o.dist ?? DIST }; STATIONS.push(S); return S;
+  const S = { i, at, g, P, a, y, toks, upd, karaoke: o.karaoke, dist: o.dist ?? DIST }; STATIONS.push(S); return S;
 }
-const camPose = (S, t) => { const sway = Math.sin((t - S.at) * 0.45) * 0.07, yaw = S.yaw + sway, d = S.dist - 0.6 * oCub(k01(t, S.at, 5));
-  return { pos: new V3(S.P.x + Math.sin(yaw) * d, S.P.y + 0.25, S.P.z + Math.cos(yaw) * d), look: new V3(S.P.x, S.P.y + 0.05, S.P.z) }; };
+const params = (S, t) => ({ a: S.a, y: S.y, sw: Math.sin((t - S.at) * 0.45) * 0.07, d: S.dist - 0.6 * oCub(k01(t, S.at, 5)) });
+function poseOf({ a, y, sw, d }) { const look = new V3(Math.sin(a) * R, y + 0.05, -Math.cos(a) * R), o = a + sw; return { look, pos: look.clone().add(new V3(-Math.sin(o) * d, 0.2, Math.cos(o) * d)) }; }
+const camPose = (S, t) => poseOf(params(S, t));
 
 // small props
 const lossCube = (s = 1) => { const g = new THREE.Group(); g.add(rbox(0.5 * s, 0.5 * s, 0.5 * s, 0.09 * s, std(RED, 0.35))); g.add(rbox(0.26 * s, 0.07 * s, 0.04 * s, 0.03 * s, std(WHITE, 0.4), [0, 0, 0.26 * s])); return g; };
@@ -223,7 +227,7 @@ function endProps(g) { const grp = new THREE.Group(); g.add(grp); let ic, wd;
 
 // ---------- dust ----------
 let DUST = null;
-function dust() { const n = 900, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { p[i * 3] = (rnd(i) - 0.5) * 40; p[i * 3 + 1] = (rnd(i * 2) - 0.5) * 18; p[i * 3 + 2] = 10 - rnd(i * 3) * 150; }
+function dust() { const n = 1200, p = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const an = rnd(i) * Math.PI * 2, r = 6 + rnd(i * 2) * 30; p[i * 3] = Math.sin(an) * r; p[i * 3 + 1] = 6 - rnd(i * 3) * 30; p[i * 3 + 2] = -Math.cos(an) * r; }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3)); DUST = new THREE.Points(g, new THREE.PointsMaterial({ color: '#B9A8FF', size: 0.05, transparent: true, opacity: 0.55, depthWrite: false })); scene.add(DUST); }
 
 // ---------- build ----------
@@ -266,7 +270,7 @@ function frame(t) {
   let i = 0; STATIONS.forEach((S, k) => { if (t >= S.at) i = k; }); const S = STATIONS[i];
   STATIONS.forEach((Q, k) => { Q.g.visible = k >= i - 1 && k <= i + 1; if (Q.g.visible) { Q.toks.forEach((T) => animToken(T, t)); if (Q.upd) Q.upd(t); } });
   let pose = camPose(S, t);
-  if (i > 0 && t - S.at < SWOOP) { const a = camPose(STATIONS[i - 1], t), k = ioCub((t - S.at) / SWOOP), arc = Math.sin(Math.PI * k) * 2.2; pose = { pos: a.pos.clone().lerp(pose.pos, k).add(new V3(0, arc * 0.4, arc)), look: a.look.clone().lerp(pose.look, k) }; }
+  if (i > 0 && t - S.at < SWOOP) { const A = params(STATIONS[i - 1], t), B = params(S, t), k = ioCub((t - S.at) / SWOOP); pose = poseOf({ a: lerp(A.a, B.a, k), y: lerp(A.y, B.y, k), sw: lerp(A.sw, B.sw, k), d: lerp(A.d, B.d, k) + Math.sin(Math.PI * k) * 3 }); }
   camera.position.copy(pose.pos); camera.lookAt(pose.look); bokeh.uniforms.focus.value = camera.position.distanceTo(pose.look);
   KEY.position.copy(pose.pos).add(new V3(-5, 8, 2)); KEY.target.position.copy(pose.look); RIM1.position.copy(pose.look).add(new V3(4, 3, -3)); RIM2.position.copy(pose.look).add(new V3(-4, -2, -2));
   if (DUST) DUST.rotation.y = t * 0.01;

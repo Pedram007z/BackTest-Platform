@@ -1797,8 +1797,9 @@ The user recorded dialog #5 with the new BacktestLab introduction and asked for 
   with a bevel. So the letters have true depth, sides and lighting.
 - **How the words move:** each word flips out of the dark as it is said. Key words stand on a raised coloured plate.
   In the hook, the whole question is on screen from the first frame and each word lights up and steps forward.
-- **Stations:** the ideas sit at stations scattered through a dark, dusty space. The camera swoops from one to the next
-  and sways slowly while it's there. There's soft bloom, depth of field, grain and a vignette.
+- **Stations:** the ideas sit at stations on a slow spiral round the camera, in a dark, dusty space. The camera
+  whip-pans from one to the next with a pull-back, so it never flies through a station, and it sways slowly while
+  it's there. There's soft bloom, depth of field, grain and a vignette.
 - **A 3D object for each idea:**
   - red loss cubes tumbling into a pile;
   - a note card writing itself, then a red cross on «نه وسط ضرر»;
