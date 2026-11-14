@@ -160,8 +160,8 @@ function build() {
   if (TEX.icon) { const ic = planeTex(TEX.icon, 1.3, 1.3); ic.position.set(4.6, 3.0, 0.2); screenG.add(ic); }
   screenG.position.set(48, yS(NOW0) + 5, -3.5); scene.add(screenG);
   // the calendar flipping back
-  cal = new THREE.Group(); cal.add(rbox(2.6, 2.4, 0.3, 0.12, std(WHITE, 0.5), [0, -0.15, -0.2])); cal.add(rbox(2.6, 0.6, 0.34, 0.12, std(RED, 0.4), [0, 1.0, -0.18]));
-  ['امروز', 'هفته‌ی پیش', 'ماه پیش', '۲۵ فروردین ۱۴۰۴'].forEach((s, i) => { const t = canvasTex(512, 400, (g, w, h) => { g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, w, h); g.fillStyle = '#16121F'; g.font = FONT(i === 3 ? 62 : 84); g.direction = 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(s, w / 2, h / 2); });
+  cal = new THREE.Group(); cal.add(rbox(2.6, 2.4, 0.3, 0.12, std('#CFCFD8', 0.7), [0, -0.15, -0.2])); cal.add(rbox(2.6, 0.6, 0.34, 0.12, std(RED, 0.4), [0, 1.0, -0.18]));
+  ['امروز', 'هفته‌ی پیش', 'ماه پیش', '۲۵ فروردین ۱۴۰۴'].forEach((s, i) => { const t = canvasTex(512, 400, (g, w, h) => { g.fillStyle = '#D9D9E2'; g.fillRect(0, 0, w, h); g.fillStyle = '#16121F'; g.font = FONT(i === 3 ? 62 : 84); g.direction = 'rtl'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(s, w / 2, h / 2); });
     const pg = new THREE.Group(), m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.9), new THREE.MeshStandardMaterial({ map: t, side: THREE.DoubleSide, roughness: 0.7 })); m.position.y = -0.95; pg.add(m); pg.position.set(0, 0.7, -0.02 + (3 - i) * 0.004); cal.add(pg); calPages.push(pg); });
   cal.position.set(41, yS(80) + 1.8, 4.5); cal.rotation.y = -0.2; scene.add(cal);
   // the buy and sell buttons
@@ -175,9 +175,9 @@ function build() {
   const e1 = planeTex(TEX.endc, 3.0, 0.55); e1.position.y = -1.05; endG.add(e1); scene.add(endG);
   const rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, samples: 4 }); composer = new EffectComposer(renderer, rt); composer.setPixelRatio(1); composer.setSize(W, H);
   composer.addPass(new RenderPass(scene, camera)); bokeh = new BokehPass(scene, camera, { focus: 14, aperture: 0.0025, maxblur: 0.008 }); composer.addPass(bokeh);
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), 0.55, 0.6, 0.85)); composer.addPass(new OutputPass()); composer.addPass(new ShaderPass(GRADE));
+  BLOOM = new UnrealBloomPass(new THREE.Vector2(W, H), 0.55, 0.6, 0.85); composer.addPass(BLOOM); composer.addPass(new OutputPass()); composer.addPass(new ShaderPass(GRADE));
 }
-let composer = null, bokeh = null;
+let composer = null, bokeh = null, BLOOM = null;
 
 // ---------- the camera's path ----------
 const K_ = (t, x, y, z, lx, ly, lz) => [t, [x, y, z], [lx, ly, lz]];
@@ -193,7 +193,7 @@ const KEYS = () => { const N = X(NOW0), sY = yS(NOW0) + 5, bY = yS(108) - 4, tX 
   K_(ws(38) + 0.3, 35 - 24, YMAX * 0.4 + 12, 30, 35, YMAX * 0.4, 0), K_(ws(46) + 0.2, 36 - 24, YMAX * 0.4 + 13, 31, 36, YMAX * 0.4, 0),
   DG(ws(47) + 0.35, NOW0, 0.4, [-6, 2.2, 6.5]), DG(ws(53) + 0.2, NOW0, 0.5, [-5.5, 2.1, 6]),
   K_(ws(54) + 0.45, 48, sY, 20.5, 48, sY, -3.5), K_(ws(58) - 0.1, 48, sY - 0.2, 20, 48, sY - 0.2, -3.5),
-  K_(ws(63) + 0.2, 41, yS(80) + 2, 13.5, 41, yS(80) + 1.6, 4.5), K_(ws(64) + 0.5, 48, sY - 1.8, 22, 48, sY - 2.2, -1), K_(ws(76) - 0.2, 48.5, sY - 1.8, 21.5, 48.5, sY - 2.2, -1),
+  K_(ws(63) + 0.2, 41, yS(80) + 2, 15.5, 41, yS(80) + 1.6, 4.5), K_(ws(64) + 0.5, 48, sY - 1.8, 22, 48, sY - 2.2, -1), K_(ws(76) - 0.2, 48.5, sY - 1.8, 21.5, 48.5, sY - 2.2, -1),
   K_(ws(77) + 0.2, X(108) - 3, bY + 1, 23, X(108) - 3, bY, 5),
   K_(ws(78) + 0.35, tX, tY - 2.5, 21, tX, tY - 3.6, 2), K_(ws(90), tX, tY - 2.2, 20.5, tX, tY - 3.4, 2),
   K_(ws(91) + 0.35, tX, tY + 0.9, 16, tX, tY + 0.9, 2.5), K_(END, tX, tY + 0.9, 15.5, tX, tY + 1.0, 2.5), K_(DUR + 1, tX, tY + 1.0, 15, tX, tY + 1.0, 2.5)]; };
@@ -209,8 +209,8 @@ function fogX(t) { const N = X(NOW0) + 0.2, F = 140;
 function frame(t) {
   // the candles: rising from the floor in a wave, the future only up to «now» once the replay runs
   const rise = ws(7) - 0.1, ni = nowIdx(t);
-  const fxa = fogX(t);
-  for (let i = 0; i < NCH; i++) { const c = CHART[i]; let g = oCub(k01(t, rise + i * 0.007, 0.45)); if (i >= NOW0 && t < ws(64)) g *= 1 - oCub(cl((X(i) + 1.0 - fxa) / 1.5));   // a candle sinks as the fog's front passes it if (t >= ws(64) && i >= ni) g = 0; if (t >= ws(64) && i < ni && i >= NOW0) g = oCub(cl((ni - i) * 1.5));
+  const fxa = fogX(t);   // the fog's front: a future candle sinks as it passes
+  for (let i = 0; i < NCH; i++) { const c = CHART[i]; let g = oCub(k01(t, rise + i * 0.007, 0.45)); if (i >= NOW0 && t < ws(64)) g *= 1 - oCub(cl((X(i) + 1.0 - fxa) / 1.5)); if (t >= ws(64) && i >= ni) g = 0; if (t >= ws(64) && i < ni && i >= NOW0) g = oCub(cl((ni - i) * 1.5)); if (t >= ws(78)) g *= 1 - oCub(k01(t, ws(78), 0.7));
     const yo = Y(c.o), yc = Y(c.c), mid = (yo + yc) / 2, h = Math.max(0.06, Math.abs(yc - yo)), wm = (Y(c.h) + Y(c.l)) / 2, wh = Y(c.h) - Y(c.l);
     tmp.position.set(X(i), lerp(FLOOR, mid, g), 0); tmp.scale.set(g > 0 ? 1 : 0, Math.max(0.001, h * g), g > 0 ? 1 : 0); tmp.updateMatrix(); bodies.setMatrixAt(i, tmp.matrix);
     tmp.position.set(X(i), lerp(FLOOR, wm, g), 0); tmp.scale.set(g > 0 ? 1 : 0, Math.max(0.001, wh * g), g > 0 ? 1 : 0); tmp.updateMatrix(); wicks.setMatrixAt(i, tmp.matrix); }
@@ -221,7 +221,7 @@ function frame(t) {
   // hindsight flags
   flags.forEach((f, j) => { const s = spring(t - [ws(18), ws(21)][j] + 0.1, 10, 0.5) * (1 - k01(t, ws(54), 0.4)); f.visible = s > 0.01; f.scale.setScalar(cl(s, 0, 1.15)); });
   // the fog
-  const fx = fogX(t); fog.forEach((m, k) => { m.visible = fx < 130 && t >= rise; m.position.x = fx + 0.3 + k * 1.1; m.material.map.offset.x = -t * 0.01 * (k + 1); });
+  const fx = fogX(t); fog.forEach((m, k) => { m.visible = fx < 130 && t >= rise && t < ws(54) + 0.3; m.position.x = fx + 0.3 + k * 1.1; m.material.map.offset.x = -t * 0.01 * (k + 1); });
   { const on = fx < 100 && t < ws(54); W3.fut.visible = on; W3.fut.position.set(fx + 2.6, yS(NOW0) + 1.8, 3.4); W3.fut.rotation.y = -0.7; W3.fut.scale.setScalar(on ? 1 : 0.001); }
   // the «now» slice
   nowPlane.visible = (t >= ws(24) - 0.07 && t < ws(38)) || (t >= ws(47) - 0.07 && t < ws(78)); nowPlane.position.set(X(t >= ws(64) ? ni : NOW0) - 0.25, 0, 0.6);
@@ -243,7 +243,7 @@ function frame(t) {
   // the camera
   const cam = camAt(t); camera.position.copy(cam.pos); camera.lookAt(cam.look); bokeh.uniforms.focus.value = cam.pos.distanceTo(cam.look);
   KEY.position.copy(cam.pos).add(new V3(-6, 10, 4)); KEY.target.position.copy(cam.look); RIM.position.copy(cam.look).add(new V3(5, 4, -6));
-  composer.passes[composer.passes.length - 1].uniforms.time.value = (t * 30) % 100; composer.render();
+  BLOOM.threshold = t >= ws(54) ? 0.93 : 0.85; BLOOM.strength = t >= ws(54) ? 0.4 : 0.55; composer.passes[composer.passes.length - 1].uniforms.time.value = (t * 30) % 100; composer.render();
   overlay(t);
 }
 // ---------- the 2D overlay: subtitles, the sample label, the progress line ----------
@@ -255,7 +255,7 @@ function overlay(t) {
     c2.save(); c2.globalAlpha = fade; lines.forEach(([toks, y, size]) => { c2.font = FONT(size, 900); c2.direction = 'rtl'; c2.textAlign = 'center'; c2.textBaseline = 'middle'; const gap = size * 0.28, wsz = toks.map(([s]) => c2.measureText(s).width), total = wsz.reduce((x, z) => x + z, 0) + gap * (toks.length - 1); let xr = CX + total / 2;
       toks.forEach(([s, wi, col], k) => { const on = t >= ws(wi) - 0.07, x = xr - wsz[k] / 2; xr -= wsz[k] + gap; c2.save(); c2.translate(x, y); const pk = on ? 1 + 0.12 * Math.sin(Math.PI * k01(t, ws(wi) - 0.07, 0.25)) : 1; c2.scale(pk, pk);
         c2.shadowColor = 'rgba(0,0,0,0.8)'; c2.shadowBlur = 30; c2.fillStyle = on ? (col ?? WHITE) : 'rgba(255,255,255,0.35)'; c2.fillText(s, 0, 0); c2.restore(); }); }); c2.restore(); }
-  if (t >= ws(7) - 0.1 && t < END) { let ci = -1; CHUNKS.forEach((ch, k) => { if (t >= ws(ch[0][1]) - 0.1) ci = k; });
+  if (t >= ws(7) - 0.1 && t < ws(91) - 0.1) { let ci = -1;   // the close says its own words in 3D CHUNKS.forEach((ch, k) => { if (t >= ws(ch[0][1]) - 0.1) ci = k; });
     if (ci >= 0) { const ch = CHUNKS[ci], next = CHUNKS[ci + 1], endT = next ? ws(next[0][1]) - 0.1 : END, a = Math.min(cl((t - ws(ch[0][1]) + 0.1) * 6), cl((endT - t) * 6 + 0.2));
       c2.save(); c2.globalAlpha = a; c2.font = FONT(58, 800); c2.direction = 'rtl'; const gap = 20, ws_ = ch.map(([s]) => c2.measureText(s).width), total = ws_.reduce((x, y) => x + y, 0) + gap * (ch.length - 1), y = 1480;
         c2.fillStyle = 'rgba(8,8,14,0.72)'; c2.beginPath(); c2.roundRect(CX - total / 2 - 36, y - 56, total + 72, 112, 56); c2.fill();
