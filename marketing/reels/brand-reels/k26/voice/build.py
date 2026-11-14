@@ -1,5 +1,6 @@
 # k26: the user's take of «خرید یا فروش؟» (t1.mp3, 59.0 s) at its normal speed: no speed-up
-# (ATEMPO 1.0) and no pause shortened (MAXG is longer than any pause). Every word's reel time goes to timing.json.
+# (ATEMPO 1.0) and no pause shortened (MAXG is longer than any pause); a 3.4 s silence is added after «بگیری» for the
+# countdown. Every word's reel time goes to timing.json.
 #   python3 build.py
 import json, re, subprocess, wave, os
 import numpy as np
@@ -7,7 +8,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 r = lambda x: round(x, 3)
 SR, LEAD, MAXG, ATEMPO, TAIL = 48000, 0.3, 9.0, 1.0, 3.2
 w = json.load(open('t1.words.json'))
-EXTRA = {}   # beats after these words (s)
+EXTRA = {8: 3.4}   # beats after these words (s): room for the five-second countdown after «تصمیم بگیری»
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', 't1.mp3', '-af', 'highpass=f=70,acompressor=threshold=-20dB:ratio=2.5:attack=8:release=120:makeup=2',
                 '-ar', str(SR), '-ac', '1', 't1-clean.wav'], check=True)
 wv = wave.open('t1-clean.wav'); x = np.frombuffer(wv.readframes(wv.getnframes()), np.int16).astype(np.float32) / 32768; wv.close()

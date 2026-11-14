@@ -1825,6 +1825,40 @@ The user recorded dialog #5 with the new BacktestLab introduction and asked for 
 `reel/index.html` inlines the screens as data URLs (about 4.5 MB), so it is rebuilt rather than committed. The caption
 and the facts on screen are in `k25/caption.md`.
 
+## k26: «خرید یا فروش؟», a chart quiz on the bear flag (`k26/`, the user's voice at normal speed)
+
+The user shared another creator's quiz reel and asked for a Persian version with a BacktestLab ending. Reusing that
+reel's footage and script would have been copying it, so a new dialog was written in the same format and the user
+recorded it. The visuals are original, on their own engine (`quiz.js`, one 2D canvas). It's 65.6 s, with nothing sped
+up; a 3.4 s silence is added after «تصمیم بگیری» for the countdown.
+
+- **The quiz:**
+  - A drawn sample chart («نمودار نمونه») stops at the decision point, with a fork of arrows on its last candle.
+  - «خرید یا فروش؟» is on screen from the first frame, with big green «خرید» and red «فروش» buttons.
+  - A lime countdown runs ۵ → ۱, and «وقت تمومه!» lands when it ends.
+- **The explanation:**
+  - The sellers' five red candles are numbered and tagged, with an arrow down the drop.
+  - A magnifier frames the buyers' small, weak candles, with a slow arrow up.
+  - For «پرچم نزولی», the pole and the flag's channel are drawn. They glow on «ریزش تند» and «استراحت کوتاه», and a
+    projection shows the fall continuing.
+- **The plan:** a dashed «کف پرچم» line, then the break candle on «بسته شد» and the «فروش» entry. A red stop box
+  rises above the flag and a green target box at «۱ به ۳».
+- **The result:** the replay runs to the target and the target box flashes. A «+۳R» badge appears, marked «مثال».
+- **«یه معامله هیچی رو ثابت نمی‌کنه»:** the chart shrinks into the first of a hundred tiles. The other ninety-nine pop
+  in as «؟», with no win rate claimed.
+- **The close:** k13's real gold replay in a browser card, with a «گذشته» chip and «آینده» curtained off. Then
+  «شروعش رایگانه», «لینکش توی بیو» and the end card.
+
+The sound is an E-minor groove at 98 BPM, low under the voice. It has a clock through the countdown and a buzzer, plus a
+sound per label and move, and it's mixed to −14 LUFS.
+
+**Rebuild** (in `k26/`):
+1. `python3 voice/build.py`, `python3 data.py`, `python3 page.py`, `python3 sound.py`.
+2. `REEL_DIR=reel node render.cjs cover reel/cover.png` and `REEL_DIR=reel node render.cjs video reel/reel-hq.mp4
+   mix.wav 4`.
+
+The caption and the facts on screen are in `k26/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
