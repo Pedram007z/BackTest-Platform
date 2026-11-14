@@ -178,8 +178,12 @@ const GRADE = { uniforms: { tDiffuse: { value: null } }, vertexShader: 'varying 
 const HR = 1.0;                 // the head's radius; the head is a perfect sphere
 const HEM = -3.32, ZF5 = 0.66;  // the hoodie's hem, and its depth against its width
 // the hoodie's half-width down the body: narrower than the head, as in the reference
-const TORSO5 = [[0.2, -1.16], [0.46, -1.2], [0.66, -1.28], [0.77, -1.42], [0.82, -1.62], [0.84, -2.0], [0.84, -2.6], [0.82, -3.1], [0.8, -3.5]];
-function torsoR5(y) { if (y > TORSO5[0][1]) return 0; for (let i = 1; i < TORSO5.length; i++) if (y >= TORSO5[i][1]) { const [r0, y0] = TORSO5[i - 1], [r1, y1] = TORSO5[i]; return r0 + (r1 - r0) * (y - y0) / (y1 - y0); } return TORSO5[TORSO5.length - 1][0]; }
+const TORSO5 = [[0.22, -1.18], [0.42, -1.24], [0.57, -1.33], [0.67, -1.46], [0.74, -1.65], [0.78, -1.94], [0.795, -2.3], [0.79, -2.8], [0.77, -3.2], [0.755, -3.6]];
+// a smooth profile (Catmull-Rom through the points), so the hoodie has no creases: a table of the radius every 0.005 down
+const TLUT = (() => { const P = TORSO5, pts = []; for (let i = 0; i < P.length - 1; i++) { const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+  for (let s = 0; s < 40; s++) { const t = s / 40, cr = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t); pts.push([cr(p0[0], p1[0], p2[0], p3[0]), cr(p0[1], p1[1], p2[1], p3[1])]); } }
+  pts.push(P[P.length - 1]); const out = []; let j = 0; for (let y = P[0][1]; y >= P[P.length - 1][1] - 1e-9; y -= 0.005) { while (j < pts.length - 2 && pts[j + 1][1] > y) j++; const [r0, y0] = pts[j], [r1, y1] = pts[j + 1]; out.push(r0 + (r1 - r0) * (y - y0) / ((y1 - y0) || 1)); } return out; })();
+function torsoR5(y) { if (y > TORSO5[0][1]) return 0; const k = (TORSO5[0][1] - y) / 0.005, i = Math.min(TLUT.length - 2, Math.floor(k)), f = Math.min(1, k - i); return TLUT[i] + (TLUT[i + 1] - TLUT[i]) * f; }
 const frontZ5 = (x, y) => ZF5 * Math.sqrt(Math.max(0, torsoR5(y) ** 2 - x * x));
 const smin = (a, b, k) => { const h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / k)); return b + (a - b) * h - k * h * (1 - h); };
 const smax = (a, b, k) => -smin(-a, -b, k);
@@ -187,7 +191,11 @@ const smax = (a, b, k) => -smin(-a, -b, k);
 function capsuleDT(px, py, pz, a, b, r) { const bx = b.x - a.x, by = b.y - a.y, bz = b.z - a.z, ax = px - a.x, ay = py - a.y, az = pz - a.z; const t = Math.max(0, Math.min(1, (ax * bx + ay * by + az * bz) / (bx * bx + by * by + bz * bz))); const dx = ax - bx * t, dy = ay - by * t, dz = az - bz * t; return [Math.sqrt(dx * dx + dy * dy + dz * dz) - r, t]; }
 
 // ---------- the toon outline: an inverted hull (a copy pushed out along its normals, drawn from the back) ----------
-const OUTLINE = new THREE.MeshBasicMaterial({ color: '#0A0B10', side: THREE.BackSide });
+const OUTLINE = new THREE.MeshBasicMaterial({ color: '#0C0E1A', side: THREE.BackSide });
+// the painted look: light wraps softly round the forms (half-lambert), so the shading turns in a gentle gradient
+const WRAP = THREE.ShaderChunk.lights_physical_pars_fragment.replace('reflectedLight.directDiffuse += irradiance * BRDF_Lambert( material.diffuseColor );', 'reflectedLight.directDiffuse += saturate( ( dot( geometryNormal, directLight.direction ) + 0.5 ) / 1.5 ) * directLight.color * BRDF_Lambert( material.diffuseColor );');   // the diffuse only: the highlights keep the true angle
+function painted(m) { m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <lights_physical_pars_fragment>', WRAP); }; m.customProgramCacheKey = () => 'painted'; return m; }
+renderer.shadowMap.type = THREE.PCFShadowMap;   // with shadow.radius, for soft shadows
 function hull(m, w) { const geo = m.geometry.clone(), p = geo.attributes.position, n = geo.attributes.normal, s = m.scale;
   for (let i = 0; i < p.count; i++) p.setXYZ(i, p.getX(i) + n.getX(i) * w / Math.abs(s.x), p.getY(i) + n.getY(i) * w / Math.abs(s.y), p.getZ(i) + n.getZ(i) * w / Math.abs(s.z));
   const h = new THREE.Mesh(geo, OUTLINE); h.position.copy(m.position); h.quaternion.copy(m.quaternion); h.scale.copy(m.scale); return h; }
@@ -196,14 +204,13 @@ function cylBetween(a, b, r0, r1, mat) { const d = new V3().subVectors(b, a); co
 /** Point a hand: its fingers (local +y) along F, its palm (local +z) towards P. */
 function orient(o, F, P) { const y = F.clone().normalize(), z = P.clone().addScaledVector(y, -P.dot(y)).normalize(), x = new V3().crossVectors(y, z); o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z)); }
 
-function mats5() { return {
-  skin: std('#F6F6F4', 0.8),
-  eye: phys('#0B0B0F', 0.2, { clearcoat: 1, clearcoatRoughness: 0.08 }), ink: std('#16161B', 0.6), mouthIn: std('#2A1A1D', 0.7), tongue: std('#D9787A', 0.55),
-  navy: phys('#202D52', 0.86, { sheen: 1, sheenColor: '#6A7BB4', sheenRoughness: 0.6 }), navy2: phys('#19234A', 0.9, { sheen: 1, sheenColor: '#5A68A6', sheenRoughness: 0.6 }),
-  purple: std('#7F62FF', 0.5, { emissive: '#7F62FF', emissiveIntensity: 0.1 }), silver: std('#C9C9D6', 0.35, { metalness: 0.5 }),
-  pants: phys('#16171D', 0.88, { sheen: 0.8, sheenColor: '#3E4252', sheenRoughness: 0.7 }),
-  shoe: phys('#1C1F2C', 0.55, { clearcoat: 0.35, clearcoatRoughness: 0.45 }), sole: std('#EFEEEA', 0.6), lace: std('#ECEAF4', 0.6),
-}; }
+function mats5() { const M = {
+  skin: std('#F7F7F5', 0.96, { envMapIntensity: 0.4 }),
+  eye: phys('#0B0B0F', 0.22, { clearcoat: 1, clearcoatRoughness: 0.1 }), ink: std('#16161B', 0.6), mouthIn: std('#2A1A1D', 0.7), tongue: std('#D9787A', 0.55),
+  hoodie: phys('#FFFFFF', 0.95, { vertexColors: true, sheen: 0.4, sheenColor: '#7C8CC8', sheenRoughness: 0.8, envMapIntensity: 0.6 }),
+  lower: std('#FFFFFF', 0.85, { vertexColors: true, envMapIntensity: 0.6 }),
+  purple: std('#8A6CFF', 0.6, { emissive: '#8A6CFF', emissiveIntensity: 0.08 }), silver: std('#C9C9D6', 0.4, { metalness: 0.4 }),
+}; ['skin', 'hoodie', 'lower', 'purple', 'silver'].forEach((k) => painted(M[k])); return M; }
 
 // ---------- the face: black oval eyes with a catch-light, thin arched brows, a small mouth ----------
 function face5(g, M, f, look) {
@@ -240,25 +247,74 @@ function hand5(pose, M, mirror) {
 }
 
 /**
- * The hoodie's body and both sleeves as one smooth surface (cv4's idea): a signed distance field of the torso's profile,
- * flattened front to back and closed at the hem, and a capsule per arm segment, joined with a smooth minimum and meshed
- * with marching cubes. The blend is wide at the shoulder and fades along the upper arm, so the sleeve grows out of the
- * shoulder while an arm at rest still hangs free of the body. A second mesh of the same field, a little further out and
- * drawn from the back, is the outline.
+ * Soft shapes: a signed distance field meshed with marching cubes, so every join is rounded. Its colour is painted per
+ * voxel (vertex colours, so a stripe or a sole is part of the same smooth surface, not a separate ring or slab), and a
+ * second mesh of the same field, a little further out and drawn from the back, is its outline.
  */
-function hoodie5(arms, mat, res = 150) {
-  const C = new V3(0, -1.92, 0.12), HALF = new V3(2.05, 1.82, 1.0);
-  const mc = new MarchingCubes(res, mat, false, false, 600000); mc.isolation = 0; const f = mc.field, hs = mc.halfsize;
+const lin = (hex) => { const c = new THREE.Color(hex); return [c.r, c.g, c.b]; };
+const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+function softMesh({ res, C, HALF, sdf, paint, mat, outline = 0.016, polys = 500000 }) {
+  const mc = new MarchingCubes(res, mat, false, true, polys); mc.isolation = 0; const f = mc.field, pal = mc.palette, hs = mc.halfsize;
   for (let z = 0; z < res; z++) { const pz = C.z + ((z - hs) / hs) * HALF.z;
-    for (let y = 0; y < res; y++) { const py = C.y + ((y - hs) / hs) * HALF.y, r = torsoR5(py);
-      for (let x = 0; x < res; x++) { const px = C.x + ((x - hs) / hs) * HALF.x;
-        const q = Math.sqrt(px * px + (pz / ZF5) * (pz / ZF5)); let d = py > TORSO5[0][1] ? Math.max(q - 0.2, py - TORSO5[0][1]) : (q - r) * 0.8;
-        d = smax(d, HEM - py, 0.06);
-        for (const [sh, el, wr] of arms) { const [du, tu] = capsuleDT(px, py, pz, sh, el, 0.15); d = smin(d, du, 0.15 - 0.13 * tu); d = smin(d, capsuleDT(px, py, pz, el, wr, 0.135)[0], 0.03); }
-        f[x + y * res + z * res * res] = -d; } } }
+    for (let y = 0; y < res; y++) { const py = C.y + ((y - hs) / hs) * HALF.y;
+      for (let x = 0; x < res; x++) { const px = C.x + ((x - hs) / hs) * HALF.x, i = x + y * res + z * res * res, d = sdf(px, py, pz);
+        f[i] = -d; if (Math.abs(d) < 0.07) { const c = paint(px, py, pz); pal[i * 3] = c[0]; pal[i * 3 + 1] = c[1]; pal[i * 3 + 2] = c[2]; } } } }
   mc.update(); mc.position.copy(C); mc.scale.copy(HALF); mc.castShadow = true; mc.receiveShadow = true;
-  const ol = new MarchingCubes(res, OUTLINE, false, false, 600000); ol.field.set(f); ol.isolation = -0.022; ol.update(); ol.position.copy(C); ol.scale.copy(HALF);
-  const g = new THREE.Group(); g.add(mc, ol); return g;
+  const g = new THREE.Group(); g.add(mc);
+  if (outline) { const ol = new MarchingCubes(res, OUTLINE, false, false, polys); ol.field.set(f); ol.isolation = -outline; ol.update(); ol.position.copy(C); ol.scale.copy(HALF); g.add(ol); }
+  return g;
+}
+/** The distance from p to a ring of radius R and thickness t round the axis n through c (a rolled cuff or hem), and the height along n. */
+function ringD(px, py, pz, c, n, R, t, sq = 1) { const rx = px - c.x, ry = py - c.y, rz = pz - c.z, h = rx * n.x + ry * n.y + rz * n.z, rad = Math.hypot(rx - h * n.x, ry - h * n.y, rz - h * n.z); return [Math.hypot(rad - R, h * sq) - t, h, rad]; }
+const ellD = (x, y, z, rx, ry, rz) => (Math.hypot(x / rx, y / ry, z / rz) - 1) * Math.min(rx, ry, rz);
+
+/**
+ * The hoodie and both sleeves as one soft surface: the torso (a smooth profile with sloping shoulders, flattened front
+ * to back), a rolled hem, a soft collar and the hood folded on the back, and a capsule per arm segment with a rolled
+ * cuff. The shoulder blend is wide and fades along the upper arm, so the sleeve grows out of a round shoulder while an
+ * arm at rest still hangs free. Painted navy, the ribbed bands a shade darker, a thin purple line above the hem and each
+ * cuff, and a purple lining inside the collar.
+ */
+function hoodieSoft(arms, mat) {
+  const A = arms.map(([sh, el, wr]) => { const fd = new V3().subVectors(wr, el).normalize(); return { sh, el, wr, fd, cc: wr.clone().addScaledVector(fd, -0.07) }; });
+  const NAVY = lin('#24325F'), RIB = lin('#1C2752'), PURP = lin('#8A6CFF'), TOP = TORSO5[0][1], hemY = HEM + 0.08, hemR = torsoR5(hemY) - 0.015, ca = Math.cos(0.22), sa = Math.sin(0.22);
+  const collar = (px, py, pz) => { const cy = py + 1.24, cz = pz + 0.05, yy = cy * ca - cz * sa, zz = cy * sa + cz * ca, ring = Math.hypot(px / 1.15, zz / 0.92) - 0.3; return [Math.hypot(ring, yy) - 0.13, ring, yy]; };
+  const torso = (px, py, pz) => { const q = Math.hypot(px, pz / ZF5); let d = py > TOP ? Math.max(q - 0.22, py - TOP) : (q - torsoR5(py)) * 0.8; d = smax(d, HEM - py, 0.12);
+    return [smin(d, Math.hypot(q - hemR, py - hemY) * 0.8 - 0.07, 0.05), q]; };
+  const sdf = (px, py, pz) => { let [d] = torso(px, py, pz);
+    d = smin(d, collar(px, py, pz)[0], 0.06); d = smin(d, ellD(px, py + 1.37, pz + 0.46, 0.6, 0.42, 0.3), 0.1);
+    for (const a of A) { const [du, tu] = capsuleDT(px, py, pz, a.sh, a.el, 0.155); d = smin(d, du, 0.22 - 0.2 * tu); d = smin(d, capsuleDT(px, py, pz, a.el, a.wr, 0.14)[0], 0.06); d = smin(d, ringD(px, py, pz, a.cc, a.fd, 0.135, 0.058, 0.85)[0], 0.035); }
+    return d; };
+  const paint = (px, py, pz) => {
+    for (const a of A) { const [, h, rad] = ringD(px, py, pz, a.cc, a.fd, 0.135, 0.058); if (rad < 0.3 && h > -0.16 && h < 0.12) { const t = Math.min(1, Math.max(0, (0.026 - Math.abs(h + 0.092)) / 0.012)); return mixc(h > -0.065 ? RIB : NAVY, PURP, t); } }
+    const [, q] = torso(px, py, pz); if (py < HEM + 0.25 && Math.abs(q - torsoR5(py)) < 0.14) { const t = Math.min(1, Math.max(0, (0.024 - Math.abs(py - (HEM + 0.17))) / 0.01)); return mixc(py < HEM + 0.15 ? RIB : NAVY, PURP, t); }
+    const [cd, ring, yy] = collar(px, py, pz); if (cd < 0.03 && ring < -0.03 && yy > -0.04) return mixc(NAVY, PURP, 0.8);
+    return NAVY; };
+  return softMesh({ res: 150, C: new V3(0, -1.92, 0.12), HALF: new V3(2.05, 1.82, 1.0), sdf, paint, mat });
+}
+
+/**
+ * The pants and both sneakers as one soft surface: the seat, two gently tapered legs with a turned hem, and each shoe
+ * (a round toe and heel blended together on a rounded sole). Painted black for the pants, a dark upper, a white sole,
+ * a purple side stripe and heel tab, and white laces.
+ */
+function lowerSoft(mat) {
+  const PANTS = lin('#17181F'), SHOE = lin('#1F2334'), SOLE = lin('#EFEEEA'), PURP = lin('#8A6CFF'), LACE = lin('#E8E6F0'), UP = new V3(0, 1, 0);
+  const L = [-1, 1].map((a) => ({ hip: new V3(a * 0.33, -3.28, 0), ank: new V3(a * 0.37, FLOOR + 0.44, 0.03), x: a * 0.4 }));
+  const seat = (px, py, pz) => ellD(px, py + 3.22, pz, 0.72, 0.42, 0.48);
+  const leg = (l, px, py, pz) => { const [d0, t] = capsuleDT(px, py, pz, l.hip, l.ank, 0); return smin(d0 - (0.27 - 0.035 * t), ringD(px, py, pz, new V3(l.ank.x, FLOOR + 0.52, l.ank.z), UP, 0.235, 0.034)[0], 0.02); };
+  const shoe = (l, px, py, pz) => { const x = px - l.x, upper = smin(ellD(x, py - FLOOR - 0.22, pz + 0.12, 0.235, 0.2, 0.28), ellD(x, py - FLOOR - 0.17, pz - 0.3, 0.235, 0.155, 0.3), 0.15);
+    const zc = Math.max(-0.28, Math.min(0.42, pz)), foot = Math.hypot(x / 1.0, pz - zc) - 0.235, sole = smax(foot, Math.abs(py - FLOOR - 0.06) - 0.06, 0.05);
+    return [smin(upper, sole, 0.03), upper, sole, x]; };
+  const sdf = (px, py, pz) => { const s0 = seat(px, py, pz); let d = 9; for (const l of L) d = Math.min(d, smin(smin(s0, leg(l, px, py, pz), 0.12), shoe(l, px, py, pz)[0], 0.03)); return d; };
+  const paint = (px, py, pz) => { const l = px < 0 ? L[0] : L[1], [s, upper, sole, x] = shoe(l, px, py, pz);
+    if (s > Math.min(seat(px, py, pz), leg(l, px, py, pz)) + 0.01 || py > FLOOR + 0.5) return PANTS;
+    if (sole < upper) return SOLE;
+    if (pz < -0.3 && py > FLOOR + 0.27) return PURP;
+    if (Math.abs(py - FLOOR - 0.2) < 0.024 && Math.abs(x) > 0.17 && pz > -0.22 && pz < 0.36) return PURP;
+    if (py > FLOOR + 0.28 && pz > 0.03 && pz < 0.37 && Math.abs(x) < 0.09 && (pz - 0.03) % 0.11 < 0.04) return LACE;
+    return SHOE; };
+  return softMesh({ res: 130, C: new V3(0, (FLOOR - 0.1 - 2.72) / 2, 0.08), HALF: new V3(0.8, (-2.72 - FLOOR + 0.1) / 2, 0.66), sdf, paint, mat });
 }
 /** A flat picture laid on the hoodie's front (the pocket, the logo), following its curve. */
 function frontDecal(tex, cx, cy, w, h) { const geo = new THREE.PlaneGeometry(w, h, 32, 16), p = geo.attributes.position;
@@ -267,52 +323,34 @@ function frontDecal(tex, cx, cy, w, h) { const geo = new THREE.PlaneGeometry(w, 
 const POCKET = () => canvasTex(512, 264, (g, w, h) => { const P = (k) => { g.beginPath(); g.moveTo(w * 0.2 + k, h * 0.07 + k); g.lineTo(w * 0.8 - k, h * 0.07 + k); g.quadraticCurveTo(w * 0.86 - k, h * 0.55, w * 0.97 - k, h * 0.93 - k); g.lineTo(w * 0.03 + k, h * 0.93 - k); g.quadraticCurveTo(w * 0.14 + k, h * 0.55, w * 0.2 + k, h * 0.07 + k); g.closePath(); };
   P(0); g.fillStyle = 'rgba(8,12,28,0.28)'; g.fill(); g.lineWidth = 7; g.strokeStyle = 'rgba(4,6,16,0.55)'; g.stroke();
   P(14); g.setLineDash([10, 9]); g.lineWidth = 3; g.strokeStyle = 'rgba(140,155,215,0.45)'; g.stroke(); });
-const RIBS = () => { const t = canvasTex(256, 32, (g, w, h) => { for (let x = 0; x < w; x += 8) { g.fillStyle = '#FFFFFF'; g.fillRect(x, 0, 4, h); g.fillStyle = '#7A7A7A'; g.fillRect(x + 4, 0, 4, h); } }); t.wrapS = THREE.RepeatWrapping; t.repeat.set(12, 1); t.colorSpace = THREE.NoColorSpace; return t; };
 
 /**
  * The mascot, standing on y = FLOOR, facing +z. o: face (curious, smile, happy, thinking, surprised), look [x, y],
  * left / right (the arm poses: down, palm, point, chin, wave; left is +x), tilt, nod.
  */
 function buddy(o = {}) {
-  const M = mats5(), g = new THREE.Group(), OW = 0.02;
+  const M = mats5(), g = new THREE.Group(), OW = 0.016;
   // the head on a short neck
-  const hd = new THREE.Group(); outlined(hd, sphere(HR, M.skin, [0, 0, 0], [1, 1, 1]), 0.024); face5(hd, M, o.face ?? 'curious', o.look ?? [0, 0]);
+  const hd = new THREE.Group(); outlined(hd, sphere(HR, M.skin, [0, 0, 0], [1, 1, 1]), 0.02); face5(hd, M, o.face ?? 'curious', o.look ?? [0, 0]);
   hd.rotation.set(o.nod ?? 0.03, o.turn ?? 0, o.tilt ?? 0); g.add(hd);
-  outlined(g, mesh(new THREE.CylinderGeometry(0.155, 0.175, 0.42, 24), M.skin, [0, -1.08, -0.02]), OW);
-  // the hood: a soft collar round the neck with a purple lining, and the folded hood on the back
-  outlined(g, mesh(new THREE.TorusGeometry(0.29, 0.125, 20, 48), M.navy2, [0, -1.2, -0.05], [Math.PI / 2 + 0.22, 0, 0], [1.22, 0.92, 1]), OW);
-  g.add(mesh(new THREE.TorusGeometry(0.205, 0.024, 10, 48), M.purple, [0, -1.11, -0.06], [Math.PI / 2 + 0.2, 0, 0], [1.25, 0.88, 1]));
-  outlined(g, sphere(0.52, M.navy2, [0, -1.28, -0.44], [1.12, 0.74, 0.55]), OW);
-  // purple drawstrings with silver tips
-  [-1, 1].forEach((e) => { const ys = [-1.3, -1.5, -1.72, -1.94]; g.add(tube(ys.map((y, k) => [e * (0.1 + k * 0.008), y, frontZ5(e * 0.1, y) + 0.025]), 0.02, M.purple));
-    g.add(mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.1, 12), M.silver, [e * 0.125, -1.99, frontZ5(e * 0.125, -1.99) + 0.03])); });
-  // the kangaroo pocket, the logo on the left chest, the ribbed hem with a purple line
-  g.add(frontDecal(POCKET(), 0, -2.8, 1.22, 0.63));
-  if (window.ICON_TEX) g.add(frontDecal(window.ICON_TEX, 0.4, -1.78, 0.24, 0.24));
-  const rib = phys('#19234A', 0.92, { sheen: 1, sheenColor: '#5A68A6', sheenRoughness: 0.6, bumpMap: RIBS(), bumpScale: 1.2, side: THREE.DoubleSide });
-  outlined(g, mesh(new THREE.CylinderGeometry(0.832, 0.822, 0.2, 64, 1, true), rib, [0, HEM + 0.07, 0], [0, 0, 0], [1, 1, ZF5]), OW);
-  g.add(mesh(new THREE.TorusGeometry(0.834, 0.01, 8, 96), M.purple, [0, HEM + 0.17, 0], [Math.PI / 2, 0, 0], [1, ZF5, 1]));
-  // the arms: sleeves grown from the shoulders, a ribbed cuff with a thin purple stripe, white hands
+  outlined(g, mesh(new THREE.CylinderGeometry(0.15, 0.17, 0.5, 32), M.skin, [0, -1.12, -0.03]), OW);
+  // purple drawstrings with silver tips, the kangaroo pocket, the logo on the left chest
+  [-1, 1].forEach((e) => { const ys = [-1.36, -1.56, -1.76, -1.97]; g.add(tube(ys.map((y, k) => [e * (0.1 + k * 0.008), y, frontZ5(e * 0.1, y) + 0.025]), 0.02, M.purple));
+    g.add(mesh(new THREE.CapsuleGeometry(0.03, 0.06, 6, 12), M.silver, [e * 0.125, -2.02, frontZ5(e * 0.125, -2.02) + 0.03])); });
+  g.add(frontDecal(POCKET(), 0, -2.78, 1.18, 0.6));
+  if (window.ICON_TEX) g.add(frontDecal(window.ICON_TEX, 0.38, -1.84, 0.24, 0.24));
+  // the arms and white hands; the sleeves are part of the hoodie's soft surface
   const pose = { 1: o.left ?? 'down', [-1]: o.right ?? 'down' }, arms = [];
-  [-1, 1].forEach((a) => { const p = pose[a], sh = new V3(a * 0.64, -1.5, -0.02); let el, wr, F, P;
-    if (p === 'palm') { el = new V3(a * 1.12, -2.4, 0.32); wr = new V3(a * 1.6, -1.95, 0.76); F = new V3(a, 0.6, 0.3); P = new V3(a * 0.1, 0.6, 1); }
-    else if (p === 'point') { el = new V3(a * 1.14, -2.3, 0.34); wr = new V3(a * 1.66, -1.76, 0.8); F = new V3(a, 0.4, 0.3); P = new V3(0, -1, 0.2); }
-    else if (p === 'chin') { el = new V3(a * 0.72, -2.35, 0.74); wr = new V3(a * 0.36, -1.18, 0.64); F = new V3(-a * 0.1, 1, 0.35); P = new V3(a * 0.15, -0.3, 1); }   // the «hmm» L: the index finger on the cheek, the thumb under the chin, the palm towards the viewer
-    else if (p === 'wave') { el = new V3(a * 1.22, -1.64, 0.16); wr = new V3(a * 1.4, -0.64, 0.3); F = new V3(a * 0.18, 1, 0.04); P = new V3(0, 0.1, 1); }
-    else { el = new V3(a * 1.04, -2.36, -0.03); wr = new V3(a * 1.11, -3.16, 0.05); P = new V3(-a * 0.55, 0, -0.85); }
+  [-1, 1].forEach((a) => { const p = pose[a], sh = new V3(a * 0.56, -1.61, -0.02); let el, wr, F, P;
+    if (p === 'palm') { el = new V3(a * 1.1, -2.4, 0.32); wr = new V3(a * 1.6, -1.95, 0.76); F = new V3(a, 0.6, 0.3); P = new V3(a * 0.1, 0.6, 1); }
+    else if (p === 'point') { el = new V3(a * 1.1, -2.3, 0.34); wr = new V3(a * 1.64, -1.76, 0.8); F = new V3(a, 0.4, 0.3); P = new V3(0, -1, 0.2); }
+    else if (p === 'chin') { el = new V3(a * 0.72, -2.35, 0.74); wr = new V3(a * 0.36, -1.18, 0.64); F = new V3(-a * 0.1, 1, 0.35); P = new V3(a * 0.15, -0.3, 1); }   // the «hmm» L: the index finger on the cheek, the thumb under the chin
+    else if (p === 'wave') { el = new V3(a * 1.2, -1.66, 0.16); wr = new V3(a * 1.4, -0.66, 0.3); F = new V3(a * 0.18, 1, 0.04); P = new V3(0, 0.1, 1); }
+    else { el = new V3(a * 1.0, -2.38, -0.03); wr = new V3(a * 1.07, -3.18, 0.05); P = new V3(-a * 0.55, 0, -0.85); }
     arms.push([sh, el, wr]);
-    const fd = new V3().subVectors(wr, el).normalize(), ring = (r, t, at, mat) => { const m = mesh(new THREE.TorusGeometry(r, t, 12, 40), mat, wr.clone().addScaledVector(fd, at).toArray()); m.quaternion.setFromUnitVectors(new V3(0, 0, 1), fd); return m; };
-    outlined(g, ring(0.13, 0.042, -0.04, M.navy2), 0.015); g.add(ring(0.137, 0.011, -0.14, M.purple));
-    const h = hand5(p, M, a > 0); h.position.copy(wr).addScaledVector(fd, 0.03); orient(h, F ?? fd, P); h.scale.multiplyScalar(1.12); g.add(h); });
-  g.add(hoodie5(arms, M.navy));
-  // black casual pants
-  outlined(g, sphere(1, M.pants, [0, -3.3, 0], [0.74, 0.42, 0.5]), OW);
-  [-1, 1].forEach((a) => { const hip = new V3(a * 0.34, -3.35, 0), ank = new V3(a * 0.38, FLOOR + 0.42, 0.04); outlined(g, cylBetween(hip, ank, 0.28, 0.25, M.pants), OW);
-    outlined(g, mesh(new THREE.TorusGeometry(0.25, 0.028, 10, 40), M.pants, [a * 0.38, FLOOR + 0.46, 0.04], [Math.PI / 2, 0, 0]), 0.012);
-    // simple sneakers: a rounded upper, a white sole, a purple side stripe and heel tab, white laces
-    const x = a * 0.4; outlined(g, rbox(0.46, 0.34, 0.92, 0.16, M.shoe, [x, FLOOR + 0.23, 0.14]), OW); outlined(g, rbox(0.5, 0.11, 0.98, 0.05, M.sole, [x, FLOOR + 0.055, 0.14]), OW);
-    g.add(rbox(0.475, 0.055, 0.52, 0.02, M.purple, [x, FLOOR + 0.19, 0.06])); g.add(rbox(0.16, 0.13, 0.05, 0.02, M.purple, [x, FLOOR + 0.34, -0.31]));
-    [0.16, 0.27, 0.38].forEach((z) => g.add(mesh(new THREE.CapsuleGeometry(0.018, 0.15, 4, 8), M.lace, [x, FLOOR + 0.405, z], [0, 0, Math.PI / 2]))); });
+    const fd = new V3().subVectors(wr, el).normalize(), h = hand5(p, M, a > 0); h.position.copy(wr).addScaledVector(fd, 0.03); orient(h, F ?? fd, P); h.scale.multiplyScalar(1.12); g.add(h); });
+  g.add(hoodieSoft(arms, M.hoodie));
+  g.add(lowerSoft(M.lower));
   return g;
 }
 
@@ -322,7 +360,7 @@ function studio(scene) {
   scene.add(mesh(new THREE.PlaneGeometry(70, 46), new THREE.MeshBasicMaterial({ toneMapped: false, map: canvasTex(64, 512, (g2, w, h) => { const gr = g2.createRadialGradient(w / 2, h * 0.42, 4, w / 2, h * 0.42, h * 0.62); gr.addColorStop(0, '#34353F'); gr.addColorStop(1, '#0B0B0F'); g2.fillStyle = gr; g2.fillRect(0, 0, w, h); }) }), [0, 0, -14], [0, 0, 0], [1, 1, 1], false));
   scene.add(mesh(new THREE.CircleGeometry(30, 64), std('#1A1A20', 0.82), [0, FLOOR, 0], [-Math.PI / 2, 0, 0]));
   const key = new THREE.DirectionalLight('#FFF0E2', 2.1); key.position.set(-6, 10, 14); key.target.position.set(0, -2.5, 0); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
-  Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -8, near: 1, far: 50 }); key.shadow.bias = -0.0004; key.shadow.radius = 6; scene.add(key, key.target);
+  Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -8, near: 1, far: 50 }); key.shadow.bias = -0.0004; key.shadow.radius = 9; scene.add(key, key.target);
   const rim1 = new THREE.SpotLight('#2CE6C0', 170, 34, 0.6, 0.6, 2); rim1.position.set(6, 4, -7); rim1.target.position.set(0, -2.2, 0); scene.add(rim1, rim1.target);
   const rim2 = new THREE.SpotLight('#8E6BFF', 150, 34, 0.6, 0.7, 2); rim2.position.set(-6, 5, -7); rim2.target.position.set(0, -2.2, 0); scene.add(rim2, rim2.target);
   const front = new THREE.DirectionalLight('#FFF4E8', 0.6); front.position.set(0, 1, 20); scene.add(front); scene.add(new THREE.HemisphereLight('#5A6A90', '#0A0A0A', 0.28));
@@ -348,6 +386,17 @@ const VIEWS = [
   { id: 'cover-desk', cover: true, theme: 'city', side: -1, tint: '#2CE6C0', seed: 5, sym: 'payout', face: 'thinking', left: 'chin', look: [0.5, 0.45], tilt: 0.1, scale: 1.3, l1: 'پراپ تریدرها', l2: 'چطوری به برداشت رسیدن؟', c2: GREEN },
 ];
 function dispose(scene) { scene.traverse((m) => { if (m.geometry) m.geometry.dispose(); [].concat(m.material ?? []).forEach((x) => { if (x !== OUTLINE) { x.map?.dispose(); x.bumpMap?.dispose(); x.dispose(); } }); }); }
+// the painted finish: a Kuwahara filter (each pixel takes the mean colour of the calmest of the four squares around it),
+// which flattens fine noise into soft strokes while keeping the edges, like a painted illustration
+const KUWAHARA = { uniforms: { tDiffuse: { value: null }, px: { value: new THREE.Vector2(1 / W, 1 / H) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 px; varying vec2 vUv;
+  #define N 4
+  void quad(vec2 o, inout vec3 best, inout float bs) { vec3 m = vec3(0.0), s = vec3(0.0);
+    for (int j = 0; j <= N; j++) for (int i = 0; i <= N; i++) { vec3 c = texture2D(tDiffuse, vUv + (o * vec2(float(i), float(j))) * px).rgb; m += c; s += c * c; }
+    float n = float((N + 1) * (N + 1)); m /= n; vec3 v = abs(s / n - m * m); float sg = v.r + v.g + v.b; if (sg < bs) { bs = sg; best = m; } }
+  void main(){ vec3 best = vec3(0.0); float bs = 1e9; quad(vec2(-1.0, -1.0), best, bs); quad(vec2(1.0, -1.0), best, bs); quad(vec2(-1.0, 1.0), best, bs); quad(vec2(1.0, 1.0), best, bs);
+    gl_FragColor = vec4(best, 1.0); }` };
 let composer = null;
 function view(i) {
   const V = VIEWS[i], scene = new THREE.Scene(); scene.environment = ENV; scene.environmentIntensity = V.cover ? 0.16 : 0.22;
@@ -360,7 +409,7 @@ function view(i) {
   const rt = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, samples: 4 }); composer = new EffectComposer(renderer, rt); composer.setPixelRatio(1); composer.setSize(W, H);
   composer.addPass(new RenderPass(scene, cam)); const ao = new GTAOPass(scene, cam, W, H); ao.updateGtaoMaterial({ radius: 0.5, distanceExponent: 1.5, thickness: 1.2, scale: 1.1 }); ao.blendIntensity = 0.8; composer.addPass(ao);
   if (V.cover) composer.addPass(new BokehPass(scene, cam, { focus: 23.5, aperture: 0.005, maxblur: 0.01 }));
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), V.cover ? 0.55 : 0.3, 0.6, 0.98)); composer.addPass(new OutputPass()); composer.addPass(new ShaderPass(GRADE));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), V.cover ? 0.5 : 0.15, 0.6, 0.98)); composer.addPass(new OutputPass()); composer.addPass(new ShaderPass(KUWAHARA)); composer.addPass(new ShaderPass(GRADE));
   composer.render(); if (V.cover) hook(V.l1, V.l2, V.c2); else cv.clearRect(0, 0, W, H);
   composer.dispose(); rt.dispose(); dispose(scene);
 }
