@@ -1941,6 +1941,38 @@ logo's violet):
 To render it, use `REEL_DIR=reel-violet` for both the cover and the video. The caption and the facts
 on screen are in `k29/caption.md`.
 
+## k30: the same take in a dark HUD look (`k30/`)
+
+The user shared two reference reels and asked for one reel in each style on the latest take. This is the first: a dark
+tech promo. Only its principles were taken: a dark navy screen with a faint grid, corner brackets and small mono
+read-outs, a glowing signal line, particles assembling into data, a scope, a white flash before the brand, a flap board
+and a full-frame colour card. Every element and step is BacktestLab's own. It runs on its own engine (`hud.js`, one 2D
+canvas) at 60 fps.
+
+- **The hook:** a heartbeat line turns into a green profit line that rises to «توی ذهنت». A read-out says "NO TRADES
+  BEHIND IT".
+- **The chart:** dots fly in and assemble into a sample series (labelled "SAMPLE SERIES").
+- **Hindsight:** target brackets lock «خرید» onto the low and «فروش» onto the high.
+- **«اون موقع»:** a scan line stops at that moment. The future is lit while «الان می‌دونی», then lost to static
+  («آینده: نامعلوم», "SIGNAL LOST").
+- **«هر استراتژی‌ای سودده به نظر میاد»:** a grid of 42 placeholder strategies turns green, counting «… از ۴۲ سودده».
+- **«آینده رو نبینی»:** a scope sweeps the past, and its future half goes blind with a «؟».
+- **BacktestLab:** a white flash, then the icon glowing, with «بک‌تست‌لب، دقیقاً همینه».
+- **«یه روز از گذشته»:** a flap board flips whole words («۲۵»، «فروردین»، «۱۴۰۴») and settles on the replay's real date.
+  It flips whole words, not letters, so the Persian joins and the digits' order stay right.
+- **The replay:** a glass card plays the real gold replay, the future curtained off, then «خرید» and «فروش».
+- **The week:** a counter of arc ticks runs from ۰۰ to ۲۰.
+- **«ببین هنوز سودده هست یا نه»:** a full-frame violet card rises with the line.
+- **The close:** the icon, «شروعش رایگانه» and a lime «لینک توی بیو» pill. Then the end card.
+- **On screen:** the spoken line, word by word with a soft blur-in, an accent colour and an underline on key words.
+- **The sound:** a dark B-minor bed at 96 BPM with the screen's own sounds (pulse blips, a shimmer as the dots assemble,
+  lock blips, static, grid ticks, scope pings, a hit on the flash, flap clicks, counter ticks and a bell), mixed to
+  −14 LUFS.
+
+To rebuild, run (in `k30/`, after k27's voice): `python3 page.py`, `python3 sound.py`, `REEL_DIR=reel node render.cjs
+cover reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and
+the facts on screen are in `k30/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
