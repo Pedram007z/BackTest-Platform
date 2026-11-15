@@ -1973,6 +1973,35 @@ To rebuild, run (in `k30/`, after k27's voice): `python3 page.py`, `python3 soun
 cover reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and
 the facts on screen are in `k30/caption.md`.
 
+## k31: the same take as a fintech explainer (`k31/`)
+
+The second of the two reels in the reference styles. This one is inspired by a clean fintech explainer. Only its
+principles were taken: numbered sections, big right-aligned two-tone headlines (ink and violet), one clear visual per
+section with a small footnote under it, and panels that alternate between light, dark and violet. Each new section
+slides up as a card over the last. Every visual and step is BacktestLab's own. It runs on its own engine (`explain.js`,
+one 2D canvas) at 60 fps.
+
+- **۰۱ فرضیه:** a dashed profit line climbs to «توی ذهنت», while the «تست واقعی» line hasn't started («؟»).
+- **۰۲ نگاه به گذشته:** a sample candle chart. «خرید» is marked at the low and «فروش» at the high, with the move shaded.
+- **۰۳ الان و اون موقع (dark):** a «الان | اون موقع» switch. Now, what came next is boxed as known. Back then, the real
+  candles fade and simulated paths fan out with a «؟».
+- **۰۴ تله‌ی آینده‌ی پیدا:** «آینده: پیدا», and six placeholder strategies' bars fill and turn «سودده».
+- **۰۵ قانون تست (violet):** a white card whose future half is covered, «آینده: مخفی».
+- **۰۶ بک‌تست‌لب:** the icon with rings and the wordmark. Then a Farvardin 1404 calendar where the cursor picks the 25th,
+  the replay's real date, and presses «برو به ۲۵ فروردین».
+- **۰۷ بازپخش (dark):** a browser window plays the real gold replay, the future curtained off, then «خرید» and «فروش»
+  buttons.
+- **۰۸ چالش هفته:** a ring of twenty segments fills, then turns to «سودده؟».
+- **۰۹ شروع (violet):** the icon, «شروعش رایگانه» and a white «لینک توی بیو» pill. Then the end card.
+- **On screen:** the spoken line is the headline. Each word rises out of a mask as it's said, and the key words are
+  violet. A story-style bar at the top shows the nine sections.
+- **The sound:** a light F-major bed at 100 BPM with the explainer's own sounds (swishes as panels slide, pops for chips
+  and markers, quiet ticks, clicks for the switch, the calendar and the button, a chime and a bell), mixed to −14 LUFS.
+
+To rebuild, run (in `k31/`, after k27's voice): `python3 page.py`, `python3 sound.py`, `REEL_DIR=reel node render.cjs
+cover reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and
+the facts on screen are in `k31/caption.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
