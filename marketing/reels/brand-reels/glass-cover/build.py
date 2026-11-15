@@ -5,6 +5,7 @@
 #   python3 build.py k30 → k30/index.html (dark, the logo's violet: k30's violet cut)
 #   python3 build.py k31 → k31/index.html (light, ink and violet: k31's explainer)
 #   python3 build.py k32 → k32/index.html (light, the BOS chart: k32)
+#   python3 build.py k33 → k33/index.html (dark, the logo's violet, the BOS chart: k33's HUD cut)
 #   node shot.cjs k30 → k30-cover.png (1080×1920)
 import base64, os, sys
 NAME = sys.argv[1] if len(sys.argv) > 1 else 'k30'
@@ -17,6 +18,8 @@ TH = {
               logo='brand/svg/logo-fa-light.svg', kicker='۹ قدم تا یه تست واقعی'),
   'k32': dict(dark=0, bg='#EDECE8', glow='rgba(106,70,255,0.20)', l1='#17131F', l2='linear-gradient(90deg,#5430E6,#8E6BFF)', l1t='هر شکستی', l2t='BOS نیست!',
               logo='brand/svg/logo-fa-light.svg', kicker='قانون BOS معتبر', chart='bos', hs=150),
+  'k33': dict(dark=1, bg='#07040F', glow='rgba(106,70,255,0.42)', l1='#FFFFFF', l2='linear-gradient(90deg,#8E6BFF,#D8CCFF)', l1t='سقف رو شکست…', l2t='ولی BOS نیست!',
+              logo='brand/svg/logo-fa-dark.svg', kicker='قانون BOS معتبر', chart='bos', hs=150),
 }[NAME]
 D = TH['dark']
 html = f'''<!doctype html><html lang="fa"><head><meta charset="utf-8"><title>{NAME} cover</title><style>
@@ -101,13 +104,13 @@ else chip('آینده: مخفی', 'v', xn + (840 - xn) / 2, 290, xn + (840 - xn)
 // break above the high, which isn't a BOS
 function bos() {{ const S = [[20,24,25,19],[24,23,25.5,22],[23,28,29,22.5],[28,27,29,26],[27,32,33,26.5],[32,31,33.5,30],[31,36,38,30.5],[36,34,36.5,31.8],[34,32,34.5,29],[32,33,33.8,31.5],[33,37,37.8,32.5],[37,40,41,36.5],[40,43,44,39.5],[43,42,44.5,41]].map(([o, c, h, l]) => ({{ o, c, h, l }}));
   const NN = 16, B = {{ x: 60, y: 60, w: 720, h: 400 }}, lo = 16, hi = 47, X = (i) => B.x + (i + 0.5) * B.w / NN, Y = (v) => B.y + B.h - (v - lo) / (hi - lo) * B.h, bw = B.w / NN * 0.6;
-  cv.strokeStyle = 'rgba(23,19,31,0.07)'; cv.lineWidth = 1.5; for (let k = 0; k <= 4; k++) {{ cv.beginPath(); cv.moveTo(B.x, B.y + B.h * k / 4); cv.lineTo(B.x + B.w, B.y + B.h * k / 4); cv.stroke(); }}
+  cv.strokeStyle = DARK ? 'rgba(255,255,255,0.07)' : 'rgba(23,19,31,0.07)'; cv.lineWidth = 1.5; for (let k = 0; k <= 4; k++) {{ cv.beginPath(); cv.moveTo(B.x, B.y + B.h * k / 4); cv.lineTo(B.x + B.w, B.y + B.h * k / 4); cv.stroke(); }}
   const dash = (v, i0, i1, col, lw = 3) => {{ cv.save(); cv.setLineDash([10, 9]); cv.strokeStyle = col; cv.lineWidth = lw; cv.beginPath(); cv.moveTo(X(i0) - bw, Y(v)); cv.lineTo(X(i1) + bw, Y(v)); cv.stroke(); cv.restore(); }};
-  dash(38, 6, 14, 'rgba(23,19,31,0.6)'); dash(30.5, 6, 10, '#6A46FF');
-  S.forEach((d, i) => {{ const col = d.c >= d.o ? '#12A15E' : '#E5484D', x = X(i); cv.strokeStyle = col; cv.lineWidth = 3; cv.beginPath(); cv.moveTo(x, Y(d.h)); cv.lineTo(x, Y(d.l)); cv.stroke(); const y1 = Y(Math.max(d.o, d.c)), y2 = Y(Math.min(d.o, d.c)); cv.fillStyle = col; cv.beginPath(); cv.roundRect(x - bw / 2, y1, bw, Math.max(4, y2 - y1), 3); cv.fill(); }});
+  const VL = DARK ? '#A58BFF' : '#6A46FF', RD = DARK ? '#FF5A6A' : '#E5484D'; dash(38, 6, 14, DARK ? 'rgba(232,224,255,0.75)' : 'rgba(23,19,31,0.6)'); dash(30.5, 6, 10, VL);
+  S.forEach((d, i) => {{ const col = d.c >= d.o ? (DARK ? '#2FD67B' : '#12A15E') : RD, x = X(i); cv.save(); cv.shadowColor = DARK ? col : 'transparent'; cv.shadowBlur = DARK ? 14 : 0; cv.strokeStyle = col; cv.lineWidth = 3; cv.beginPath(); cv.moveTo(x, Y(d.h)); cv.lineTo(x, Y(d.l)); cv.stroke(); const y1 = Y(Math.max(d.o, d.c)), y2 = Y(Math.min(d.o, d.c)); cv.fillStyle = col; cv.beginPath(); cv.roundRect(x - bw / 2, y1, bw, Math.max(4, y2 - y1), 3); cv.fill(); cv.restore(); }});
   const box = (i, col) => {{ const d = S[i]; cv.save(); cv.strokeStyle = col; cv.lineWidth = 4; cv.beginPath(); cv.roundRect(X(i) - bw / 2 - 12, Y(d.h) - 12, bw + 24, Y(d.l) - Y(d.h) + 24, 12); cv.stroke(); cv.restore(); }};
-  box(6, '#6A46FF'); box(11, '#E5484D');
-  cv.save(); cv.strokeStyle = '#6A46FF'; cv.lineWidth = 3.5; cv.beginPath(); cv.arc(X(8), Y(29) + 3, 18, 0, Math.PI * 2); cv.stroke(); cv.restore();
+  box(6, VL); box(11, RD);
+  cv.save(); cv.strokeStyle = VL; cv.lineWidth = 3.5; cv.beginPath(); cv.arc(X(8), Y(29) + 3, 18, 0, Math.PI * 2); cv.stroke(); cv.restore();
   chip('سقف', '', X(14) + bw, Y(38), X(14) + bw + 10, Y(38) - 40);
   chip('فقط سایه', 'v', X(8), Y(29) + 22, X(8) + 30, Y(29) + 70);
   chip('BOS نیست', 'r', X(11), Y(41) - 14, X(11) - 20, Y(41) - 62);

@@ -2048,6 +2048,33 @@ To rebuild, run (in `k32/`): `python3 voice/build.py`, `python3 data.py`, `pytho
 `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in
 `k32/caption.md`.
 
+## k33: k32's take in the dark HUD look, in the logo's violet (`k33/`)
+
+The user asked for the BOS reel in the other style, with the ground matching the logo. This is k30's HUD on k32's take
+and timeline, in the logo's violet from the start, on its own engine (`hud.js`, one 2D canvas) at 60 fps. The candle
+sets are k32's, drawn with a glow.
+
+- **The hook:** a scan line prints the candles. Brackets lock onto the break, «شکست!», then a HUD alert: «BOS نیست»
+  ("INVALID BREAK").
+- **The trap:** «BOS؟» locked, «کف محافظت‌شده؟», «استاپ», then the drop: a red flash and «استاپ خورد» ("STOP HIT").
+- **The question:** «شکست» is struck out. A reticle slides from the break to the high, «سقف» ("TARGET"), then «؟» and
+  «سقف بود؟».
+- **The rule:** a BOS CHECK panel with the three steps, each "PENDING".
+- **The steps:** the valid case, the wick-only invalid case and the downtrend, as in k32, with HUD tags and mono
+  captions. A status strip under the chart («۱ سقف»، «۲ پولبک»، «۳ شکست») ticks ✓ or ✗ as each step passes or fails.
+- **«حرف منو قبول نکن؛ این قانون رو تست کن»:** a full-frame card in the logo's gradient. «حرف منو» is struck out, and
+  «تست کن.» lands big.
+- **BacktestLab:** a lavender flash into the icon. Then k30's flap board settles on ۲۵ فروردین ۱۴۰۴.
+- **The replay:** the real gold replay behind glass. A break is marked «شکست؟», what comes next is curtained off, then
+  «معتبر» or «نامعتبر». The bottom read-out reads "REAL REPLAY" here and "SAMPLE DATA" elsewhere.
+- **The log:** a sample break log, every answer «؟». Then the close and the end card, «هر شکستی BOS نیست؛ تستش کن».
+- **The sound:** k30's dark B-minor bed at 96 BPM, with scan ticks, lock blips, hits on each alert and on the flash,
+  bells on each ✓, flap clicks and replay ticks. It's mixed to −14 LUFS.
+- **The cover:** the glass-slab style in dark violet, «سقف رو شکست… / ولی BOS نیست!» (`glass-cover/`, `python3 build.py k33`).
+
+To rebuild, run (in `k33/`, after k32's voice): `python3 page.py`, `python3 sound.py`, then `FPS=60 REEL_DIR=reel node
+render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in `k33/caption.md`.
+
 ## Glass-slab covers for k30 and k31 (`glass-cover/`)
 
 The user shared another brand's cover as a reference and asked for covers like it for the last two reels, with
@@ -2063,6 +2090,7 @@ text) is used.
   تا یه تست واقعی». The slab is white, with the same buy and sell, and the future covered, «آینده: مخفی».
 - **k32** (light): «هر شکستی / BOS نیست!», over the chip «قانون BOS معتبر». The slab holds k32's invalid case: the
   high candle boxed, a wick-only dip ringed «فقط سایه», and the break marked «BOS نیست» (`chart='bos'`).
+- **k33** (dark, the logo's violet): «سقف رو شکست… / ولی BOS نیست!», the same BOS chart with glowing candles.
 - **How it's built:** the slab is real CSS 3D: a front face, a back face and two edge faces in perspective. The chart is
   drawn on a canvas, and the reflection is the same canvas flipped, blurred and faded. Each headline line is fitted to
   the frame.
