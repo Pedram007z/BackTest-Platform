@@ -4,6 +4,7 @@
 # logo are BacktestLab's own.
 #   python3 build.py k30 → k30/index.html (dark, the logo's violet: k30's violet cut)
 #   python3 build.py k31 → k31/index.html (light, ink and violet: k31's explainer)
+#   python3 build.py k32 → k32/index.html (light, the BOS chart: k32)
 #   node shot.cjs k30 → k30-cover.png (1080×1920)
 import base64, os, sys
 NAME = sys.argv[1] if len(sys.argv) > 1 else 'k30'
@@ -14,6 +15,8 @@ TH = {
               logo='brand/svg/logo-fa-dark.svg', kicker='بدون دیدن آینده تستش کن'),
   'k31': dict(dark=0, bg='#EDECE8', glow='rgba(106,70,255,0.20)', l1='#17131F', l2='linear-gradient(90deg,#5430E6,#8E6BFF)', l1t='چرا روی چارت گذشته', l2t='همه سودده‌ان؟',
               logo='brand/svg/logo-fa-light.svg', kicker='۹ قدم تا یه تست واقعی'),
+  'k32': dict(dark=0, bg='#EDECE8', glow='rgba(106,70,255,0.20)', l1='#17131F', l2='linear-gradient(90deg,#5430E6,#8E6BFF)', l1t='هر شکستی', l2t='BOS نیست!',
+              logo='brand/svg/logo-fa-light.svg', kicker='قانون BOS معتبر', chart='bos', hs=150),
 }[NAME]
 D = TH['dark']
 html = f'''<!doctype html><html lang="fa"><head><meta charset="utf-8"><title>{NAME} cover</title><style>
@@ -59,9 +62,12 @@ canvas {{ position: absolute; left: 0; top: 0; width: 840px; height: 520px; }}
 </div></div>
 <img class="logo" src="data:image/svg+xml;base64,{b64(TH['logo'])}">
 <script>
-const DARK = {D}, cv = document.getElementById('c').getContext('2d'), front = document.getElementById('front');
+const DARK = {D}, CHART = '{TH.get('chart', 'future')}', HS = {TH.get('hs', 200)}, cv = document.getElementById('c').getContext('2d'), front = document.getElementById('front');
 (async () => {{ await Promise.all(['600', '700', '800', '900'].map((w) => document.fonts.load(`${{w}} 100px Vazirmatn`, 'آبپ؟'))); cv.scale(2, 2);
 const rnd = (i) => {{ const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }};
+// the chips, each on a short stem
+const chip = (s, cls, x, y, tx, ty) => {{ cv.save(); cv.strokeStyle = DARK ? 'rgba(214,202,255,0.8)' : 'rgba(23,19,31,0.35)'; cv.lineWidth = 2; cv.beginPath(); cv.moveTo(x, y); cv.lineTo(tx, ty); cv.stroke(); cv.restore(); const e = document.createElement('div'); e.className = 'chip ' + cls; e.textContent = s; e.style.left = tx + 'px'; e.style.top = ty + 'px'; front.appendChild(e); }};
+if (CHART === 'bos') bos(); else {{
 // a drawn sample: a slide to a low, a rally to a high, a pullback; the last part is the future
 const N = 34, OH = []; {{ let p = 100; for (let i = 0; i < N; i++) {{ const d = i < 9 ? -2.0 : i < 23 ? 2.4 : i < 27 ? -1.6 : 1.2, c = p + d + (rnd(i * 7 + 3) - 0.5) * 3.0; OH.push({{ o: p, c, h: Math.max(p, c) + rnd(i * 11 + 1) * 1.8, l: Math.min(p, c) - rnd(i * 13 + 2) * 1.8 }}); p = c; }} }}
 let LO = 0, HI = 9; for (let i = 0; i < 12; i++) if (OH[i].l < OH[LO].l) LO = i; for (let i = 9; i < 27; i++) if (OH[i].h > OH[HI].h) HI = i;
@@ -86,16 +92,30 @@ if (DARK) {{ // the future: lost to static, with a «؟»
   cv.strokeStyle = '#6A46FF'; cv.lineWidth = 3; cv.setLineDash([8, 8]); cv.beginPath(); cv.moveTo(x0, 30); cv.lineTo(x0, 490); cv.stroke(); cv.setLineDash([]);
   const ex = x0 + w0 / 2, ey = 230, s = 40; cv.lineWidth = 6; cv.beginPath(); cv.moveTo(ex - s, ey); cv.quadraticCurveTo(ex, ey - s * 0.95, ex + s, ey); cv.quadraticCurveTo(ex, ey + s * 0.95, ex - s, ey); cv.stroke(); cv.fillStyle = '#6A46FF'; cv.beginPath(); cv.arc(ex, ey, s * 0.32, 0, Math.PI * 2); cv.fill(); cv.beginPath(); cv.moveTo(ex - s * 0.9, ey + s * 0.8); cv.lineTo(ex + s * 0.9, ey - s * 0.8); cv.stroke();
 }}
-// the chips, each on a short stem
-const chip = (s, cls, x, y, tx, ty) => {{ cv.save(); cv.strokeStyle = DARK ? 'rgba(214,202,255,0.8)' : 'rgba(23,19,31,0.35)'; cv.lineWidth = 2; cv.beginPath(); cv.moveTo(x, y); cv.lineTo(tx, ty); cv.stroke(); cv.restore(); const e = document.createElement('div'); e.className = 'chip ' + cls; e.textContent = s; e.style.left = tx + 'px'; e.style.top = ty + 'px'; front.appendChild(e); }};
 chip('خرید', 'g', bx, by + 16, bx + 40, by + 64 > 490 ? 490 : by + 64);
 chip('فروش', 'r', sx, sy - 16, sx - 10, Math.max(36, sy - 62));
 if (DARK) chip('آینده: نامعلوم', 'v', (xn + B.x + B.w + 30) / 2, B.y + B.h * 0.6, (xn + B.x + B.w + 30) / 2, B.y + B.h * 0.78);
 else chip('آینده: مخفی', 'v', xn + (840 - xn) / 2, 290, xn + (840 - xn) / 2, 330);
+}}
+// the BOS chart: a rise to a high candle, a dip whose wick goes under that candle's low but whose close doesn't, then a
+// break above the high, which isn't a BOS
+function bos() {{ const S = [[20,24,25,19],[24,23,25.5,22],[23,28,29,22.5],[28,27,29,26],[27,32,33,26.5],[32,31,33.5,30],[31,36,38,30.5],[36,34,36.5,31.8],[34,32,34.5,29],[32,33,33.8,31.5],[33,37,37.8,32.5],[37,40,41,36.5],[40,43,44,39.5],[43,42,44.5,41]].map(([o, c, h, l]) => ({{ o, c, h, l }}));
+  const NN = 16, B = {{ x: 60, y: 60, w: 720, h: 400 }}, lo = 16, hi = 47, X = (i) => B.x + (i + 0.5) * B.w / NN, Y = (v) => B.y + B.h - (v - lo) / (hi - lo) * B.h, bw = B.w / NN * 0.6;
+  cv.strokeStyle = 'rgba(23,19,31,0.07)'; cv.lineWidth = 1.5; for (let k = 0; k <= 4; k++) {{ cv.beginPath(); cv.moveTo(B.x, B.y + B.h * k / 4); cv.lineTo(B.x + B.w, B.y + B.h * k / 4); cv.stroke(); }}
+  const dash = (v, i0, i1, col, lw = 3) => {{ cv.save(); cv.setLineDash([10, 9]); cv.strokeStyle = col; cv.lineWidth = lw; cv.beginPath(); cv.moveTo(X(i0) - bw, Y(v)); cv.lineTo(X(i1) + bw, Y(v)); cv.stroke(); cv.restore(); }};
+  dash(38, 6, 14, 'rgba(23,19,31,0.6)'); dash(30.5, 6, 10, '#6A46FF');
+  S.forEach((d, i) => {{ const col = d.c >= d.o ? '#12A15E' : '#E5484D', x = X(i); cv.strokeStyle = col; cv.lineWidth = 3; cv.beginPath(); cv.moveTo(x, Y(d.h)); cv.lineTo(x, Y(d.l)); cv.stroke(); const y1 = Y(Math.max(d.o, d.c)), y2 = Y(Math.min(d.o, d.c)); cv.fillStyle = col; cv.beginPath(); cv.roundRect(x - bw / 2, y1, bw, Math.max(4, y2 - y1), 3); cv.fill(); }});
+  const box = (i, col) => {{ const d = S[i]; cv.save(); cv.strokeStyle = col; cv.lineWidth = 4; cv.beginPath(); cv.roundRect(X(i) - bw / 2 - 12, Y(d.h) - 12, bw + 24, Y(d.l) - Y(d.h) + 24, 12); cv.stroke(); cv.restore(); }};
+  box(6, '#6A46FF'); box(11, '#E5484D');
+  cv.save(); cv.strokeStyle = '#6A46FF'; cv.lineWidth = 3.5; cv.beginPath(); cv.arc(X(8), Y(29) + 3, 18, 0, Math.PI * 2); cv.stroke(); cv.restore();
+  chip('سقف', '', X(14) + bw, Y(38), X(14) + bw + 10, Y(38) - 40);
+  chip('فقط سایه', 'v', X(8), Y(29) + 22, X(8) + 30, Y(29) + 70);
+  chip('BOS نیست', 'r', X(11), Y(41) - 14, X(11) - 20, Y(41) - 62);
+}}
 // the reflection is the chart canvas, flipped and faded
 document.getElementById('r').getContext('2d').drawImage(document.getElementById('c'), 0, 0);
 // fit each headline line to the frame
-document.fonts.ready.then(() => {{ document.querySelectorAll('.h div').forEach((d) => {{ let s = 200; while (d.scrollWidth > 960 && s > 60) {{ s -= 2; d.style.fontSize = s + 'px'; }} }}); window.ready = true; }});
+document.fonts.ready.then(() => {{ document.querySelectorAll('.h div').forEach((d) => {{ let s = HS; d.style.fontSize = s + 'px'; while (d.scrollWidth > 960 && s > 60) {{ s -= 2; d.style.fontSize = s + 'px'; }} }}); window.ready = true; }});
 }})();
 </script></body></html>
 '''

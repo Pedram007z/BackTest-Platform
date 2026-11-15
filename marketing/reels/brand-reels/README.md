@@ -2014,6 +2014,40 @@ To rebuild, run (in `k31/`, after k27's voice): `python3 page.py`, `python3 soun
 cover reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and
 the facts on screen are in `k31/caption.md`.
 
+## k32: «قیمت سقف رو شکست… ولی این BOS نیست», an explainer (`k32/`, the user's voice at normal speed)
+
+The user shared another brand's reel on spotting a valid BOS and asked for its text, lightly changed. That would still
+have been that brand's script, so only the topic was kept. A fresh script was written in BacktestLab's voice, the user
+recorded it, and the reel was built in k31's explainer style on its own engine (`bos.js`, one 2D canvas, k31's panels,
+headlines and footnotes) at 60 fps. Every candle set is drawn by hand, so each rule shows exactly.
+
+- **۰۱ شکست:** an uptrend breaks a dashed «سقف». «شکست!», then the stamp «BOS نیست».
+- **۰۲ تله (dark):** the break is taken as «BOS؟». The low behind it is marked «کف محافظت‌شده؟», with «استاپ» under it.
+  Three candles drop through it: «استاپ خورد».
+- **۰۳ سؤال اصلی:** «شکست» is struck out, and a magnifier lands on the high: «سقف بود؟».
+- **۰۴ قانون (violet):** the rule in three numbered steps, for an uptrend.
+- **۰۵ سقف واقعی:** step by step on a valid case:
+  - the high candle is boxed, and the line at its low draws in;
+  - a candle closes below that low («زیرش بسته شد ✓»), which is the pullback;
+  - the high turns into «سقف واقعی»;
+  - a candle closes above it: «BOS معتبر ✓».
+- **۰۶ BOS نامعتبر (dark):** only a wick dips below the low («فقط سایه»), «زیرش بسته نشد ✗». The break gets «BOS نیست»
+  and an arrow, «ادامه‌ی موج صعودی».
+- **۰۷ روند نزولی:** the same rule, mirrored. The low candle, a close above its high («بالاش بسته شد ✓»), then a hint:
+  «بعدش: شکست کف یعنی BOS».
+- **۰۸ تست (violet):** «حرف من» is struck out, then «قانون» and «تست روی گذشته ✓».
+- **۰۹ بازپخش (dark):** the real gold replay on ۲۵ فروردین ۱۴۰۴ moves forward. A break is marked «شکست؟», what comes
+  next is curtained off, and «معتبر» or «نامعتبر» is chosen. The marks are illustrations.
+- **۱۰ نتیجه:** a sample table of the marks, every answer still «؟».
+- **۱۱ شروع (violet):** the icon, «شروعش رایگانه» and «لینک توی بیو». Then the end card, «هر شکستی BOS نیست؛ تستش کن».
+- **The sound:** a light F-major bed at 98 BPM, darker under the dark panels, with ticks, pops, hits on the stamps and on
+  the stop being hit, and chimes on each ✓. It's mixed to −14 LUFS.
+- **The cover:** the glass-slab style, «هر شکستی / BOS نیست!» (`glass-cover/`, `python3 build.py k32`).
+
+To rebuild, run (in `k32/`): `python3 voice/build.py`, `python3 data.py`, `python3 page.py`, `python3 sound.py`, then
+`FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in
+`k32/caption.md`.
+
 ## Glass-slab covers for k30 and k31 (`glass-cover/`)
 
 The user shared another brand's cover as a reference and asked for covers like it for the last two reels, with
@@ -2027,6 +2061,8 @@ text) is used.
   dashed line, and the future lost to static with a «؟» and «آینده: نامعلوم».
 - **k31** (light, ink and violet, to match the explainer): «چرا روی چارت گذشته / همه سودده‌ان؟», over the chip «۹ قدم
   تا یه تست واقعی». The slab is white, with the same buy and sell, and the future covered, «آینده: مخفی».
+- **k32** (light): «هر شکستی / BOS نیست!», over the chip «قانون BOS معتبر». The slab holds k32's invalid case: the
+  high candle boxed, a wick-only dip ringed «فقط سایه», and the break marked «BOS نیست» (`chart='bos'`).
 - **How it's built:** the slab is real CSS 3D: a front face, a back face and two edge faces in perspective. The chart is
   drawn on a canvas, and the reflection is the same canvas flipped, blurred and faded. Each headline line is fitted to
   the frame.
