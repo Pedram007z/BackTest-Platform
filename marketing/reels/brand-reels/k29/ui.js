@@ -11,6 +11,7 @@
 //   and opens to «لینک توی بیو» → the end card.
 // window.seek(t) draws time t; window.cover() draws the cover.
 const W = 1080, H = 1920, CX = 540, D = window.DATA, ws = (i) => D.w[i][0], END = D.end, DUR = D.dur;
+const VT = window.THEME === 'violet';   // the violet version: the ground in the logo's gradient (#9273FF → #5430E6)
 const BG = '#EDECE8', CARD = '#FFFFFF', INK = '#0E0E10', GREY = '#8D8C93', LINE = '#E6E5E1', LIME = '#C6F24E', VIO = '#6C47FF', GREEN = '#1FB574', RED = '#EE4458', SOFT = '#F4F3F0';
 const cv = document.getElementById('c').getContext('2d');
 const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x)), lerp = (a, b, k) => a + (b - a) * k, k01 = (t, a, d) => cl((t - a) / d);
@@ -81,7 +82,7 @@ state(T(36), 940, 800, 48, CARD, (t, a, b) => { cv.save(); cv.globalAlpha *= a; 
 state(T(47), 900, 170, 85, CARD, (t, a, b) => { const k = io(k01(t, T(53), 0.4)), segW = (b.w - 24) / 2; cv.save(); cv.globalAlpha *= a; rr(lerp(12, -segW - 12 + 24, k) - 0, -b.h / 2 + 12, segW, b.h - 24, (b.h - 24) / 2, INK);
   txt('با آینده', b.w / 4, 4, 52, mix('#FFFFFF', '#8D8C93', k)); txt('بدون آینده', -b.w / 4, 4, 52, mix('#8D8C93', '#FFFFFF', k)); cv.restore(); });
 // 5 · the BacktestLab icon
-state(T(54), 340, 340, 94, VIO, (t, a, b) => { if (IMG.icon) { cv.save(); cv.globalAlpha *= a; cv.drawImage(IMG.icon, -b.w / 2, -b.h / 2, b.w, b.h); cv.restore(); } }, 1060);
+state(T(54), 340, 340, 94, VT ? CARD : VIO, (t, a, b) => { if (IMG.icon) { cv.save(); cv.globalAlpha *= a; const z = VT ? 0.76 : 1; cv.drawImage(IMG.icon, -b.w * z / 2, -b.h * z / 2, b.w * z, b.h * z); cv.restore(); } }, 1060);
 // 6 · the date picker: ۲۵ فروردین ۱۴۰۴ (a Monday; 1 Farvardin 1404 was a Friday)
 state(T(58), 900, 1000, 48, CARD, (t, a, b) => { cv.save(); cv.globalAlpha *= a; const picked = t >= T(61) + 0.1, title = t >= T(63) ? '۲۵ فروردین ۱۴۰۴' : 'فروردین ۱۴۰۴';
   txt(title, b.w / 2 - 60, -b.h / 2 + 84, 54, INK, { align: 'right', w: 900 }); txt('برو به', -b.w / 2 + 100, -b.h / 2 + 84, 40, GREY, { w: 700 });
@@ -114,7 +115,7 @@ state(T(92) + 0.1, 160, 160, 80, INK, (t, a, b) => { cv.save(); cv.globalAlpha *
   else { const k = oBack(k01(t, T(92) + 0.5, 0.25)); cv.strokeStyle = LIME; cv.lineWidth = 9; cv.lineCap = cv.lineJoin = 'round'; cv.beginPath(); cv.moveTo(-22 * k, 2); cv.lineTo(-6 * k, 18 * k); cv.lineTo(24 * k, -16 * k); cv.stroke(); } cv.restore(); });
 state(Math.max(T(93), T(92) + 0.95), 700, 160, 80, CARD, (t, a, b) => { cv.save(); cv.globalAlpha *= a; txt('لینک توی بیو', 44, 4, 58, INK); const bb = Math.abs(Math.sin((t - T(93)) * 6)) * 8; cv.fillStyle = VIO; cv.beginPath(); cv.moveTo(-210, -22 - bb); cv.lineTo(-184, 6 - bb); cv.lineTo(-198, 6 - bb); cv.lineTo(-198, 28 - bb); cv.lineTo(-222, 28 - bb); cv.lineTo(-222, 6 - bb); cv.lineTo(-236, 6 - bb); cv.closePath(); cv.fill(); cv.restore(); });
 // the end card
-state(END, 320, 320, 90, VIO, (t, a, b) => { if (IMG.icon) { cv.save(); cv.globalAlpha *= a; cv.drawImage(IMG.icon, -b.w / 2, -b.h / 2, b.w, b.h); cv.restore(); } }, 860);
+state(END, 320, 320, 90, VT ? CARD : VIO, (t, a, b) => { if (IMG.icon) { cv.save(); cv.globalAlpha *= a; const z = VT ? 0.76 : 1; cv.drawImage(IMG.icon, -b.w * z / 2, -b.h * z / 2, b.w * z, b.h * z); cv.restore(); } }, 860);
 
 // ---------- the cursor ----------
 const CUR = () => [[0.0, 900, 1500], [0.6, 760, 1120], [T(4), 700, 1150], [T(7) + 0.2, 760, 1250], [T(11) - 0.15, 0, 0, 'btn'], [T(11) + 0.3, 0, 0, 'btn'], [T(13) + 0.2, 720, 1250],
@@ -147,7 +148,7 @@ const TOK = [['نکنه', 0], ['استراتژی', 1], ['سوددهت', 2], ['ف
 const CH = []; { let c = []; TOK.slice(7).forEach((tk, j, arr) => { c.push(tk); if (/[،.؟]$/.test(tk[0]) || c.length >= 5 || j === arr.length - 1) { CH.push(c); c = []; } }); }
 function words(t) {
   const lineOf = (toks, y, size, fadeA = 1) => { cv.save(); cv.globalAlpha *= fadeA; cv.font = font(size, 800); cv.direction = 'rtl'; const gap = size * 0.3, wsz = toks.map(([s]) => cv.measureText(s).width), total = wsz.reduce((x, z) => x + z, 0) + gap * (toks.length - 1); let xr = CX + total / 2;
-    toks.forEach(([s, wi], k) => { const on = t >= ws(wi) - 0.06, x = xr - wsz[k] / 2; xr -= wsz[k] + gap; const q = oCub(k01(t, ws(wi) - 0.06, 0.25)); txt(s, x, y + (on ? 0 : 0), size, on ? mix('#A9A8AE', '#0E0E10', q) : '#B9B8BE'); }); cv.restore(); };
+    toks.forEach(([s, wi], k) => { const on = t >= ws(wi) - 0.06, x = xr - wsz[k] / 2; xr -= wsz[k] + gap; const q = oCub(k01(t, ws(wi) - 0.06, 0.25)); txt(s, x, y, size, VT ? (on ? mix('#C8BCFF', '#FFFFFF', q) : '#B4A4F6') : on ? mix('#A9A8AE', '#0E0E10', q) : '#B9B8BE'); }); cv.restore(); };
   if (t < T(7) + 0.1) { const f = 1 - k01(t, T(7) - 0.15, 0.25); lineOf(TOK.slice(0, 3), 320, 100, f); lineOf(TOK.slice(3, 7), 460, 100, f); return; }
   if (t >= END - 0.1) return; let ci = 0; CH.forEach((c, k) => { if (t >= ws(c[0][1]) - 0.12) ci = k; }); const c = CH[ci], nx = CH[ci + 1], a = Math.min(oCub(k01(t, ws(c[0][1]) - 0.12, 0.25)), nx ? 1 - k01(t, ws(nx[0][1]) - 0.2, 0.08) : 1);
   lineOf(c, 380, 78, a);
@@ -155,17 +156,20 @@ function words(t) {
 
 // ---------- frame ----------
 function frame(t) {
-  cv.fillStyle = BG; cv.fillRect(0, 0, W, H); const v = cv.createRadialGradient(CX, 900, 200, CX, 960, 1300); v.addColorStop(0, 'rgba(255,255,255,0.35)'); v.addColorStop(1, 'rgba(0,0,0,0.06)'); cv.fillStyle = v; cv.fillRect(0, 0, W, H);
+  if (VT) { const g = cv.createLinearGradient(0, 0, W * 0.35, H); g.addColorStop(0, '#9273FF'); g.addColorStop(0.55, '#6A47F0'); g.addColorStop(1, '#4626C9'); cv.fillStyle = g; cv.fillRect(0, 0, W, H);
+    const o1 = cv.createRadialGradient(CX + 260, 300, 40, CX + 260, 300, 900); o1.addColorStop(0, 'rgba(255,255,255,0.20)'); o1.addColorStop(1, 'rgba(255,255,255,0)'); cv.fillStyle = o1; cv.fillRect(0, 0, W, H);
+    const o2 = cv.createRadialGradient(CX - 300, 1650, 60, CX - 300, 1650, 900); o2.addColorStop(0, 'rgba(30,10,110,0.35)'); o2.addColorStop(1, 'rgba(30,10,110,0)'); cv.fillStyle = o2; cv.fillRect(0, 0, W, H); }
+  else { cv.fillStyle = BG; cv.fillRect(0, 0, W, H); const v = cv.createRadialGradient(CX, 900, 200, CX, 960, 1300); v.addColorStop(0, 'rgba(255,255,255,0.35)'); v.addColorStop(1, 'rgba(0,0,0,0.06)'); cv.fillStyle = v; cv.fillRect(0, 0, W, H); }
   words(t);
   const k = cur(t), s = S[k], p = S[Math.max(0, k - 1)], e = k ? cl((t - s.t) / MORPH) : 1, m = io(e), sp = k ? oBack(e) : 1;
   const b = { w: lerp(p.b.w, s.b.w, sp), h: lerp(p.b.h, s.b.h, sp), r: lerp(p.b.r, s.b.r, m), y: lerp(p.b.y, s.b.y, m) }, fill = k ? mix(p.fill, s.fill, m) : s.fill, blur = k ? Math.sin(Math.PI * e) * 7 : 0;
   cv.save(); cv.translate(CX, b.y); if (blur > 0.5) cv.filter = `blur(${blur.toFixed(1)}px)`;
-  cv.save(); cv.shadowColor = 'rgba(20,20,30,0.14)'; cv.shadowBlur = 70; cv.shadowOffsetY = 26; rr(-b.w / 2, -b.h / 2, b.w, b.h, b.r, fill); cv.restore();
+  cv.save(); cv.shadowColor = VT ? 'rgba(28,8,96,0.38)' : 'rgba(20,20,30,0.14)'; cv.shadowBlur = 70; cv.shadowOffsetY = 26; rr(-b.w / 2, -b.h / 2, b.w, b.h, b.r, fill); cv.restore();
   cv.save(); cv.beginPath(); cv.roundRect(-b.w / 2, -b.h / 2, b.w, b.h, Math.min(b.r, b.h / 2, b.w / 2)); cv.clip();
   if (k && e < 0.45) p.draw(t, 1 - cl(e / 0.3), b); s.draw(t, k ? oCub(k01(e, 0.45, 0.55)) : 1, b); cv.restore();
   cv.restore(); cv.filter = 'none';
-  if (t >= END) { const q = oCub(k01(t, END + 0.25, 0.4)); if (IMG.wordInk) { const ww = 460, hh = (ww * IMG.wordInk.height) / IMG.wordInk.width; cv.save(); cv.globalAlpha = q; cv.drawImage(IMG.wordInk, CX - ww / 2, 1090 + (1 - q) * 20, ww, hh); cv.restore(); }
-    const f = oCub(k01(t, END + 0.5, 0.35)); cv.save(); cv.globalAlpha = f; pill('آینده رو نبین، تست کن', CX, 1330, 44, INK, '#FFFFFF'); txt('شروعش رایگانه؛ لینک توی بیو', CX, 1450, 38, GREY, { w: 700 }); cv.restore(); }
+  if (t >= END) { const q = oCub(k01(t, END + 0.25, 0.4)); const WM = VT ? IMG.word : IMG.wordInk; if (WM) { const ww = 460, hh = (ww * WM.height) / WM.width; cv.save(); cv.globalAlpha = q; cv.drawImage(WM, CX - ww / 2, 1090 + (1 - q) * 20, ww, hh); cv.restore(); }
+    const f = oCub(k01(t, END + 0.5, 0.35)); cv.save(); cv.globalAlpha = f; pill('آینده رو نبین، تست کن', CX, 1330, 44, VT ? '#FFFFFF' : INK, VT ? INK : '#FFFFFF'); txt('شروعش رایگانه؛ لینک توی بیو', CX, 1450, 38, VT ? 'rgba(255,255,255,0.85)' : GREY, { w: 700 }); cv.restore(); }
   if (t > 0.15) drawCursor(t);
 }
 window.DURATION = DUR; window.seek = (t) => frame(t);

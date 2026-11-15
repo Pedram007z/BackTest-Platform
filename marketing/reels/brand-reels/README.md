@@ -1929,7 +1929,16 @@ own. It runs on its own engine (`ui.js`, one 2D canvas) at 60 fps.
   to −14 LUFS.
 
 To rebuild, run (in `k29/`, after k27's voice): `python3 page.py`, `python3 sound.py`, `REEL_DIR=reel node render.cjs cover
-reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts
+reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`.
+
+**The violet version** (`reel-violet/`, built with `python3 page.py violet`; the user asked for a ground matching the
+logo's violet):
+- the background uses the logo's own gradient, #9273FF to #5430E6, with a soft light at the top and a deeper violet at
+  the bottom;
+- the cards stay white, the spoken line is white and lavender, and the shadows are deeper;
+- the icon sits on a white tile, and the end card uses the white wordmark.
+
+To render it, use `REEL_DIR=reel-violet` for both the cover and the video. The caption and the facts
 on screen are in `k29/caption.md`.
 
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
