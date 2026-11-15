@@ -6,6 +6,7 @@
 #   python3 build.py k31 → k31/index.html (light, ink and violet: k31's explainer)
 #   python3 build.py k32 → k32/index.html (light, the BOS chart: k32)
 #   python3 build.py k33 → k33/index.html (dark, the logo's violet, the BOS chart: k33's HUD cut)
+#   python3 build.py k34 → k34/index.html (light, the gap chart: k34)
 #   node shot.cjs k30 → k30-cover.png (1080×1920)
 import base64, os, sys
 NAME = sys.argv[1] if len(sys.argv) > 1 else 'k30'
@@ -20,6 +21,8 @@ TH = {
               logo='brand/svg/logo-fa-light.svg', kicker='قانون BOS معتبر', chart='bos', hs=150),
   'k33': dict(dark=1, bg='#07040F', glow='rgba(106,70,255,0.42)', l1='#FFFFFF', l2='linear-gradient(90deg,#8E6BFF,#D8CCFF)', l1t='سقف رو شکست…', l2t='ولی BOS نیست!',
               logo='brand/svg/logo-fa-dark.svg', kicker='قانون BOS معتبر', chart='bos', hs=150),
+  'k34': dict(dark=0, bg='#EDECE8', glow='rgba(106,70,255,0.20)', l1='#17131F', l2='linear-gradient(90deg,#5430E6,#8E6BFF)', l1t='هر گپی', l2t='پر نمی‌شه!',
+              logo='brand/svg/logo-fa-light.svg', kicker='FVG یا BAG؟', chart='gap', hs=160),
 }[NAME]
 D = TH['dark']
 html = f'''<!doctype html><html lang="fa"><head><meta charset="utf-8"><title>{NAME} cover</title><style>
@@ -70,7 +73,7 @@ const DARK = {D}, CHART = '{TH.get('chart', 'future')}', HS = {TH.get('hs', 200)
 const rnd = (i) => {{ const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }};
 // the chips, each on a short stem
 const chip = (s, cls, x, y, tx, ty) => {{ cv.save(); cv.strokeStyle = DARK ? 'rgba(214,202,255,0.8)' : 'rgba(23,19,31,0.35)'; cv.lineWidth = 2; cv.beginPath(); cv.moveTo(x, y); cv.lineTo(tx, ty); cv.stroke(); cv.restore(); const e = document.createElement('div'); e.className = 'chip ' + cls; e.textContent = s; e.style.left = tx + 'px'; e.style.top = ty + 'px'; front.appendChild(e); }};
-if (CHART === 'bos') bos(); else {{
+if (CHART === 'bos') bos(); else if (CHART === 'gap') gap(); else {{
 // a drawn sample: a slide to a low, a rally to a high, a pullback; the last part is the future
 const N = 34, OH = []; {{ let p = 100; for (let i = 0; i < N; i++) {{ const d = i < 9 ? -2.0 : i < 23 ? 2.4 : i < 27 ? -1.6 : 1.2, c = p + d + (rnd(i * 7 + 3) - 0.5) * 3.0; OH.push({{ o: p, c, h: Math.max(p, c) + rnd(i * 11 + 1) * 1.8, l: Math.min(p, c) - rnd(i * 13 + 2) * 1.8 }}); p = c; }} }}
 let LO = 0, HI = 9; for (let i = 0; i < 12; i++) if (OH[i].l < OH[LO].l) LO = i; for (let i = 9; i < 27; i++) if (OH[i].h > OH[HI].h) HI = i;
@@ -114,6 +117,22 @@ function bos() {{ const S = [[20,24,25,19],[24,23,25.5,22],[23,28,29,22.5],[28,2
   chip('سقف', '', X(14) + bw, Y(38), X(14) + bw + 10, Y(38) - 40);
   chip('فقط سایه', 'v', X(8), Y(29) + 22, X(8) + 30, Y(29) + 70);
   chip('BOS نیست', 'r', X(11), Y(41) - 14, X(11) - 20, Y(41) - 62);
+}}
+// the gap chart: a BAG's three candles (the third closes above the second's high), the gap left behind, and a return
+// that doesn't come
+function gap() {{ const S = [[20,22,23,19.5],[22,21.5,23,20.8],[21.5,24,24.6,21],[24,30,30.5,23.5],[30,35,35.6,29.8],[35,37.5,38,34.6],[37.5,36.8,38.4,36],[36.8,40,40.6,36.4]].map(([o, c, h, l]) => ({{ o, c, h, l }}));
+  const NN = 10, B = {{ x: 60, y: 60, w: 720, h: 400 }}, lo = 17, hi = 43, X = (i) => B.x + (i + 0.5) * B.w / NN, Y = (v) => B.y + B.h - (v - lo) / (hi - lo) * B.h, bw = B.w / NN * 0.58;
+  const UP = DARK ? '#2FD67B' : '#12A15E', RD = DARK ? '#FF5A6A' : '#E5484D', VL = DARK ? '#A58BFF' : '#6A46FF';
+  cv.strokeStyle = DARK ? 'rgba(255,255,255,0.07)' : 'rgba(23,19,31,0.07)'; cv.lineWidth = 1.5; for (let k = 0; k <= 4; k++) {{ cv.beginPath(); cv.moveTo(B.x, B.y + B.h * k / 4); cv.lineTo(B.x + B.w, B.y + B.h * k / 4); cv.stroke(); }}
+  const zx = X(2) - bw / 2; cv.fillStyle = DARK ? 'rgba(165,139,255,0.16)' : 'rgba(106,70,255,0.12)'; cv.fillRect(zx, Y(29.8), B.x + B.w - zx, Y(24.6) - Y(29.8)); cv.save(); cv.setLineDash([9, 8]); cv.strokeStyle = VL; cv.lineWidth = 2.5; cv.strokeRect(zx, Y(29.8), B.x + B.w - zx, Y(24.6) - Y(29.8)); cv.restore();
+  cv.save(); cv.setLineDash([10, 9]); cv.strokeStyle = DARK ? 'rgba(232,224,255,0.6)' : 'rgba(23,19,31,0.45)'; cv.lineWidth = 2.5; cv.beginPath(); cv.moveTo(X(3) - bw, Y(30.5)); cv.lineTo(X(5) + bw, Y(30.5)); cv.stroke(); cv.restore();
+  S.forEach((d, i) => {{ const col = d.c >= d.o ? UP : RD, x = X(i); cv.save(); cv.shadowColor = DARK ? col : 'transparent'; cv.shadowBlur = DARK ? 14 : 0; cv.strokeStyle = col; cv.lineWidth = 3; cv.beginPath(); cv.moveTo(x, Y(d.h)); cv.lineTo(x, Y(d.l)); cv.stroke(); const y1 = Y(Math.max(d.o, d.c)), y2 = Y(Math.min(d.o, d.c)); cv.fillStyle = col; cv.beginPath(); cv.roundRect(x - bw / 2, y1, bw, Math.max(4, y2 - y1), 3); cv.fill(); cv.restore(); }});
+  cv.save(); cv.strokeStyle = VL; cv.lineWidth = 4; cv.beginPath(); cv.roundRect(X(4) - bw / 2 - 12, Y(35.6) - 12, bw + 24, Y(29.8) - Y(35.6) + 24, 12); cv.stroke(); cv.restore();
+  [[2, 24.6, '۱'], [3, 30.5, '۲'], [4, 35.6, '۳']].forEach(([i, h, n]) => {{ cv.fillStyle = VL; cv.beginPath(); cv.arc(X(i), Y(h) - 34, 20, 0, Math.PI * 2); cv.fill(); cv.fillStyle = '#FFFFFF'; cv.font = '800 24px Vazirmatn'; cv.textAlign = 'center'; cv.textBaseline = 'middle'; cv.fillText(n, X(i), Y(h) - 32); }});
+  cv.save(); cv.setLineDash([9, 8]); cv.strokeStyle = RD; cv.lineWidth = 3.5; const ax = X(7) + 30, ay = Y(36), bx = X(7) + 10, by = Y(30.6); cv.beginPath(); cv.moveTo(ax, ay); cv.lineTo(bx, by); cv.stroke(); cv.setLineDash([]); cv.beginPath(); cv.moveTo(bx - 10, by - 16); cv.lineTo(bx, by); cv.lineTo(bx + 14, by - 12); cv.stroke(); cv.restore();
+  chip('گپ', 'v', X(5) + 30, Y(27.2), X(5) + 30, Y(27.2));
+  chip('BAG', 'v', X(4), Y(35.6) - 30, X(4) - 110, Y(38));
+  chip('برنگشت', 'r', X(7) + 34, Y(33.4), X(8) + 64, Y(33.4));
 }}
 // the reflection is the chart canvas, flipped and faded
 document.getElementById('r').getContext('2d').drawImage(document.getElementById('c'), 0, 0);

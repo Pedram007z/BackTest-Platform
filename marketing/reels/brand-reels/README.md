@@ -2075,6 +2075,39 @@ sets are k32's, drawn with a glow.
 To rebuild, run (in `k33/`, after k32's voice): `python3 page.py`, `python3 sound.py`, then `FPS=60 REEL_DIR=reel node
 render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in `k33/caption.md`.
 
+## k34: «منتظری قیمت برگرده گپ رو پر کنه؟», FVG versus BAG, an explainer (`k34/`, the user's voice at normal speed)
+
+The user shared another brand's reel on FVG versus BAG (Breakaway Gap) and asked for its text, lightly changed. As with
+k32, only the topic was kept. A fresh script was written in BacktestLab's voice, without that reel's unsourced "۹۰
+درصد" and "اکثراً" claims. The user recorded it, and the reel was built in k32's explainer style on its own engine
+(`fvg.js`, one 2D canvas) at 60 fps. Every candle set is drawn by hand, and what's only expected or possible is drawn as
+dashed ghost candles.
+
+- **۰۱ گپ:** a gap left under an uptrend, «منتظر برگشت…» and a dashed arrow back to it. Price keeps climbing:
+  «برنگشت ✗».
+- **۰۲ دو نوع گپ (dark):** two sample cards. In FVG the gap gets filled («پر شد ✓»). In BAG it's left behind («جا
+  موند», «Breakaway Gap»).
+- **۰۳ کندل سوم (violet):** the gap's three candles on a white card, the third a dashed «؟», numbered ۱ ۲ ۳, with the gap
+  shaded.
+- **۰۴ FVG:** the second candle's range is drawn, the third stays inside it («داخل محدوده ✓»), and then «FVG». A dashed
+  arrow and ghost candles show «انتظار خیلی‌ها: برگشت به گپ».
+- **۰۵ BAG (dark):** the third candle closes above the second's high («بالای سقفش بسته شد ✓»), with «فشار خرید», then
+  «BAG». Ghost candles run on, «ممکنه پر نشه».
+- **۰۶ روند نزولی:** both cases, mirrored, on two cards.
+- **۰۷ تله‌ی انتظار (dark):** «سفارش منتظر برگشت» sits at the gap while the move runs away: «حرکتی که از دست رفت».
+- **۰۸ تست (violet):** «معمولاً» is struck out, then «تست روی گذشته ✓».
+- **۰۹ بازپخش (dark):** the real gold replay on ۲۵ فروردین ۱۴۰۴. A gap is boxed «گپ؟», what comes next is curtained off,
+  then «FVG» or «BAG». The marks are illustrations.
+- **۱۰ نتیجه:** a sample log of guesses, every «پر شد؟» still «؟».
+- **۱۱ شروع (violet):** the close, then the end card, «هر گپی پر نمی‌شه؛ تستش کن».
+- **The sound:** k32's light F-major bed, darker under the dark panels, with ticks, pops, chimes and soft hits. It's
+  mixed to −14 LUFS.
+- **The cover:** the glass-slab style, «هر گپی / پر نمی‌شه!» (`glass-cover/`, `python3 build.py k34`).
+
+To rebuild, run (in `k34/`): `python3 voice/build.py`, `python3 data.py`, `python3 page.py`, `python3 sound.py`, then
+`FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in
+`k34/caption.md`.
+
 ## Glass-slab covers for k30 and k31 (`glass-cover/`)
 
 The user shared another brand's cover as a reference and asked for covers like it for the last two reels, with
@@ -2091,6 +2124,8 @@ text) is used.
 - **k32** (light): «هر شکستی / BOS نیست!», over the chip «قانون BOS معتبر». The slab holds k32's invalid case: the
   high candle boxed, a wick-only dip ringed «فقط سایه», and the break marked «BOS نیست» (`chart='bos'`).
 - **k33** (dark, the logo's violet): «سقف رو شکست… / ولی BOS نیست!», the same BOS chart with glowing candles.
+- **k34** (light): «هر گپی / پر نمی‌شه!», over the chip «FVG یا BAG؟». The slab holds a BAG's three candles, numbered, the gap
+  left behind, and a dashed return marked «برنگشت» (`chart='gap'`).
 - **How it's built:** the slab is real CSS 3D: a front face, a back face and two edge faces in perspective. The chart is
   drawn on a canvas, and the reflection is the same canvas flipped, blurred and faded. Each headline line is fitted to
   the frame.
