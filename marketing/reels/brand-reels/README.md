@@ -1973,6 +1973,18 @@ To rebuild, run (in `k30/`, after k27's voice): `python3 page.py`, `python3 soun
 cover reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and
 the facts on screen are in `k30/caption.md`.
 
+**The violet version** (`reel-violet/`, built with `python3 page.py violet`; the user asked for the logo's violet in
+place of the blue):
+- the ground is a deep violet-black (#0C0720), and its glow is the logo's deep violet;
+- the lines, dots, brackets, scope, read-outs and accent words are the brand's lavender (#A58BFF), and the future's
+  labels are a paler lavender;
+- the flap board's tiles are violet, and the flash before the logo is lavender-white;
+- the full-frame card uses the logo's gradient, #9273FF to #5430E6;
+- green, red and lime keep their meaning (profit, buy and sell, the scan line and the call to action), and the sound is
+  the same.
+
+To render it, use `REEL_DIR=reel-violet` for both the cover and the video.
+
 ## k31: the same take as a fintech explainer (`k31/`)
 
 The second of the two reels in the reference styles. This one is inspired by a clean fintech explainer. Only its

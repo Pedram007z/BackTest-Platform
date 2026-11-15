@@ -29,4 +29,5 @@
 - **The glass card** plays k13's real BacktestLab replay of XAUUSD, labelled «صفحه‌ی واقعی بک‌تست‌لب، بازپخش طلا», with
   the future curtained off.
 - **The counter** runs to the week's twenty trades. No result is claimed.
+- **The violet version** (`reel-violet/`) has the same content, with the logo's violet in place of the blue.
 - **About «شروعش رایگانه»:** the free plan has one session, with the replay.
