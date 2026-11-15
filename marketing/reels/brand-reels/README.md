@@ -2034,6 +2034,8 @@ text) is used.
 To rebuild, run (in `glass-cover/`): `python3 build.py k30`, then `node shot.cjs k30` → `k30-cover.png` (1080×1920,
 taken at 2× and scaled down). Do the same for `k31`.
 
+From k30 on, this is the cover style for every reel (the user's request). The rules are in `CLAUDE.md`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
