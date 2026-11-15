@@ -193,3 +193,7 @@ cv3/page/
 cv4/page/
 cv5/page/
 cv6/page/
+
+# glass-cover: the covers are rebuilt (python3 build.py <name>, node shot.cjs <name>)
+glass-cover/*.png
+glass-cover/*/*.png

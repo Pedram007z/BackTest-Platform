@@ -2014,6 +2014,26 @@ To rebuild, run (in `k31/`, after k27's voice): `python3 page.py`, `python3 soun
 cover reel/cover.png`, then `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and
 the facts on screen are in `k31/caption.md`.
 
+## Glass-slab covers for k30 and k31 (`glass-cover/`)
+
+The user shared another brand's cover as a reference and asked for covers like it for the last two reels, with
+BacktestLab's logo. Only its composition was taken: a big two-line headline with the second line in the brand colour, a
+glowing glass slab in perspective holding a chart with small label chips, its reflection on the floor, and the logo at
+the bottom. The words, the chart and the logo are BacktestLab's own. Nothing from the reference brand (its name, logo or
+text) is used.
+
+- **k30** (dark, the logo's violet, to match k30's violet cut): «استراتژیت سودده‌ست / یا فقط توی ذهنت؟», over the chip
+  «بدون دیدن آینده تستش کن». The slab holds a drawn sample: «خرید» at the low and «فروش» at the high, joined by a
+  dashed line, and the future lost to static with a «؟» and «آینده: نامعلوم».
+- **k31** (light, ink and violet, to match the explainer): «چرا روی چارت گذشته / همه سودده‌ان؟», over the chip «۹ قدم
+  تا یه تست واقعی». The slab is white, with the same buy and sell, and the future covered, «آینده: مخفی».
+- **How it's built:** the slab is real CSS 3D: a front face, a back face and two edge faces in perspective. The chart is
+  drawn on a canvas, and the reflection is the same canvas flipped, blurred and faded. Each headline line is fitted to
+  the frame.
+
+To rebuild, run (in `glass-cover/`): `python3 build.py k30`, then `node shot.cjs k30` → `k30-cover.png` (1080×1920,
+taken at 2× and scaled down). Do the same for `k31`.
+
 ## v1–v4: «ترید حرفه‌ای، از جایی شروع می‌شود که حدس زدن تمام می‌شود», the manifesto in four looks (`v1/`–`v4/`, the user's voice)
 
 One take of the user's brand manifesto, cut four ways, each 34.2 s. The voice is cut once:
