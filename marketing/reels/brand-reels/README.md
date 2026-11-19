@@ -2137,6 +2137,31 @@ To rebuild, run (in `k35/`): `python3 voice/build.py`, `python3 data.py`, `pytho
 `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in
 `k35/caption.md`.
 
+## k36: «تایم‌فریم‌ها رو اشتباه ترکیب می‌کنن», matching timeframes, a clean white motion design (`k36/`, the user's voice at normal speed)
+
+The user shared another creator's English reel on matching timeframes. Its text was translated for reference, a fresh
+script was written, and the user recorded it. The user then asked for motion graphics like that reel's. Only its
+principles were taken (a white ground, green and black candles, thin labels joined by curves and dots, a red ✗, badge
+columns, an oval and a position box). The engine (`tf.js`, one 2D canvas) at 60 fps is new.
+
+- **The hook:** three big daily candles and a noisy one-minute chart, joined by a curve and crossed out. «جهت» goes on
+  one and «ورود» on the other, then red «؟».
+- **The rule:** two columns, «تایم‌فریم بالا» (جهت و سطح‌های مهم) and «تایم‌فریم پایین» (ورود), with timeframe badges.
+- **The pairs:** D↔H1, H4↔M15, H1↔M5 and M15↔M1 light up one by one, each in its colour, with a dotted connector.
+- **The example:** a sample H1 chart sweeps a level, and a curved arrow points down. It zooms into M5: the rejection is
+  circled, and a position box («حد ضرر»، «هدف») gets «فقط فروش ✓». Then «تایم‌فریم بی‌ربط ✗» and «خلاف جهت ✗».
+- **One example among many:** the example card shrinks into a grid of «؟» cards, «همه‌ی موقعیت‌ها؟».
+- **The replay:** the real gold replay, its 1h then 5m buttons ringed, the future curtained off, then «تصمیم».
+- **Repeat:** a turning loop with the H1↔M5 pair, «؟» slots filling, «جواب می‌ده؟».
+- **The close and the end card:** «جهت از بالا، ورود از پایین؛ تستش کن».
+- **The sound:** a soft D-major bed at 92 BPM with clean UI sounds (pops, clicks, rising ticks for the pairs). It's mixed
+  to −14 LUFS.
+- **The cover:** the glass-slab style, light, «تایم‌فریم‌هات / جفت هستن؟» (`glass-cover/`, `python3 build.py k36`).
+
+To rebuild, run (in `k36/`): `python3 voice/build.py`, `python3 data.py`, `python3 page.py`, `python3 sound.py`, then
+`FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in
+`k36/caption.md`.
+
 ## Glass-slab covers for k30 and k31 (`glass-cover/`)
 
 The user shared another brand's cover as a reference and asked for covers like it for the last two reels, with
@@ -2158,6 +2183,8 @@ text) is used.
 - **k35** (dark, the logo's violet): «فقط برنده‌ها / دیده می‌شن!», over the chip «سوگیری بقا». The slab holds a returned
   blueprint bomber full of holes, its engines and cockpit glowing, and the dashed outline of one that didn't come back
   (`chart='plane'`).
+- **k36** (light): «تایم‌فریم‌هات / جفت هستن؟», over the chip «جهت از بالا، ورود از پایین». The slab holds the four timeframe
+  pairs, each in its colour, joined by dots (`chart='tf'`).
 - **How it's built:** the slab is real CSS 3D: a front face, a back face and two edge faces in perspective. The chart is
   drawn on a canvas, and the reflection is the same canvas flipped, blurred and faded. Each headline line is fitted to
   the frame.

@@ -8,6 +8,7 @@
 #   python3 build.py k33 → k33/index.html (dark, the logo's violet, the BOS chart: k33's HUD cut)
 #   python3 build.py k34 → k34/index.html (light, the gap chart: k34)
 #   python3 build.py k35 → k35/index.html (dark, the logo's violet, the plane: k35)
+#   python3 build.py k36 → k36/index.html (light, the timeframe pairs: k36)
 #   node shot.cjs k30 → k30-cover.png (1080×1920)
 import base64, os, sys
 NAME = sys.argv[1] if len(sys.argv) > 1 else 'k30'
@@ -26,6 +27,8 @@ TH = {
               logo='brand/svg/logo-fa-light.svg', kicker='FVG یا BAG؟', chart='gap', hs=160),
   'k35': dict(dark=1, bg='#07040F', glow='rgba(106,70,255,0.42)', l1='#FFFFFF', l2='linear-gradient(90deg,#8E6BFF,#D8CCFF)', l1t='فقط برنده‌ها', l2t='دیده می‌شن!',
               logo='brand/svg/logo-fa-dark.svg', kicker='سوگیری بقا', chart='plane', hs=160),
+  'k36': dict(dark=0, bg='#EDECE8', glow='rgba(106,70,255,0.20)', l1='#17131F', l2='linear-gradient(90deg,#5430E6,#8E6BFF)', l1t='تایم‌فریم‌هات', l2t='جفت هستن؟',
+              logo='brand/svg/logo-fa-light.svg', kicker='جهت از بالا، ورود از پایین', chart='tf', hs=170),
 }[NAME]
 D = TH['dark']
 html = f'''<!doctype html><html lang="fa"><head><meta charset="utf-8"><title>{NAME} cover</title><style>
@@ -76,7 +79,7 @@ const DARK = {D}, CHART = '{TH.get('chart', 'future')}', HS = {TH.get('hs', 200)
 const rnd = (i) => {{ const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }};
 // the chips, each on a short stem
 const chip = (s, cls, x, y, tx, ty) => {{ cv.save(); cv.strokeStyle = DARK ? 'rgba(214,202,255,0.8)' : 'rgba(23,19,31,0.35)'; cv.lineWidth = 2; cv.beginPath(); cv.moveTo(x, y); cv.lineTo(tx, ty); cv.stroke(); cv.restore(); const e = document.createElement('div'); e.className = 'chip ' + cls; e.textContent = s; e.style.left = tx + 'px'; e.style.top = ty + 'px'; front.appendChild(e); }};
-if (CHART === 'bos') bos(); else if (CHART === 'gap') gap(); else if (CHART === 'plane') planeC(); else {{
+if (CHART === 'bos') bos(); else if (CHART === 'gap') gap(); else if (CHART === 'plane') planeC(); else if (CHART === 'tf') tfC(); else {{
 // a drawn sample: a slide to a low, a rally to a high, a pullback; the last part is the future
 const N = 34, OH = []; {{ let p = 100; for (let i = 0; i < N; i++) {{ const d = i < 9 ? -2.0 : i < 23 ? 2.4 : i < 27 ? -1.6 : 1.2, c = p + d + (rnd(i * 7 + 3) - 0.5) * 3.0; OH.push({{ o: p, c, h: Math.max(p, c) + rnd(i * 11 + 1) * 1.8, l: Math.min(p, c) - rnd(i * 13 + 2) * 1.8 }}); p = c; }} }}
 let LO = 0, HI = 9; for (let i = 0; i < 12; i++) if (OH[i].l < OH[LO].l) LO = i; for (let i = 9; i < 27; i++) if (OH[i].h > OH[HI].h) HI = i;
@@ -152,6 +155,14 @@ function planeC() {{ const VL = '#A58BFF', RD = '#FF5A6A', LM = '#C6F24E';
     if ((onW || onB || onT) && !nearE) {{ cv.save(); cv.shadowColor = RD; cv.shadowBlur = 10; cv.fillStyle = RD; cv.beginPath(); cv.arc(x, y, 4.5, 0, Math.PI * 2); cv.fill(); cv.restore(); n++; }} }}
   const B = shape(690, 250, 0.26); [...B.wings, ...B.tails, B.body].forEach((w) => poly(w, 'rgba(255,90,106,0.75)', null, 2, [6, 5]));
   chip('برگشته', 'v', 300, 72, 300, 46); chip('برنگشت', 'r', 690, 330, 690, 380); chip('جاهای سالم', '', A.eng[3][0], A.eng[3][2], 590, 462);
+}}
+// the timeframe pairs: higher timeframe on the right, lower on the left, each pair in its colour, joined by dots
+function tfC() {{ const HT = [['D', 'روزانه'], ['H4', '۴ ساعته'], ['H1', '۱ ساعته'], ['M15', '۱۵ دقیقه']], LT = [['H1', '۱ ساعته'], ['M15', '۱۵ دقیقه'], ['M5', '۵ دقیقه'], ['M1', '۱ دقیقه']], PC = ['#6A46FF', '#E5322D', '#2563EB', '#E08A00'];
+  const T_ = (s, x, y, size, col, w, dir) => {{ cv.font = `${{w}} ${{size}}px Vazirmatn`; cv.direction = dir || 'rtl'; cv.textAlign = 'center'; cv.textBaseline = 'middle'; cv.fillStyle = col; cv.fillText(s, x, y); }};
+  T_('تایم‌فریم بالا', 610, 46, 30, '#17131F', 900); T_('تایم‌فریم پایین', 230, 46, 30, '#17131F', 900);
+  for (let i = 0; i < 4; i++) {{ const y = 120 + i * 100; cv.save(); cv.setLineDash([3, 11]); cv.lineCap = 'round'; cv.strokeStyle = PC[i]; cv.lineWidth = 5; cv.beginPath(); cv.moveTo(525, y); cv.lineTo(315, y); cv.stroke(); cv.restore();
+    [[525, PC[i]], [315, PC[i]]].forEach(([x, c]) => {{ cv.fillStyle = c; cv.beginPath(); cv.arc(x, y, 7, 0, Math.PI * 2); cv.fill(); }});
+    [[610, HT[i]], [230, LT[i]]].forEach(([x, [code, sub]]) => {{ cv.fillStyle = PC[i]; cv.beginPath(); cv.roundRect(x - 85, y - 38, 170, 76, 18); cv.fill(); T_(code, x, y - 8, 34, '#FFFFFF', 900, 'ltr'); T_(sub, x, y + 22, 17, 'rgba(255,255,255,0.88)', 600); }}); }}
 }}
 // the reflection is the chart canvas, flipped and faded
 document.getElementById('r').getContext('2d').drawImage(document.getElementById('c'), 0, 0);
