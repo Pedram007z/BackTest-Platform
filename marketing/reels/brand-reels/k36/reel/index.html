@@ -70,7 +70,7 @@ function wordsLine(ln, t, fade = 1) { let size = ln.size; const gapF = 0.28; con
 
 // ---------- ۱ the daily and the one-minute, joined and crossed out ----------
 function hookS(t) { const GD = chartG(DAILY, { x: 130, y: 860, w: 300, h: 560 }, 3, 18, 38), GM = chartG(M1, { x: 560, y: 940, w: 400, h: 420 }, 44);
-  candles(GD, DAILY, t, [-1, -1, -1]); const sc = (t * 6) % 1; cv.save(); cv.beginPath(); cv.rect(560, 900, 400, 500); cv.clip(); cv.translate(-sc * (400 / 44), 0); candles(GM, M1, t, M1.map(() => -1)); cv.restore();
+  candles(GD, DAILY, t, [-1, -1, -1]); candles(GM, M1, t, M1.map(() => -1));   // still: no scrolling, so the one-minute candles don't shake
   txt('روزانه', 280, 760, 44, INK, { w: 800 }); txt('D', 280, 812, 26, MUTE, { w: 700, dir: 'ltr' }); txt('۱ دقیقه', 760, 760, 44, INK, { w: 800 }); txt('M1', 760, 812, 26, MUTE, { w: 700, dir: 'ltr' });
   cv.save(); cv.beginPath(); cv.moveTo(372, 790); cv.quadraticCurveTo(520, 900, 668, 790); cv.strokeStyle = INK; cv.lineWidth = 4; cv.stroke(); cv.restore();
   const x = oBack(k01(t, T(6), 0.35)); if (x > 0) at(520, 858, x, 1, () => cross(0, 0, 44, RED, 14));
