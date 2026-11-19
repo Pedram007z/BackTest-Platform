@@ -7,6 +7,7 @@
 #   python3 build.py k32 → k32/index.html (light, the BOS chart: k32)
 #   python3 build.py k33 → k33/index.html (dark, the logo's violet, the BOS chart: k33's HUD cut)
 #   python3 build.py k34 → k34/index.html (light, the gap chart: k34)
+#   python3 build.py k35 → k35/index.html (dark, the logo's violet, the plane: k35)
 #   node shot.cjs k30 → k30-cover.png (1080×1920)
 import base64, os, sys
 NAME = sys.argv[1] if len(sys.argv) > 1 else 'k30'
@@ -23,6 +24,8 @@ TH = {
               logo='brand/svg/logo-fa-dark.svg', kicker='قانون BOS معتبر', chart='bos', hs=150),
   'k34': dict(dark=0, bg='#EDECE8', glow='rgba(106,70,255,0.20)', l1='#17131F', l2='linear-gradient(90deg,#5430E6,#8E6BFF)', l1t='هر گپی', l2t='پر نمی‌شه!',
               logo='brand/svg/logo-fa-light.svg', kicker='FVG یا BAG؟', chart='gap', hs=160),
+  'k35': dict(dark=1, bg='#07040F', glow='rgba(106,70,255,0.42)', l1='#FFFFFF', l2='linear-gradient(90deg,#8E6BFF,#D8CCFF)', l1t='فقط برنده‌ها', l2t='دیده می‌شن!',
+              logo='brand/svg/logo-fa-dark.svg', kicker='سوگیری بقا', chart='plane', hs=160),
 }[NAME]
 D = TH['dark']
 html = f'''<!doctype html><html lang="fa"><head><meta charset="utf-8"><title>{NAME} cover</title><style>
@@ -73,7 +76,7 @@ const DARK = {D}, CHART = '{TH.get('chart', 'future')}', HS = {TH.get('hs', 200)
 const rnd = (i) => {{ const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }};
 // the chips, each on a short stem
 const chip = (s, cls, x, y, tx, ty) => {{ cv.save(); cv.strokeStyle = DARK ? 'rgba(214,202,255,0.8)' : 'rgba(23,19,31,0.35)'; cv.lineWidth = 2; cv.beginPath(); cv.moveTo(x, y); cv.lineTo(tx, ty); cv.stroke(); cv.restore(); const e = document.createElement('div'); e.className = 'chip ' + cls; e.textContent = s; e.style.left = tx + 'px'; e.style.top = ty + 'px'; front.appendChild(e); }};
-if (CHART === 'bos') bos(); else if (CHART === 'gap') gap(); else {{
+if (CHART === 'bos') bos(); else if (CHART === 'gap') gap(); else if (CHART === 'plane') planeC(); else {{
 // a drawn sample: a slide to a low, a rally to a high, a pullback; the last part is the future
 const N = 34, OH = []; {{ let p = 100; for (let i = 0; i < N; i++) {{ const d = i < 9 ? -2.0 : i < 23 ? 2.4 : i < 27 ? -1.6 : 1.2, c = p + d + (rnd(i * 7 + 3) - 0.5) * 3.0; OH.push({{ o: p, c, h: Math.max(p, c) + rnd(i * 11 + 1) * 1.8, l: Math.min(p, c) - rnd(i * 13 + 2) * 1.8 }}); p = c; }} }}
 let LO = 0, HI = 9; for (let i = 0; i < 12; i++) if (OH[i].l < OH[LO].l) LO = i; for (let i = 9; i < 27; i++) if (OH[i].h > OH[HI].h) HI = i;
@@ -133,6 +136,22 @@ function gap() {{ const S = [[20,22,23,19.5],[22,21.5,23,20.8],[21.5,24,24.6,21]
   chip('گپ', 'v', X(5) + 30, Y(27.2), X(5) + 30, Y(27.2));
   chip('BAG', 'v', X(4), Y(35.6) - 30, X(4) - 110, Y(38));
   chip('برنگشت', 'r', X(7) + 34, Y(33.4), X(8) + 64, Y(33.4));
+}}
+// the plane: a returned bomber full of holes (none on the engines or the cockpit), and the dashed outline of one that
+// never came back (an illustration, as in k35)
+function planeC() {{ const VL = '#A58BFF', RD = '#FF5A6A', LM = '#C6F24E';
+  const shape = (cx, cy, s) => {{ const P = (a) => a.map(([x, y]) => [cx + x * s, cy + y * s]), M = (a) => a.map(([x, y]) => [-x, y]).reverse(), WR = [[38, -60], [430, 0], [440, 40], [38, 90]], TR = [[24, 220], [170, 250], [170, 280], [20, 290]];
+    return {{ body: P([[0, -315], [22, -300], [36, -260], [38, -120], [38, 200], [24, 280], [0, 300], [-24, 280], [-38, 200], [-38, -120], [-36, -260], [-22, -300]]), wings: [P(WR), P(M(WR))], tails: [P(TR), P(M(TR))],
+      eng: [-270, -140, 140, 270].map((x) => {{ const le = -60 + ((Math.abs(x) - 38) / 392) * 60; return [cx + x * s, cy + (le - 55) * s, cy + (le + 35) * s]; }}), nose: [cx, cy - 278 * s, 28 * s] }}; }};
+  const poly = (pts, stroke, fill, lw, dash) => {{ cv.save(); if (dash) cv.setLineDash(dash); cv.beginPath(); pts.forEach(([x, y], i) => (i ? cv.lineTo(x, y) : cv.moveTo(x, y))); cv.closePath(); if (fill) {{ cv.fillStyle = fill; cv.fill(); }} cv.strokeStyle = stroke; cv.lineWidth = lw; cv.stroke(); cv.restore(); }};
+  const inside = (pts, x, y) => {{ let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {{ const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; }} return c; }};
+  const A = shape(300, 262, 0.58); cv.save(); cv.shadowColor = VL; cv.shadowBlur = 14; [...A.wings, ...A.tails].forEach((w) => poly(w, VL, 'rgba(165,139,255,0.08)', 2.5)); poly(A.body, VL, 'rgba(165,139,255,0.12)', 2.5); cv.restore();
+  A.eng.forEach(([x, y0, y1]) => {{ cv.save(); cv.shadowColor = LM; cv.shadowBlur = 18; cv.beginPath(); cv.roundRect(x - 11, y0, 22, y1 - y0, 7); cv.fillStyle = '#1B1338'; cv.fill(); cv.strokeStyle = LM; cv.lineWidth = 3; cv.stroke(); cv.restore(); }});
+  cv.save(); cv.shadowColor = LM; cv.shadowBlur = 18; cv.beginPath(); cv.arc(A.nose[0], A.nose[1], A.nose[2] + 4, 0, Math.PI * 2); cv.strokeStyle = LM; cv.lineWidth = 3; cv.stroke(); cv.restore();
+  let n = 0; for (let k = 1; k < 3000 && n < 40; k++) {{ const x = 300 + (rnd(k * 3.1) - 0.5) * 520, y = 262 + (rnd(k * 7.7) - 0.5) * 370, onW = A.wings.some((w) => inside(w, x, y)), onB = inside(A.body, x, y) && y > 262 - 86 && y < 262 + 130, onT = A.tails.some((w) => inside(w, x, y)), nearE = A.eng.some(([ex, y0, y1]) => Math.abs(x - ex) < 20 && y > y0 - 8 && y < y1 + 8);
+    if ((onW || onB || onT) && !nearE) {{ cv.save(); cv.shadowColor = RD; cv.shadowBlur = 10; cv.fillStyle = RD; cv.beginPath(); cv.arc(x, y, 4.5, 0, Math.PI * 2); cv.fill(); cv.restore(); n++; }} }}
+  const B = shape(690, 250, 0.26); [...B.wings, ...B.tails, B.body].forEach((w) => poly(w, 'rgba(255,90,106,0.75)', null, 2, [6, 5]));
+  chip('برگشته', 'v', 300, 72, 300, 46); chip('برنگشت', 'r', 690, 330, 690, 380); chip('جاهای سالم', '', A.eng[3][0], A.eng[3][2], 590, 462);
 }}
 // the reflection is the chart canvas, flipped and faded
 document.getElementById('r').getContext('2d').drawImage(document.getElementById('c'), 0, 0);

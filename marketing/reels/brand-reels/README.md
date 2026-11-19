@@ -2108,6 +2108,35 @@ To rebuild, run (in `k34/`): `python3 voice/build.py`, `python3 data.py`, `pytho
 `FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in
 `k34/caption.md`.
 
+## k35: «هواپیماهایی که برنگشتن», survivorship bias for traders, in the HUD look (`k35/`, the user's voice at normal speed)
+
+The user shared another brand's reel (CHoCH versus BOS) with a master prompt: analyse it, extract its creative DNA, and
+turn it into an original reel for BacktestLab. The reel was watched through vidIQ's analysis. Its mechanism is the trap
+everyone falls into, the reason nobody notices, a reframe, then a one-line rule. Three ideas were proposed, and the
+chosen one was survivorship bias, told through Abraham Wald and the returning bombers. The user recorded the script, and
+the reel was built in k33's violet HUD look on its own engine (`hud.js`) at 60 fps.
+
+- **The hook:** a blueprint bomber seen from above fills with bullet holes, «برگشته از مأموریت».
+- **The armor:** plates go over the holes («زره؟»), then a red ✗. The untouched engines and cockpit light up, «جاهای
+  سالم», with «آبراهام والد».
+- **«چرا؟»:** a big «؟». The plane gives way to a phone.
+- **The radar:** some planes fade to «LOST». A HUD alert reads «سوگیری بقا», and the ones that came back get rings.
+- **The Explore grid:** sample posts (profit screenshots, targets hit, «همیشه جواب می‌ده») light up as they're named.
+  Each gets a returned-plane stamp. Then the grid opens into dashed gaps with «؟», "NOT POSTED".
+- **The questions:** «این استراتژی جواب داده؟» is struck out ("WRONG QUESTION"). «هر بار که این الگو اومده، چی شده؟»
+  gets a tick ("RIGHT QUESTION").
+- **The radar again:** the missing planes are found as dashed outlines, and one turns red, «حساب تو؟».
+- **BacktestLab:** a flash into the icon. Then the real gold replay on ۲۵ فروردین ۱۴۰۴, with what comes next curtained
+  off, a decision ring, and a tally of every case, each «؟».
+- **The close and the end card:** «همه‌ی دفعه‌ها رو بشمار، نه فقط برنده‌ها».
+- **The sound:** k33's dark B-minor bed, with a rattle as the holes land, radar pings, low blips for the planes lost,
+  hits, chimes for the right question and for each plane found, and ticks for every case counted. It's mixed to −14 LUFS.
+- **The cover:** the glass-slab style in dark violet, «فقط برنده‌ها / دیده می‌شن!» (`glass-cover/`, `python3 build.py k35`).
+
+To rebuild, run (in `k35/`): `python3 voice/build.py`, `python3 data.py`, `python3 page.py`, `python3 sound.py`, then
+`FPS=60 REEL_DIR=reel node render.cjs video reel/reel-hq.mp4 mix.wav 4`. The caption and the facts on screen are in
+`k35/caption.md`.
+
 ## Glass-slab covers for k30 and k31 (`glass-cover/`)
 
 The user shared another brand's cover as a reference and asked for covers like it for the last two reels, with
@@ -2126,6 +2155,9 @@ text) is used.
 - **k33** (dark, the logo's violet): «سقف رو شکست… / ولی BOS نیست!», the same BOS chart with glowing candles.
 - **k34** (light): «هر گپی / پر نمی‌شه!», over the chip «FVG یا BAG؟». The slab holds a BAG's three candles, numbered, the gap
   left behind, and a dashed return marked «برنگشت» (`chart='gap'`).
+- **k35** (dark, the logo's violet): «فقط برنده‌ها / دیده می‌شن!», over the chip «سوگیری بقا». The slab holds a returned
+  blueprint bomber full of holes, its engines and cockpit glowing, and the dashed outline of one that didn't come back
+  (`chart='plane'`).
 - **How it's built:** the slab is real CSS 3D: a front face, a back face and two edge faces in perspective. The chart is
   drawn on a canvas, and the reflection is the same canvas flipped, blurred and faded. Each headline line is fitted to
   the frame.
