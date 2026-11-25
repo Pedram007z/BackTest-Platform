@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import {
+  Bot,
   ChartColumn,
   CheckCheck,
   CreditCard,
@@ -40,6 +41,7 @@ const NAV = [
   { to: '/sessions', label: 'جلسات', icon: List },
   { to: '/strategies', label: 'استراتژی‌ها', icon: Layers },
   { to: '/checklists', label: 'چک‌لیست‌ها', icon: CheckCheck },
+  { to: '/strategy-tester', label: 'تست خودکار (Pine)', icon: Bot },
   { to: '/journal', label: 'ژورنال', icon: NotebookPen, locked: true },
   { to: '/analytics', label: 'آنالیز', icon: ChartColumn, locked: true },
 ];

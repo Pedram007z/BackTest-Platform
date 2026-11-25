@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from './config';
+import { DEFAULT_AUTOTEST_PRICES } from '../../src/services/plan';
 import {
   GATEWAY_NAMES,
   SMS_PROVIDER_NAMES,
@@ -131,6 +132,7 @@ export const DEFAULT_PLANS: Plan[] = [
     ],
     active: true,
     sort: 1,
+    autoTestToman: 290_000,
   },
   {
     id: 'pro-3m',
@@ -142,6 +144,7 @@ export const DEFAULT_PLANS: Plan[] = [
     active: true,
     badge: 'محبوب',
     sort: 2,
+    autoTestToman: 790_000,
   },
   {
     id: 'pro-12m',
@@ -153,6 +156,7 @@ export const DEFAULT_PLANS: Plan[] = [
     active: true,
     badge: '۲ ماه رایگان',
     sort: 3,
+    autoTestToman: 2_490_000,
   },
 ];
 
@@ -247,6 +251,8 @@ function upgrade(d: Partial<Db>): Db {
   // the free plan no longer includes the journal: its card stops saying so (a text the admin changed is kept)
   const free = out.plans.find((p) => p.id === 'free');
   if (free) free.features = free.features.map((f) => FREE_FEATURE_FIXES[f] ?? f);
+  // plans saved before the auto-test add-on existed get its default price (0 keeps it switched off)
+  for (const p of out.plans) if (p.autoTestToman === undefined && DEFAULT_AUTOTEST_PRICES[p.id]) p.autoTestToman = DEFAULT_AUTOTEST_PRICES[p.id];
   return out;
 }
 

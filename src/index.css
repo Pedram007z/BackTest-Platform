@@ -428,3 +428,35 @@ input[type='range'] {
 .blog-prose th {
   background: rgb(var(--raised));
 }
+
+/* Pine Script editor colours (components/tester/CodeEditor) */
+.pine-editor {
+  color: rgb(var(--ink));
+}
+.pine-editor .pc {
+  color: rgb(var(--faint));
+  font-style: italic;
+}
+.pine-editor .ps {
+  color: rgb(var(--gain));
+}
+.pine-editor .pk,
+.pine-editor .pn {
+  color: rgb(var(--amber));
+}
+.pine-editor .pw {
+  color: rgb(var(--violet));
+}
+.pine-editor .pt {
+  color: rgb(var(--violet));
+  font-style: italic;
+}
+.pine-editor .pv {
+  color: rgb(var(--sky));
+}
+.pine-editor .pf {
+  color: rgb(var(--accent-ink));
+}
+.pine-editor .po {
+  color: rgb(var(--muted));
+}

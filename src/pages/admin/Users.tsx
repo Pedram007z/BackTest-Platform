@@ -52,6 +52,7 @@ function EditUser({ user, plans, onClose, onSaved }: { user: AccountUser; plans:
                   planId: draft.planId,
                   planStartedAt: draft.planStartedAt,
                   planEndsAt: draft.planEndsAt,
+                  autoTestEndsAt: draft.autoTestEndsAt ?? '',
                   note: draft.note,
                 }),
                 'کاربر ذخیره شد',
@@ -126,6 +127,36 @@ function EditUser({ user, plans, onClose, onSaved }: { user: AccountUser; plans:
                 +{fmtNum(d)} روز
               </button>
             ))}
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <span className="label">افزونه‌ی تست خودکار</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {draft.autoTestEndsAt ? (
+              <div className="min-w-[12rem] flex-1">
+                <DatePicker id="au-autotest" value={draft.autoTestEndsAt} onChange={(autoTestEndsAt) => set({ autoTestEndsAt })} min="2020-01-01" max={addDays(localDayKey(), 3650)} />
+              </div>
+            ) : (
+              <span className="text-[12px] text-faint">غیرفعال</span>
+            )}
+            {[30, 90, 365].map((d) => (
+              <button
+                key={d}
+                type="button"
+                className="chip hover:text-ink"
+                onClick={() => {
+                  const base = draft.autoTestEndsAt && draft.autoTestEndsAt > localDayKey() ? draft.autoTestEndsAt : localDayKey();
+                  set({ autoTestEndsAt: addDays(base, d) });
+                }}
+              >
+                +{fmtNum(d)} روز
+              </button>
+            ))}
+            {draft.autoTestEndsAt && (
+              <button type="button" className="chip hover:text-loss" onClick={() => set({ autoTestEndsAt: undefined })}>
+                غیرفعال کردن
+              </button>
+            )}
           </div>
         </div>
         <div className="sm:col-span-2">

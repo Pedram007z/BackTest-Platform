@@ -1,4 +1,4 @@
-import type { Checklist, GoToPreset, NewsFilters, Session, Strategy, Trade } from '../lib/types';
+import type { Checklist, GoToPreset, NewsFilters, PineScript, Session, Strategy, Trade } from '../lib/types';
 import { isTimeZone } from '../lib/timezone';
 import { cleanChartStyle, type ChartStyleOverrides } from '../chart/style';
 
@@ -15,13 +15,15 @@ import { cleanChartStyle, type ChartStyleOverrides } from '../chart/style';
  * Shared by the app (services/workspaceSync) and the API server (server/src/workspace.ts).
  */
 
-export const WS_COLLECTIONS = ['sessions', 'trades', 'strategies', 'checklists', 'goToPresets'] as const;
+export const WS_COLLECTIONS = ['sessions', 'trades', 'strategies', 'checklists', 'goToPresets', 'scripts'] as const;
 export type WsCollection = (typeof WS_COLLECTIONS)[number];
 
 /** Collections that list the newest first: new items go to the top, the others take them at the end. */
-const NEWEST_FIRST: ReadonlySet<WsCollection> = new Set(['sessions', 'strategies', 'checklists']);
+const NEWEST_FIRST: ReadonlySet<WsCollection> = new Set(['sessions', 'strategies', 'checklists', 'scripts']);
 
-export const WS_LIMITS: Record<WsCollection, number> = { sessions: 500, trades: 20_000, strategies: 200, checklists: 200, goToPresets: 100 };
+export const WS_LIMITS: Record<WsCollection, number> = { sessions: 500, trades: 20_000, strategies: 200, checklists: 200, goToPresets: 100, scripts: 100 };
+/** Longest Pine script kept (characters). */
+export const SCRIPT_MAX_CHARS = 100_000;
 /** Largest stored copy (JSON). */
 export const WS_MAX_BYTES = 24_000_000;
 
@@ -74,6 +76,8 @@ export interface WorkspaceData {
   strategies: Strategy[];
   checklists: Checklist[];
   goToPresets: GoToPreset[];
+  /** Pine scripts (the strategy tester). */
+  scripts: PineScript[];
   /** Practice seconds per local day. */
   dailySeconds: Record<string, number>;
   /** Market time stepped through on the chart. */
@@ -118,6 +122,7 @@ export const emptyWorkspace = (): WorkspaceData => ({
   strategies: [],
   checklists: [],
   goToPresets: [],
+  scripts: [],
   dailySeconds: {},
   replayedMs: 0,
   prefs: {},
@@ -125,7 +130,7 @@ export const emptyWorkspace = (): WorkspaceData => ({
 
 export const emptyBase = (): WorkspaceBase => ({
   rev: 0,
-  items: { sessions: {}, trades: {}, strategies: {}, checklists: {}, goToPresets: {} },
+  items: { sessions: {}, trades: {}, strategies: {}, checklists: {}, goToPresets: {}, scripts: {} },
   dailySeconds: {},
   replayedMs: 0,
   prefs: {},
@@ -293,7 +298,8 @@ export function rebase(server: WorkspaceData, local: WorkspaceData, base: Worksp
       const up = pending.upsert[c] as { id: string }[] | undefined;
       if (!up) continue;
       const onServer = new Set((server[c] as { id: string }[]).map((x) => x.id));
-      (pending.upsert as any)[c] = up.filter((item) => !(item.id in base.items[c]) || onServer.has(item.id));
+      const known = base.items[c] ?? {};
+      (pending.upsert as any)[c] = up.filter((item) => !(item.id in known) || onServer.has(item.id));
     }
   }
   return applyPatch(server, pending);
@@ -309,6 +315,7 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 function validItem(c: WsCollection, v: unknown): boolean {
   if (!isObj(v) || !isId(v.id)) return false;
   if (c === 'trades' && !isId(v.sessionId)) return false;
+  if (c === 'scripts' && (typeof v.code !== 'string' || v.code.length > SCRIPT_MAX_CHARS || typeof v.name !== 'string' || v.name.length > 120)) return false;
   return true;
 }
 

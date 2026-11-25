@@ -1,7 +1,8 @@
 import { config } from '../config';
 import { db, save, type StoredPayment } from '../db';
 import { HttpError, Reply, badRequest, notFound, oneOf, str } from '../http';
-import type { AccountUser, DiscountCode, GatewayId, PaymentMethod, Plan } from '../shared';
+import type { AccountUser, DiscountCode, GatewayId, PaymentKind, PaymentMethod, Plan } from '../shared';
+import { AUTOTEST_LABEL, addonOffered, includesAutoTest, includesPlan, kindOf, orderOf, paidPlanRunning } from '../../../src/services/plan';
 import { GATEWAY_NAMES, PAYMENT_METHOD_NAMES } from '../shared';
 import { UpstreamError, addDays, clone, faNum, todayKey, uid } from '../util';
 import { cardPaymentsOpen, expireTransfers, startCardPayment } from './card';
@@ -21,15 +22,36 @@ export function hasPurchased(userId: string): boolean {
   return db().payments.some((p) => p.userId === userId && (p.status === 'paid' || p.status === 'refunded'));
 }
 
-/** The price after a discount code. `user` is checked against first-purchase-only codes (at checkout it always is). */
-export function discountFor(code: string | undefined, plan: Plan, user?: AccountUser): { percent: number; finalToman: number; dc?: DiscountCode } {
-  if (!code?.trim()) return { percent: 0, finalToman: plan.priceToman };
+/**
+ * The price after a discount code (of `baseToman`, the plan's price unless the order adds the auto-test
+ * add-on). `user` is checked against first-purchase-only codes (at checkout it always is).
+ */
+export function discountFor(code: string | undefined, plan: Plan, user?: AccountUser, baseToman = plan.priceToman): { percent: number; finalToman: number; dc?: DiscountCode } {
+  if (!code?.trim()) return { percent: 0, finalToman: baseToman };
   const dc = db().discounts.find((x) => x.code.toUpperCase() === code.trim().toUpperCase());
   if (!dc || !dc.active) throw badRequest('bad_code', 'این کد تخفیف معتبر نیست.', 'discount');
   if (dc.expiresAt && dc.expiresAt < todayKey()) throw badRequest('expired', 'مهلت این کد تخفیف تمام شده است.', 'discount');
   if (dc.used >= dc.maxUses) throw badRequest('used_up', 'ظرفیت این کد تخفیف پر شده است.', 'discount');
   if (dc.firstPurchaseOnly && user && hasPurchased(user.id)) throw badRequest('first_purchase', 'این کد تخفیف فقط برای اولین خرید است.', 'discount');
-  return { percent: dc.percent, finalToman: Math.round((plan.priceToman * (100 - dc.percent)) / 100), dc };
+  return { percent: dc.percent, finalToman: Math.round((baseToman * (100 - dc.percent)) / 100), dc };
+}
+
+/** Add `days` of the auto-test add-on: on top of the current period while it runs, from today once it has ended. */
+export function extendAutoTest(user: AccountUser, days: number) {
+  const today = todayKey();
+  const from = user.autoTestEndsAt && user.autoTestEndsAt >= today ? user.autoTestEndsAt : today;
+  user.autoTestEndsAt = addDays(from, days);
+}
+
+/** What a checkout asks for: the plan and the order (the plan, the plan with the add-on, or the add-on alone). */
+export function orderFor(user: AccountUser | undefined, body: any): { plan: Plan; kind: PaymentKind; toman: number; name: string } {
+  const plan = db().plans.find((p) => p.id === body?.planId && p.active);
+  if (!plan || plan.priceToman <= 0) throw notFound('این پلن قابل خرید نیست.');
+  const kind = kindOf(body ?? {});
+  if (includesAutoTest(kind) && !addonOffered(plan)) throw badRequest('no_addon', `افزونه‌ی ${AUTOTEST_LABEL} برای این پلن فعال نیست.`, 'autoTest');
+  if (kind === 'autotest' && user && !paidPlanRunning(user, todayKey()))
+    throw badRequest('needs_plan', `افزونه‌ی ${AUTOTEST_LABEL} به‌تنهایی فقط برای حساب‌هایی با اشتراک فعال خریدنی است؛ آن را همراه یک اشتراک بخرید.`, 'autoTest');
+  return { plan, kind, ...orderOf(plan, kind) };
 }
 
 /** Add a plan's days: on top of the current period while it runs, from today once it has ended. */
@@ -55,18 +77,19 @@ export function enabledGateways(): { id: PaymentMethod; name: string }[] {
 export function checkDiscount(body: any, user?: AccountUser) {
   const plan = db().plans.find((p) => p.id === body.planId && p.active);
   if (!plan) throw notFound('پلن پیدا نشد.');
-  const r = discountFor(str(body.code, 'discount', { max: 40, label: 'کد تخفیف' }), plan, user);
+  const order = orderOf(plan, kindOf(body));
+  const r = discountFor(str(body.code, 'discount', { max: 40, label: 'کد تخفیف' }), plan, user, order.toman);
   return { percent: r.percent, finalToman: r.finalToman };
 }
 
 export async function checkout(user: AccountUser, body: any) {
   const d = db();
-  const plan = d.plans.find((p) => p.id === body.planId && p.active);
-  if (!plan || plan.priceToman <= 0) throw notFound('این پلن قابل خرید نیست.');
+  const order = orderFor(user, body);
+  const { plan } = order;
   const method = oneOf(body.gateway, METHOD_IDS, 'gateway');
-  const disc = discountFor(typeof body.discountCode === 'string' ? body.discountCode : undefined, plan, user);
+  const disc = discountFor(typeof body.discountCode === 'string' ? body.discountCode : undefined, plan, user, order.toman);
   if (disc.finalToman < 1000) throw badRequest('amount', 'مبلغ پرداخت کمتر از حداقل مجاز درگاه است.', 'discount');
-  if (method === 'card') return startCardPayment(user, plan, disc.finalToman, disc.dc?.code);
+  if (method === 'card') return startCardPayment(user, plan, disc.finalToman, disc.dc?.code, order);
   const gatewayId = method;
   const g = d.gateways.find((x) => x.id === gatewayId && x.enabled);
   if (!g) throw badRequest('gateway', 'این درگاه فعال نیست.', 'gateway');
@@ -77,7 +100,8 @@ export async function checkout(user: AccountUser, body: any) {
     userName: user.name,
     phone: user.phone,
     planId: plan.id,
-    planName: plan.name,
+    planName: order.name,
+    kind: order.kind,
     amountToman: disc.finalToman,
     discountCode: disc.dc?.code,
     gateway: gatewayId,
@@ -98,7 +122,7 @@ export async function checkout(user: AccountUser, body: any) {
       paymentId: p.id,
       amountToman: p.amountToman,
       callbackUrl: callbackUrl(gatewayId, p.id),
-      description: `خرید اشتراک ${plan.name} — ${d.settings.siteName}`,
+      description: `خرید ${order.name} — ${d.settings.siteName}`,
       mobile: user.phone,
     });
     p.authority = r.authority;
@@ -125,7 +149,10 @@ export function markPaid(p: StoredPayment, refId?: string, cardPan?: string) {
   p.cardPan = cardPan;
   const user = d.users.find((u) => u.id === p.userId);
   const plan = d.plans.find((x) => x.id === p.planId);
-  if (user && plan) extendPlan(user, plan);
+  if (user && plan) {
+    if (includesPlan(p.kind)) extendPlan(user, plan);
+    if (includesAutoTest(p.kind)) extendAutoTest(user, plan.durationDays);
+  }
   if (p.discountCode) {
     const dc = d.discounts.find((x) => x.code === p.discountCode);
     if (dc) dc.used++;

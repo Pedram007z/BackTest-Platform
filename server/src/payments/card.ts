@@ -13,6 +13,7 @@ import {
   type CardAdmin,
   type CardToCardSettings,
   type PaymentCard,
+  type PaymentKind,
   type Plan,
 } from '../shared';
 import { clone, toLatinDigits, uid } from '../util';
@@ -48,7 +49,13 @@ function close(p: StoredPayment, closed: 'cancelled' | 'rejected', message: stri
   p.gatewayMessage = message;
 }
 
-export function startCardPayment(user: AccountUser, plan: Plan, finalToman: number, discountCode: string | undefined) {
+export function startCardPayment(
+  user: AccountUser,
+  plan: Plan,
+  finalToman: number,
+  discountCode: string | undefined,
+  order: { kind: PaymentKind; name: string } = { kind: 'plan', name: plan.name },
+) {
   const d = db();
   if (!cardPaymentsOpen()) throw badRequest('gateway', 'پرداخت کارت به کارت فعال نیست.', 'gateway');
   rateLimit(`card:${user.id}`, 10, 3_600_000, 'در یک ساعت بیش از ۱۰ بار پرداخت کارت به کارت شروع کرده‌اید؛ کمی بعد دوباره تلاش کنید.');
@@ -59,7 +66,9 @@ export function startCardPayment(user: AccountUser, plan: Plan, finalToman: numb
     throw badRequest('too_many', 'سه پرداخت کارت به کارت شما در انتظار تأیید است؛ پس از بررسی آن‌ها دوباره تلاش کنید.', 'gateway');
   }
   // the same order again (for example after going back): keep the transfer already shown
-  const same = mine.find((p) => p.status === 'pending' && p.planId === plan.id && p.amountToman === finalToman && p.discountCode === discountCode);
+  const same = mine.find(
+    (p) => p.status === 'pending' && p.planId === plan.id && (p.kind ?? 'plan') === order.kind && p.amountToman === finalToman && p.discountCode === discountCode,
+  );
   if (same) return { paymentId: same.id, amountToman: same.amountToman, redirectUrl: transferPage(same.id) };
   // one open transfer per person: a different order replaces it
   for (const p of mine) if (p.status === 'pending') close(p, 'cancelled', 'با سفارش جدید جایگزین شد.');
@@ -74,7 +83,8 @@ export function startCardPayment(user: AccountUser, plan: Plan, finalToman: numb
     userName: user.name,
     phone: user.phone,
     planId: plan.id,
-    planName: plan.name,
+    planName: order.name,
+    kind: order.kind,
     amountToman: finalToman,
     discountCode,
     gateway: 'card',

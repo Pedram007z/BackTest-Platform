@@ -24,6 +24,8 @@ export interface AccountUser {
   /** The sample account of the hosted demo. */
   demo?: boolean;
   note?: string;
+  /** Day key of the last day of the automatic strategy testing add-on (none: not bought). */
+  autoTestEndsAt?: string;
 }
 
 export interface Plan {
@@ -37,7 +39,12 @@ export interface Plan {
   /** Shown on the plan card, e.g. "محبوب". */
   badge?: string;
   sort: number;
+  /** Price of the automatic strategy testing add-on for this plan's period (0 or none: not offered). */
+  autoTestToman?: number;
 }
+
+/** What a payment buys: the plan, the plan with the auto-test add-on, or the add-on alone. */
+export type PaymentKind = 'plan' | 'plan_autotest' | 'autotest';
 
 export type GatewayId = 'zarinpal' | 'zibal' | 'idpay' | 'nextpay' | 'payir';
 /** A bank gateway, or 'card': a card-to-card transfer that an admin confirms. */
@@ -52,6 +59,8 @@ export interface Payment {
   phone: string;
   planId: string;
   planName: string;
+  /** none: the plan alone (payments from before the add-on) */
+  kind?: PaymentKind;
   amountToman: number;
   discountCode?: string;
   gateway: PaymentMethod;

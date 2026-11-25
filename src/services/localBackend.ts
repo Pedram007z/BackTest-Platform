@@ -8,6 +8,7 @@ import { blogPostError, cleanTags, postIsPublic, slugify, toSummary } from './bl
 import { cleanSnapshot, queryBacktestRows, summarizeSessions } from './backtests';
 import { getToken } from './api';
 import { BackendError, type Backend } from './backend';
+import { AUTOTEST_LABEL, DEFAULT_AUTOTEST_PRICES, addonOffered, includesAutoTest, includesPlan, kindOf, orderOf, paidPlanRunning } from './plan';
 import { bankOfCard, canReportTransfer, cardAmountRial, cardDigits, fmtCardNumber, holdsCode, isCardNumber, pickCardCode, transferReportError } from './cards';
 import {
   GATEWAY_NAMES,
@@ -116,6 +117,7 @@ export const DEFAULT_PLANS: Plan[] = [
     features: ['جلسه‌ی نامحدود', 'بیش از ۷۰ نماد فارکس، شاخص و کریپتو', 'چارت TradingView و ۴ چارت هم‌زمان', 'ژورنال معاملات', 'تقویم اقتصادی ForexFactory', 'آنالیز کامل و مونت‌کارلو'],
     active: true,
     sort: 1,
+    autoTestToman: 290_000,
   },
   {
     id: 'pro-3m',
@@ -127,6 +129,7 @@ export const DEFAULT_PLANS: Plan[] = [
     active: true,
     badge: 'محبوب',
     sort: 2,
+    autoTestToman: 790_000,
   },
   {
     id: 'pro-12m',
@@ -138,6 +141,7 @@ export const DEFAULT_PLANS: Plan[] = [
     active: true,
     badge: '۲ ماه رایگان',
     sort: 3,
+    autoTestToman: 2_490_000,
   },
 ];
 
@@ -393,6 +397,8 @@ function db(): Db {
     cache.media ??= [];
     // saved before QVeris existed
     cache.settings.qveris ??= { ...DEFAULT_SETTINGS.qveris };
+    // saved before the auto-test add-on existed
+    for (const p of cache.plans) if (p.autoTestToman === undefined && DEFAULT_AUTOTEST_PRICES[p.id]) p.autoTestToman = DEFAULT_AUTOTEST_PRICES[p.id];
   }
   return cache;
 }
@@ -448,14 +454,30 @@ function hasPurchased(userId: string): boolean {
   return db().payments.some((p) => p.userId === userId && (p.status === 'paid' || p.status === 'refunded'));
 }
 
-function discountFor(code: string | undefined, plan: Plan, user?: AccountUser): { percent: number; finalToman: number; dc?: DiscountCode } {
-  if (!code) return { percent: 0, finalToman: plan.priceToman };
+function extendAutoTest(user: AccountUser, days: number) {
+  const today = localDayKey();
+  const from = user.autoTestEndsAt && user.autoTestEndsAt >= today ? user.autoTestEndsAt : today;
+  user.autoTestEndsAt = addDays(from, days);
+}
+
+/** The plan and order a checkout asks for (as the API server's payments/orderFor). */
+function orderFor(user: AccountUser | undefined, input: { planId: string; autoTest?: boolean; addonOnly?: boolean }) {
+  const plan = db().plans.find((p) => p.id === input.planId && p.active);
+  if (!plan || plan.priceToman <= 0) throw new BackendError('not_found', 'این پلن قابل خرید نیست.');
+  const kind = kindOf(input);
+  if (includesAutoTest(kind) && !addonOffered(plan)) throw new BackendError('no_addon', `افزونه‌ی ${AUTOTEST_LABEL} برای این پلن فعال نیست.`, 'autoTest');
+  if (kind === 'autotest' && user && !paidPlanRunning(user, localDayKey())) throw new BackendError('needs_plan', `افزونه‌ی ${AUTOTEST_LABEL} به‌تنهایی فقط برای حساب‌هایی با اشتراک فعال خریدنی است؛ آن را همراه یک اشتراک بخرید.`, 'autoTest');
+  return { plan, kind, ...orderOf(plan, kind) };
+}
+
+function discountFor(code: string | undefined, plan: Plan, user?: AccountUser, baseToman = plan.priceToman): { percent: number; finalToman: number; dc?: DiscountCode } {
+  if (!code) return { percent: 0, finalToman: baseToman };
   const dc = db().discounts.find((x) => x.code.toUpperCase() === code.trim().toUpperCase());
   if (!dc || !dc.active) throw new BackendError('bad_code', 'این کد تخفیف معتبر نیست.', 'discount');
   if (dc.expiresAt && dc.expiresAt < localDayKey()) throw new BackendError('expired', 'مهلت این کد تخفیف تمام شده است.', 'discount');
   if (dc.used >= dc.maxUses) throw new BackendError('used_up', 'ظرفیت این کد تخفیف پر شده است.', 'discount');
   if (dc.firstPurchaseOnly && user && hasPurchased(user.id)) throw new BackendError('first_purchase', 'این کد تخفیف فقط برای اولین خرید است.', 'discount');
-  return { percent: dc.percent, finalToman: Math.round((plan.priceToman * (100 - dc.percent)) / 100), dc };
+  return { percent: dc.percent, finalToman: Math.round((baseToman * (100 - dc.percent)) / 100), dc };
 }
 
 function page<T>(items: T[], p = 1, size = 20) {
@@ -470,7 +492,10 @@ function markPaid(p: Payment, refId?: string, cardPan?: string) {
   p.cardPan = cardPan;
   const user = d.users.find((u) => u.id === p.userId);
   const plan = d.plans.find((x) => x.id === p.planId);
-  if (user && plan) extendPlan(user, plan);
+  if (user && plan) {
+    if (includesPlan(p.kind)) extendPlan(user, plan);
+    if (includesAutoTest(p.kind)) extendAutoTest(user, plan.durationDays);
+  }
   if (p.discountCode) {
     const dc = d.discounts.find((x) => x.code === p.discountCode);
     if (dc) dc.used++;
@@ -621,7 +646,7 @@ function expireTransfers(now = Date.now()) {
   }
 }
 
-function startCardPayment(user: AccountUser, plan: Plan, finalToman: number, discountCode: string | undefined) {
+function startCardPayment(user: AccountUser, plan: Plan, finalToman: number, discountCode: string | undefined, order: { kind: Payment['kind']; name: string }) {
   const d = db();
   if (!cardPaymentsOpen()) throw new BackendError('gateway', 'پرداخت کارت به کارت فعال نیست.', 'gateway');
   const now = Date.now();
@@ -630,7 +655,7 @@ function startCardPayment(user: AccountUser, plan: Plan, finalToman: number, dis
   if (mine.filter((p) => p.status === 'review').length >= 3) {
     throw new BackendError('too_many', 'سه پرداخت کارت به کارت شما در انتظار تأیید است؛ پس از بررسی آن‌ها دوباره تلاش کنید.', 'gateway');
   }
-  const same = mine.find((p) => p.status === 'pending' && p.planId === plan.id && p.amountToman === finalToman && p.discountCode === discountCode);
+  const same = mine.find((p) => p.status === 'pending' && p.planId === plan.id && (p.kind ?? 'plan') === order.kind && p.amountToman === finalToman && p.discountCode === discountCode);
   if (same) return same;
   for (const p of mine) {
     if (p.status === 'pending') {
@@ -648,7 +673,8 @@ function startCardPayment(user: AccountUser, plan: Plan, finalToman: number, dis
     userName: user.name,
     phone: user.phone,
     planId: plan.id,
-    planName: plan.name,
+    planName: order.name,
+    kind: order.kind,
     amountToman: finalToman,
     discountCode,
     gateway: 'card',
@@ -806,7 +832,7 @@ export const localBackend: Backend = {
     if (cardPaymentsOpen()) list.push({ id: 'card', name: PAYMENT_METHOD_NAMES.card });
     return delay(list, 80);
   },
-  async checkDiscount(code, planId) {
+  async checkDiscount(code, planId, order = {}) {
     const plan = db().plans.find((p) => p.id === planId);
     if (!plan) throw new BackendError('not_found', 'پلن پیدا نشد.');
     let user: AccountUser | undefined;
@@ -815,30 +841,32 @@ export const localBackend: Backend = {
     } catch {
       user = undefined;
     }
-    const r = discountFor(code, plan, user);
+    const r = discountFor(code, plan, user, orderOf(plan, kindOf(order)).toman);
     return delay({ percent: r.percent, finalToman: r.finalToman });
   },
-  async checkout({ planId, gateway, discountCode }) {
+  async checkout(input) {
+    const { gateway, discountCode } = input;
     const user = currentUser();
     const d = db();
-    const plan = d.plans.find((p) => p.id === planId && p.active);
-    if (!plan || plan.priceToman <= 0) throw new BackendError('not_found', 'این پلن قابل خرید نیست.');
+    const order = orderFor(user, input);
+    const { plan } = order;
     if (gateway === 'card') {
-      const disc = discountFor(discountCode, plan, user);
-      const t = startCardPayment(user, plan, disc.finalToman, disc.dc?.code);
+      const disc = discountFor(discountCode, plan, user, order.toman);
+      const t = startCardPayment(user, plan, disc.finalToman, disc.dc?.code, order);
       save();
       return delay({ paymentId: t.id, amountToman: t.amountToman, redirectUrl: `/billing/card?payment=${t.id}` }, 400);
     }
     const g = d.gateways.find((x) => x.id === gateway && x.enabled);
     if (!g) throw new BackendError('gateway', 'این درگاه فعال نیست.');
-    const disc = discountFor(discountCode, plan, user);
+    const disc = discountFor(discountCode, plan, user, order.toman);
     const p: Payment = {
       id: uid('pay'),
       userId: user.id,
       userName: user.name,
       phone: user.phone,
       planId: plan.id,
-      planName: plan.name,
+      planName: order.name,
+      kind: order.kind,
       amountToman: disc.finalToman,
       discountCode: disc.dc?.code,
       gateway,
@@ -1015,6 +1043,7 @@ export const localBackend: Backend = {
         if (p !== u.phone) phone = p;
       }
       Object.assign(u, patch, { phone: phone ?? before.phone });
+      if (!u.autoTestEndsAt) delete u.autoTestEndsAt;
       if (phone) {
         delete db().otps[before.phone];
         delete db().otps[phone];
@@ -1022,6 +1051,7 @@ export const localBackend: Backend = {
       if (phone) log('تغییر شماره موبایل', `${u.name}: ${before.phone || '—'} → ${phone}`);
       if (patch.status && patch.status !== before.status) log(patch.status === 'banned' ? 'مسدود کردن کاربر' : 'رفع مسدودی کاربر', u.name);
       else if (patch.planEndsAt && patch.planEndsAt !== before.planEndsAt) log('تغییر اشتراک', `${u.name}: تا ${fmtDayLong(patch.planEndsAt)}`);
+      else if (patch.autoTestEndsAt !== undefined && patch.autoTestEndsAt !== before.autoTestEndsAt) log('تغییر افزونه‌ی تست خودکار', `${u.name}: ${patch.autoTestEndsAt ? `تا ${fmtDayLong(patch.autoTestEndsAt)}` : 'غیرفعال'}`);
       else if (patch.role && patch.role !== before.role) log(patch.role === 'admin' ? 'دادن دسترسی مدیر' : 'گرفتن دسترسی مدیر', u.name);
       else if (!phone) log('ویرایش کاربر', u.name);
       save();

@@ -64,6 +64,7 @@ function readLocal(): WorkspaceData {
     strategies: s.strategies,
     checklists: s.checklists,
     goToPresets: s.goToPresets,
+    scripts: s.scripts,
     dailySeconds: s.dailySeconds,
     replayedMs: s.replayedMs,
     prefs: {
@@ -86,6 +87,7 @@ function writeLocal(d: WorkspaceData, base: WorkspaceBase) {
     strategies: d.strategies,
     checklists: d.checklists,
     goToPresets: d.goToPresets,
+    scripts: d.scripts ?? [],
     dailySeconds: d.dailySeconds,
     replayedMs: d.replayedMs,
     theme: d.prefs.theme ?? s.theme,
@@ -108,6 +110,7 @@ function dataChanged(s: ReturnType<typeof useStore.getState>, p: ReturnType<type
     s.strategies !== p.strategies ||
     s.checklists !== p.checklists ||
     s.goToPresets !== p.goToPresets ||
+    s.scripts !== p.scripts ||
     s.dailySeconds !== p.dailySeconds ||
     s.replayedMs !== p.replayedMs ||
     s.theme !== p.theme ||

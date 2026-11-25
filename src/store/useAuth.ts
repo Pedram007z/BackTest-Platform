@@ -24,7 +24,14 @@ async function applyAccount(user: AccountUser) {
   } catch {
     /* keep the id */
   }
-  useStore.getState().updateUser({ name: user.name, phone: user.phone, plan: { id: user.planId, name: planName, startedAt: user.planStartedAt, endsAt: user.planEndsAt } });
+  useStore
+    .getState()
+    .updateUser({
+      name: user.name,
+      phone: user.phone,
+      plan: { id: user.planId, name: planName, startedAt: user.planStartedAt, endsAt: user.planEndsAt },
+      autoTestEndsAt: user.autoTestEndsAt,
+    });
 }
 
 function signIn(set: (p: Partial<AuthState>) => void, res: AuthResult, remember: boolean): Session {

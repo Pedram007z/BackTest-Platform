@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { BadgePercent, Check, CircleCheck, CircleX, CreditCard, Crown, Hourglass, LoaderCircle, ShieldCheck, WalletCards } from 'lucide-react';
+import { BadgePercent, Bot, Check, CircleCheck, CircleX, CreditCard, Crown, Hourglass, LoaderCircle, ShieldCheck, WalletCards } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useGo } from '../lib/nav';
@@ -9,7 +9,8 @@ import { diffDays, fmtDayLong, localDayKey } from '../lib/calendar';
 import { faDigits, fmtNum } from '../lib/format';
 import { planDaysLeft } from '../lib/stats';
 import { BackendError, backend } from '../services';
-import { PAYMENT_METHOD_NAMES, type Payment, type PaymentMethod, type Plan } from '../services/types';
+import { AUTOTEST_LABEL, addonOffered, orderOf, paidPlanRunning } from '../services/plan';
+import { PAYMENT_METHOD_NAMES, type Payment, type PaymentKind, type PaymentMethod, type Plan } from '../services/types';
 import { useAuth } from '../store/useAuth';
 import { toast, useStore } from '../store/useStore';
 
@@ -38,6 +39,11 @@ export default function Billing() {
   const [codeError, setCodeError] = useState('');
   const [busy, setBusy] = useState<'code' | 'pay' | null>(null);
   const [result, setResult] = useState<Payment | null>(null);
+  // the auto-test add-on: with the plan, alone (for a running paid plan), or not at all; ?addon=1 comes from the tester
+  const [kind, setKind] = useState<PaymentKind>(params.get('addon') ? 'plan_autotest' : 'plan');
+  const today = localDayKey();
+  const planRunning = paidPlanRunning({ planId: user.plan.id, planEndsAt: user.plan.endsAt }, today);
+  const addonActive = !!user.autoTestEndsAt && user.autoTestEndsAt >= today;
 
   const load = () => {
     void backend.plans().then((p) => {
@@ -73,7 +79,15 @@ export default function Billing() {
   }, [paymentId]);
 
   const plan = plans.find((p) => p.id === planId);
-  const price = discount && plan ? discount.finalToman : plan?.priceToman ?? 0;
+  const withAddon = !!plan && addonOffered(plan);
+  const orderKind: PaymentKind = withAddon ? (kind === 'autotest' && !planRunning ? 'plan_autotest' : kind) : 'plan';
+  const order = plan ? orderOf(plan, orderKind) : null;
+  const base = order?.toman ?? 0;
+  const price = discount ? Math.round((base * (100 - discount.percent)) / 100) : base;
+  useEffect(() => {
+    // from the tester's lock: the add-on alone when a paid plan is running
+    if (params.get('addon') && planRunning) setKind('autotest');
+  }, [planRunning]);
   const left = planDaysLeft(user.plan.endsAt);
   const total = Math.max(1, diffDays(user.plan.startedAt, user.plan.endsAt));
 
@@ -82,7 +96,7 @@ export default function Billing() {
     setBusy('code');
     setCodeError('');
     try {
-      const r = await backend.checkDiscount(code.trim(), plan.id);
+      const r = await backend.checkDiscount(code.trim(), plan.id, { autoTest: orderKind === 'plan_autotest', addonOnly: orderKind === 'autotest' });
       setDiscount({ code: code.trim().toUpperCase(), ...r });
       toast(`${faDigits(r.percent)}٪ تخفیف اعمال شد`);
     } catch (e) {
@@ -97,7 +111,7 @@ export default function Billing() {
     if (!plan || !gateway) return;
     setBusy('pay');
     try {
-      const r = await backend.checkout({ planId: plan.id, gateway, discountCode: discount?.code });
+      const r = await backend.checkout({ planId: plan.id, gateway, discountCode: discount?.code, autoTest: orderKind === 'plan_autotest', addonOnly: orderKind === 'autotest' });
       // an in-app page (card to card, the demo's sandbox bank) or the bank's own page
       if (r.redirectUrl.startsWith('/') || r.redirectUrl.startsWith('#/')) go(r.redirectUrl.replace(/^#/, ''));
       else window.location.href = r.redirectUrl;
@@ -177,10 +191,15 @@ export default function Billing() {
           </div>
           <Meter value={left / total} tone={left / total < 0.2 ? 'loss' : 'gain'} className="h-2" />
         </div>
+        <div className="flex w-full items-center gap-3 border-t border-line/60 pt-4 text-[13px]">
+          <Bot size={18} className={addonActive ? 'text-gain' : 'text-faint'} />
+          <span className="text-muted">افزونه‌ی {AUTOTEST_LABEL}:</span>
+          <b className={addonActive ? 'text-gain' : 'text-faint'}>{addonActive ? `فعال تا ${fmtDayLong(user.autoTestEndsAt!)}` : 'غیرفعال'}</b>
+        </div>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid h-fit gap-3 sm:grid-cols-3 lg:col-start-1 lg:row-start-1">
           {plans.map((p) => {
             const on = p.id === planId;
             return (
@@ -200,6 +219,11 @@ export default function Billing() {
                 <p className="mt-0.5 text-xs text-muted">{p.description}</p>
                 <p className="num mt-4 font-display text-2xl font-bold">{fmtNum(p.priceToman / 1000)}</p>
                 <p className="text-xs text-muted">هزار تومان · {fmtNum(p.durationDays)} روز</p>
+                {addonOffered(p) && (
+                  <p className="num mt-2 flex items-center gap-1 text-[11px] text-accent-ink">
+                    <Bot size={12} /> تست خودکار: {fmtNum((p.autoTestToman ?? 0) / 1000)} هزار تومان اضافه
+                  </p>
+                )}
                 <ul className="mt-4 flex flex-col gap-1.5 text-[12px]">
                   {p.features.map((f) => (
                     <li key={f} className="flex items-start gap-1.5">
@@ -213,19 +237,78 @@ export default function Billing() {
           })}
         </div>
 
-        <aside className="card h-fit p-5">
+        {withAddon && plan && (
+          <section className="card p-5 lg:col-start-1 lg:row-start-2" aria-labelledby="addon-title">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent-ink">
+                <Bot size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 id="addon-title" className="font-bold">
+                  افزونه‌ی {AUTOTEST_LABEL} <span className="text-xs font-normal text-muted">(پرداخت جداگانه)</span>
+                </h2>
+                <p className="mt-1 text-[12px] leading-6 text-muted">
+                  استراتژی‌های Pine Script را روی داده‌ی واقعی بازار خودکار بک‌تست کنید: گزارش عملکرد، فهرست معاملات و منحنی سرمایه، مثل Strategy Tester تریدینگ‌ویو. نوشتن اسکریپت و اجرای اندیکاتورها بدون افزونه هم آزاد است.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="افزونه‌ی تست خودکار">
+              {(
+                [
+                  ['plan', 'بدون افزونه', 'فقط اشتراک'],
+                  ['plan_autotest', 'همراه اشتراک', `${fmtNum(plan.autoTestToman ?? 0)} تومان اضافه`],
+                  ['autotest', 'فقط افزونه', planRunning ? `${fmtNum(plan.autoTestToman ?? 0)} تومان · ${fmtNum(plan.durationDays)} روز` : 'برای اشتراک فعال'],
+                ] as [PaymentKind, string, string][]
+              ).map(([k, label, hint]) => {
+                const disabled = k === 'autotest' && !planRunning;
+                const on = orderKind === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    disabled={disabled}
+                    onClick={() => {
+                      setKind(k);
+                      setDiscount(null);
+                      setCodeError('');
+                    }}
+                    className={clsx('rounded-xl border px-3 py-2.5 text-start text-[13px] transition disabled:cursor-not-allowed disabled:opacity-50', on ? 'border-accent bg-accent/10' : 'border-line hover:border-faint/60')}
+                  >
+                    <span className="block font-semibold">{label}</span>
+                    <span className="num block text-[11px] text-muted">{hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {orderKind === 'autotest' && (
+              <p className="mt-3 text-[11px] leading-5 text-faint">اشتراک فعلی شما تغییری نمی‌کند و افزونه برای {fmtNum(plan.durationDays)} روز ({plan.name}) فعال یا تمدید می‌شود.</p>
+            )}
+          </section>
+        )}
+
+        <aside className="card h-fit p-5 lg:row-span-2 lg:row-start-1 lg:col-start-2">
           <h2 className="mb-4 font-bold">خلاصه‌ی سفارش</h2>
           {plan ? (
             <>
               <dl className="grid grid-cols-[1fr_auto] gap-y-2 text-[13px]">
-                <dt className="text-muted">پلن</dt>
-                <dd className="font-semibold">{plan.name}</dd>
-                <dt className="text-muted">مبلغ</dt>
-                <dd className="num">{toman(plan.priceToman)}</dd>
+                {orderKind !== 'autotest' && (
+                  <>
+                    <dt className="text-muted">{plan.name}</dt>
+                    <dd className="num">{toman(plan.priceToman)}</dd>
+                  </>
+                )}
+                {orderKind !== 'plan' && (
+                  <>
+                    <dt className="text-muted">{AUTOTEST_LABEL}</dt>
+                    <dd className="num">{toman(plan.autoTestToman ?? 0)}</dd>
+                  </>
+                )}
                 {discount && (
                   <>
                     <dt className="text-gain">تخفیف {faDigits(discount.percent)}٪</dt>
-                    <dd className="num text-gain">−{toman(plan.priceToman - discount.finalToman)}</dd>
+                    <dd className="num text-gain">−{toman(base - price)}</dd>
                   </>
                 )}
                 <dt className="border-t border-line/60 pt-2 font-bold">مبلغ قابل پرداخت</dt>

@@ -169,7 +169,7 @@ test('admin changes a mobile number: checked, unique, audited; the account keeps
   assert.equal(bad.data.code, 'bad_phone');
   assert.equal(bad.data.field, 'phone');
   assert.equal((await put('09120000001')).data.code, 'phone_taken', "another account's number");
-  assert.equal(s.db().users.find((u: any) => u.id === user.user.id).phone, '09351234567', 'a refused change leaves the account as it was');
+  assert.equal(s.db().users.find((u: any) => u.id === user.user.id)!.phone, '09351234567', 'a refused change leaves the account as it was');
 
   // the old number has a code waiting; it stops working with the change
   s.db().otps['09351234567'] = { hash: 'x', expiresAt: Date.now() + 60_000, sentAt: Date.now(), tries: 0 };

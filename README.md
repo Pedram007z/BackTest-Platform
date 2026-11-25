@@ -49,12 +49,13 @@ single-file preview build (`npm run build:artifact`) keeps routing in memory.
 | `/dashboard` | داشبورد (Dashboard) | Name and today's Jalali date, practice streak, time invested, historical time replayed, time invested by day, trades taken with the buy/sell ratio bar, overall win rate, win rate by day, trades by symbol, recent sessions with pagination, new-session modal |
 | `/sessions` | جلسات (Sessions) | Search, filter by status and strategy, sort, edit, delete |
 | `/strategies` | استراتژی‌ها (Strategies) | "Create new strategy" box → name + description modal; each card shows total trades, win rate, average RR, net P&L and an equity chart |
+| `/strategy-tester` | تست خودکار (Pine) | A Pine Script editor and Strategy Tester, as on TradingView (see **Pine Script and the strategy tester** below): write or paste a script, pick a symbol, timeframe and date range, run it on the platform's market data. Indicators show their plots on the chart; strategies also show an overview with the equity curve, a performance summary (all / long / short), the list of trades (CSV export), monthly returns and logs. Strategy results need the paid auto-test add-on |
 | `/checklists` | چک‌لیست‌ها (Checklists) | Centered "create" button → modal with name, add/delete items, and a "required?" switch per item; edit, duplicate, delete |
 | `/journal` | ژورنال (Journal) | Every trade, filterable by session, strategy, symbol and result, with notes per trade |
 | `/analytics` | آنالیز (Analytics) | Net P&L, profit factor, expectancy, max drawdown, cumulative P&L, P&L by symbol, win rate by weekday, long vs short |
 | `/settings` | تنظیمات حساب (Account) | Name, profile picture upload, subscription renewal, theme, clear data or restore the sample data |
 | `/login` | ورود / ثبت‌نام | Phone number → SMS code (5 digits by default); new numbers also give their name. Candlestick chart on the left half |
-| `/billing` | اشتراک و پرداخت | Plans, discount codes, payment method (a bank gateway or card to card), payment history; the bank sends the user back here with the result |
+| `/billing` | اشتراک و پرداخت | Plans, the auto-test add-on (with the plan, alone for a running paid plan, or none), discount codes (on the whole order), payment method (a bank gateway or card to card), payment history; the bank sends the user back here with the result. `?addon=1` (from the tester's lock) picks the add-on |
 | `/billing/card` | پرداخت کارت به کارت | The card, its holder's name and the exact amount in rial (with this payment's own last three digits), a countdown, and «واریز کردم» (I have paid) |
 | `/support` | پشتیبانی | Tickets with replies from the admins |
 | `/k/<key>` | ورود به پنل مدیریت | The admin sign-in page (username and password) at a secret address: the key is `ADMIN_LOGIN_KEY` on the server (make-admin.sh sets it), checked by the server before the page shows. Any other key, `/admin` while signed out, and the old `/admin/login` lead to the home page |
@@ -89,6 +90,55 @@ The menu items, then Account Settings, then the profile picture, current subscri
 - **«برو به» while maximized**: «بزرگ‌نمایی» hides the bar above the chart; «برو به» and the replay clock then sit in the bar under the chart, beside «خروج از بزرگ‌نمایی», and the list opens upward.
 - **Navigation buttons** (both chart engines): zoom out, zoom in, scroll back, scroll forward and reset at the bottom of the chart, as on TradingView. They show while the pointer is over the chart (always on phones and tablets), and holding a button repeats it. Reset loads the candles again, returns to the starting view and fits the price scale: the fix when the chart is squashed, stretched or scrolled away. The buttons keep clear of the floating replay bar (TradingView's own buttons, which sat under it, are turned off). Code: `src/chart/navButtons.ts`.
 
+## Pine Script and the strategy tester
+
+The tester runs TradingView Pine Script (version 5 and 6, and most version 4 scripts) in the browser,
+on the same market data as the replay. Code: `src/pine/` (the engine, no dependencies), `src/pages/StrategyTester.tsx`
+and `src/components/tester/`; tests in `server/test/pine.test.ts`.
+
+- **Language** (`lexer.ts`, `parser.ts`, `compile.ts`, `core.ts`): Pine's layout (4-space blocks, wrapped lines),
+  declarations with `var` / `varip` and types, `:=` and `+=` …, tuples, `if` / `else if`, `switch`, `for … to … by`,
+  `for … in`, `while`, `break` / `continue`, functions (one line or a block, default arguments), `method`, user types
+  (`type`, `.new`, fields), history `x[n]` on variables and any expression. The code is compiled into closures that run
+  once per bar; every call of a user function and of a `ta.*` function keeps its own history at its place in the code,
+  as in Pine. Errors are in Persian with the line (and the bar, at run time); the editor checks the syntax while typing.
+- **Library** (`lib/`): over 50 `ta.*` functions (moving averages, RSI, MACD, ATR, Bollinger and Keltner, stochastic,
+  DMI/ADX, Supertrend, Parabolic SAR, pivots, crossovers, `barssince`, `valuewhen`, …; `ta.ema` starts from the first
+  value and `ta.rma` from an SMA, as the Pine reference describes them), `math.*`, `str.*`, `color.*`, `array.*`,
+  `map.*`, time functions and sessions (`time(tf, "0930-1600", tz)`, `timestamp`, `hour(time, tz)`), `input.*`
+  (shown in the settings dialog), `plot` / `plotshape` / `plotchar` / `plotarrow` / `hline` / `bgcolor` / `barcolor`,
+  `label.new`, `log.*`, and `request.security` on higher (or lower) timeframes and other symbols of the site, without
+  look-ahead unless `barmerge.lookahead_on`. Version 4 names (`sma()`, `security()`, `study()`, `when =`) are accepted.
+  Not supported: `import`, other `request.*`, drawing `line` / `box` / `table` on the chart (they run, only labels are
+  shown). The data has no volume: `volume` and volume-based functions are na.
+- **Broker emulator** (`broker.ts`, `report.ts`), as TradingView's Strategy Tester by default: the script runs at each
+  bar's close; market orders fill at the next bar's open (with `process_orders_on_close`, at the close); inside a bar
+  price goes open → nearer extreme → other extreme → close, or through the bar's 5-minute bars with the **bar
+  magnifier**; stops and limits fill where the path reaches them (at the open on a gap), order prices are rounded to the
+  tick, stops and market orders get the slippage. `strategy.entry` (reversal, pyramiding, OCA), `strategy.order`,
+  `strategy.exit` (limit / stop / profit / loss in ticks / trailing stop, `qty_percent`, before or after the entry
+  fills), `strategy.close`, `close_all`, `cancel`, the `strategy.*` variables and `closedtrades.*` / `opentrades.*`.
+  Quantities are in units (1 forex lot = 100,000 units) and P&L is in USD (crosses converted at the quote currency's
+  USD rate). The report: net profit, gross profit and loss, max drawdown and run-up (intrabar), buy & hold, Sharpe and
+  Sortino (monthly), profit factor, win rate, average and largest trades, bars in trades, for all trades, longs and
+  shorts.
+- **Running**: the page loads the range's 5-minute bars (`ensureRange`, or the demo's sample prices), builds the
+  chosen timeframe with the replay's candle rules (`bars.ts`), and runs the script in a Web Worker (`worker.ts`; on the
+  page where a worker cannot start). Ranges are capped per timeframe (3 months on 5-minute charts up to 10 years on
+  daily). The strategy tester's properties (capital, order size, commission, slippage, pyramiding, bar magnifier,
+  orders on close) override `strategy(…)`.
+- **Scripts** are the account's data (`scripts` in the store and in `services/workspace`), synced to the server and
+  the user's other devices like strategies, with their input values and properties. Templates: `src/pine/samples.ts`.
+- **The auto-test add-on**: writing scripts and running indicators is open to every account; a strategy's results
+  (report, trades, equity, the fills on the chart) need the add-on. Each plan has its own add-on price
+  (`Plan.autoTestToman`, set in the admin panel's plans; 0 = not offered; 290,000 / 790,000 / 2,490,000 toman by
+  default for the monthly, 3-month and yearly plans, filled into older databases). Checkout takes `autoTest: true`
+  (plan + add-on, one payment) or `addonOnly: true` (the add-on alone, for an account with a running paid plan); a
+  discount code applies to the whole order. A paid order extends `AccountUser.autoTestEndsAt` by the plan's days (on top
+  of a running add-on), card-to-card included; admins can set or clear it per user. Rules: `src/services/plan.ts`
+  (`hasAutoTest`, `orderOf`); tests: `server/test/autotest.test.ts`. The check is in the app (the tester runs in the
+  browser); admins and the hosted demo always have it.
+
 ## API server (`server/`)
 
 | Area | What it does |
@@ -110,7 +160,7 @@ Data lives in `server/data/` (`db.json` for accounts, payments and settings; `ne
 The database is one JSON file written atomically, which fits a single server process.
 
 ```bash
-npm test          # sign-in, payments (simulator, each gateway's verify flow, card to card), SMS providers, calendar and market parsers, market storage, admin API, backtest copies, sign-in log, announcements, blog
+npm test          # sign-in, payments (simulator, each gateway's verify flow, card to card, the auto-test add-on), SMS providers, calendar and market parsers, market storage, admin API, backtest copies, sign-in log, announcements, blog, the Pine engine and broker
 npm run typecheck
 npm run build     # bundles to dist/server.mjs; run with `npm start`
 ```

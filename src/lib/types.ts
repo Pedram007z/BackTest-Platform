@@ -11,6 +11,8 @@ export interface UserProfile {
     startedAt: DayKey;
     endsAt: DayKey;
   };
+  /** Last day of the automatic strategy testing add-on (none: not bought). */
+  autoTestEndsAt?: DayKey;
 }
 
 export interface Strategy {
@@ -18,6 +20,22 @@ export interface Strategy {
   name: string;
   description: string;
   createdAt: number;
+}
+
+/** A Pine Script the user wrote or copied (the strategy tester's editor). */
+export interface PineScript {
+  id: string;
+  name: string;
+  code: string;
+  createdAt: number;
+  updatedAt: number;
+  /** values the user set in the script's settings, by input title */
+  inputs?: Record<string, unknown>;
+  /** the tester's properties set for this script (capital, order size, commission, …) */
+  settings?: Record<string, unknown>;
+  /** last tester choices */
+  symbol?: string;
+  timeframe?: string;
 }
 
 export interface ChecklistItem {

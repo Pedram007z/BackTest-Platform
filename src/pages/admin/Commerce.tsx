@@ -57,6 +57,9 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Plan; onClose: () => voi
         <Field label="مدت (روز)" htmlFor="pl-days">
           <input id="pl-days" className="field num" dir="ltr" inputMode="numeric" value={d.durationDays} onChange={(e) => set({ durationDays: num(e.target.value) })} />
         </Field>
+        <Field label="قیمت افزونه‌ی تست خودکار (تومان)" htmlFor="pl-autotest" hint="مبلغ اضافه برای اجرای استراتژی‌های Pine Script در همین مدت؛ ۰ = این پلن افزونه ندارد.">
+          <input id="pl-autotest" className="field num" dir="ltr" inputMode="numeric" value={d.autoTestToman ?? 0} onChange={(e) => set({ autoTestToman: num(e.target.value) })} />
+        </Field>
         <Field label="توضیح کوتاه" htmlFor="pl-desc">
           <input id="pl-desc" className="field" value={d.description} onChange={(e) => set({ description: e.target.value })} />
         </Field>
@@ -115,6 +118,7 @@ export function AdminPlans() {
               </div>
               <p className="num mt-3 font-display text-xl font-bold">{p.priceToman ? tomanFmt(p.priceToman) : 'رایگان'}</p>
               <p className="num text-xs text-faint">{fmtNum(p.durationDays)} روز</p>
+              {(p.autoTestToman ?? 0) > 0 && <p className="num mt-1 text-xs text-accent-ink">افزونه‌ی تست خودکار: {tomanFmt(p.autoTestToman!)}</p>}
               <ul className="mt-3 flex-1 list-disc ps-4 text-[12px] leading-6 text-muted">
                 {p.features.map((f) => (
                   <li key={f}>{f}</li>

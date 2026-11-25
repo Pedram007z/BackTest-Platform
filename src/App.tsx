@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, MemoryRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
 import { PageErrorBoundary } from './components/ui/ErrorBoundary';
@@ -35,6 +35,17 @@ import { loadSiteConfig } from './services/marketFeed';
 import { useAuth } from './store/useAuth';
 import { useStore } from './store/useStore';
 import { local } from './lib/storage';
+
+// the strategy tester (with the Pine engine) loads only when it is opened
+const StrategyTester = lazy(() => import('./pages/StrategyTester'));
+
+function PageLoading() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-label="در حال بارگذاری">
+      <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" />
+    </div>
+  );
+}
 
 // Clean addresses (/dashboard); every page change is a full page load (lib/nav, components/ui/AppLink).
 // The hosted single-file preview runs in a sandboxed frame, so it routes in memory.
@@ -116,6 +127,14 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/strategies" element={<Strategies />} />
+            <Route
+              path="/strategy-tester"
+              element={
+                <Suspense fallback={<PageLoading />}>
+                  <StrategyTester />
+                </Suspense>
+              }
+            />
             <Route path="/checklists" element={<Checklists />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/analytics" element={<Analytics />} />

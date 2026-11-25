@@ -5,7 +5,7 @@ import { addDays, keyToMs, localDayKey } from '../lib/calendar';
 import { BAR_MS, SYMBOL_MAP, pointValueUsd, priceAt, roundToTick } from '../lib/market';
 import { closeLots, exitPriceAt, lotsForRisk, sessionCommission, sessionSpread, type FillEvent } from '../lib/trading';
 import { planRewind, simulateTrade, withCheckpoint, type RewindPlan } from '../lib/rewind';
-import type { ChartPane, Checklist, GoToPreset, JournalEntry, LayoutId, NewsFilters, OrderType, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
+import type { ChartPane, Checklist, GoToPreset, JournalEntry, LayoutId, NewsFilters, OrderType, PineScript, Session, Side, Strategy, Trade, UserProfile } from '../lib/types';
 import { local } from '../lib/storage';
 import { buildSeed, type SeedData } from './seed';
 import type { WorkspaceBase } from '../services/workspace';
@@ -66,6 +66,8 @@ interface State {
   dailySeconds: Record<string, number>;
   replayedMs: number;
   goToPresets: GoToPreset[];
+  /** Pine scripts of the strategy tester, newest first. */
+  scripts: PineScript[];
   newsFilters: NewsFilters;
   theme: Theme;
   /** IANA time zone of the chart's axis, the replay clock and Go To. */
@@ -95,6 +97,10 @@ interface State {
   addChecklist: (c: Pick<Checklist, 'name' | 'items'>) => Checklist;
   updateChecklist: (id: string, patch: Partial<Pick<Checklist, 'name' | 'items'>>) => void;
   deleteChecklist: (id: string) => void;
+
+  addScript: (s: Pick<PineScript, 'name' | 'code'>) => PineScript;
+  updateScript: (id: string, patch: Partial<Omit<PineScript, 'id' | 'createdAt'>>) => void;
+  deleteScript: (id: string) => void;
 
   addSession: (input: NewSessionInput) => Session;
   updateSession: (id: string, patch: Partial<Session>) => void;
@@ -186,6 +192,7 @@ export const useStore = create<State>()(
     (set, get) => ({
       ...freshData(bootSession),
       goToPresets: [],
+      scripts: [],
       newsFilters: DEFAULT_NEWS_FILTERS,
       theme: initialTheme(),
       chartTz: DEFAULT_CHART_TZ,
@@ -405,6 +412,15 @@ export const useStore = create<State>()(
       deleteGoToPreset: (id) => set((s) => ({ goToPresets: s.goToPresets.filter((g) => g.id !== id) })),
       setNewsFilters: (patch) => set((s) => ({ newsFilters: { ...s.newsFilters, ...patch } })),
 
+      addScript: (input) => {
+        const now = Date.now();
+        const script: PineScript = { id: uid('pine'), name: input.name, code: input.code, createdAt: now, updatedAt: now };
+        set((s) => ({ scripts: [script, ...s.scripts] }));
+        return script;
+      },
+      updateScript: (id, patch) => set((s) => ({ scripts: s.scripts.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: patch.code !== undefined || patch.name !== undefined ? Date.now() : x.updatedAt } : x)) })),
+      deleteScript: (id) => set((s) => ({ scripts: s.scripts.filter((x) => x.id !== id) })),
+
       addPracticeSeconds: (seconds) =>
         set((s) => {
           const day = localDayKey();
@@ -417,6 +433,7 @@ export const useStore = create<State>()(
           checklists: [],
           sessions: [],
           trades: [],
+          scripts: [],
           dailySeconds: {},
           replayedMs: 0,
           hasDemoData: false,
@@ -531,12 +548,13 @@ export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'de
   }
   if (raw) {
     // fields an older saved copy does not have must not keep the previous account's values
-    useStore.setState({ favTools: [], tvFavorites: {} });
+    useStore.setState({ favTools: [], tvFavorites: {}, scripts: [] });
     void useStore.persist.rehydrate();
   } else
     useStore.setState({
       ...freshData(account),
       goToPresets: [],
+      scripts: [],
       newsFilters: DEFAULT_NEWS_FILTERS,
       chartTz: DEFAULT_CHART_TZ,
       chartStyle: {},

@@ -120,6 +120,7 @@ function validPlan(b: any, id: string): Plan {
     active: bool(b.active),
     badge: typeof b.badge === 'string' && b.badge.trim() ? b.badge.trim().slice(0, 30) : undefined,
     sort: num(b.sort ?? 0, 'sort', { min: -1000, max: 1000, label: 'ترتیب' }),
+    autoTestToman: num(b.autoTestToman ?? 0, 'autoTestToman', { min: 0, max: 1e10, int: true, label: 'قیمت افزونه‌ی تست خودکار' }),
   };
 }
 
@@ -227,6 +228,11 @@ export function adminRoutes(r: Router) {
         if (!isDayKey(b.planEndsAt)) throw badRequest('invalid', 'تاریخ پایان معتبر نیست.', 'planEndsAt');
         u.planEndsAt = b.planEndsAt;
       }
+      if (b.autoTestEndsAt !== undefined) {
+        if (b.autoTestEndsAt === '' || b.autoTestEndsAt === null) delete u.autoTestEndsAt;
+        else if (!isDayKey(b.autoTestEndsAt)) throw badRequest('invalid', 'تاریخ پایان افزونه معتبر نیست.', 'autoTestEndsAt');
+        else u.autoTestEndsAt = b.autoTestEndsAt;
+      }
       if (b.note !== undefined) u.note = str(b.note, 'note', { max: 500, label: 'یادداشت' }) || undefined;
       if (phone) {
         // codes already sent to either number stop working; signed-in devices stay signed in
@@ -241,6 +247,7 @@ export function adminRoutes(r: Router) {
         if (u.status === 'banned') dropSessions(u.id);
         audit(ctx, u.status === 'banned' ? 'مسدود کردن کاربر' : 'رفع مسدودی کاربر', u.name);
       } else if (u.planEndsAt !== before.planEndsAt || u.planId !== before.planId) audit(ctx, 'تغییر اشتراک', `${u.name}: تا ${faDay(u.planEndsAt)}`);
+      else if (u.autoTestEndsAt !== before.autoTestEndsAt) audit(ctx, 'تغییر افزونه‌ی تست خودکار', `${u.name}: ${u.autoTestEndsAt ? `تا ${faDay(u.autoTestEndsAt)}` : 'غیرفعال'}`);
       else if (u.role !== before.role) audit(ctx, u.role === 'admin' ? 'دادن دسترسی مدیر' : 'گرفتن دسترسی مدیر', u.name);
       else if (!phone) audit(ctx, 'ویرایش کاربر', u.name);
       save();

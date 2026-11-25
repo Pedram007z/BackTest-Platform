@@ -70,7 +70,7 @@ export const httpBackend: Backend = {
   logout: () => post('/api/auth/logout'),
   plans: () => get('/api/plans'),
   gateways: () => get('/api/payments/gateways'),
-  checkDiscount: (code, planId) => post('/api/payments/discount', { code, planId }),
+  checkDiscount: (code, planId, order = {}) => post('/api/payments/discount', { code, planId, ...order }),
   checkout: (input) => post('/api/payments/checkout', input),
   payment: (id) => get(`/api/payments/${encodeURIComponent(id)}`),
   reportTransfer: (id, input) => post(`/api/payments/${encodeURIComponent(id)}/sent`, input),

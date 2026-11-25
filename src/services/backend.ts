@@ -82,7 +82,7 @@ export type AnnouncementInput = Omit<Announcement, 'media' | 'version' | 'views'
 export interface AdminApi {
   stats(): Promise<AdminStats>;
   users(q: UserQuery): Promise<Page<AccountUser>>;
-  updateUser(id: string, patch: Partial<Pick<AccountUser, 'name' | 'phone' | 'role' | 'status' | 'planId' | 'planStartedAt' | 'planEndsAt' | 'note'>>): Promise<AccountUser>;
+  updateUser(id: string, patch: Partial<Pick<AccountUser, 'name' | 'phone' | 'role' | 'status' | 'planId' | 'planStartedAt' | 'planEndsAt' | 'note' | 'autoTestEndsAt'>>): Promise<AccountUser>;
   deleteUser(id: string): Promise<void>;
   plans(): Promise<Plan[]>;
   savePlan(plan: Plan): Promise<Plan>;
@@ -168,8 +168,9 @@ export interface Backend {
   logout(): Promise<void>;
   plans(): Promise<Plan[]>;
   gateways(): Promise<{ id: PaymentMethod; name: string }[]>;
-  checkDiscount(code: string, planId: string): Promise<{ percent: number; finalToman: number }>;
-  checkout(input: { planId: string; gateway: PaymentMethod; discountCode?: string }): Promise<CheckoutResult>;
+  /** `order`: the auto-test add-on with the plan (autoTest) or alone (addonOnly) */
+  checkDiscount(code: string, planId: string, order?: { autoTest?: boolean; addonOnly?: boolean }): Promise<{ percent: number; finalToman: number }>;
+  checkout(input: { planId: string; gateway: PaymentMethod; discountCode?: string; autoTest?: boolean; addonOnly?: boolean }): Promise<CheckoutResult>;
   payment(id: string): Promise<Payment>;
   /** Card to card: the payer has sent the money (both details optional), or gives up before sending. */
   reportTransfer(id: string, input: { payerCard?: string; payerRef?: string }): Promise<Payment>;
