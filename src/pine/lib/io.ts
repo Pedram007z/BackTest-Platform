@@ -1,4 +1,4 @@
-import { type Builtin, type InputDef, type InputType, type PlotOut, type Rt, SOURCE_NAMES, fail, int, isNa, num, str, truthy } from '../core';
+import { type Builtin, type FillOut, type InputDef, type InputType, type PlotOut, type Rt, SOURCE_NAMES, fail, int, isNa, num, str, truthy } from '../core';
 import { COLORS, parseColor, rgba } from './std';
 import { TA_VARS } from './ta';
 import { dayofmonth, dayofweek, hour, minute, month, second, timeVar, year } from './time';
@@ -214,6 +214,7 @@ function plotRec(rt: Rt, id: number, title: unknown, kind: PlotOut['kind'], styl
 }
 
 const colored = new WeakSet<PlotOut>();
+const filled = new WeakSet<FillOut>();
 function setColor(rt: Rt, p: PlotOut, c: unknown) {
   const col = typeof c === 'string' ? c : null;
   if (p.colors) p.colors[rt.bar] = col;
@@ -578,7 +579,29 @@ export const IO: Record<string, Builtin> = {
       return id;
     },
   },
-  fill: { p: ['hline1', 'hline2', 'color', 'title', 'editable', 'fillgaps', 'display', 'transp'], f: () => NaN },
+  fill: {
+    p: ['hline1', 'hline2', 'color', 'title', 'editable', 'fillgaps', 'display', 'transp', 'top_value', 'bottom_value', 'top_color', 'bottom_color'],
+    f: (rt, a, id) => {
+      if (rt.secondary || typeof a[0] !== 'number' || typeof a[1] !== 'number') return NaN;
+      let f = rt.fills.get(id);
+      if (!f) {
+        f = { id, a: a[0], b: a[1], color: null, display: !hidden(a[6]) };
+        rt.fills.set(id, f);
+      }
+      // a gradient fill (top_color / bottom_color) is drawn in its top colour
+      const c = transp(a[2] ?? a[10] ?? '#2196f333', a[7]);
+      const col = typeof c === 'string' ? c : null;
+      if (f.colors) f.colors[rt.bar] = col;
+      else if (rt.bar === 0 || !filled.has(f)) {
+        f.color = col;
+        filled.add(f);
+      } else if (col !== f.color) {
+        f.colors = new Array(rt.n).fill(f.color);
+        f.colors[rt.bar] = col;
+      }
+      return NaN;
+    },
+  },
   bgcolor: { p: ['color', 'offset', 'editable', 'show_last', 'title', 'display', 'force_overlay', 'transp'], f: (rt, a) => perBar(rt, 'bgcolors', transp(a[0], a[7]), a[1]) },
   barcolor: { p: ['color', 'offset', 'editable', 'show_last', 'title', 'display'], f: (rt, a) => perBar(rt, 'barcolors', a[0], a[1]) },
   iff: { p: ['condition', 'then', '_else'], f: (_rt, a) => (truthy(a[0]) ? a[1] : a[2]) },
@@ -638,7 +661,8 @@ const CONST_NS =
 export function constant(name: string): { ok: boolean; v?: unknown } {
   if (name in CONSTS) return { ok: true, v: CONSTS[name] };
   const m = CONST_NS.exec(name);
-  if (m && !IO[name]) return { ok: true, v: m[2] };
+  // plot.style_line → 'line', line.style_dashed → 'dashed', label.style_label_down → 'label_down'
+  if (m && !IO[name]) return { ok: true, v: m[2].replace(/^style_/, '') };
   return { ok: false };
 }
 

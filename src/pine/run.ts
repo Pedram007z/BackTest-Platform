@@ -1,8 +1,23 @@
-import { SYMBOL_MAP } from '../lib/market';
+import { SYMBOL_MAP, candleTime } from '../lib/market';
 import { aggregate, resolveSymbol, symbolMeta, tfMeta, type BaseBars } from './bars';
 import { Broker, type BrokerSettings, type ClosedTrade, type Fill, type OpenTrade, type SubBars } from './broker';
 import { compileSource, type Compiled, type SecurityCall } from './compile';
-import { type BarData, type InputDef, type LogLine, type PlotOut, Rt, type ScriptDecl, type ShapeOut, type SymbolMeta, type TimeframeMeta, num, str } from './core';
+import {
+  type BarData,
+  type BoxOut,
+  type FillOut,
+  type InputDef,
+  type LineOut,
+  type LogLine,
+  type PlotOut,
+  Rt,
+  type ScriptDecl,
+  type ShapeOut,
+  type SymbolMeta,
+  type TimeframeMeta,
+  num,
+  str,
+} from './core';
 import { PineError } from './lexer';
 import { buildReport, type Report } from './report';
 
@@ -44,6 +59,9 @@ export interface RunOk {
   inputs: InputDef[];
   bars: Pick<BarData, 'time' | 'open' | 'high' | 'low' | 'close'>;
   plots: PlotOut[];
+  fills: FillOut[];
+  lines: LineOut[];
+  boxes: BoxOut[];
   shapes: ShapeOut[];
   bgcolors: (string | null)[] | null;
   barcolors: (string | null)[] | null;
@@ -126,6 +144,7 @@ function securityHandler(compiled: Compiled, input: SecurityContext, mainBars: B
     const bars = input.provider(symId, meta);
     if (!bars) throw new PineError(`داده‌ی نماد ${symId} برای request.security بارگذاری نشده است.`);
     const rt2 = new Rt(bars, symMeta, meta, input.inputs);
+    rt2.tradingDay = tradingDayOf(symId);
     rt2.secondary = true;
     const rec = new Map<number, any[]>();
     rt2.security = (rt, id, sym, tf2, expr) => {
@@ -174,6 +193,63 @@ function securityHandler(compiled: Compiled, input: SecurityContext, mainBars: B
     }
     return vals[rt.bar];
   };
+}
+
+/** The trading day of a time for the symbol (daily candles of forex, metals, energy and indices close at 17:00 New York). */
+const tradingDayOf = (symbolId: string) => {
+  const sym = SYMBOL_MAP[symbolId];
+  return (t: number) => candleTime(sym, '1D', t);
+};
+
+/** A drawing's x as a bar index: bar_index as is, bar_time placed among the bars (past the last: by the bar length). */
+function xIndex(x: unknown, xloc: unknown, bars: BarData, barMs: number): number {
+  const v = num(x);
+  if (v !== v) return NaN;
+  if (xloc !== 'bar_time') return v;
+  const n = bars.time.length;
+  if (n && v > bars.time[n - 1]) return n - 1 + (v - bars.time[n - 1]) / barMs;
+  return lowerBound(bars.time, v);
+}
+
+const colorOr = (c: unknown, d: string | null) => (typeof c === 'string' ? c : c === undefined ? d : null);
+
+function drawingsOf(rt: Rt, bars: BarData): { lines: LineOut[]; boxes: BoxOut[] } {
+  const lines: LineOut[] = [];
+  const boxes: BoxOut[] = [];
+  for (const d of rt.drawings) {
+    if (d.deleted) continue;
+    const p = d.props;
+    if (d.kind === 'line') {
+      const l: LineOut = {
+        x1: xIndex(p.x1, p.xloc, bars, rt.tf.ms),
+        y1: num(p.y1),
+        x2: xIndex(p.x2, p.xloc, bars, rt.tf.ms),
+        y2: num(p.y2),
+        color: colorOr(p.color, '#2196f3ff') ?? '#00000000',
+        width: Math.max(1, Math.min(10, num(p.width ?? 1) || 1)),
+        style: str(p.style ?? 'solid'),
+        extend: str(p.extend ?? 'none'),
+      };
+      if ([l.x1, l.y1, l.x2, l.y2].every((v) => v === v)) lines.push(l);
+    } else if (d.kind === 'box') {
+      const b: BoxOut = {
+        left: xIndex(p.left, p.xloc, bars, rt.tf.ms),
+        top: num(p.top),
+        right: xIndex(p.right, p.xloc, bars, rt.tf.ms),
+        bottom: num(p.bottom),
+        border: colorOr(p.border_color, '#2196f3ff'),
+        borderWidth: Math.max(0, Math.min(10, num(p.border_width ?? 1))),
+        borderStyle: str(p.border_style ?? 'solid'),
+        bg: colorOr(p.bgcolor, '#2196f333'),
+        extend: str(p.extend ?? 'none'),
+        text: str(p.text),
+        textColor: colorOr(p.text_color, '#d1d4dcff'),
+        textSize: str(p.text_size ?? 'auto'),
+      };
+      if ([b.left, b.top, b.right, b.bottom].every((v) => v === v)) boxes.push(b);
+    }
+  }
+  return { lines: lines.slice(-500), boxes: boxes.slice(-500) };
 }
 
 function labelsOf(rt: Rt, bars: BarData): ShapeOut[] {
@@ -245,6 +321,7 @@ export function runOnBars(input: BarsRun): RunResult {
   const sym = SYMBOL_MAP[input.symbol];
   const meta = symbolMeta(sym);
   const rt = new Rt(bars, meta, tf, input.inputs ?? {});
+  rt.tradingDay = tradingDayOf(input.symbol);
   rt.deadline = t0 + (input.timeLimitMs ?? 90_000);
   const quoteUsd = input.quoteUsd ?? 1;
   const conv = meta.currency === 'USD' ? () => 1 : sym.group === 'forex' && sym.id.startsWith('USD') ? (price: number) => 1 / price : () => quoteUsd;
@@ -278,6 +355,8 @@ export function runOnBars(input: BarsRun): RunResult {
     inputs: rt.inputs,
     bars: { time: bars.time, open: bars.open, high: bars.high, low: bars.low, close: bars.close },
     plots: [...rt.plots.values()],
+    fills: [...rt.fills.values()],
+    ...drawingsOf(rt, bars),
     shapes: [...rt.shapes, ...labelsOf(rt, bars)],
     bgcolors: rt.bgcolors,
     barcolors: rt.barcolors,

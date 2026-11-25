@@ -114,16 +114,23 @@ export function bucket(rt: Rt, tf: string, t: number): number {
   const ms = tfMs(tf);
   if (ms <= rt.tf.ms) return t;
   const u = tf.toUpperCase();
+  // days, weeks and months are the market's trading days (a forex day starts at 17:00 New York)
+  const day = (x: number) => (rt.tradingDay ? rt.tradingDay(x) : Math.floor(x / 86_400_000) * 86_400_000);
+  if (u.endsWith('D')) {
+    const n = Number(u.slice(0, -1) || 1);
+    const d = Math.floor(day(t) / 86_400_000);
+    return (d - (d % n)) * 86_400_000;
+  }
   if (u.endsWith('M') && !u.endsWith('MIN')) {
-    const d = new Date(t);
+    const d = new Date(day(t));
     const n = Number(u.slice(0, -1) || 1);
     const m = d.getUTCFullYear() * 12 + d.getUTCMonth();
     const start = m - (m % n);
     return Date.UTC(Math.floor(start / 12), start % 12, 1);
   }
   if (u.endsWith('W')) {
-    const day = Math.floor(t / 86_400_000);
-    const monday = day - ((day + 3) % 7);
+    const d = Math.floor(day(t) / 86_400_000);
+    const monday = d - ((d + 3) % 7);
     return monday * 86_400_000;
   }
   return Math.floor(t / ms) * ms;

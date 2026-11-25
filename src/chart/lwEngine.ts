@@ -203,6 +203,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
         },
         context: () => ({ symbol: state.symbol, tf: state.timeframe, cursor: state.cursor }),
       },
+      futureTimes: () => future,
     },
     layout.indicators,
   );

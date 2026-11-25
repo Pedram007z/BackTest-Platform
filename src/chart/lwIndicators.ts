@@ -17,6 +17,8 @@ import {
 } from 'lightweight-charts';
 import type { Candle, Timeframe } from '../lib/market';
 import { runOnChart } from '../pine/chart';
+import { LIBRARY_MAP } from '../pine/library';
+import { PineDrawings, drawModel, emptyDrawModel, hideGapJoins, markerLook } from './pineDraw';
 import type { InputDef, ShapeOut } from '../pine/core';
 import type { RunOk } from '../pine/run';
 import { INDICATOR_MAP, computeIndicator, indicatorTitle, newIndicator, type IndicatorConfig, type IndicatorType } from './indicators';
@@ -38,11 +40,13 @@ export interface IndicatorApi {
   add(type: IndicatorType): string;
   /** adds one of the user's Pine scripts; returns the new indicator's id */
   addPine(scriptId: string): string;
+  /** adds one of the ready-made Pine indicators (src/pine/library) */
+  addBuiltin(id: string): string;
   update(cfg: IndicatorConfig): void;
   remove(id: string): void;
   subscribe(fn: () => void): () => void;
   /** a Pine indicator's last run: its title, inputs and error */
-  pineInfo(id: string): { title: string; inputs: InputDef[]; error: string | null } | null;
+  pineInfo(id: string): { title: string; inputs: InputDef[]; error: string | null; builtin: string | null } | null;
 }
 
 export interface PineHost {
@@ -68,6 +72,8 @@ export interface IndicatorHost {
   onChange(list: IndicatorConfig[]): void;
   onSettings(id: string): void;
   pine?: PineHost;
+  /** times (seconds) of the bars after the last one, for plots moved forward (Ichimoku's cloud) */
+  futureTimes?(): number[];
 }
 
 export interface IndicatorLayer extends IndicatorApi {
@@ -95,6 +101,9 @@ interface PineState {
   markers: ISeriesMarkersPluginApi<Time> | null;
   /** its horizontal lines, and the series they are on */
   lines: { on: ISeriesApi<SeriesType>; line: IPriceLine }[];
+  /** fills, line.new and box.new, drawn on `drawOn` */
+  draw: PineDrawings | null;
+  drawOn: ISeriesApi<SeriesType> | null;
 }
 
 interface Live {
@@ -165,12 +174,26 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
   }
 
   // ---------- Pine indicators ----------
-  const newPine = (): PineState => ({ title: 'Pine', overlay: true, error: null, inputs: [], result: null, key: '', sig: '', plots: [], markers: null, lines: [] });
+  const newPine = (): PineState => ({
+    title: 'Pine',
+    overlay: true,
+    error: null,
+    inputs: [],
+    result: null,
+    key: '',
+    sig: '',
+    plots: [],
+    markers: null,
+    lines: [],
+    draw: null,
+    drawOn: null,
+  });
 
   /** Run the script over the candles shown (skipped when nothing it depends on changed). */
   function runPine(l: Live) {
     const st = (l.pine ??= newPine());
-    const script = host.pine?.script(l.cfg.pine?.script ?? '');
+    const lib = l.cfg.pine?.builtin ? LIBRARY_MAP[l.cfg.pine.builtin] : undefined;
+    const script = lib ? { name: lib.nameFa, code: lib.code } : host.pine?.script(l.cfg.pine?.script ?? '');
     if (!script || !host.pine) {
       st.error = 'این اسکریپت حذف شده است.';
       st.result = null;
@@ -208,7 +231,8 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
   const pineSig = (l: Live) => {
     const r = l.pine?.result;
     if (!r) return 'none';
-    return [isOverlay(l), ...r.plots.filter((p) => p.display).map((p) => `${p.id}:${p.kind}:${p.style}`), r.bgcolors ? 'bg' : ''].join(',');
+    const draws = r.fills.length || r.lines.length || r.boxes.length ? 'draw' : '';
+    return [isOverlay(l), ...r.plots.filter((p) => p.display).map((p) => `${p.id}:${p.kind}:${p.style}`), r.bgcolors ? 'bg' : '', draws].join(',');
   };
 
   function buildPine(l: Live, pane: number) {
@@ -290,6 +314,17 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
       l.series.set('bg', bg);
     }
     st.markers = createSeriesMarkers(host.series, []);
+    // fills, lines and boxes: on the candles (overlay) or the script's first series in its pane
+    if (r.fills.length || r.lines.length || r.boxes.length) {
+      let on: ISeriesApi<SeriesType> | null = pane === 0 ? host.series : anchor;
+      if (!on) {
+        on = host.chart.addSeries(LineSeries, { ...base, lineVisible: false, lastValueVisible: false }, pane);
+        l.series.set('hline-anchor', on);
+      }
+      st.draw = new PineDrawings();
+      st.drawOn = on;
+      on.attachPrimitive(st.draw);
+    }
   }
 
   function fillPine(l: Live) {
@@ -302,9 +337,11 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
     if (!r) {
       for (const s of l.series.values()) s.setData([]);
       st.markers?.setMarkers([]);
+      st.draw?.set(emptyDrawModel());
       return;
     }
     const n = shown.length;
+    const future = host.futureTimes?.() ?? [];
     for (const plot of r.plots) {
       const key = String(plot.id);
       const s = l.series.get(key);
@@ -312,16 +349,22 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
       const vals = new Array<number>(bars.length).fill(NaN);
       const data: ({ time: UTCTimestamp; value: number; color?: string } | { time: UTCTimestamp })[] = [];
       const gaps = plot.style.endsWith('br') || plot.style === 'histogram' || plot.style === 'columns' || plot.style === 'circles' || plot.style === 'cross';
-      for (let j = 0; j < n; j++) {
+      // a positive offset carries the plot past the last candle (onto the chart's empty future bars)
+      const end = n + Math.min(Math.max(0, plot.offset), future.length);
+      for (let j = 0; j < end; j++) {
         const i = j - plot.offset;
         const v = i >= 0 && i < n ? plot.values[i] : NaN;
-        vals[skip + j] = v;
-        if (v === v) data.push(plot.colors ? { time: times[skip + j], value: v, color: css(plot.colors[i], 'rgba(0,0,0,0)') } : { time: times[skip + j], value: v });
-        else if (gaps) data.push({ time: times[skip + j] });
+        const time = (j < n ? times[skip + j] : future[j - n]) as UTCTimestamp;
+        if (j < n) vals[skip + j] = v;
+        if (v === v) data.push(plot.colors ? { time, value: v, color: css(plot.colors[i], 'rgba(0,0,0,0)') } : { time, value: v });
+        else if (gaps) data.push({ time });
       }
+      if (gaps && plot.style !== 'histogram' && plot.style !== 'columns')
+        hideGapJoins(data as never, plot.style.startsWith('area') ? 'area' : plot.style.startsWith('stepline') ? 'step' : 'line');
       s.setData(data as never);
       l.values[key] = vals;
     }
+    if (st.draw) st.draw.set(l.cfg.hidden ? emptyDrawModel() : drawModel(r, skip));
     const bg = l.series.get('bg');
     if (bg && r.bgcolors)
       bg.setData(
@@ -338,10 +381,11 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
     for (const s of r.shapes.slice(-2000)) {
       if (s.bar < 0 || s.bar >= n) continue;
       const time = times[skip + s.bar];
-      const color = css(s.color, '#2962ff');
+      const look = markerLook(s);
+      const color = css(look.color, '#2962ff');
       const text = (s.kind === 'char' ? s.style + (s.text ? ` ${s.text}` : '') : s.text) || undefined;
       if (s.location === 'absolute' && s.price !== undefined && s.price === s.price)
-        marks.push({ time, position: 'atPriceMiddle', price: s.price, shape: markerShape(s), color, text });
+        marks.push({ time, position: 'atPriceMiddle', price: s.price, shape: markerShape(s), color, text, size: look.size });
       else
         marks.push({
           time,
@@ -349,7 +393,7 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
           shape: markerShape(s),
           color,
           text,
-          size: s.size === 'tiny' ? 0.6 : s.size === 'small' ? 0.8 : 1,
+          size: look.size ?? (s.size === 'tiny' ? 0.6 : s.size === 'small' ? 0.8 : 1),
         });
     }
     marks.sort((a, b) => (a.time as number) - (b.time as number));
@@ -390,6 +434,9 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
 
   function unbuild(l: Live) {
     if (l.pine) {
+      if (l.pine.draw && l.pine.drawOn) l.pine.drawOn.detachPrimitive(l.pine.draw);
+      l.pine.draw = null;
+      l.pine.drawOn = null;
       // a Pine overlay's horizontal lines may sit on the candles
       for (const { on, line } of l.pine.lines) if (on === host.series) on.removePriceLine(line);
       l.pine.lines = [];
@@ -602,6 +649,10 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
       const cfg: IndicatorConfig = { ...newIndicator('pine'), params: {}, colors: {}, pine: { script: scriptId } };
       return insert({ cfg, series: new Map(), values: {} });
     },
+    addBuiltin(id) {
+      const cfg: IndicatorConfig = { ...newIndicator('pine'), params: {}, colors: {}, pine: { builtin: id } };
+      return insert({ cfg, series: new Map(), values: {} });
+    },
     update(cfg) {
       const l = live.find((x) => x.cfg.id === cfg.id);
       if (!l) return;
@@ -632,7 +683,7 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
     pineInfo(id) {
       const l = live.find((x) => x.cfg.id === id);
       if (!l || l.cfg.type !== 'pine') return null;
-      return { title: l.pine?.title ?? 'Pine', inputs: l.pine?.inputs ?? [], error: l.pine?.error ?? null };
+      return { title: l.pine?.title ?? 'Pine', inputs: l.pine?.inputs ?? [], error: l.pine?.error ?? null, builtin: l.cfg.pine?.builtin ?? null };
     },
     setBars(next) {
       bars = next;
@@ -661,7 +712,9 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
     },
   };
 
-  for (const cfg of initial) if (INDICATOR_MAP[cfg.type] && (cfg.type !== 'pine' || cfg.pine?.script)) live.push({ cfg: structuredClone(cfg), series: new Map(), values: {} });
+  for (const cfg of initial)
+    if (INDICATOR_MAP[cfg.type] && (cfg.type !== 'pine' || cfg.pine?.script || (cfg.pine?.builtin && LIBRARY_MAP[cfg.pine.builtin])))
+      live.push({ cfg: structuredClone(cfg), series: new Map(), values: {} });
   for (const l of live) if (l.cfg.type === 'pine') runPine(l);
   for (const l of live) build(l);
   syncSessions();

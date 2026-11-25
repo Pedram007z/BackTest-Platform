@@ -131,9 +131,28 @@ const map = (v: any): PMap => {
 
 // ---------- drawings ----------
 const drawingProps: Record<string, string[]> = {
-  label: ['x', 'y', 'text', 'xloc', 'yloc', 'color', 'style', 'textcolor', 'size', 'textalign', 'tooltip', 'text_font_family'],
-  line: ['x1', 'y1', 'x2', 'y2', 'xloc', 'extend', 'color', 'style', 'width'],
-  box: ['left', 'top', 'right', 'bottom', 'border_color', 'border_width', 'border_style', 'extend', 'xloc', 'bgcolor', 'text'],
+  label: ['x', 'y', 'text', 'xloc', 'yloc', 'color', 'style', 'textcolor', 'size', 'textalign', 'tooltip', 'text_font_family', 'force_overlay'],
+  line: ['x1', 'y1', 'x2', 'y2', 'xloc', 'extend', 'color', 'style', 'width', 'force_overlay'],
+  box: [
+    'left',
+    'top',
+    'right',
+    'bottom',
+    'border_color',
+    'border_width',
+    'border_style',
+    'extend',
+    'xloc',
+    'bgcolor',
+    'text',
+    'text_size',
+    'text_color',
+    'text_halign',
+    'text_valign',
+    'text_wrap',
+    'text_font_family',
+    'force_overlay',
+  ],
   table: ['position', 'columns', 'rows', 'bgcolor', 'frame_color', 'frame_width', 'border_color', 'border_width'],
   linefill: ['line1', 'line2', 'color'],
   polyline: ['points', 'curved', 'closed', 'xloc', 'line_color', 'fill_color', 'line_style', 'line_width'],
@@ -154,7 +173,19 @@ function drawingFns(kind: string): Record<string, Builtin> {
         if (kind === 'label') d.props.bar = rt.bar;
         const list = drawingsOf(rt);
         list.push(d);
-        if (list.length > 2000) list.splice(0, list.length - 1500);
+        // as on TradingView: the oldest ones go once there are more than max_<kind>s_count (50 by default, at most 500)
+        const max = Math.min(500, Math.max(1, int(rt.decl?.args[`max_${kind}s_count`] ?? 50) || 50));
+        let alive = 0;
+        for (let i = list.length - 1; i >= 0; i--) {
+          const x = list[i];
+          if (x.kind !== kind || x.deleted) continue;
+          if (++alive > max) x.deleted = true;
+        }
+        if (list.length > 3000) {
+          const keep = list.filter((x) => !x.deleted);
+          list.length = 0;
+          list.push(...keep);
+        }
         return d;
       },
     },
@@ -167,7 +198,22 @@ function drawingFns(kind: string): Record<string, Builtin> {
     },
     [`${kind}.copy`]: { p: ['id'], f: (_rt, a) => (a[0] instanceof Drawing ? new Drawing(kind, { ...a[0].props }) : NaN) },
   };
-  for (const p of [...props, 'xy', 'point', 'lefttop', 'rightbottom', 'text_color', 'text_size', 'bgcolor', 'first_point', 'second_point']) {
+  for (const p of [
+    ...props,
+    'xy',
+    'xy1',
+    'xy2',
+    'point',
+    'lefttop',
+    'rightbottom',
+    'text_color',
+    'text_size',
+    'text_halign',
+    'text_valign',
+    'bgcolor',
+    'first_point',
+    'second_point',
+  ]) {
     out[`${kind}.set_${p}`] = {
       p: ['id', 'a', 'b'],
       f: (_rt, a) => {
@@ -176,6 +222,9 @@ function drawingFns(kind: string): Record<string, Builtin> {
         if (p === 'xy') {
           d.props.x = a[1];
           d.props.y = a[2];
+        } else if (p === 'xy1' || p === 'xy2') {
+          d.props[`x${p[2]}`] = a[1];
+          d.props[`y${p[2]}`] = a[2];
         } else if (p === 'lefttop') {
           d.props.left = a[1];
           d.props.top = a[2];

@@ -21,6 +21,7 @@ import { PALETTES } from '../../lib/palettes';
 import { tzOffset } from '../../lib/timezone';
 import type { PlotOut, ShapeOut } from '../../pine/core';
 import type { RunOk } from '../../pine/run';
+import { PineDrawings, drawModel, hideGapJoins, markerLook } from '../../chart/pineDraw';
 import { useStore } from '../../store/useStore';
 
 /**
@@ -65,6 +66,7 @@ export function TesterChart({ result, digits, showTrades, height = 440 }: { resu
     const daily = n > 1 && bars.time[1] - bars.time[0] >= 86_400_000 * 0.9;
     const shift = (ms: number) => Math.floor((daily ? ms : ms + tzOffset(ms, tz)) / 1000) as UTCTimestamp;
     const times: UTCTimestamp[] = Array.from(bars.time, shift);
+    const step = n > 1 ? Math.max(1, Math.round((bars.time[n - 1] - bars.time[n - 2]) / 1000)) : 60;
     // a clock change can put two bars on one local time: keep the times rising
     for (let i = 1; i < n; i++) if (times[i] <= times[i - 1]) times[i] = (times[i - 1] + 1) as UTCTimestamp;
 
@@ -136,12 +138,15 @@ export function TesterChart({ result, digits, showTrades, height = 440 }: { resu
       // values moved by the plot's offset; bars without a value are gaps (or skipped, to join the line)
       const points = (gaps: boolean) => {
         const out: ({ time: UTCTimestamp; value: number; color?: string } | { time: UTCTimestamp })[] = [];
-        for (let j = 0; j < n; j++) {
+        // a positive offset carries the plot past the last candle
+        for (let j = 0; j < n + Math.max(0, p.offset); j++) {
           const i = j - p.offset;
           const v = i >= 0 && i < n ? p.values[i] : NaN;
-          if (v === v) out.push(p.colors ? { time: times[j], value: v, color: css(p.colors[i], none) } : { time: times[j], value: v });
-          else if (gaps) out.push({ time: times[j] });
+          const time = j < n ? times[j] : ((times[n - 1] + (j - n + 1) * step) as UTCTimestamp);
+          if (v === v) out.push(p.colors ? { time, value: v, color: css(p.colors[i], none) } : { time, value: v });
+          else if (gaps) out.push({ time });
         }
+        if (gaps && style !== 'histogram' && style !== 'columns') hideGapJoins(out as never, style.startsWith('area') ? 'area' : style.startsWith('stepline') ? 'step' : 'line');
         return out as never;
       };
       let s: ISeriesApi<SeriesType>;
@@ -183,6 +188,14 @@ export function TesterChart({ result, digits, showTrades, height = 440 }: { resu
       if (!firstInPane.has(pane)) firstInPane.set(pane, s);
     }
 
+    // fills, lines and boxes: on the candles (overlay) or the script's first series in its pane
+    if (result.fills.length || result.lines.length || result.boxes.length) {
+      const on = overlay ? candles : (firstInPane.get(1) ?? candles);
+      const draw = new PineDrawings();
+      on.attachPrimitive(draw);
+      draw.set(drawModel(result, 0));
+    }
+
     // background colours: full-height columns behind the pane's own series
     if (result.bgcolors) {
       const bgPane = overlay ? 0 : firstInPane.has(1) ? 1 : 0;
@@ -198,10 +211,11 @@ export function TesterChart({ result, digits, showTrades, height = 440 }: { resu
     const markers: SeriesMarker<Time>[] = [];
     for (const s of result.shapes) {
       if (s.bar < 0 || s.bar >= n) continue;
-      const color = css(s.color, pal.accent);
+      const look = markerLook(s);
+      const color = css(look.color, pal.accent);
       const text = s.kind === 'char' ? s.style + (s.text ? ` ${s.text}` : '') : s.text;
       if (s.location === 'absolute' && s.price !== undefined && s.price === s.price)
-        markers.push({ time: times[s.bar], position: 'atPriceMiddle', price: s.price, shape: shapeOf(s), color, text: text || undefined });
+        markers.push({ time: times[s.bar], position: 'atPriceMiddle', price: s.price, shape: shapeOf(s), color, text: text || undefined, size: look.size });
       else {
         const below = s.location === 'belowbar' || s.location === 'bottom';
         markers.push({
@@ -210,7 +224,7 @@ export function TesterChart({ result, digits, showTrades, height = 440 }: { resu
           shape: shapeOf(s),
           color,
           text: text || undefined,
-          size: s.size === 'tiny' ? 0.6 : s.size === 'small' ? 0.8 : 1,
+          size: look.size ?? (s.size === 'tiny' ? 0.6 : s.size === 'small' ? 0.8 : 1),
         });
       }
     }

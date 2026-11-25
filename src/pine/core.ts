@@ -97,6 +97,48 @@ export interface PlotOut {
   display: boolean;
 }
 
+/** fill(…) between two plots or two hlines. */
+export interface FillOut {
+  id: number;
+  /** the plot / hline ids it fills between */
+  a: number;
+  b: number;
+  color: string | null;
+  /** per-bar colours when the colour changes with the bars */
+  colors?: (string | null)[];
+  display: boolean;
+}
+
+/** line.new: x in bar indexes (bar_time converted), may lie past the last bar. */
+export interface LineOut {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+  width: number;
+  /** solid | dotted | dashed | arrow_left | arrow_right | arrow_both */
+  style: string;
+  /** none | left | right | both */
+  extend: string;
+}
+
+/** box.new: x in bar indexes. */
+export interface BoxOut {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  border: string | null;
+  borderWidth: number;
+  borderStyle: string;
+  bg: string | null;
+  extend: string;
+  text: string;
+  textColor: string | null;
+  textSize: string;
+}
+
 export interface ShapeOut {
   bar: number;
   kind: 'shape' | 'char' | 'arrow' | 'label';
@@ -145,6 +187,7 @@ export class Rt {
   inputValues: Record<string, unknown>;
   inputSeen = new Map<number, InputDef>();
   plots = new Map<number, PlotOut>();
+  fills = new Map<number, FillOut>();
   shapes: ShapeOut[] = [];
   bgcolors: (string | null)[] | null = null;
   barcolors: (string | null)[] | null = null;
@@ -155,6 +198,8 @@ export class Rt {
   /** derived series (hl2 …) built once */
   derived = new Map<string, Float64Array>();
   /** request.security: runs on other timeframes / symbols */
+  /** the trading day (00:00 UTC of its date) of a time: daily, weekly and monthly periods follow it (17:00 New York for forex) */
+  tradingDay: ((t: number) => number) | null = null;
   security: ((rt: Rt, id: number, symbol: string, tf: string, expr: (rt: Rt) => any, gaps: boolean, lookahead: boolean) => any) | null = null;
   /** true inside a request.security run: strategy calls, plots and inputs do nothing */
   secondary = false;

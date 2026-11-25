@@ -323,8 +323,8 @@ export interface IndicatorConfig {
   /** plot key → color */
   colors: Record<string, string>;
   hidden?: boolean;
-  /** type 'pine': the script (by id, in the store) and the values the user gave its inputs */
-  pine?: { script: string; inputs?: Record<string, unknown> };
+  /** type 'pine': the user's script (by id, in the store) or a ready-made one (src/pine/library), and the values the user gave its inputs */
+  pine?: { script?: string; builtin?: string; inputs?: Record<string, unknown> };
 }
 
 export function newIndicator(type: IndicatorType): IndicatorConfig {

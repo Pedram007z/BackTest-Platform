@@ -1,8 +1,9 @@
 import clsx from 'clsx';
-import { CircleAlert, Code2, FilePlus2, Plus, RotateCcw } from 'lucide-react';
+import { CircleAlert, Code2, Copy, FilePlus2, Plus, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { IndicatorApi } from '../../chart/lwIndicators';
 import { compileSource } from '../../pine/compile';
+import { LIBRARY_MAP } from '../../pine/library';
 import { PineError } from '../../pine/lexer';
 import { toast, useStore } from '../../store/useStore';
 import { Link } from '../ui/AppLink';
@@ -213,7 +214,7 @@ export function PineIndicatorSettings({ api, id, onClose }: { api: IndicatorApi;
               type="button"
               className="btn-primary"
               onClick={() => {
-                api.update({ ...cfg, pine: { script: scriptId, inputs: values } });
+                api.update({ ...cfg, pine: { ...cfg.pine, inputs: values } });
                 onClose();
               }}
             >
@@ -241,9 +242,24 @@ export function PineIndicatorSettings({ api, id, onClose }: { api: IndicatorApi;
         ) : (
           <p className="text-sm text-muted">این اندیکاتور ورودی (input) ندارد.</p>
         )}
-        <button type="button" className="btn-soft mt-5 w-full" onClick={() => setCoding(true)} disabled={!useStore.getState().scripts.some((s) => s.id === scriptId)}>
-          <Code2 size={15} /> ویرایش کد اندیکاتور
-        </button>
+        {info.builtin ? (
+          <button
+            type="button"
+            className="btn-soft mt-5 w-full"
+            onClick={() => {
+              const lib = LIBRARY_MAP[info.builtin!];
+              if (!lib) return;
+              useStore.getState().addScript({ name: `${lib.nameFa} (کپی)`, code: lib.code });
+              toast('کد این اندیکاتور در «اندیکاتورهای من» کپی شد؛ آنجا یا در صفحه‌ی تست خودکار ویرایشش کنید.');
+            }}
+          >
+            <Copy size={15} /> کپی کد در اسکریپت‌های من (برای ویرایش)
+          </button>
+        ) : (
+          <button type="button" className="btn-soft mt-5 w-full" onClick={() => setCoding(true)} disabled={!useStore.getState().scripts.some((s) => s.id === scriptId)}>
+            <Code2 size={15} /> ویرایش کد اندیکاتور
+          </button>
+        )}
       </Modal>
       {coding && (
         <PineCodeModal

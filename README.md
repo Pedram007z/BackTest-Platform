@@ -109,8 +109,8 @@ and `src/components/tester/`; tests in `server/test/pine.test.ts`.
   (shown in the settings dialog), `plot` / `plotshape` / `plotchar` / `plotarrow` / `hline` / `bgcolor` / `barcolor`,
   `label.new`, `log.*`, and `request.security` on higher (or lower) timeframes and other symbols of the site, without
   look-ahead unless `barmerge.lookahead_on`. Version 4 names (`sma()`, `security()`, `study()`, `when =`) are accepted.
-  Not supported: `import`, other `request.*`, drawing `line` / `box` / `table` on the chart (they run, only labels are
-  shown). The data has no volume: `volume` and volume-based functions are na.
+  `line.new`, `box.new` and `fill()` are drawn (see **Drawing** below). Not supported: `import`, other `request.*`,
+  drawing `table` (it runs, nothing is shown). The data has no volume: `volume` and volume-based functions are na.
 - **Broker emulator** (`broker.ts`, `report.ts`), as TradingView's Strategy Tester by default: the script runs at each
   bar's close; market orders fill at the next bar's open (with `process_orders_on_close`, at the close); inside a bar
   price goes open → nearer extreme → other extreme → close, or through the bar's 5-minute bars with the **bar
@@ -138,6 +138,23 @@ and `src/components/tester/`; tests in `server/test/pine.test.ts`.
   this way shows only its plots. Code: `src/pine/chart.ts`, `src/chart/lwIndicators.ts`,
   `src/components/replay/PineIndicator.tsx`; tests in `server/test/pine-chart.test.ts`. The TradingView library chart
   keeps its own indicators.
+- **Ready-made indicators** (`src/pine/library/`): 52 indicators written in Pine Script, listed by group in the chart's
+  Indicators dialog after the basic ones, searchable in Persian or English, each with its inputs in the settings window
+  (and «کپی کد در اسکریپت‌های من» to change one). Trend: MA ribbon, WMA, HMA, DEMA, TEMA, ALMA, KAMA, Ichimoku,
+  Supertrend, Parabolic SAR, Keltner, linear regression channel, envelope, ADX/DMI, Aroon. Momentum: Stochastic RSI,
+  CCI, Williams %R, momentum, ROC, Awesome Oscillator, TSI, Ultimate Oscillator, Fisher, TRIX, RSI and MACD divergences.
+  Volatility: Squeeze Momentum, Bollinger %B and bandwidth, Chandelier Exit, ADR, ATR bands, historical volatility,
+  standard deviation. Levels: pivot points (traditional, Fibonacci, Woodie, Camarilla; daily, weekly, monthly),
+  previous day / week / month high and low, daily / weekly / New York midnight opens, ZigZag, fractals, automatic
+  support / resistance, automatic Fibonacci, round numbers, period separators. Smart money / ICT: fair value gaps,
+  order blocks, BOS / CHoCH, equal highs / lows, premium / discount, ICT killzones, opening range, candlestick patterns.
+  Volume-based ones are left out (the data has no volume). Daily, weekly and monthly periods (`timeframe.change`,
+  `time`) follow the market's trading day: 17:00 New York for forex, metals, energy and indices. Tests:
+  `server/test/pine-library.test.ts` runs every one in the tester and on a replay chart.
+- **Drawing**: `fill()` between plots or hlines, `line.new` and `box.new` (with their setters; as on TradingView only the
+  newest `max_lines_count` / `max_boxes_count` / `max_labels_count` stay, 50 by default) are drawn by a series primitive
+  (`src/chart/pineDraw.ts`) on the tester chart and the replay chart, under the candles for fills and boxes; plots moved
+  forward (Ichimoku's cloud) reach into the chart's empty future bars; `linebr` plots break at na values.
 - **Scripts** are the account's data (`scripts` in the store and in `services/workspace`), synced to the server and
   the user's other devices like strategies, with their input values and properties. Templates: `src/pine/samples.ts`.
 - **The auto-test add-on**: writing scripts and running indicators is open to every account; a strategy's results

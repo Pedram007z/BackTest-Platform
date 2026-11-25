@@ -36,6 +36,7 @@ import { DrawingSettings } from './DrawingSettings';
 import { ColorButton, DASHES, DashIcon, FloatingPanel } from './drawingControls';
 import { useFavBar, useFavTools } from './FavoritesBar';
 import { PineIndicatorSettings, PineScriptsSection } from './PineIndicator';
+import { LIBRARY_GROUPS } from '../../pine/library';
 import { SessionsSettings } from './SessionsSettings';
 import { ToolIcon } from './drawingIcons';
 
@@ -510,47 +511,83 @@ export function SelectedDrawingBar({ api }: { api: DrawingApi }) {
 }
 
 // ---------- indicators ----------
+function IndicatorRow({ name, nameFa, overlay, onPick }: { name: string; nameFa: string; overlay: boolean; onPick: () => void }) {
+  return (
+    <li>
+      <button type="button" onClick={onPick} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-start hover:bg-raised">
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{nameFa}</span>
+          <span className="block text-[12px] text-faint" dir="ltr" style={{ textAlign: 'right' }}>
+            {name}
+          </span>
+        </span>
+        <span className={clsx('shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold', overlay ? 'bg-accent/10 text-accent-ink' : 'bg-raised text-muted')}>
+          {overlay ? 'روی چارت' : 'پنل جدا'}
+        </span>
+      </button>
+    </li>
+  );
+}
+
 export function IndicatorsDialog({ api, open, onClose, onAdded }: { api: IndicatorApi; open: boolean; onClose: () => void; onAdded?: (id: string, type: IndicatorType) => void }) {
   const [q, setQ] = useState('');
   useEffect(() => {
     if (open) setQ('');
   }, [open]);
-  const list = INDICATORS.filter((d) => !q.trim() || `${d.name} ${d.nameFa} ${d.short}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const query = q.trim().toLowerCase();
+  const match = (...words: string[]) => !query || words.join(' ').toLowerCase().includes(query);
+  const basics = INDICATORS.filter((d) => match(d.name, d.nameFa, d.short));
+  const groups = LIBRARY_GROUPS.map((g) => ({ ...g, items: g.items.filter((x) => match(x.name, x.nameFa, x.id)) })).filter((g) => g.items.length);
   return (
-    <Modal open={open} onClose={onClose} title="اندیکاتورها" size="sm">
+    <Modal open={open} onClose={onClose} title="اندیکاتورها" size="md">
       <div className="relative mb-3">
         <Search size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faint" />
-        <input id="indicator-search" className="field pr-9" placeholder="جست‌وجو: RSI، میانگین، بولینگر…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input id="indicator-search" className="field pr-9" placeholder="جست‌وجو: RSI، ایچیموکو، FVG، پیوت…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <PineScriptsSection api={api} query={q} onAdded={onClose} />
-      <h3 className="mb-1.5 px-1 text-[12px] font-bold text-muted">اندیکاتورهای آماده</h3>
-      <ul className="flex flex-col gap-0.5">
-        {list.map((d) => (
-          <li key={d.type}>
-            <button
-              type="button"
-              onClick={() => {
-                const id = api.add(d.type);
-                toast(`${d.nameFa} اضافه شد`);
-                onClose();
-                onAdded?.(id, d.type);
-              }}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-start hover:bg-raised"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">{d.nameFa}</span>
-                <span className="block text-[12px] text-faint" dir="ltr" style={{ textAlign: 'right' }}>
-                  {d.name}
-                </span>
-              </span>
-              <span className={clsx('rounded-md px-1.5 py-0.5 text-[11px] font-semibold', d.overlay ? 'bg-accent/10 text-accent-ink' : 'bg-raised text-muted')}>
-                {d.overlay ? 'روی چارت' : 'پنل جدا'}
-              </span>
-            </button>
-          </li>
-        ))}
-        {!list.length && <li className="py-6 text-center text-sm text-muted">اندیکاتوری با این نام نیست.</li>}
-      </ul>
+      {basics.length > 0 && (
+        <section className="mb-3">
+          <h3 className="mb-1.5 px-1 text-[12px] font-bold text-muted">پایه</h3>
+          <ul className="flex flex-col gap-0.5">
+            {basics.map((d) => (
+              <IndicatorRow
+                key={d.type}
+                name={d.name}
+                nameFa={d.nameFa}
+                overlay={d.overlay}
+                onPick={() => {
+                  const id = api.add(d.type);
+                  toast(`${d.nameFa} اضافه شد`);
+                  onClose();
+                  onAdded?.(id, d.type);
+                }}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+      {groups.map((g) => (
+        <section key={g.id} className="mb-3">
+          <h3 className="mb-1.5 px-1 text-[12px] font-bold text-muted">{g.label}</h3>
+          <ul className="flex flex-col gap-0.5">
+            {g.items.map((x) => (
+              <IndicatorRow
+                key={x.id}
+                name={x.name}
+                nameFa={x.nameFa}
+                overlay={x.overlay}
+                onPick={() => {
+                  const id = api.addBuiltin(x.id);
+                  toast(`${x.nameFa} اضافه شد`);
+                  onClose();
+                  onAdded?.(id, 'pine');
+                }}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+      {!basics.length && !groups.length && <p className="py-6 text-center text-sm text-muted">اندیکاتوری با این نام نیست.</p>}
     </Modal>
   );
 }
