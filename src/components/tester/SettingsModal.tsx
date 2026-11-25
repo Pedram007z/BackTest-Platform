@@ -31,7 +31,7 @@ const numberOr = (s: string, d: number) => {
   return Number.isFinite(n) ? n : d;
 };
 
-function InputField({ def, value, onChange }: { def: InputDef; value: unknown; onChange: (v: unknown) => void }) {
+export function InputField({ def, value, onChange }: { def: InputDef; value: unknown; onChange: (v: unknown) => void }) {
   const id = `in-${def.key}`;
   const v = value === undefined ? def.defval : value;
   if (def.type === 'bool') return <Toggle id={id} checked={v === true} onChange={onChange} label={def.title || def.key} />;

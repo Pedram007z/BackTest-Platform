@@ -28,6 +28,7 @@ import { ensureFine, ensureRange, fineKindOf } from '../services/marketFeed';
 import { readLwLayout, writeLwLayout } from './drawings';
 import { createDrawingLayer } from './lwDrawings';
 import { createIndicatorLayer } from './lwIndicators';
+import { useStore } from '../store/useStore';
 import { defaultChartStyle, isLightColor, withOpacity } from './style';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState, PickOptions } from './types';
 
@@ -194,9 +195,21 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
         writeLwLayout(state.layoutKey, layout);
       },
       onSettings: (id) => cb.onIndicatorSettings?.(id),
+      // the user's Pine scripts (the strategy tester's), run on the candles the replay has shown
+      pine: {
+        script: (id) => {
+          const s = useStore.getState().scripts.find((x) => x.id === id);
+          return s ? { name: s.name, code: s.code } : null;
+        },
+        context: () => ({ symbol: state.symbol, tf: state.timeframe, cursor: state.cursor }),
+      },
     },
     layout.indicators,
   );
+  // a script edited (here, in the tester or on another device): its indicators run again
+  const unsubscribeScripts = useStore.subscribe((s, p) => {
+    if (s.scripts !== p.scripts) indicators.refreshPine();
+  });
   const nav = createNavButtons({
     container,
     paneBox: () => plotBox(),
@@ -1035,6 +1048,7 @@ export function createLwEngine(container: HTMLElement, initial: EngineState, cb:
       container.removeEventListener('pointerdown', activate);
       nav.destroy();
       drawings.destroy();
+      unsubscribeScripts();
       indicators.destroy();
       chart.remove();
       container.replaceChildren();

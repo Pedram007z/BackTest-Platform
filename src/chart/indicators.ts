@@ -148,7 +148,8 @@ export function atr(bars: OhlcBar[], length: number): number[] {
 }
 
 // ---------- catalog ----------
-export type IndicatorType = 'sma' | 'ema' | 'bb' | 'donchian' | 'rsi' | 'macd' | 'stoch' | 'atr' | 'sessions';
+/** `pine`: one of the user's Pine scripts (src/pine/chart.ts), its plots known only once it runs */
+export type IndicatorType = 'sma' | 'ema' | 'bb' | 'donchian' | 'rsi' | 'macd' | 'stoch' | 'atr' | 'sessions' | 'pine';
 
 export interface IndicatorParam {
   key: string;
@@ -309,7 +310,10 @@ export const INDICATORS: IndicatorDef[] = [
   },
 ];
 
-export const INDICATOR_MAP = Object.fromEntries(INDICATORS.map((d) => [d.type, d])) as Record<IndicatorType, IndicatorDef>;
+/** The user's Pine scripts: not in the catalog (the dialog lists the scripts themselves). */
+const PINE_DEF: IndicatorDef = { type: 'pine', short: 'Pine', name: 'Pine Script', nameFa: 'اندیکاتور Pine Script', overlay: true, params: [], defaults: {}, plots: [] };
+
+export const INDICATOR_MAP = Object.fromEntries([...INDICATORS, PINE_DEF].map((d) => [d.type, d])) as Record<IndicatorType, IndicatorDef>;
 
 /** An indicator added to a chart pane. */
 export interface IndicatorConfig {
@@ -319,6 +323,8 @@ export interface IndicatorConfig {
   /** plot key → color */
   colors: Record<string, string>;
   hidden?: boolean;
+  /** type 'pine': the script (by id, in the store) and the values the user gave its inputs */
+  pine?: { script: string; inputs?: Record<string, unknown> };
 }
 
 export function newIndicator(type: IndicatorType): IndicatorConfig {
@@ -357,6 +363,7 @@ export function computeIndicator(cfg: IndicatorConfig, bars: OhlcBar[]): Record<
     case 'atr':
       return { value: atr(bars, L('length')) };
     case 'sessions':
+    case 'pine':
       return {};
   }
 }

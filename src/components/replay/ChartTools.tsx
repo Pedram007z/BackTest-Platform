@@ -35,6 +35,7 @@ import { Select } from '../ui/controls';
 import { DrawingSettings } from './DrawingSettings';
 import { ColorButton, DASHES, DashIcon, FloatingPanel } from './drawingControls';
 import { useFavBar, useFavTools } from './FavoritesBar';
+import { PineIndicatorSettings, PineScriptsSection } from './PineIndicator';
 import { SessionsSettings } from './SessionsSettings';
 import { ToolIcon } from './drawingIcons';
 
@@ -521,6 +522,8 @@ export function IndicatorsDialog({ api, open, onClose, onAdded }: { api: Indicat
         <Search size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-faint" />
         <input id="indicator-search" className="field pr-9" placeholder="جست‌وجو: RSI، میانگین، بولینگر…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
+      <PineScriptsSection api={api} query={q} onAdded={onClose} />
+      <h3 className="mb-1.5 px-1 text-[12px] font-bold text-muted">اندیکاتورهای آماده</h3>
       <ul className="flex flex-col gap-0.5">
         {list.map((d) => (
           <li key={d.type}>
@@ -557,6 +560,7 @@ export function IndicatorSettings({ api, id, onClose }: { api: IndicatorApi; id:
   const [d, setD] = useState<IndicatorConfig | null>(cfg ? structuredClone(cfg) : null);
   if (!cfg || !d) return null;
   if (cfg.type === 'sessions') return <SessionsSettings api={api} cfg={cfg} onClose={onClose} />;
+  if (cfg.type === 'pine') return <PineIndicatorSettings api={api} id={id} onClose={onClose} />;
   const def = INDICATOR_MAP[d.type];
   const setParam = (k: string, v: number | string) => setD({ ...d, params: { ...d.params, [k]: v } });
   const valid = def.params.every(

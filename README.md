@@ -60,7 +60,7 @@ single-file preview build (`npm run build:artifact`) keeps routing in memory.
 | `/support` | پشتیبانی | Tickets with replies from the admins |
 | `/k/<key>` | ورود به پنل مدیریت | The admin sign-in page (username and password) at a secret address: the key is `ADMIN_LOGIN_KEY` on the server (make-admin.sh sets it), checked by the server before the page shows. Any other key, `/admin` while signed out, and the old `/admin/login` lead to the home page |
 | `/admin/*` | پنل مدیریت | Overview, users (search, change a user's mobile number, ban, plan changes, admin role, last IP), users' backtests (each user's sessions, analytics, equity curve, open positions, pending orders and closed trades with entry and exit prices and times; delete a session), sign-ins and sign-outs with IP address and device (sign a user out of one device or all), announcements (a popup with a picture or video on the website and/or the dashboard), blog (posts in Markdown with a toolbar and preview, cover picture, address, search-result title and description, tags, scheduled publishing, an SEO checklist), plans, transactions and refunds, discount codes (optionally for a customer's first purchase only), gateways (with connection test), card to card (cards, settings, confirming transfers), SMS (provider, test, bulk messages, log), tickets, economic calendar sync, symbols and market data sources, site settings, audit log |
-| `/replay/:id` | Chart (Play button) | Candlestick replay with play/pause, step, speed and a skip-a-day button; step back and rewind to a candle picked on the chart (never before the session's start, see **Rewind**); 1s–1D timeframes; Buy/Sell opens a long or short position tool whose entry, stop (SL) and target (TP) lines are dragged on the chart (risk %, lots and R:R follow); SL/TP filled automatically as candles advance; a session checklist must have its required items ticked before an order goes through. Drawing tools on the chart's left side and indicators come from TradingView when its library is installed, otherwise from the built-in chart (below) |
+| `/replay/:id` | Chart (Play button) | Candlestick replay with play/pause, step, speed and a skip-a-day button; step back and rewind to a candle picked on the chart (never before the session's start, see **Rewind**); 1s–1D timeframes; Buy/Sell opens a long or short position tool whose entry, stop (SL) and target (TP) lines are dragged on the chart (risk %, lots and R:R follow); SL/TP filled automatically as candles advance; a session checklist must have its required items ticked before an order goes through. Drawing tools on the chart's left side and indicators come from TradingView when its library is installed, otherwise from the built-in chart (below), which also runs the user's own Pine Script indicators |
 
 ### Session row
 The Play button opens the chart. The chevron expands a summary: an equity curve, monthly performance for the last 3 months (USD) and daily performance for the last 6 days.
@@ -127,6 +127,17 @@ and `src/components/tester/`; tests in `server/test/pine.test.ts`.
   page where a worker cannot start). Ranges are capped per timeframe (3 months on 5-minute charts up to 10 years on
   daily). The strategy tester's properties (capital, order size, commission, slippage, pyramiding, bar magnifier,
   orders on close) override `strategy(…)`.
+- **On the replay chart** (the built-in chart): the Indicators dialog lists the user's scripts under «اندیکاتورهای من
+  (Pine Script)», and «اندیکاتور جدید با کد» opens an editor to write or paste one, saved to the scripts and added to the
+  chart. A Pine indicator (`IndicatorConfig.type: 'pine'`, the script's id and input values, kept with the chart's
+  layout) runs over the candles the replay has shown (the last 5,000 at most) and again at every step, so it never sees
+  later candles; `request.security` reads the chart symbol's other timeframes up to the replay position. Its plots
+  (line, step, histogram, area, circles), horizontal lines, background colours and shapes are drawn in the candles' pane
+  (`overlay = true`) or a pane of its own, with a legend row (values at the crosshair, hide, settings, remove); the
+  settings window edits its inputs and its code, and an edited script redraws everywhere it is used. A strategy added
+  this way shows only its plots. Code: `src/pine/chart.ts`, `src/chart/lwIndicators.ts`,
+  `src/components/replay/PineIndicator.tsx`; tests in `server/test/pine-chart.test.ts`. The TradingView library chart
+  keeps its own indicators.
 - **Scripts** are the account's data (`scripts` in the store and in `services/workspace`), synced to the server and
   the user's other devices like strategies, with their input values and properties. Templates: `src/pine/samples.ts`.
 - **The auto-test add-on**: writing scripts and running indicators is open to every account; a strategy's results

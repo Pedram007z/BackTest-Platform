@@ -1,8 +1,8 @@
 import { SYMBOL_MAP } from '../lib/market';
 import { aggregate, resolveSymbol, symbolMeta, tfMeta, type BaseBars } from './bars';
-import { Broker, type BrokerSettings, type ClosedTrade, type Fill, type OpenTrade } from './broker';
+import { Broker, type BrokerSettings, type ClosedTrade, type Fill, type OpenTrade, type SubBars } from './broker';
 import { compileSource, type Compiled, type SecurityCall } from './compile';
-import { type BarData, type InputDef, type LogLine, type PlotOut, Rt, type ScriptDecl, type ShapeOut, type SymbolMeta, num, str } from './core';
+import { type BarData, type InputDef, type LogLine, type PlotOut, Rt, type ScriptDecl, type ShapeOut, type SymbolMeta, type TimeframeMeta, num, str } from './core';
 import { PineError } from './lexer';
 import { buildReport, type Report } from './report';
 
@@ -102,8 +102,18 @@ const lowerBound = (a: Float64Array, v: number) => {
   return lo;
 };
 
+/** The bars of a symbol on a timeframe, for request.security (null: not available). */
+export type BarsProvider = (symbolId: string, tf: TimeframeMeta) => BarData | null;
+
+interface SecurityContext {
+  symbol: string;
+  timeframe: string;
+  inputs?: Record<string, unknown>;
+  provider: BarsProvider;
+}
+
 /** request.security: runs the script again on the other timeframe / symbol and maps its values onto the chart's bars. */
-function securityHandler(compiled: Compiled, input: RunInput, mainBars: BarData) {
+function securityHandler(compiled: Compiled, input: SecurityContext, mainBars: BarData) {
   const runs = new Map<string, { bars: BarData; rec: Map<number, any[]> }>();
   const mapped = new Map<string, any[]>();
   const keyOf = (sym: string, tf: string) => `${sym}|${tf}`;
@@ -112,10 +122,9 @@ function securityHandler(compiled: Compiled, input: RunInput, mainBars: BarData)
     const key = keyOf(symId, tf);
     let run = runs.get(key);
     if (run) return run;
-    const base = symId === input.symbol ? input.base : input.extra?.[symId];
-    if (!base) throw new PineError(`داده‌ی نماد ${symId} برای request.security بارگذاری نشده است.`);
     const meta = tfMeta(tf);
-    const { bars } = aggregate(base, SYMBOL_MAP[symId], meta);
+    const bars = input.provider(symId, meta);
+    if (!bars) throw new PineError(`داده‌ی نماد ${symId} برای request.security بارگذاری نشده است.`);
     const rt2 = new Rt(bars, symMeta, meta, input.inputs);
     rt2.secondary = true;
     const rec = new Map<number, any[]>();
@@ -196,20 +205,45 @@ export function runPine(input: RunInput): RunResult {
   const sym = SYMBOL_MAP[input.symbol];
   if (!sym) return { ok: false, error: { message: `نماد ${input.symbol} شناخته نشد.`, line: 0, col: 0 }, inputs: [], logs: [] };
   let compiled: Compiled;
+  let tf: TimeframeMeta;
   try {
     compiled = compileSource(input.code);
-  } catch (e) {
-    return { ok: false, error: errorInfo(e), inputs: [], logs: [] };
-  }
-  const meta = symbolMeta(sym);
-  let tf;
-  try {
     tf = tfMeta(input.timeframe);
   } catch (e) {
     return { ok: false, error: errorInfo(e), inputs: [], logs: [] };
   }
   const { bars, sub } = aggregate(input.base, sym, tf);
   if (!bars.close.length) return { ok: false, error: { message: 'در این بازه‌ی زمانی داده‌ای برای این نماد نیست.', line: 0, col: 0 }, inputs: [], logs: [] };
+  const provider: BarsProvider = (symId, meta) => {
+    const base = symId === input.symbol ? input.base : input.extra?.[symId];
+    return base ? aggregate(base, SYMBOL_MAP[symId], meta).bars : null;
+  };
+  return runOnBars({ ...input, compiled, bars, sub, tf, provider, t0 });
+}
+
+export interface BarsRun {
+  compiled: Compiled;
+  /** the chart's bars */
+  bars: BarData;
+  /** 5-minute bars inside each bar (the bar magnifier) */
+  sub: SubBars | null;
+  symbol: string;
+  timeframe: string;
+  tf: TimeframeMeta;
+  provider: BarsProvider;
+  inputs?: Record<string, unknown>;
+  settings?: Partial<BrokerSettings>;
+  quoteUsd?: number;
+  timeLimitMs?: number;
+  t0?: number;
+}
+
+/** Runs a compiled script over ready bars (the tester's, or a replay chart's candles). */
+export function runOnBars(input: BarsRun): RunResult {
+  const t0 = input.t0 ?? Date.now();
+  const { compiled, bars, sub, tf } = input;
+  const sym = SYMBOL_MAP[input.symbol];
+  const meta = symbolMeta(sym);
   const rt = new Rt(bars, meta, tf, input.inputs ?? {});
   rt.deadline = t0 + (input.timeLimitMs ?? 90_000);
   const quoteUsd = input.quoteUsd ?? 1;
@@ -217,6 +251,7 @@ export function runPine(input: RunInput): RunResult {
   const broker = new Broker(bars, meta.pointvalue, conv, meta.mintick, sub);
   rt.broker = broker;
   rt.security = securityHandler(compiled, input, bars);
+  if (!rt.n) return { ok: false, error: { message: 'کندلی برای اجرا نیست.', line: 0, col: 0 }, inputs: [], logs: [] };
   let isStrategy = false;
   try {
     for (let i = 0; i < rt.n; i++) {
