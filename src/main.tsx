@@ -1,5 +1,4 @@
 import '@fontsource-variable/vazirmatn';
-import '@fontsource-variable/readex-pro';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
