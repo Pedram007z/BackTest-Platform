@@ -45,7 +45,7 @@ import { currenciesFor, filterNews } from '../lib/news';
 import { saveShot } from '../lib/shots';
 import { layoutsFromServer, pullLayouts } from '../services/layoutSync';
 import { sessionBalance, sessionEndMs, sessionFloating, sessionProgress, sessionRemainingDays } from '../lib/stats';
-import { local } from '../lib/storage';
+import { adoptBrowserChartPrefs } from '../services/legacyPrefs';
 import { dayKeyIn, fmtClock, fmtOffset, tzName } from '../lib/timezone';
 import { TimezoneMenu } from '../components/replay/TimezoneMenu';
 import { ChartSettings } from '../components/replay/ChartSettings';
@@ -131,9 +131,6 @@ function PriceInput({ id, label, value, digits, onChange, tone }: { id: string; 
   );
 }
 
-const ENGINE_KEY = 'backtest:chart-engine';
-const RISK_KEY = 'backtest:risk-pct';
-
 export default function Replay() {
   const { id } = useParams();
   const go = useGo();
@@ -156,7 +153,11 @@ export default function Replay() {
 
   // ---------- chart engine ----------
   const [tv, setTv] = useState<unknown>(null);
-  const [enginePref, setEnginePref] = useState<'auto' | 'lightweight'>(() => (local.getItem(ENGINE_KEY) === 'lightweight' ? 'lightweight' : 'auto'));
+  // the replay chart's options belong to the account (kept on the server): engine, speed, risk, trade history
+  const chartPrefs = useStore((s) => s.chartPrefs);
+  const setChartPrefs = useStore((s) => s.setChartPrefs);
+  useEffect(() => adoptBrowserChartPrefs(), []);
+  const enginePref = chartPrefs.engine === 'lightweight' ? 'lightweight' : 'auto';
   useEffect(() => {
     let alive = true;
     void loadTradingView().then((lib) => {
@@ -228,7 +229,8 @@ export default function Replay() {
 
   // ---------- replay ----------
   const [playing, setPlaying] = useState(false);
-  const [speedIndex, setSpeedIndex] = useState(2);
+  const speedIndex = Math.min(SPEEDS.length - 1, Math.max(0, chartPrefs.speed ?? 2));
+  const setSpeedIndex = (i: number) => setChartPrefs({ speed: i });
   const [stepTf, setStepTf] = useState<Timeframe>(() => panes[0]?.timeframe ?? '15m');
   const trades = useMemo(() => allTrades.filter((t) => t.sessionId === id), [allTrades, id]);
 
@@ -371,18 +373,15 @@ export default function Replay() {
   // ---------- orders ----------
   const [draft, setDraft] = useState<Draft | null>(null);
   const [draftJournal, setDraftJournal] = useState<JournalEntry | null>(null);
-  const [riskPct, setRiskPctState] = useState(() => Math.min(10, Math.max(0.1, Number(local.getItem(RISK_KEY)) || 1)));
-  const setRiskPct = (v: number) => {
-    const r = Math.round(Math.min(10, Math.max(0.1, v)) * 10) / 10;
-    setRiskPctState(r);
-    local.setItem(RISK_KEY, String(r));
-  };
+  const riskPct = Math.min(10, Math.max(0.1, chartPrefs.risk ?? 1));
+  const setRiskPct = (v: number) => setChartPrefs({ risk: Math.round(Math.min(10, Math.max(0.1, v)) * 10) / 10 });
   const [journalFor, setJournalFor] = useState<'draft' | string | null>(null);
   const [closeId, setCloseId] = useState<string | null>(null);
   const [shot, setShot] = useState<string | null>(null);
   const [newsOpen, setNewsOpen] = useState(false);
   const [positionsOpen, setPositionsOpen] = useState(false);
-  const [showHistory, setShowHistory] = useState(true);
+  const showHistory = chartPrefs.history !== false;
+  const setShowHistory = (v: boolean) => setChartPrefs({ history: v });
 
   // the free plan: no journal, analytics or economic calendar (a click asks to upgrade)
   const { free } = usePlan();
@@ -675,9 +674,7 @@ export default function Replay() {
                     type="button"
                     className="flex items-center gap-3 rounded-xl px-3 py-2 text-start text-[12px] text-muted hover:bg-raised"
                     onClick={() => {
-                      const next = enginePref === 'auto' ? 'lightweight' : 'auto';
-                      setEnginePref(next);
-                      local.setItem(ENGINE_KEY, next);
+                      setChartPrefs({ engine: enginePref === 'auto' ? 'lightweight' : 'auto' });
                       close();
                     }}
                   >

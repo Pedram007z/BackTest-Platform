@@ -3,7 +3,9 @@ import type { Candle } from '../lib/market';
 import { drawDrawing, type View } from './draw';
 import { disjointSecond } from './draw/lines';
 import { NS, svgEl } from './draw/kit';
-import { TOOL_SPECS, drawingId, newProps, saveDefault, tfGroupOf, type Drawing, type DrawingType, type Point, type TfGroup, type ToolId } from './drawings';
+import { TOOL_SPECS, drawingId, newProps, rememberStyle, saveDefault, tfGroupOf, type Drawing, type DrawingType, type Point, type TfGroup, type ToolId } from './drawings';
+import { useStore } from '../store/useStore';
+import type { ChartPrefs } from '../services/chartPrefs';
 
 /**
  * Drawing tools for the built-in chart: an SVG layer over the main pane. Points snap to bars
@@ -93,6 +95,9 @@ export interface DrawingLayer extends DrawingApi {
   destroy(): void;
 }
 
+/** A change to one of these is a change of the drawing's look, which its tool remembers. */
+const STYLE_FIELDS = ['color', 'width', 'style', 'levels', 'levels2', 'levels3'] as const;
+
 /** The layer the keyboard (Delete, Ctrl+Z, Escape) acts on: the pane used last. */
 let activeLayer: object | null = null;
 /** Ctrl+C / Ctrl+V between panes */
@@ -139,10 +144,14 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
   const all: Record<string, Drawing[]> = structuredClone(initial);
   let sym = symbol;
   let tool: ToolId = 'cursor';
-  let magnet = false;
-  let stay = false;
-  let locked = false;
-  let hidden = false;
+  // the magnet, "stay in drawing mode", lock all and hide all belong to the account (useStore.chartPrefs,
+  // kept on the server), the same in every pane
+  const prefs = () => useStore.getState().chartPrefs;
+  const setPrefs = (p: Partial<ChartPrefs>) => useStore.getState().setChartPrefs(p);
+  let magnet = prefs().magnet === true;
+  let stay = prefs().stay === true;
+  let locked = prefs().lockAll === true;
+  let hidden = prefs().hideAll === true;
   let selectedId: string | null = null;
   let settingsId: string | null = null;
   let edit: { id: string; before: Drawing; snapshot: string } | null = null;
@@ -925,6 +934,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       creating = null;
       if (t !== 'cursor') {
         selectedId = null;
+        if (hidden) setPrefs({ hideAll: false });
         hidden = false;
       }
       activeLayer = api;
@@ -933,19 +943,23 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
     },
     setMagnet(v) {
       magnet = v;
+      setPrefs({ magnet: v });
       notify();
     },
     setStay(v) {
       stay = v;
+      setPrefs({ stay: v });
       notify();
     },
     setLocked(v) {
       locked = v;
+      setPrefs({ lockAll: v });
       notify();
     },
     setHidden(v) {
       hidden = v;
       if (v) selectedId = null;
+      setPrefs({ hideAll: v });
       render();
       notify();
     },
@@ -991,6 +1005,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       // a field set to undefined is removed
       for (const [k, v] of Object.entries(patch)) if (v === undefined) delete (d as unknown as Record<string, unknown>)[k];
       if (d.id === selectedId && !shown(d)) selectedId = null;
+      if (STYLE_FIELDS.some((k) => k in patch)) rememberStyle(d);
       changed();
     },
     remove(id) {
@@ -1054,6 +1069,7 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       if (now && JSON.stringify(now) !== JSON.stringify(e.before)) {
         remember(e.snapshot);
         if (!shown(now)) selectedId = null;
+        if (STYLE_FIELDS.some((k) => JSON.stringify(now[k]) !== JSON.stringify(e.before[k]))) rememberStyle(now);
         changed();
       } else {
         render();
@@ -1104,8 +1120,21 @@ export function createDrawingLayer(host: DrawingHost, symbol: string, initial: R
       if (activeLayer === api) activeLayer = null;
       svg.remove();
       listeners.clear();
+      stopPrefs();
     },
   };
+  // set in another pane, or arrived from the server
+  const stopPrefs = useStore.subscribe((st, prev) => {
+    if (st.chartPrefs === prev.chartPrefs || destroyed) return;
+    const p = st.chartPrefs;
+    const next = { magnet: p.magnet === true, stay: p.stay === true, locked: p.lockAll === true, hidden: p.hideAll === true };
+    if (next.magnet === magnet && next.stay === stay && next.locked === locked && next.hidden === hidden) return;
+    const redraw = next.hidden !== hidden;
+    ({ magnet, stay, locked, hidden } = next);
+    if (hidden) selectedId = null;
+    if (redraw) render();
+    notify();
+  });
   render();
   return api;
 }

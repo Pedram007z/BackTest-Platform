@@ -1,5 +1,7 @@
 import type { IndicatorConfig } from './indicators';
 import { layoutSaved } from '../services/layoutSync';
+import { useStore } from '../store/useStore';
+import type { DrawDefault } from '../services/chartPrefs';
 
 /**
  * Drawings on the built-in chart. Points are (bar time in UTC seconds, price), so a drawing stays
@@ -1138,36 +1140,41 @@ export function factoryProps(type: DrawingType): DrawingProps {
   return base;
 }
 
-// ---------- the user's own defaults ("Template → save as default") ----------
-const TEMPLATE_PREFIX = 'btl:draw-default:';
+// ---------- the user's own defaults: each tool's style for new drawings ----------
+// Kept with the account (useStore.drawDefaults, on the server), so they stay after signing out and in and
+// are the same on every device. As on TradingView, a drawing's style the user changes becomes its tool's
+// style for the next drawings (rememberStyle); «Template → save as default» does the same at once.
 
 export function savedDefault(type: DrawingType): Partial<DrawingProps> | null {
-  try {
-    const raw = localStorage.getItem(TEMPLATE_PREFIX + type);
-    return raw ? (JSON.parse(raw) as Partial<DrawingProps>) : null;
-  } catch {
-    return null;
-  }
+  return (useStore.getState().drawDefaults[type] as Partial<DrawingProps> | undefined) ?? null;
 }
 
-export function saveDefault(d: Drawing) {
-  const t: DrawingProps = { color: d.color, width: d.width, style: d.style ?? {} };
-  if (d.levels) t.levels = d.levels;
-  if (d.levels2) t.levels2 = d.levels2;
-  if (d.levels3) t.levels3 = d.levels3;
-  try {
-    localStorage.setItem(TEMPLATE_PREFIX + d.type, JSON.stringify(t));
-  } catch {
-    /* storage blocked */
-  }
+function templateOf(d: Drawing, auto: boolean): DrawDefault {
+  const style = { ...(d.style ?? {}) };
+  // a fixed Gann square's price per bar belongs to the chart it was drawn on
+  if (auto) delete style.scale;
+  const t: DrawDefault = { color: d.color, width: d.width, style };
+  if (d.levels) t.levels = structuredClone(d.levels);
+  if (d.levels2) t.levels2 = structuredClone(d.levels2);
+  if (d.levels3) t.levels3 = structuredClone(d.levels3);
+  return t;
+}
+
+export function saveDefault(d: Drawing, auto = false) {
+  const t = templateOf(d, auto);
+  const s = useStore.getState();
+  if (JSON.stringify(s.drawDefaults[d.type]) === JSON.stringify(t)) return;
+  s.setDrawDefault(d.type, t);
+}
+
+/** A drawing's style was changed: the next drawings of its tool look the same (as on TradingView). */
+export function rememberStyle(d: Drawing) {
+  if (d.type === 'measure') return;
+  saveDefault(d, true);
 }
 
 export function clearDefault(type: DrawingType) {
-  try {
-    localStorage.removeItem(TEMPLATE_PREFIX + type);
-  } catch {
-    /* storage blocked */
-  }
+  useStore.getState().setDrawDefault(type, null);
 }
 
 /** Settings for a new drawing: the factory settings with the user's saved default on top. */

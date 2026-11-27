@@ -76,6 +76,10 @@ function readLocal(): WorkspaceData {
       chartStyle: s.chartStyle,
       favTools: s.favTools,
       tvFavorites: s.tvFavorites,
+      tvSettings: s.tvSettings,
+      drawDefaults: s.drawDefaults,
+      indicatorDefaults: s.indicatorDefaults,
+      chartPrefs: s.chartPrefs,
     },
   };
 }
@@ -96,6 +100,10 @@ function writeLocal(d: WorkspaceData, base: WorkspaceBase) {
     chartStyle: d.prefs.chartStyle ?? s.chartStyle,
     favTools: d.prefs.favTools ?? s.favTools,
     tvFavorites: d.prefs.tvFavorites ?? s.tvFavorites,
+    tvSettings: d.prefs.tvSettings ?? s.tvSettings,
+    drawDefaults: d.prefs.drawDefaults ?? s.drawDefaults,
+    indicatorDefaults: d.prefs.indicatorDefaults ?? s.indicatorDefaults,
+    chartPrefs: d.prefs.chartPrefs ?? s.chartPrefs,
     hasDemoData: d.prefs.hasDemoData ?? false,
     user: { ...s.user, avatar: d.prefs.avatar },
     sync: { base },
@@ -119,6 +127,10 @@ function dataChanged(s: ReturnType<typeof useStore.getState>, p: ReturnType<type
     s.chartStyle !== p.chartStyle ||
     s.favTools !== p.favTools ||
     s.tvFavorites !== p.tvFavorites ||
+    s.tvSettings !== p.tvSettings ||
+    s.drawDefaults !== p.drawDefaults ||
+    s.indicatorDefaults !== p.indicatorDefaults ||
+    s.chartPrefs !== p.chartPrefs ||
     s.hasDemoData !== p.hasDemoData ||
     s.user.avatar !== p.user.avatar
   );

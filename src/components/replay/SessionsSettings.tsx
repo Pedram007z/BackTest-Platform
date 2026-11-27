@@ -6,6 +6,7 @@ import { defaultSessionsConfig, isHHMM, sessionMinutes, sessionsFromParams, sess
 import { faDigits } from '../../lib/format';
 import { allTimeZones, fmtOffset, tzName } from '../../lib/timezone';
 import { Modal } from '../ui/Modal';
+import { IndicatorTemplate } from './IndicatorTemplate';
 
 /** Settings of the «سشن‌ها» indicator on the built-in chart: four sessions, each on or off with its own hours. */
 export function SessionsSettings({ api, cfg, onClose }: { api: IndicatorApi; cfg: IndicatorConfig; onClose: () => void }) {
@@ -26,9 +27,12 @@ export function SessionsSettings({ api, cfg, onClose }: { api: IndicatorApi; cfg
       title="سشن‌های معاملاتی (سقف و کف)"
       footer={
         <>
-          <button type="button" className="btn-ghost me-auto" onClick={() => setDraft(defaultSessionsConfig())}>
-            پیش‌فرض
-          </button>
+          <IndicatorTemplate
+            cfg={{ ...cfg, ...sessionsToParams(draft) }}
+            name="سشن‌های معاملاتی"
+            onApply={(t) => setDraft(sessionsFromParams(t.params, t.colors))}
+            onFactory={() => setDraft(defaultSessionsConfig())}
+          />
           <button type="button" className="btn-ghost" onClick={onClose}>
             انصراف
           </button>

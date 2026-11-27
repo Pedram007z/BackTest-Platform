@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { CircleAlert, Code2, Copy, FilePlus2, Plus, RotateCcw } from 'lucide-react';
+import { CircleAlert, Code2, Copy, FilePlus2, Plus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { IndicatorApi } from '../../chart/lwIndicators';
 import { compileSource } from '../../pine/compile';
@@ -10,6 +10,7 @@ import { Link } from '../ui/AppLink';
 import { Modal } from '../ui/Modal';
 import { CodeEditor, type CodeEditorHandle } from '../tester/CodeEditor';
 import { InputField } from '../tester/SettingsModal';
+import { IndicatorTemplate } from './IndicatorTemplate';
 
 /**
  * The user's own indicators on the replay chart: Pine scripts written or pasted here (or in the
@@ -204,9 +205,16 @@ export function PineIndicatorSettings({ api, id, onClose }: { api: IndicatorApi;
         title={info.title}
         footer={
           <>
-            <button type="button" className="btn-ghost me-auto" onClick={() => setValues({})} disabled={!info.inputs.length}>
-              <RotateCcw size={15} /> پیش‌فرض
-            </button>
+            {info.inputs.length ? (
+              <IndicatorTemplate
+                cfg={{ ...cfg, pine: { ...cfg.pine, inputs: values } }}
+                name={info.title}
+                onApply={(t) => setValues(structuredClone(t.inputs ?? {}))}
+                onFactory={() => setValues({})}
+              />
+            ) : (
+              <span className="me-auto" />
+            )}
             <button type="button" className="btn-ghost" onClick={onClose}>
               انصراف
             </button>

@@ -9,7 +9,9 @@ import { createReplayDatafeed } from './tvDatafeed';
 import { createTvSessions, sessionsStudy } from './tvSessions';
 import { TV_LIBRARY_PATH } from './tvLoader';
 import { layoutSaved } from '../services/layoutSync';
-import { TV_FAVORITE_KEYS } from '../services/workspace';
+import { TV_FAVORITES } from '../services/workspace';
+import { tvSettingFits } from '../services/chartPrefs';
+import { lookChanges, lookOfLayout, withLookChanges } from './tvLook';
 import { useStore } from '../store/useStore';
 import type { ChartEngine, DraftOrder, EngineCallbacks, EngineState, PickOptions } from './types';
 
@@ -75,21 +77,38 @@ function overrides(st: ChartStyle) {
 }
 
 /**
- * The library's own favorites (the star beside each drawing tool, and the floating bar of the starred
- * ones) belong to the account: kept in useStore.tvFavorites, which the server syncs. Its other settings
- * are not kept (they are in memory for this visit), as before.
+ * The library's own settings belong to the account, so they stay after signing out and in and are
+ * the same on every device: the favorites (the star beside each drawing tool, and the floating bar of
+ * the starred ones) in useStore.tvFavorites, and the rest (each drawing tool's last style, the chart
+ * settings' defaults, its dialogs) in useStore.tvSettings. The server keeps both with the account.
  */
-function favoritesAdapter() {
-  const keys = new Set<string>(TV_FAVORITE_KEYS);
+function settingsAdapter() {
+  const { tvSettings, tvFavorites } = useStore.getState();
   return {
-    initialSettings: { ...useStore.getState().tvFavorites },
+    initialSettings: { ...tvSettings, ...tvFavorites },
     setValue(key: string, value: string) {
-      if (keys.has(key)) useStore.getState().setTvFavorite(key, value);
+      const s = useStore.getState();
+      if (TV_FAVORITES.has(key)) s.setTvFavorite(key, value);
+      else if (typeof value === 'string' && tvSettingFits(key, value, TV_FAVORITES)) s.setTvSetting(key, value);
     },
     removeValue(key: string) {
-      if (keys.has(key)) useStore.getState().setTvFavorite(key, null);
+      const s = useStore.getState();
+      if (TV_FAVORITES.has(key)) s.setTvFavorite(key, null);
+      else s.setTvSetting(key, null);
     },
   };
+}
+
+/**
+ * Colours changed in the library's own chart settings dialog (it saves them in the pane's layout):
+ * copied into the user's chart colours, which every pane, the built-in chart and the server share.
+ */
+function keepDialogLook(layout: object, applied: ChartStyle) {
+  const changes = lookChanges(applied, lookOfLayout(layout));
+  if (!Object.keys(changes).length) return;
+  const { theme, chartStyle, setChartStyle } = useStore.getState();
+  const next = withLookChanges(theme, chartStyle, changes);
+  if (JSON.stringify(next) !== JSON.stringify(chartStyle)) setChartStyle(next);
 }
 
 interface Lines {
@@ -116,6 +135,8 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
   const executions = new Map<string, Any[]>();
   let newsShapes = new Map<string, Any>();
   let marksSig = '';
+  /** a theme change is being applied: the chart's colours are the library's own for a moment */
+  let themeBusy = false;
 
   const feed = createReplayDatafeed({
     cursor: () => state.cursor,
@@ -158,7 +179,7 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     // the stars and the floating favorites bar (use_localstorage_for_settings, off above, would turn them off too)
     enabled_features: ['seconds_resolution', 'items_favoriting'],
     favorites: { intervals: TIMEFRAMES.map((t) => t.tv) },
-    settings_adapter: favoritesAdapter(),
+    settings_adapter: settingsAdapter(),
     // «Sessions (High / Low)» in the Indicators dialog (tvSessions.ts)
     custom_indicators_getter: () => Promise.resolve([sessionsStudy()]),
     loading_screen: { backgroundColor: look().bg, foregroundColor: '#7c5cff' },
@@ -529,7 +550,15 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     state = next;
     if (!ready || destroyed) return;
     if (prev.theme !== next.theme) {
-      void widget.changeTheme(next.theme).then(() => widget.applyOverrides(overrides(look())));
+      themeBusy = true;
+      void widget
+        .changeTheme(next.theme)
+        .then(() => {
+          if (!destroyed) widget.applyOverrides(overrides(look()));
+        })
+        .finally(() => {
+          themeBusy = false;
+        });
       nav.applyTheme();
     } else if (prev.style !== next.style) widget.applyOverrides(overrides(look()));
     if (prev.timezone !== next.timezone) applyTimezone();
@@ -557,7 +586,8 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     ready = true;
     chart = widget.activeChart();
     applyTimezone();
-    // a saved chart layout carries its own colours: the user's chart settings win
+    // a saved chart layout carries its own colours: the user's chart settings win (they include what was
+    // changed in the library's settings dialog: keepDialogLook)
     widget.applyOverrides(overrides(look()));
     chart.onSymbolChanged().subscribe(null, () => {
       const sym = String(chart.symbol()).split(':').pop()!;
@@ -577,10 +607,22 @@ export function createTvEngine(container: HTMLElement, initial: EngineState, cb:
     widget.subscribe('study_properties_changed', () => sessions.schedule());
     chart.onVisibleRangeChanged().subscribe(null, () => sessions.schedule());
     chart.onDataLoaded().subscribe(null, () => sessions.schedule());
-    // keep the pane's drawings and indicators (our own lines and markers are not saved)
+    // keep the pane's drawings and indicators (our own lines and markers are not saved), and the
+    // colours changed in the library's settings dialog
     widget.subscribe('onAutoSaveNeeded', () => {
+      if (destroyed) return;
       const key = state.layoutKey;
-      if (key && !destroyed) widget.save((layout: object) => writeLayout(key, layout));
+      widget.save((layout: object) => {
+        if (destroyed) return;
+        if (key) writeLayout(key, layout);
+        if (!themeBusy) {
+          try {
+            keepDialogLook(layout, look());
+          } catch {
+            /* a layout in a shape this version does not know: colours stay as they are */
+          }
+        }
+      });
     });
     // a restored layout brings its own symbol and timeframe: the session's win
     if (String(chart.symbol()).split(':').pop() !== state.symbol) chart.setSymbol(state.symbol);

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { faDigits } from '../../lib/format';
 import { TIMEFRAMES, type Timeframe } from '../../lib/market';
 import { Slider } from '../ui/controls';
+import { useStore } from '../../store/useStore';
 
 /** Candles per second for each slider stop. */
 export const SPEEDS = [0.5, 1, 2, 3, 5, 8, 12, 20];
@@ -34,9 +35,10 @@ interface Props {
  */
 export function PlaybackBar({ playing, onTogglePlay, onStep, onStepBack, onPick, picking, speedIndex, onSpeedIndex, stepTf, onStepTf, disabled, atStart }: Props) {
   const bar = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  // where the user put the bar is kept with the account (useStore.chartPrefs.playBar)
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(() => useStore.getState().chartPrefs.playBar ?? null);
 
-  // keep the bar inside its container when the window or panels resize
+  // keep the bar inside its container when the window or panels resize (and on a smaller screen than it was placed on)
   useEffect(() => {
     const clamp = () => {
       const el = bar.current;
@@ -44,8 +46,11 @@ export function PlaybackBar({ playing, onTogglePlay, onStep, onStepBack, onPick,
       if (!el || !parent || !pos) return;
       const maxX = parent.clientWidth - el.offsetWidth - 4;
       const maxY = parent.clientHeight - el.offsetHeight - 4;
+      // not laid out yet
+      if (maxX < 4 || maxY < 4) return;
       if (pos.x > maxX || pos.y > maxY) setPos({ x: Math.max(4, Math.min(pos.x, maxX)), y: Math.max(4, Math.min(pos.y, maxY)) });
     };
+    clamp();
     window.addEventListener('resize', clamp);
     return () => window.removeEventListener('resize', clamp);
   }, [pos]);
@@ -59,14 +64,17 @@ export function PlaybackBar({ playing, onTogglePlay, onStep, onStepBack, onPick,
     const br = el.getBoundingClientRect();
     const dx = e.clientX - br.left;
     const dy = e.clientY - br.top;
+    let last: { x: number; y: number } | null = null;
     const move = (ev: PointerEvent) => {
       const x = Math.max(4, Math.min(ev.clientX - pr.left - dx, pr.width - br.width - 4));
       const y = Math.max(4, Math.min(ev.clientY - pr.top - dy, pr.height - br.height - 4));
-      setPos({ x, y });
+      last = { x: Math.round(x), y: Math.round(y) };
+      setPos(last);
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      if (last) useStore.getState().setChartPrefs({ playBar: last });
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);

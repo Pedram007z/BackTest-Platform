@@ -24,6 +24,7 @@ import type { RunOk } from '../pine/run';
 import { INDICATOR_MAP, computeIndicator, indicatorTitle, newIndicator, type IndicatorConfig, type IndicatorType } from './indicators';
 import { createSessionsLayer } from './lwSessions';
 import { sessionsFromParams } from './sessions';
+import { withSavedDefault } from './indicatorDefaults';
 
 /**
  * Indicators on the built-in chart: overlays share the candles' pane, oscillators get a pane each
@@ -644,13 +645,14 @@ export function createIndicatorLayer(host: IndicatorHost, initial: IndicatorConf
 
   const api: IndicatorLayer = {
     list: () => live.map((l) => l.cfg),
-    add: (type) => insert({ cfg: newIndicator(type), series: new Map(), values: {} }),
+    // new indicators start with the settings the user saved as their default (indicatorDefaults)
+    add: (type) => insert({ cfg: withSavedDefault(newIndicator(type)), series: new Map(), values: {} }),
     addPine(scriptId) {
-      const cfg: IndicatorConfig = { ...newIndicator('pine'), params: {}, colors: {}, pine: { script: scriptId } };
+      const cfg: IndicatorConfig = withSavedDefault({ ...newIndicator('pine'), params: {}, colors: {}, pine: { script: scriptId } });
       return insert({ cfg, series: new Map(), values: {} });
     },
     addBuiltin(id) {
-      const cfg: IndicatorConfig = { ...newIndicator('pine'), params: {}, colors: {}, pine: { builtin: id } };
+      const cfg: IndicatorConfig = withSavedDefault({ ...newIndicator('pine'), params: {}, colors: {}, pine: { builtin: id } });
       return insert({ cfg, series: new Map(), values: {} });
     },
     update(cfg) {

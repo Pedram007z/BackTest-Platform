@@ -35,6 +35,7 @@ import { Select } from '../ui/controls';
 import { DrawingSettings } from './DrawingSettings';
 import { ColorButton, DASHES, DashIcon, FloatingPanel } from './drawingControls';
 import { useFavBar, useFavTools } from './FavoritesBar';
+import { IndicatorTemplate } from './IndicatorTemplate';
 import { PineIndicatorSettings, PineScriptsSection } from './PineIndicator';
 import { LIBRARY_GROUPS } from '../../pine/library';
 import { SessionsSettings } from './SessionsSettings';
@@ -69,12 +70,17 @@ function ToolButton({ active, title, onClick, children, className }: { active?: 
   );
 }
 
-/** a toolbar group: its last used tool, and a flyout with every tool of the group in sections */
+/** a toolbar group: its last used tool (kept with the account), and a flyout with every tool of the group in sections */
 function Group({ group, ui, api }: { group: (typeof TOOL_GROUPS)[number]; ui: DrawingUiState; api: DrawingApi }) {
   const tools = group.tools;
   const fav = useStore((s) => s.favTools);
   const toggleFav = useStore((s) => s.toggleFavTool);
-  const [last, setLast] = useState<DrawingType>(tools[0]);
+  const saved = useStore((s) => s.chartPrefs.groupTools?.[group.id]);
+  const last: DrawingType = tools.includes(saved as DrawingType) ? (saved as DrawingType) : tools[0];
+  const setLast = (t: DrawingType) => {
+    const st = useStore.getState();
+    if (st.chartPrefs.groupTools?.[group.id] !== t) st.setChartPrefs({ groupTools: { ...st.chartPrefs.groupTools, [group.id]: t } });
+  };
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -613,13 +619,12 @@ export function IndicatorSettings({ api, id, onClose }: { api: IndicatorApi; id:
       title={`${def.nameFa} (${def.short})`}
       footer={
         <>
-          <button
-            type="button"
-            className="btn-ghost me-auto"
-            onClick={() => setD({ ...d, params: { ...def.defaults }, colors: Object.fromEntries(def.plots.map((p) => [p.key, p.color])) })}
-          >
-            پیش‌فرض
-          </button>
+          <IndicatorTemplate
+            cfg={d}
+            name={def.nameFa}
+            onApply={(t) => setD({ ...d, params: { ...def.defaults, ...t.params }, colors: { ...Object.fromEntries(def.plots.map((p) => [p.key, p.color])), ...t.colors } })}
+            onFactory={() => setD({ ...d, params: { ...def.defaults }, colors: Object.fromEntries(def.plots.map((p) => [p.key, p.color])) })}
+          />
           <button type="button" className="btn-ghost" onClick={onClose}>
             انصراف
           </button>

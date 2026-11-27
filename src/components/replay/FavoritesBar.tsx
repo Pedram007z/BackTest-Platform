@@ -3,18 +3,16 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { create } from 'zustand';
 import { TOOLS, type DrawingType } from '../../chart/drawings';
 import type { DrawingApi } from '../../chart/lwDrawings';
-import { local, readJson, writeJson } from '../../lib/storage';
 import { useStore } from '../../store/useStore';
 import { ToolIcon } from './drawingIcons';
 
 /**
  * The floating favorites bar of the built-in chart (as TradingView's): the drawing tools starred in the
  * toolbar's menus, in one row over the chart. It is dragged by its handle; where it sits (a share of the
- * free room across and down, so it stays inside when the chart resizes) and whether it is shown are
- * kept in this browser. Which tools are starred belongs to the account (useStore.favTools).
+ * free room across and down, so it stays inside when the chart resizes) and whether it is shown belong
+ * to the account (useStore.chartPrefs.favBar), as do the starred tools (useStore.favTools): both are kept
+ * on the server.
  */
-
-const KEY = 'btl:fav-bar';
 
 interface BarPlace {
   /** share of the free room to the left (0) … right (1) */
@@ -24,19 +22,23 @@ interface BarPlace {
   hidden: boolean;
 }
 
-const saved = readJson<Partial<BarPlace>>(local, KEY, {});
 const clamp01 = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : d);
+const placeOf = (p: Partial<BarPlace> | undefined): BarPlace => ({ x: clamp01(p?.x, 0.5), y: clamp01(p?.y, 0.08), hidden: p?.hidden === true });
 
-export const useFavBar = create<BarPlace & { set: (p: Partial<BarPlace>) => void }>((set, get) => ({
-  x: clamp01(saved.x, 0.5),
-  y: clamp01(saved.y, 0.08),
-  hidden: saved.hidden === true,
-  set: (p) => {
+/** The bar's place while it is dragged (kept with the account when the drag ends: `keep`). */
+export const useFavBar = create<BarPlace & { set: (p: Partial<BarPlace>, keep?: boolean) => void }>((set, get) => ({
+  ...placeOf(useStore.getState().chartPrefs.favBar),
+  set: (p, keep = true) => {
     set(p);
+    if (!keep) return;
     const { x, y, hidden } = get();
-    writeJson(local, KEY, { x, y, hidden });
+    useStore.getState().setChartPrefs({ favBar: { x: clamp01(x, 0.5), y: clamp01(y, 0.08), hidden } });
   },
 }));
+// another account, or set on another device
+useStore.subscribe((s, prev) => {
+  if (s.chartPrefs.favBar !== prev.chartPrefs.favBar) useFavBar.setState(placeOf(s.chartPrefs.favBar));
+});
 
 /** the starred tools this chart knows, in the order they were starred */
 export function useFavTools(): DrawingType[] {
@@ -80,7 +82,7 @@ export function FavoritesBar({ api }: { api: DrawingApi }) {
   const onMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
     const d = drag.current;
     if (!d) return;
-    set({ x: room.w ? (e.clientX - d.dx - 8) / room.w : 0.5, y: room.h ? (e.clientY - d.dy - 8) / room.h : 0 });
+    set({ x: room.w ? (e.clientX - d.dx - 8) / room.w : 0.5, y: room.h ? (e.clientY - d.dy - 8) / room.h : 0 }, false);
   };
   const onUp = () => {
     if (!drag.current) return;

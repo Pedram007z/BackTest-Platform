@@ -11,6 +11,7 @@ import { buildSeed, type SeedData } from './seed';
 import type { WorkspaceBase } from '../services/workspace';
 import { DEFAULT_CHART_TZ } from '../lib/timezone';
 import type { ChartStyleOverrides } from '../chart/style';
+import type { ChartPrefs, DrawDefault, IndicatorDefault } from '../services/chartPrefs';
 
 export const uid = (prefix: string) => `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
@@ -78,6 +79,14 @@ interface State {
   favTools: string[];
   /** TradingView chart: the library's favorites settings (services/workspace TV_FAVORITE_KEYS). */
   tvFavorites: Record<string, string>;
+  /** TradingView chart: the library's other settings (each tool's last style, chart defaults…), by key. */
+  tvSettings: Record<string, string>;
+  /** Built-in chart: each drawing tool's style for new drawings. */
+  drawDefaults: Record<string, DrawDefault>;
+  /** Built-in chart: indicator settings saved as default. */
+  indicatorDefaults: Record<string, IndicatorDefault>;
+  /** The replay chart's own options (services/chartPrefs). */
+  chartPrefs: ChartPrefs;
   sidebarCollapsed: boolean;
   hasDemoData: boolean;
   sync?: SyncMeta;
@@ -87,6 +96,10 @@ interface State {
   setChartStyle: (style: ChartStyleOverrides) => void;
   toggleFavTool: (tool: string) => void;
   setTvFavorite: (key: string, value: string | null) => void;
+  setTvSetting: (key: string, value: string | null) => void;
+  setDrawDefault: (type: string, props: DrawDefault | null) => void;
+  setIndicatorDefault: (type: string, def: IndicatorDefault | null) => void;
+  setChartPrefs: (patch: Partial<ChartPrefs>) => void;
   toggleSidebar: () => void;
   updateUser: (patch: Partial<UserProfile>) => void;
 
@@ -155,6 +168,23 @@ function freshData(account: Pick<AuthSession, 'name' | 'demo'> | null): AccountD
 
 const bootSession = getSession();
 
+/** An account's own settings and lists beyond its sample data, as a new account has them. */
+function accountDefaults() {
+  return {
+    goToPresets: [] as GoToPreset[],
+    scripts: [] as PineScript[],
+    newsFilters: DEFAULT_NEWS_FILTERS,
+    chartTz: DEFAULT_CHART_TZ,
+    chartStyle: {} as ChartStyleOverrides,
+    favTools: [] as string[],
+    tvFavorites: {} as Record<string, string>,
+    tvSettings: {} as Record<string, string>,
+    drawDefaults: {} as Record<string, DrawDefault>,
+    indicatorDefaults: {} as Record<string, IndicatorDefault>,
+    chartPrefs: {} as ChartPrefs,
+  };
+}
+
 /** Follow an explicit theme set by an embedding host, then the system preference; dark otherwise. */
 const initialTheme = (): Theme => {
   const attr = document.documentElement.getAttribute('data-theme');
@@ -199,6 +229,10 @@ export const useStore = create<State>()(
       chartStyle: {},
       favTools: [],
       tvFavorites: {},
+      tvSettings: {},
+      drawDefaults: {},
+      indicatorDefaults: {},
+      chartPrefs: {},
       sidebarCollapsed: false,
 
       setTheme: (theme) => set({ theme }),
@@ -212,6 +246,36 @@ export const useStore = create<State>()(
           if (value === null) delete tvFavorites[key];
           else tvFavorites[key] = value;
           return { tvFavorites };
+        }),
+      setTvSetting: (key, value) =>
+        set((s) => {
+          if ((s.tvSettings[key] ?? null) === value) return {};
+          const tvSettings = { ...s.tvSettings };
+          if (value === null) delete tvSettings[key];
+          else tvSettings[key] = value;
+          return { tvSettings };
+        }),
+      setDrawDefault: (type, props) =>
+        set((s) => {
+          if (props === null && !(type in s.drawDefaults)) return {};
+          const drawDefaults = { ...s.drawDefaults };
+          if (props === null) delete drawDefaults[type];
+          else drawDefaults[type] = props;
+          return { drawDefaults };
+        }),
+      setIndicatorDefault: (type, def) =>
+        set((s) => {
+          if (def === null && !(type in s.indicatorDefaults)) return {};
+          const indicatorDefaults = { ...s.indicatorDefaults };
+          if (def === null) delete indicatorDefaults[type];
+          else indicatorDefaults[type] = def;
+          return { indicatorDefaults };
+        }),
+      setChartPrefs: (patch) =>
+        set((s) => {
+          const keys = Object.keys(patch) as (keyof ChartPrefs)[];
+          if (keys.every((k) => JSON.stringify(s.chartPrefs[k]) === JSON.stringify(patch[k]))) return {};
+          return { chartPrefs: { ...s.chartPrefs, ...patch } };
         }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       updateUser: (patch) => set((s) => ({ user: { ...s.user, ...patch } })),
@@ -445,8 +509,9 @@ export const useStore = create<State>()(
       name: storeKey(bootSession?.userId),
       storage: createJSONStorage(() => local),
       version: STORE_VERSION,
-      // an account's sync state comes only from its own saved data (never left over from another account)
-      merge: (persisted, current) => ({ ...current, ...(persisted as Partial<State>), sync: (persisted as Partial<State> | undefined)?.sync }),
+      // an account's fields come only from its own saved data (never left over from another account):
+      // what an older copy does not have gets its default, and so does the sync state
+      merge: (persisted, current) => ({ ...current, ...accountDefaults(), ...(persisted as Partial<State>), sync: (persisted as Partial<State> | undefined)?.sync }),
       migrate: (persisted: any, version) => {
         if (!persisted) return persisted;
         if (version < 3) {
@@ -535,7 +600,6 @@ export const useUi = create<UiState>((set) => ({
 export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'demo'> | null) {
   const key = storeKey(account?.userId);
   const { theme, sidebarCollapsed } = useStore.getState();
-  useStore.persist.setOptions({ name: key });
   let raw = local.getItem(key);
   // Data saved before accounts existed belongs to the demo account.
   if (!raw && account?.demo) {
@@ -546,22 +610,13 @@ export function switchAccount(account: Pick<AuthSession, 'userId' | 'name' | 'de
       raw = legacy;
     }
   }
-  if (raw) {
-    // fields an older saved copy does not have must not keep the previous account's values
-    useStore.setState({ favTools: [], tvFavorites: {}, scripts: [] });
-    void useStore.persist.rehydrate();
-  } else
-    useStore.setState({
-      ...freshData(account),
-      goToPresets: [],
-      scripts: [],
-      newsFilters: DEFAULT_NEWS_FILTERS,
-      chartTz: DEFAULT_CHART_TZ,
-      chartStyle: {},
-      favTools: [],
-      tvFavorites: {},
-      theme,
-      sidebarCollapsed,
-      sync: undefined,
-    });
+  // Nothing may be set between pointing the store at the account's key and loading it: every setState
+  // saves the whole store under the current key, which would put the previous account's (or the
+  // guest's) data in place of this one's. (It did: after signing out and in, the account's copy here was
+  // replaced by the guest's sample data or by settings cleared on the way, and the sync then sent that
+  // to the server.)
+  // Fields an older saved copy does not have get their defaults (`merge`), never the previous account's.
+  useStore.persist.setOptions({ name: key });
+  if (raw) void useStore.persist.rehydrate();
+  else useStore.setState({ ...freshData(account), ...accountDefaults(), theme, sidebarCollapsed, sync: undefined });
 }

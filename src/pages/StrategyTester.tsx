@@ -22,6 +22,7 @@ import { PineError } from '../pine/lexer';
 import type { RunResult } from '../pine/run';
 import { BLANK_SCRIPT, SAMPLES } from '../pine/samples';
 import { AUTOTEST_LABEL } from '../services/plan';
+import { cleanChartPrefs } from '../services/chartPrefs';
 import { useEnabledSymbols } from '../services/marketFeed';
 import { toast, useStore } from '../store/useStore';
 
@@ -41,26 +42,28 @@ const QUICK: [string, number][] = [
   ['۱ سال', 365],
   ['۳ سال', 1095],
 ];
-const PREF = 'btl:tester';
+/** Where this browser kept the last script and range before they belonged to the account (services/legacyPrefs). */
+const LEGACY_PREF = 'btl:tester';
 
 interface Prefs {
   scriptId?: string;
   from?: DayKey;
   to?: DayKey;
 }
+/** The script and range picked last: kept with the account (useStore.chartPrefs.tester), on the server. */
 const readPrefs = (): Prefs => {
+  const mine = useStore.getState().chartPrefs.tester;
+  if (mine) return mine as Prefs;
   try {
-    return JSON.parse(local.getItem(PREF) ?? '{}') as Prefs;
+    return (cleanChartPrefs({ tester: JSON.parse(local.getItem(LEGACY_PREF) ?? '{}') })?.tester ?? {}) as Prefs;
   } catch {
     return {};
   }
 };
 const writePrefs = (p: Prefs) => {
-  try {
-    local.setItem(PREF, JSON.stringify({ ...readPrefs(), ...p }));
-  } catch {
-    /* storage blocked */
-  }
+  const s = useStore.getState();
+  const next = { ...readPrefs(), ...p };
+  if (JSON.stringify(next) !== JSON.stringify(s.chartPrefs.tester)) s.setChartPrefs({ tester: next });
 };
 
 function TemplatePicker({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (name: string, code: string) => void }) {

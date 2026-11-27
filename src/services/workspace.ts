@@ -1,6 +1,7 @@
 import type { Checklist, GoToPreset, NewsFilters, PineScript, Session, Strategy, Trade } from '../lib/types';
 import { isTimeZone } from '../lib/timezone';
 import { cleanChartStyle, type ChartStyleOverrides } from '../chart/style';
+import { cleanChartPrefs, cleanDrawDefaults, cleanIndicatorDefaults, cleanTvSettings, type ChartPrefs, type DrawDefault, type IndicatorDefault } from './chartPrefs';
 
 /**
  * A user's own data: sessions, orders and positions (with their journals), strategies, checklists,
@@ -42,16 +43,38 @@ export interface WorkspacePrefs {
   favTools?: string[];
   /** TradingView chart: the library's own favorites (starred drawing tools and their floating bar), by its setting key. */
   tvFavorites?: Record<string, string>;
+  /** TradingView chart: the library's other settings (each drawing tool's last style, chart defaults, dialogs), by its setting key. */
+  tvSettings?: Record<string, string>;
+  /** Built-in chart: each drawing tool's style for new drawings. */
+  drawDefaults?: Record<string, DrawDefault>;
+  /** Built-in chart: indicator settings saved as default, per indicator. */
+  indicatorDefaults?: Record<string, IndicatorDefault>;
+  /** The replay chart's own options (magnet, replay speed, risk, engine, where its bars sit…). */
+  chartPrefs?: ChartPrefs;
 }
-export const WS_PREFS = ['avatar', 'theme', 'newsFilters', 'hasDemoData', 'chartTz', 'chartStyle', 'favTools', 'tvFavorites'] as const satisfies readonly (keyof WorkspacePrefs)[];
+export const WS_PREFS = [
+  'avatar',
+  'theme',
+  'newsFilters',
+  'hasDemoData',
+  'chartTz',
+  'chartStyle',
+  'favTools',
+  'tvFavorites',
+  'tvSettings',
+  'drawDefaults',
+  'indicatorDefaults',
+  'chartPrefs',
+] as const satisfies readonly (keyof WorkspacePrefs)[];
 
-/** The TradingView library's settings that hold favorites; its other settings are not kept. */
+/** The TradingView library's settings that hold favorites (kept in tvFavorites; the others in tvSettings). */
 export const TV_FAVORITE_KEYS = [
   'chart.favoriteDrawings',
   'chart.favoriteDrawingsPosition',
   'ChartFavoriteDrawingToolbarWidget.visible',
   'chart.favoriteLibraryIndicators',
 ] as const;
+export const TV_FAVORITES: ReadonlySet<string> = new Set(TV_FAVORITE_KEYS);
 const FAV_TOOL = /^[a-z0-9_]{1,40}$/;
 
 export function cleanFavTools(v: unknown): string[] | undefined {
@@ -350,6 +373,14 @@ function cleanPref(k: WsPref, v: unknown): unknown {
       return cleanFavTools(v);
     case 'tvFavorites':
       return cleanTvFavorites(v);
+    case 'tvSettings':
+      return cleanTvSettings(v, TV_FAVORITES);
+    case 'drawDefaults':
+      return cleanDrawDefaults(v);
+    case 'indicatorDefaults':
+      return cleanIndicatorDefaults(v);
+    case 'chartPrefs':
+      return cleanChartPrefs(v);
   }
 }
 
